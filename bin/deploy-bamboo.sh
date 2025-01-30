@@ -57,7 +57,3 @@ dockerRun npx serverless deploy $stageOpts --config serverless-infrastructure.ym
 # Deploy AWS Application Resources
 echo 'Deploying AWS Application Resources...'
 dockerRun npx serverless deploy $stageOpts
-
-# Deploy static assets
-echo 'Deploying static assets to S3...'
-#dockerRun npx serverless client deploy $stageOpts --no-confirm
