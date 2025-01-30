@@ -166,10 +166,11 @@ class EcsStack extends Stack {
     })
   }
 
-  // To prevent any scaling, we are setting the minHealthyPercent and maxHealthPercent to 100%.  This
+  // Multiple processes can read from the RDF db, but only 1 can write.   A future ticket
+  // will setup a lock manager so we can scale, but for now, we will prevent any scaling.
+  // To prevent any scaling, we are setting the minHealthyPercent and maxHealthPercent.  This
   // ensures that during deployments, ECS will first stop the old task before starting a new one,
   // preventing any period where two tasks might be running simultaneously.
-  // A Future ticket will need to add locking, so writes happen only 1 process at a time.
   createFargateService(taskDefinition) {
     return new ecspatterns.ApplicationLoadBalancedFargateService(this, 'rdf4jService', {
       cluster: this.cluster,
