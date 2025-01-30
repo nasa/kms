@@ -20,3 +20,5 @@ tmp
 junit.xml
 
 cmr
+cdk.context.json
+infrastructure/rdfdb/cdk/cdk.context.json
