@@ -166,6 +166,10 @@ class EcsStack extends Stack {
     })
   }
 
+  // To prevent any scaling, we are setting the minHealthyPercent and maxHealthPercent to 100%.  This
+  // ensures that during deployments, ECS will first stop the old task before starting a new one,
+  // preventing any period where two tasks might be running simultaneously.
+  // A Future ticket will need to add locking, so writes happen only 1 process at a time.
   createFargateService(taskDefinition) {
     return new ecspatterns.ApplicationLoadBalancedFargateService(this, 'rdf4jService', {
       cluster: this.cluster,
@@ -183,6 +187,8 @@ class EcsStack extends Stack {
     })
   }
 
+  // To further prevent any accidental scaling, we add a scaling lock.  This explicitly sets both the
+  // minimum and maximum number of tasks to 1, preventing any scaling operations.
   configureAutoScaling(fargateService) {
     fargateService.service.autoScaleTaskCount({
       maxCapacity: 1,
