@@ -1,0 +1,54 @@
+{
+  // Let eslint know were working as a browser to allow the standard globals (document, window, etc.)
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true,
+    "jest": true
+  },
+
+  "overrides": [
+    {
+      "files": [ "**/__tests__/**/*.js?(x)" ],
+      "extends": ["plugin:testing-library/react"]
+    }
+  ],
+
+  "extends": [
+    "@edsc"
+  ],
+
+  // Define version settings
+  "settings": {
+    "react": {
+      "pragma": "React",
+      "version": "detect"
+    },
+    "import/resolver": {
+      "alias": {
+        "map": [
+          [ "@", "./static/src" ]
+        ],
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".json"
+        ]
+      }
+    }
+  },
+
+  "parserOptions": {
+    "requireConfigFile": false,
+    "babelOptions": {
+      "presets": [
+        "@babel/preset-react"
+      ]
+    }
+  },
+
+  // Define any global variables to avoid no-undef errors
+  "globals": {
+    "vi": "readonly"
+  }
+}
