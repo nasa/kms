@@ -1,0 +1,22 @@
+# Project build files
+.dockerignore
+.DS_Store
+.serverless
+.esbuild
+.vite
+coverage
+dist
+doc
+Dockerfile
+node_modules
+secret.config.json
+tmp
+.env
+
+# VSCode Settings
+.vscode
+
+# CI Outputs
+junit.xml
+
+cmr
