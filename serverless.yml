@@ -55,15 +55,6 @@ custom:
     bucketName: ${self:custom.siteName}
     distributionFolder: dist
     objectHeaders:
-      index.html:
-        - name: Cache-Control
-          value: no-store
-      '*.css':
-        - name: Cache-Control
-          value: 'max-age=31536000'
-      '*.js':
-        - name: Cache-Control
-          value: 'max-age=31536000'
       assets/:
         - name: Cache-Control
           value: 'max-age=31536000'

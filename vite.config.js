@@ -1,70 +1,44 @@
 import { defineConfig } from 'vite'
 import path from 'path'
-import react from '@vitejs/plugin-react'
-import { nodePolyfills } from 'vite-plugin-node-polyfills'
-import rollupNodePolyFill from 'rollup-plugin-polyfill-node'
-import { ViteEjsPlugin } from 'vite-plugin-ejs'
+import fs from 'fs'
 
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    nodePolyfills(),
-    ViteEjsPlugin({
-      environment: process.env.NODE_ENV || 'development'
-    })
-  ],
-  resolve: {
-    alias: [
-      {
-        find: '@',
-        replacement: path.resolve(__dirname, 'static/src')
-      }
-    ]
-  },
-  optimizeDeps: {
-    esbuildOptions: {
-      define: {
-        global: 'globalThis'
-      }
-    }
-  },
-  build: {
-    rollupOptions: {
-      plugins: [
-        rollupNodePolyFill()
-      ]
-    }
-  },
-  css: {
-    devSourcemap: true
-  },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: 'test-setup.js',
-    clearMocks: true,
-    coverage: {
-      enabled: true,
-      include: [
-        'serverless/src/**/*.js',
-        'static/src/**/*.js',
-        'static/src/**/*.jsx'
-      ],
-      provider: 'istanbul',
-      reporter: ['text', 'lcov', 'clover', 'json'],
-      reportOnFailure: true
-    }
-  },
-  server: {
-    proxy: {
-      '/rdf4j-server': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-        ws: true
+function getHandlerEntries(dir) {
+  const entries = {};
+  const files = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const file of files) {
+    if (file.isDirectory()) {
+      const handlerPath = path.join(dir, file.name, 'handler.js');
+      if (fs.existsSync(handlerPath)) {
+        entries[`${file.name}/handler`] = path.resolve(__dirname, handlerPath);
       }
     }
   }
 
+  return entries;
+}
+
+const handlerEntries = getHandlerEntries('./serverless/src');
+
+export default defineConfig({
+  build: {
+    lib: {
+      entry: handlerEntries,
+      formats: ['cjs'],
+      fileName: (format, entryName) => `${entryName}.js`
+    },
+    rollupOptions: {
+      external: [
+        'aws-sdk',
+        // Add other external dependencies here
+      ],
+    },
+    outDir: 'dist',
+    sourcemap: true,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'serverless/src')
+    }
+  }
 })
