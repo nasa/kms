@@ -7,7 +7,6 @@
 coverage
 dist
 doc
-Dockerfile
 node_modules
 secret.config.json
 tmp
