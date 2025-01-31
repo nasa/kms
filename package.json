@@ -6,7 +6,6 @@
     "start": "vite",
     "build": "vite build",
     "lint": "eslint . --ext .jsx,.js",
-    "lint:css": "npx stylelint './static/src/**/*.(sc|c)ss'",
     "preview": "vite preview",
     "test": "vitest",
     "offline": "serverless offline start"
@@ -14,6 +13,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "^4.1.0",
     "@xmldom/xmldom": "^0.8.10",
+    "aws-cdk-lib": "^2.177.0",
     "esbuild": "^0.19.5",
     "eslint-import-resolver-alias": "^1.1.2",
     "eslint-plugin-testing-library": "^6.2.2",

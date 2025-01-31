@@ -7,7 +7,6 @@
 coverage
 dist
 doc
-Dockerfile
 node_modules
 secret.config.json
 tmp
@@ -20,3 +19,5 @@ tmp
 junit.xml
 
 cmr
+cdk.context.json
+infrastructure/rdfdb/cdk/cdk.context.json
