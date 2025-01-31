@@ -78,7 +78,7 @@ jobs:
       run: 'echo true'
 
   sync:
-    # if: success() && github.ref == 'refs/heads/main' # only run on main success
+    if: success() && github.ref == 'refs/heads/main' # only run on main success
     needs: [tests-passed] # only run after vitest and cypress jobs complete
     runs-on: ubuntu-latest
     steps:
