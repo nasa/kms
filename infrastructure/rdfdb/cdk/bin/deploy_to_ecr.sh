@@ -9,7 +9,7 @@ DOCKER_FILE_PATH="../../docker"  # Adjust this path as needed
 aws ecr create-repository --repository-name $REPO_NAME --region "us-east-1"
 
 # Get the repository URI
-REPO_URI=$(aws ecr describe-repositories --repository-names $REPO_NAME --region "us-east-1" --query 'repositories[0].repositoryUri' --output text)
+REPO_URI=$(aws ecr describe-repositories --repository-names $REPO_NAME --region $REGION --query 'repositories[0].repositoryUri' --output text)
 
 # Authenticate Docker to ECR
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REPO_URI

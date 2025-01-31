@@ -12,7 +12,7 @@ async function main() {
     region: process.env.CDK_DEFAULT_REGION
   }
 
-  const vpcId = 'vpc-05fdc01976f74a201' // SIT
+  const vpcId = process.env.VPC_ID
 
   const iamStack = new IamStack(app, 'rdf4jIamStack', {
     env,
