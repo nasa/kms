@@ -1,4 +1,4 @@
-# KMS 2.0.0
+# KMS 2.0
 
 Keyword Management System (KMS) is a application for maintaining keywords (science keywords, platforms, instruments, data centers, locations, projects, services, resolution, etc.) in the earthdata/IDN system.
 
