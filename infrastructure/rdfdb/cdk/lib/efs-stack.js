@@ -1,3 +1,4 @@
+/* eslint-disable no-new */
 const { Stack, RemovalPolicy, CfnOutput } = require('aws-cdk-lib')
 const efs = require('aws-cdk-lib/aws-efs')
 const ec2 = require('aws-cdk-lib/aws-ec2')

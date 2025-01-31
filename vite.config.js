@@ -3,22 +3,22 @@ import path from 'path'
 import fs from 'fs'
 
 function getHandlerEntries(dir) {
-  const entries = {};
-  const files = fs.readdirSync(dir, { withFileTypes: true });
-
-  for (const file of files) {
-    if (file.isDirectory()) {
-      const handlerPath = path.join(dir, file.name, 'handler.js');
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((file) => file.isDirectory())
+    .reduce((entries, file) => {
+      const handlerPath = path.join(dir, file.name, 'handler.js')
       if (fs.existsSync(handlerPath)) {
-        entries[`${file.name}/handler`] = path.resolve(__dirname, handlerPath);
+        return {
+          ...entries,
+          [`${file.name}/handler`]: path.resolve(__dirname, handlerPath)
+        }
       }
-    }
-  }
 
-  return entries;
+      return entries
+    }, {})
 }
 
-const handlerEntries = getHandlerEntries('./serverless/src');
+const handlerEntries = getHandlerEntries('./serverless/src')
 
 export default defineConfig({
   build: {
@@ -29,16 +29,21 @@ export default defineConfig({
     },
     rollupOptions: {
       external: [
-        'aws-sdk',
+        'aws-sdk'
         // Add other external dependencies here
-      ],
+      ]
     },
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: true
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'serverless/src')
     }
+  },
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['serverless/src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}']
   }
 })

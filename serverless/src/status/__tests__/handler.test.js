@@ -1,4 +1,4 @@
-import status from "../handler"
+import status from '../handler'
 
 beforeEach(() => {
   vi.clearAllMocks()

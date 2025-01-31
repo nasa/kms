@@ -1,3 +1,4 @@
+/* eslint-disable no-new */
 const { Stack, CfnOutput } = require('aws-cdk-lib')
 const ec2 = require('aws-cdk-lib/aws-ec2')
 const iam = require('aws-cdk-lib/aws-iam')
