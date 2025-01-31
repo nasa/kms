@@ -1,5 +1,5 @@
 {
-    1;95;0c  "name": "kms",
+  "name": "kms",
   "version": "0.0.1",
   "proxy": "http://localhost:8080",
   "scripts": {
