@@ -48,8 +48,13 @@ class IamStack extends Stack {
         'ssmmessages:CreateDataChannel',
         'ssmmessages:OpenControlChannel',
         'ssmmessages:OpenDataChannel',
+        'logs:CreateLogGroup',
         'logs:CreateLogStream',
-        'logs:PutLogEvents'
+        'logs:PutLogEvents',
+        'logs:DescribeLogGroups',
+        'logs:DescribeLogStreams',
+        'logs:PutMetricFilter',
+        'cloudwatch:PutMetricData'
       ],
       resources: ['*']
     }))
