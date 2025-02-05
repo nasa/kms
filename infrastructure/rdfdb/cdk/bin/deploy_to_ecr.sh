@@ -3,7 +3,7 @@
 # Set variables
 REPO_NAME="rdf4j"
 REGION="us-east-1"
-DOCKER_FILE_PATH="../../docker"
+DOCKER_FILE_PATH="../docker"
 
 # Create ECR repository
 aws ecr create-repository --repository-name $REPO_NAME --region "us-east-1"

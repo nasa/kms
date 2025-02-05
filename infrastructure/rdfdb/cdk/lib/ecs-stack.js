@@ -17,17 +17,22 @@ const servicediscovery = require('aws-cdk-lib/aws-servicediscovery')
 const cloudwatch = require('aws-cdk-lib/aws-cloudwatch')
 const lambda = require('aws-cdk-lib/aws-lambda')
 const lambdaNodejs = require('aws-cdk-lib/aws-lambda-nodejs')
-const path = require('path') // Add this line
+const path = require('path')
 const targets = require('aws-cdk-lib/aws-elasticloadbalancingv2-targets')
 
+/**
+ * This stack creates a fully-functional, scalable RDF4J cluster with a master-slave
+ * architecture, using ECS for container orchestration, EFS for shared storage, and a
+ * Lambda function for intelligent request routing. It includes configurations for
+ * networking, security, auto-scaling, and monitoring, in order to deploy and
+ * manage a distributed RDF4J service on AWS.
+ */
 class EcsStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)
     const {
       vpcId, fileSystem, accessPoint, ecsTasksSecurityGroup
     } = props
-
-    this.proxyLambda = null
 
     this.initializeResources(vpcId, fileSystem, accessPoint, ecsTasksSecurityGroup)
     this.createEcsResources()
@@ -37,19 +42,13 @@ class EcsStack extends Stack {
 
   initializeResources(vpcId, fileSystem, accessPoint, ecsTasksSecurityGroup) {
     this.vpc = this.getVpc(vpcId)
-
-    this.lambdaSecurityGroup = new ec2.SecurityGroup(this, 'LambdaSecurityGroup', {
-      vpc: this.vpc,
-      allowAllOutbound: true,
-      description: 'Security group for Lambda function'
-    })
-
     this.role = this.createRole()
     this.fileSystem = fileSystem
     this.accessPoint = accessPoint
     this.ecsTasksSecurityGroup = this.getEcsTasksSecurityGroup(ecsTasksSecurityGroup)
-    this.cluster = this.createECSCluster()
-    this.repository = this.createOrGetECRRepository()
+    this.lambdaSecurityGroup = this.createLambdaSecurityGroup()
+    this.cluster = this.createEcsCluster()
+    this.repository = this.createOrGetEcrRepository()
     this.logGroup = this.createLogGroup()
   }
 
@@ -69,7 +68,15 @@ class EcsStack extends Stack {
     )
   }
 
-  createECSCluster() {
+  createLambdaSecurityGroup() {
+    return new ec2.SecurityGroup(this, 'LambdaSecurityGroup', {
+      vpc: this.vpc,
+      allowAllOutbound: true,
+      description: 'Security group for Lambda function'
+    })
+  }
+
+  createEcsCluster() {
     return new ecs.Cluster(this, 'rdf4jEcsCluster', {
       vpc: this.vpc,
       clusterName: 'rdf4jEcs',
@@ -79,7 +86,7 @@ class EcsStack extends Stack {
     })
   }
 
-  createOrGetECRRepository() {
+  createOrGetEcrRepository() {
     const repositoryName = 'rdf4j'
     const checkRepo = this.createCheckRepositoryCustomResource(repositoryName)
 
@@ -129,8 +136,21 @@ class EcsStack extends Stack {
     const masterContainer = this.addContainerToTaskDefinition(masterTaskDefinition, 'master')
     const slaveContainer = this.addContainerToTaskDefinition(slaveTaskDefinition, 'slave')
 
-    this.addMountPointToContainer(masterContainer, 'master')
-    this.addMountPointToContainer(slaveContainer, 'slave')
+    const mountConfig = {
+      master: {
+        sourcePath: 'rdf4j-data',
+        containerPath: '/rdf4j-data',
+        readOnly: false
+      },
+      slave: {
+        sourcePath: 'shared-data',
+        containerPath: '/shared-data',
+        readOnly: true
+      }
+    }
+
+    this.addMountPointToContainer(masterContainer, 'master', mountConfig)
+    this.addMountPointToContainer(slaveContainer, 'slave', mountConfig)
 
     this.masterService = this.createMasterFargateService(masterTaskDefinition)
     this.slaveService = this.createSlaveFargateService(slaveTaskDefinition)
@@ -146,14 +166,7 @@ class EcsStack extends Stack {
   grantLambdaPermissions() {
     const lambdaRole = this.proxyLambda.role
 
-    this.lambdaSecurityGroup.addEgressRule(
-      this.ecsTasksSecurityGroup,
-      ec2.Port.tcp(8080),
-      'Allow Lambda to access ECS tasks'
-    )
-
     // Allow Lambda to resolve Service Discovery DNS names
-    // Add permissions for Service Discovery
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: [
         'servicediscovery:ListNamespaces',
@@ -194,19 +207,10 @@ class EcsStack extends Stack {
       ]
     }))
 
-    // Add permissions for Service Discovery
-    lambdaRole.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        'servicediscovery:GetService',
-        'servicediscovery:GetNamespace'
-      ],
-      resources: ['*'] // You might want to restrict this to specific ARNs
-    }))
-
     // Grant permission to update ECS services
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: ['ecs:UpdateService'],
-      resources: ['*'] // You might want to restrict this to specific service ARNs
+      resources: ['*']
     }))
   }
 
@@ -251,7 +255,6 @@ class EcsStack extends Stack {
       MASTER_SERVICE_NAME: 'master.rdf4j.local'
     }
 
-    // Add RDF4J_DATA_DIR only for master role
     if (role === 'master') {
       environmentVariables.RDF4J_DATA_DIR = '/rdf4j-data'
     }
@@ -279,34 +282,14 @@ class EcsStack extends Stack {
     })
   }
 
-  addEFSVolumeToTaskDefinition(taskDefinition) {
-    taskDefinition.addVolume({
-      name: 'rdf4j-data',
-      efsVolumeConfiguration: {
-        fileSystemId: this.fileSystem.fileSystemId,
-        transitEncryption: 'ENABLED',
-        authorizationConfig: {
-          accessPointId: this.accessPoint.accessPointId,
-          iam: 'ENABLED'
-        }
-      }
-    })
-  }
+  addMountPointToContainer(container, role, mountConfig) {
+    const { sourcePath, containerPath, readOnly } = mountConfig[role]
 
-  addMountPointToContainer(container, role) {
-    if (role === 'master') {
-      container.addMountPoints({
-        containerPath: '/rdf4j-data',
-        sourceVolume: 'rdf4j-data',
-        readOnly: false
-      })
-    } else if (role === 'slave') {
-      container.addMountPoints({
-        containerPath: '/shared-data',
-        sourceVolume: 'shared-data',
-        readOnly: true // Slaves should only read from shared data
-      })
-    }
+    container.addMountPoints({
+      sourceVolume: sourcePath,
+      containerPath,
+      readOnly
+    })
   }
 
   createMasterFargateService(taskDefinition) {
@@ -317,7 +300,7 @@ class EcsStack extends Stack {
       minHealthyPercent: 0,
       maxHealthyPercent: 100,
       assignPublicIp: false,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_NAT },
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [this.ecsTasksSecurityGroup],
       cloudMapOptions: {
         name: 'master',
@@ -340,7 +323,7 @@ class EcsStack extends Stack {
       minHealthyPercent: 50,
       maxHealthyPercent: 200,
       assignPublicIp: false,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_NAT },
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [this.ecsTasksSecurityGroup],
       cloudMapOptions: {
         name: 'slave',
@@ -352,10 +335,10 @@ class EcsStack extends Stack {
         command: [
           'CMD-SHELL',
           'curl -f http://localhost:8080/rdf4j-server/protocol && '
-        + 'curl -f http://master.rdf4j.local:8080/rdf4j-server/protocol || exit 1'
+      + 'curl -f http://master.rdf4j.local:8080/rdf4j-server/protocol || exit 1'
         ],
         interval: Duration.seconds(30),
-        timeout: Duration.seconds(10), // Increased timeout to account for two checks
+        timeout: Duration.seconds(10),
         retries: 3,
         startPeriod: Duration.seconds(60)
       },
@@ -370,7 +353,7 @@ class EcsStack extends Stack {
     this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'RDF4JLoadBalancer', {
       vpc: this.vpc,
       internetFacing: false,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_NAT }
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
     })
 
     const listener = this.loadBalancer.addListener('Listener', {
@@ -378,7 +361,7 @@ class EcsStack extends Stack {
       open: true
     })
 
-    const lambdaTarget = new targets.LambdaTarget(this.proxyLambda) // Use the imported targets module
+    const lambdaTarget = new targets.LambdaTarget(this.proxyLambda)
 
     listener.addTargets('LambdaProxyTarget', {
       targets: [lambdaTarget],
@@ -387,6 +370,15 @@ class EcsStack extends Stack {
         interval: Duration.seconds(30),
         timeout: Duration.seconds(5)
       }
+    })
+
+    // Register the load balancer with Service Discovery
+    new servicediscovery.Service(this, 'LoadBalancerDiscoveryService', {
+      namespace: this.cluster.defaultCloudMapNamespace,
+      name: 'loadbalancer',
+      dnsRecordType: servicediscovery.DnsRecordType.A,
+      customHealthCheck: { failureThreshold: 1 },
+      loadBalancer: this.loadBalancer
     })
   }
 
@@ -416,13 +408,14 @@ class EcsStack extends Stack {
       entry: path.join(__dirname, '../lambda/rdf4j-proxy.js'),
       timeout: Duration.seconds(30),
       environment: {
+        LOAD_BALANCER_NAME: 'loadbalancer.rdf4j.local',
         MASTER_SERVICE_NAME: this.masterService.cloudMapService.serviceName,
         SERVICE_DISCOVERY_NAMESPACE: this.cluster.defaultCloudMapNamespace.namespaceName,
         ECS_CLUSTER_NAME: this.cluster.clusterName,
         ECS_SERVICE_NAME_PREFIX: 'rdf4j'
       },
       vpc: this.vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_NAT },
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [this.ecsTasksSecurityGroup, this.lambdaSecurityGroup]
     })
   }
@@ -512,5 +505,4 @@ class EcsStack extends Stack {
     })
   }
 }
-
 module.exports = { EcsStack }

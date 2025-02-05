@@ -20,4 +20,5 @@ junit.xml
 
 cmr
 cdk.context.json
+cdk.out
 infrastructure/rdfdb/cdk/cdk.context.json

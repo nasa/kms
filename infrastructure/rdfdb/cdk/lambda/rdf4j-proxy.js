@@ -16,6 +16,14 @@ let nodesCache = {
 
 const CACHE_TTL = 1 * 60 * 1000 // 1 minutes in milliseconds
 
+/**
+ * The function provides a way to dynamically discover the network
+ * locations of all RDF4J nodes (master and slaves) that are registered with
+ * AWS Service Discovery. This is useful in a cloud environment where the
+ * IP addresses of services may change dynamically, allowing the Lambda function
+ * to always have up-to-date information on how to reach each node in the RDF4J
+ * cluster.
+ * */
 const discoverNodes = async () => {
   const namespaceName = process.env.SERVICE_DISCOVERY_NAMESPACE
   const masterServiceName = process.env.MASTER_SERVICE_NAME
@@ -57,6 +65,10 @@ const discoverNodes = async () => {
   }
 }
 
+/**
+ *
+ * This getNodes function implements a caching mechanism for the node discovery process.
+ */
 const getNodes = async () => {
   const now = Date.now()
   if (now - nodesCache.lastUpdated > CACHE_TTL) {
@@ -73,7 +85,17 @@ const getNodes = async () => {
   return nodesCache
 }
 
-const makeRequest = (node, payload, method, headers, path = '', queryParams = {}) => new Promise((resolve, reject) => {
+/**
+ * This makeRequest function is a utility for making HTTP/HTTPS requests to the RDF4J nodes.
+ */
+const makeRequest = ({
+  node,
+  payload,
+  method,
+  headers,
+  path = '',
+  queryParams = {}
+}) => new Promise((resolve, reject) => {
   const parsedUrl = new URL(node)
   const protocol = parsedUrl.protocol === 'https:' ? https : http
 
@@ -109,6 +131,11 @@ const makeRequest = (node, payload, method, headers, path = '', queryParams = {}
   req.end()
 })
 
+/**
+ * This function is used when a node is detected to be unhealthy or unresponsive. By
+ * forcing a new deployment, it attempts to resolve issues by replacing the potentially
+ * problematic task with a fresh one.
+ */
 const restartNode = async (nodeUrl) => {
   const clusterName = process.env.ECS_CLUSTER_NAME
   const serviceNamePrefix = process.env.ECS_SERVICE_NAME_PREFIX
@@ -135,16 +162,38 @@ const restartNode = async (nodeUrl) => {
   }
 }
 
+/**
+ * The restartAllNodes function is a simple utility that aims to restart all nodes in
+ * the RDF4J cluster.
+ */
 const restartAllNodes = async (nodes) => {
   nodes.forEach(async (node) => {
     await restartNode(node)
   })
 }
 
-const handleWriteOperation = async (masterNode, slaveNodes, event, path, queryParams) => {
+/**
+ *
+ * This operation ensures data consistency by writing to the master first and then
+ * replicating to slaves. It also includes error handling and node restart mechanisms
+ * to recover from failures. The function returns as soon as the master write is
+ * complete, not waiting for slave replications to finish, which helps in maintaining
+ * lower latency for write operations.} masterNode
+ */
+
+const handleWriteOperation = async ({
+  masterNode, slaveNodes, event, path, queryParams
+}) => {
   let response
   try {
-    response = await makeRequest(masterNode, event.body, event.httpMethod, event.headers, path, queryParams)
+    response = await makeRequest({
+      node: masterNode,
+      payload: event.body,
+      method: event.httpMethod,
+      headers: event.headers,
+      path,
+      queryParams
+    })
   } catch (error) {
     console.error(`Error writing to master node ${masterNode}:`, error)
     await restartAllNodes([masterNode, ...slaveNodes])
@@ -152,21 +201,45 @@ const handleWriteOperation = async (masterNode, slaveNodes, event, path, queryPa
   }
 
   if (response.statusCode >= 200 && response.statusCode < 300) {
-    await Promise.all(slaveNodes.map(async (node) => {
-      try {
-        await makeRequest(node, event.body, event.httpMethod, event.headers, path, queryParams)
-      } catch (error) {
-        console.error(`Error replicating to slave node ${node}:`, error)
-        await restartNode(node)
-      }
-    }))
+    // Use setImmediate to ensure this runs after the response is sent
+    setImmediate(() => {
+      Promise.all(slaveNodes.map(async (node) => {
+        try {
+          await makeRequest({
+            node,
+            payload: event.body,
+            method: event.httpMethod,
+            headers: event.headers,
+            path,
+            queryParams
+          })
+        } catch (error) {
+          console.error(`Error replicating to slave node ${node}:`, error)
+          await restartNode(node)
+        }
+      })).catch((error) => {
+        console.error('Error during slave replication:', error)
+      })
+    })
   }
 
   return response
 }
 
-const handleReadOperation = async (nodes, event, path, queryParams) => {
-  const readPromises = nodes.map((node) => makeRequest(node, event.body, event.httpMethod, event.headers, path, queryParams)
+/** This operation aims to provide fast read responses by leveraging all available nodes,
+ * while also implementing basic error recovery by restarting nodes that fail to respond.
+ * */
+const handleReadOperation = async ({
+  nodes, event, path, queryParams
+}) => {
+  const readPromises = nodes.map((node) => makeRequest({
+    node,
+    payload: event.body,
+    method: event.httpMethod,
+    headers: event.headers,
+    path,
+    queryParams
+  })
     .catch(async (error) => {
       console.error(`Error reading from node ${node}:`, error)
       if (node.includes('master')) {
@@ -186,6 +259,12 @@ const handleReadOperation = async (nodes, event, path, queryParams) => {
   }
 }
 
+/**
+ * This Lambda function essentially acts as an intelligent router and load balancer
+ * for the RDF4J cluster, handling node discovery, request distribution, write
+ * replication, and basic error recovery. It aims to provide high availability
+ * and consistency for the RDF4J service in a dynamic cloud environment.
+ */
 exports.handler = async (event) => {
   const { masterNode, slaveNodes } = await getNodes()
   const nodes = [masterNode, ...slaveNodes]
@@ -199,9 +278,20 @@ exports.handler = async (event) => {
     let response
 
     if (isWriteOperation) {
-      response = await handleWriteOperation(masterNode, slaveNodes, event, path, queryParams)
+      response = await handleWriteOperation({
+        masterNode,
+        slaveNodes,
+        event,
+        path,
+        queryParams
+      })
     } else {
-      response = await handleReadOperation(nodes, event, path, queryParams)
+      response = await handleReadOperation({
+        nodes,
+        event,
+        path,
+        queryParams
+      })
     }
 
     return {
