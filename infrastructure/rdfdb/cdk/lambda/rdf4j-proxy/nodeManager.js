@@ -1,5 +1,6 @@
 // NodeManager.js
 
+// eslint-disable-next-line import/no-extraneous-dependencies
 const AWS = require('aws-sdk')
 
 const ecs = new AWS.ECS()
@@ -19,8 +20,7 @@ const {
 
 const {
   getLastUpdateTime,
-  isSlaveConsistent,
-  resetSlaveCheckTime
+  isSlaveConsistent
 } = require('./sharedFunctions')
 
 const discoverNodes = async () => {
@@ -89,7 +89,7 @@ const restartNode = async (nodeUrl) => {
       service: serviceName,
       forceNewDeployment: true
     }
-    const result = await ecs.updateService(updateParams).promise()
+    await ecs.updateService(updateParams).promise()
 
     // Remove the restarted node from the verified list
     await removeVerifiedNode(nodeUrl)

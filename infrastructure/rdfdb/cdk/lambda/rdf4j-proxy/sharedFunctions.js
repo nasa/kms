@@ -157,7 +157,12 @@ const setLastUpdateTime = async (node, time) => {
   }
 }
 
-const lastSlaveCheckTimes = {}
+let lastSlaveCheckTimes = {}
+
+// Add this function to reset the last check time when nodes are invalidated
+const resetSlaveCheckTimes = () => {
+  lastSlaveCheckTimes = {}
+}
 
 const isSlaveConsistent = async (node, masterTime) => {
   const now = Date.now()
@@ -192,15 +197,10 @@ const isSlaveConsistent = async (node, masterTime) => {
   return false
 }
 
-// Add this function to reset the last check time when nodes are invalidated
-const resetSlaveCheckTime = () => {
-  lastSlaveCheckTime = 0
-}
-
 module.exports = {
   makeRequest,
   isSlaveConsistent,
   getLastUpdateTime,
   setLastUpdateTime,
-  resetSlaveCheckTime
+  resetSlaveCheckTimes
 }

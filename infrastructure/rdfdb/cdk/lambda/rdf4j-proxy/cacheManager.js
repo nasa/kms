@@ -1,7 +1,8 @@
 // CacheManager.js
 
+// eslint-disable-next-line import/no-extraneous-dependencies
 const AWS = require('aws-sdk')
-const { resetSlaveCheckTime } = require('./sharedFunctions')
+const { resetSlaveCheckTimes } = require('./sharedFunctions')
 
 const dynamodb = new AWS.DynamoDB.DocumentClient()
 const { NODES_CACHE_TABLE } = process.env
@@ -159,7 +160,7 @@ const invalidateNodeCache = async () => {
   }
 
   // Reset the slave check time
-  resetSlaveCheckTime()
+  resetSlaveCheckTimes()
 }
 
 module.exports = {
