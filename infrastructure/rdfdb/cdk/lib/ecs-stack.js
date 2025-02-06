@@ -19,12 +19,13 @@ const lambda = require('aws-cdk-lib/aws-lambda')
 const lambdaNodejs = require('aws-cdk-lib/aws-lambda-nodejs')
 const path = require('path')
 const targets = require('aws-cdk-lib/aws-elasticloadbalancingv2-targets')
+const dynamodb = require('aws-cdk-lib/aws-dynamodb')
 
 /**
  * This stack creates a fully-functional, scalable RDF4J cluster with a master-slave
  * architecture, using ECS for container orchestration, EFS for shared storage, and a
  * Lambda function for intelligent request routing. It includes configurations for
- * networking, security, auto-scaling, and monitoring, in order to deploy and
+ * networking, security, auto-scaling, and monitoring in order to deploy and
  * manage a distributed RDF4J service on AWS.
  */
 class EcsStack extends Stack {
@@ -112,7 +113,7 @@ class EcsStack extends Stack {
     try {
       checkRepo.getResponseField('repositories')
 
-      return ecr.Repository.fromRepositoryName(this, 'Existingrdf4jRepository', repositoryName)
+      return ecr.Repository.fromRepositoryName(this, 'ExistingrRDF4JRepository', repositoryName)
     } catch (e) {
       return new ecr.Repository(this, 'rdf4jRepository', {
         repositoryName,
@@ -155,6 +156,24 @@ class EcsStack extends Stack {
     this.masterService = this.createMasterFargateService(masterTaskDefinition)
     this.slaveService = this.createSlaveFargateService(slaveTaskDefinition)
 
+    this.nodesCacheTable = new dynamodb.Table(this, 'NodesCacheTable', {
+      partitionKey: {
+        name: 'id',
+        type: dynamodb.AttributeType.STRING
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY
+    })
+
+    this.verifiedNodesTable = new dynamodb.Table(this, 'VerifiedNodesTable', {
+      partitionKey: {
+        name: 'id',
+        type: dynamodb.AttributeType.STRING
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY
+    })
+
     this.proxyLambda = this.createLambdaFunction()
 
     this.configureLoadBalancer()
@@ -165,6 +184,10 @@ class EcsStack extends Stack {
 
   grantLambdaPermissions() {
     const lambdaRole = this.proxyLambda.role
+
+    // Grant DynamoDB permissions
+    this.nodesCacheTable.grantReadWriteData(lambdaRole)
+    this.verifiedNodesTable.grantReadWriteData(lambdaRole)
 
     // Allow Lambda to resolve Service Discovery DNS names
     lambdaRole.addToPolicy(new iam.PolicyStatement({
@@ -186,9 +209,10 @@ class EcsStack extends Stack {
       description: 'Allow Lambda to access ECS tasks'
     })
 
-    // Grant permissions to describe ECS services and tasks
+    // Grant permissions to describe and list ECS services and tasks
     lambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: [
+        'ecs:ListServices', // Added this line
         'ecs:DescribeServices',
         'ecs:DescribeTasks',
         'ecs:ListTasks'
@@ -350,7 +374,7 @@ class EcsStack extends Stack {
   }
 
   configureLoadBalancer() {
-    this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'RDF4JLoadBalancer', {
+    this.loadBalancer = new elbv2.ApplicationLoadBalancer(this, 'rdf4jLoadBalancer', {
       vpc: this.vpc,
       internetFacing: false,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS }
@@ -366,9 +390,12 @@ class EcsStack extends Stack {
     listener.addTargets('LambdaProxyTarget', {
       targets: [lambdaTarget],
       healthCheck: {
-        path: '/rdf4j-server/protocol',
+        path: '/health',
         interval: Duration.seconds(30),
-        timeout: Duration.seconds(5)
+        timeout: Duration.seconds(5),
+        healthyHttpCodes: '200',
+        healthyThresholdCount: 2,
+        unhealthyThresholdCount: 2
       }
     })
 
@@ -402,17 +429,24 @@ class EcsStack extends Stack {
   }
 
   createLambdaFunction() {
-    return new lambdaNodejs.NodejsFunction(this, 'RDF4JProxyLambda', {
+    return new lambdaNodejs.NodejsFunction(this, 'rdf4jProxyLambda', {
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: 'handler',
-      entry: path.join(__dirname, '../lambda/rdf4j-proxy.js'),
-      timeout: Duration.seconds(30),
+      entry: path.join(__dirname, '../lambda/rdf4j-proxy/index.js'),
+      forceDockerBundling: true,
+      timeout: Duration.seconds(60),
       environment: {
         LOAD_BALANCER_NAME: 'loadbalancer.rdf4j.local',
         MASTER_SERVICE_NAME: this.masterService.cloudMapService.serviceName,
         SERVICE_DISCOVERY_NAMESPACE: this.cluster.defaultCloudMapNamespace.namespaceName,
         ECS_CLUSTER_NAME: this.cluster.clusterName,
-        ECS_SERVICE_NAME_PREFIX: 'rdf4j'
+        ECS_SERVICE_NAME_PREFIX: 'rdf4j',
+        RDF4J_REPOSITORY_ID: 'kms',
+        RDF4J_USER_NAME: process.env.RDF4J_USER_NAME,
+        RDF4J_PASSWORD: process.env.RDF4J_PASSWORD,
+        STACK_NAME: this.stackName,
+        NODES_CACHE_TABLE: this.nodesCacheTable.tableName,
+        VERIFIED_NODES_TABLE: this.verifiedNodesTable.tableName
       },
       vpc: this.vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
@@ -433,7 +467,7 @@ class EcsStack extends Stack {
       new logs.MetricFilter(this, `${method}RequestFilter`, {
         logGroup: albLogGroup,
         filterPattern: logs.FilterPattern.literal(`[..., method="${method}", status_code, size]`),
-        metricNamespace: 'RDF4JApplicationLB',
+        metricNamespace: 'rdf4jApplicationLB',
         metricName: `${method}Requests`,
         defaultValue: 0,
         unit: cloudwatch.Unit.COUNT,
@@ -467,7 +501,7 @@ class EcsStack extends Stack {
       description: 'DNS name of the load balancer'
     })
 
-    new CfnOutput(this, 'RDF4JServiceUrl', {
+    new CfnOutput(this, 'rdf4jServiceUrl', {
       value: `http://${this.loadBalancer.loadBalancerDnsName}`,
       description: 'URL of the RDF4J service'
     })
@@ -499,7 +533,7 @@ class EcsStack extends Stack {
   addHttpMethodMetricOutputs() {
     ['GET', 'PUT', 'POST', 'DELETE', 'PATCH'].forEach((method) => {
       new CfnOutput(this, `${method}RequestMetric`, {
-        value: `RDF4JApplicationLB/${method}Requests`,
+        value: `rdf4jApplicationLB/${method}Requests`,
         description: `CloudWatch metric for ${method} requests`
       })
     })

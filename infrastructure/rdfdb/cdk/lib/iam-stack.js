@@ -71,6 +71,16 @@ class IamStack extends Stack {
             'ecr:BatchGetImage'
           ],
           resources: ['*']
+        }),
+        // Add this new PolicyStatement for ECS permissions
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'ecs:DescribeServices',
+            'ecs:UpdateService',
+            'ecs:ListServices'
+          ],
+          resources: ['*']
         })
       ]
     })
