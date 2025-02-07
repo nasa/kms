@@ -14,6 +14,7 @@ class IamStack extends Stack {
     this.addInlinePolicies(this.role)
     this.addEcsExecuteCommandPermissions(this.role)
     this.addCustomPolicy(this.role)
+    this.addCloudMapPermissions(this.role)
     this.addOutputs()
   }
 
@@ -41,6 +42,24 @@ class IamStack extends Stack {
     }))
   }
 
+  addCloudMapPermissions(role) {
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        'servicediscovery:CreateService',
+        'servicediscovery:DeleteService',
+        'servicediscovery:GetService',
+        'servicediscovery:GetInstance',
+        'servicediscovery:RegisterInstance',
+        'servicediscovery:DeregisterInstance',
+        'servicediscovery:ListInstances',
+        'servicediscovery:ListNamespaces',
+        'servicediscovery:ListServices',
+        'servicediscovery:GetInstancesHealthStatus',
+        'servicediscovery:UpdateInstanceCustomHealthStatus'],
+      resources: ['*']
+    }))
+  }
+
   addEcsExecuteCommandPermissions(role) {
     role.addToPolicy(new iam.PolicyStatement({
       actions: [
@@ -63,7 +82,12 @@ class IamStack extends Stack {
             'ecr:GetAuthorizationToken',
             'ecr:BatchCheckLayerAvailability',
             'ecr:GetDownloadUrlForLayer',
-            'ecr:BatchGetImage'
+            'ecr:BatchGetImage',
+            'elasticloadbalancing:DeregisterInstancesFromLoadBalancer',
+            'elasticloadbalancing:DeregisterTargets',
+            'elasticloadbalancing:Describe*',
+            'elasticloadbalancing:RegisterInstancesWithLoadBalancer',
+            'elasticloadbalancing:RegisterTargets'
           ],
           resources: ['*']
         })

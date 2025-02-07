@@ -20,17 +20,13 @@ async function main() {
   })
   const efsStack = new EfsStack(app, 'rdf4jEfsStack', {
     env,
-    vpcId,
-    efsTaskSecurityGroup: iamStack.efsTaskSecurityGroup
+    vpcId
   })
 
   const ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
     env,
     vpcId,
-    role: iamStack.role,
-    ecsTasksSecurityGroup: efsStack.ecsTasksSecurityGroup,
-    fileSystem: efsStack.fileSystem,
-    accessPoint: efsStack.accessPoint
+    role: iamStack.role
   })
 
   // Add dependencies

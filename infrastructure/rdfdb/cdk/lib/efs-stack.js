@@ -9,24 +9,14 @@ class EfsStack extends Stack {
     const { vpcId } = props
 
     this.vpc = this.getVpc(vpcId)
-    this.ecsTasksSecurityGroup = this.createEcsTasksSecurityGroup()
     this.fileSystem = this.createFileSystem()
     this.accessPoint = this.createAccessPoint()
 
-    this.configureEFSSecurityGroups()
     this.createOutputs()
   }
 
   getVpc(vpcId) {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
-  }
-
-  createEcsTasksSecurityGroup() {
-    return new ec2.SecurityGroup(this, 'EcsTasksSecurityGroup', {
-      vpc: this.vpc,
-      description: 'Security group for ECS tasks',
-      allowAllOutbound: true
-    })
   }
 
   createFileSystem() {
@@ -54,22 +44,6 @@ class EfsStack extends Stack {
     })
   }
 
-  configureEFSSecurityGroups() {
-    this.fileSystem.connections.allowDefaultPortFrom(this.ecsTasksSecurityGroup)
-
-    this.ecsTasksSecurityGroup.addIngressRule(
-      this.fileSystem.connections.securityGroups[0],
-      ec2.Port.tcp(2049),
-      'Allow ECS tasks to access EFS'
-    )
-
-    this.fileSystem.connections.securityGroups[0].addIngressRule(
-      this.ecsTasksSecurityGroup,
-      ec2.Port.tcp(2049),
-      'Allow EFS to accept connections from ECS tasks'
-    )
-  }
-
   createOutputs() {
     new CfnOutput(this, 'FileSystemId', {
       value: this.fileSystem.fileSystemId,
@@ -79,6 +53,13 @@ class EfsStack extends Stack {
     new CfnOutput(this, 'AccessPointId', {
       value: this.accessPoint.accessPointId,
       exportName: 'rdf4jAccessPointId'
+    })
+
+    // Output the security group ID
+    new CfnOutput(this, 'EfsSecurityGroupId', {
+      value: this.fileSystem.connections.securityGroups[0].securityGroupId,
+      description: 'The ID of the EFS Security Group',
+      exportName: 'rdf4jEfsSecurityGroupId'
     })
   }
 }

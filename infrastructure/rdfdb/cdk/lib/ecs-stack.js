@@ -6,8 +6,10 @@ const {
 const ec2 = require('aws-cdk-lib/aws-ec2')
 const iam = require('aws-cdk-lib/aws-iam')
 const ecr = require('aws-cdk-lib/aws-ecr')
+const efs = require('aws-cdk-lib/aws-efs')
 const ecs = require('aws-cdk-lib/aws-ecs')
 const logs = require('aws-cdk-lib/aws-logs')
+const servicediscovery = require('aws-cdk-lib/aws-servicediscovery')
 const ecspatterns = require('aws-cdk-lib/aws-ecs-patterns')
 const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const custom = require('aws-cdk-lib/custom-resources')
@@ -16,24 +18,80 @@ class EcsStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)
     const {
-      vpcId, fileSystem, accessPoint, ecsTasksSecurityGroup
+      vpcId
     } = props
 
-    this.initializeResources(vpcId, fileSystem, accessPoint, ecsTasksSecurityGroup)
+    this.initializeResources(vpcId)
     this.createEcsResources()
     this.configureSecurity()
     this.addOutputs()
   }
 
-  initializeResources(vpcId, fileSystem, accessPoint, ecsTasksSecurityGroup) {
+  initializeResources(vpcId) {
     this.vpc = this.getVpc(vpcId)
     this.role = this.createRole()
-    this.fileSystem = fileSystem
-    this.accessPoint = accessPoint
-    this.ecsTasksSecurityGroup = this.getEcsTasksSecurityGroup(ecsTasksSecurityGroup)
+    this.namespace = this.createCloudMapNamespace()
+    this.fileSystem = this.getFileSystem()
+    this.ecsTasksSecurityGroup = this.createEcsTasksSecurityGroup()
+    this.configureEFSSecurityGroups()
     this.cluster = this.createECSCluster()
     this.repository = this.createOrGetECRRepository()
     this.logGroup = this.createLogGroup()
+  }
+
+  createEcsTasksSecurityGroup() {
+    return new ec2.SecurityGroup(this, 'EcsTasksSecurityGroup', {
+      vpc: this.vpc,
+      description: 'Security group for ECS tasks',
+      allowAllOutbound: true
+    })
+  }
+
+  getFileSystem() {
+    const fileSystemId = Fn.importValue('rdf4jFileSystemId')
+    const securityGroupId = Fn.importValue('rdf4jEfsSecurityGroupId')
+
+    return efs.FileSystem.fromFileSystemAttributes(this, 'ImportedEFS', {
+      fileSystemId,
+      securityGroup: ec2.SecurityGroup.fromSecurityGroupId(this, 'EFSSecurityGroup', securityGroupId)
+    })
+  }
+  // GetEcsTasksSecurityGroup(ecsTasksSecurityGroup) {
+  //   return ec2.SecurityGroup.fromSecurityGroupId(
+  //     this,
+  //     'ImportedEcsTasksSecurityGroup',
+  //     ecsTasksSecurityGroup.securityGroupId
+  //   )
+  // }
+
+  configureEFSSecurityGroups() {
+    this.ecsTasksSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(8080),
+      'Allow inbound traffic on port 8080 from anywhere'
+    )
+
+    this.fileSystem.connections.allowDefaultPortFrom(this.ecsTasksSecurityGroup)
+
+    this.ecsTasksSecurityGroup.addIngressRule(
+      this.fileSystem.connections.securityGroups[0],
+      ec2.Port.tcp(2049),
+      'Allow ECS tasks to access EFS'
+    )
+
+    this.fileSystem.connections.securityGroups[0].addIngressRule(
+      this.ecsTasksSecurityGroup,
+      ec2.Port.tcp(2049),
+      'Allow EFS to accept connections from ECS tasks'
+    )
+  }
+
+  createCloudMapNamespace() {
+    return new servicediscovery.PrivateDnsNamespace(this, 'RDF4JNamespace', {
+      name: 'rdf4j.local',
+      vpc: this.vpc,
+      description: 'Private namespace for RDF4J service'
+    })
   }
 
   createRole() {
@@ -42,14 +100,6 @@ class EcsStack extends Stack {
 
   getVpc(vpcId) {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
-  }
-
-  getEcsTasksSecurityGroup(ecsTasksSecurityGroup) {
-    return ec2.SecurityGroup.fromSecurityGroupId(
-      this,
-      'ImportedEcsTasksSecurityGroup',
-      ecsTasksSecurityGroup.securityGroupId
-    )
   }
 
   createECSCluster() {
@@ -85,7 +135,7 @@ class EcsStack extends Stack {
     try {
       checkRepo.getResponseField('repositories')
 
-      return ecr.Repository.fromRepositoryName(this, 'Existingrdf4jRepository', repositoryName)
+      return ecr.Repository.fromRepositoryName(this, 'ExistingRDF4JRepository', repositoryName)
     } catch (e) {
       return new ecr.Repository(this, 'rdf4jRepository', {
         repositoryName,
@@ -151,7 +201,7 @@ class EcsStack extends Stack {
         fileSystemId: this.fileSystem.fileSystemId,
         transitEncryption: 'ENABLED',
         authorizationConfig: {
-          accessPointId: this.accessPoint.accessPointId,
+          accessPointId: Fn.importValue('rdf4jAccessPointId'),
           iam: 'ENABLED'
         }
       }
@@ -166,11 +216,7 @@ class EcsStack extends Stack {
     })
   }
 
-  // Multiple processes can read from the RDF db, but only 1 can write.   A future ticket
-  // will setup a lock manager so we can scale, but for now, we will prevent any scaling.
-  // To prevent any scaling, we are setting the minHealthyPercent and maxHealthPercent.  This
-  // ensures that during deployments, ECS will first stop the old task before starting a new one,
-  // preventing any period where two tasks might be running simultaneously.
+  // RDF4j cannot scale horizontally, so we set the desired count to 1 and disable scaling.
   createFargateService(taskDefinition) {
     return new ecspatterns.ApplicationLoadBalancedFargateService(this, 'rdf4jService', {
       cluster: this.cluster,
@@ -184,7 +230,13 @@ class EcsStack extends Stack {
       enableExecuteCommand: true,
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_NAT }
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      cloudMapOptions: {
+        name: 'lb',
+        dnsRecordType: servicediscovery.DnsRecordType.A,
+        dnsTtl: Duration.seconds(60),
+        cloudMapNamespace: this.namespace
+      }
     })
   }
 
@@ -225,6 +277,17 @@ class EcsStack extends Stack {
     new CfnOutput(this, 'rdf4jServiceUrl', {
       value: `http://${this.fargateService.loadBalancer.loadBalancerDnsName}:8080`,
       description: 'URL of the RDF4J service'
+    })
+
+    new CfnOutput(this, 'RDF4JServiceDiscoveryUrl', {
+      value: `http://lb.${this.namespace.namespaceName}:8080`,
+      description: 'URL of the RDF4J service using service discovery'
+    })
+
+    // Output the security group ID
+    new CfnOutput(this, 'EcsTasksSecurityGroupId', {
+      value: this.ecsTasksSecurityGroup.securityGroupId,
+      exportName: `${this.stackName}-EcsTasksSecurityGroupId`
     })
   }
 }

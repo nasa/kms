@@ -9,13 +9,19 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: us-east-1
   endpointType: PRIVATE
+  # role: 
+  #   Fn::ImportValue: ${self:provider.stage}-KMSServerlessAppRole
   vpc:
     securityGroupIds:
       - Fn::ImportValue: ${self:provider.stage}-LambdaSecurityGroup
+  
     subnetIds:
       - ${env:SUBNET_ID_A, 'subnetIdA'}
       - ${env:SUBNET_ID_B, 'subnetIdB'}
       - ${env:SUBNET_ID_C, 'subnetIdC'}
+  environment:
+    RDF4J_SERVICE_URL: ${self:custom.cloudMap.serviceUrl.${self:provider.stage}, 'http://localhost:8080'}  
+
 
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
@@ -49,6 +55,15 @@ custom:
   collectionTemplatesBucketName: ${self:custom.siteName}-collection-templates
 
   infrastructureStackName: kms-infrastructure-${self:provider.stage}
+
+  cloudMap:
+    # namespaceName: ${cf:rdf4jEcsStack.NamespaceName, 'rdf4j.local'}
+    # namespaceId: ${cf:rdf4jEcsStack.NamespaceId, 'lb'}
+    serviceUrl: 
+      dev: ${env:LOCAL_RDF4J_URL, 'http://localhost:8080'}    
+      sit: ${cf:rdf4jEcsStack.RDF4JServiceDiscoveryUrl, 'http://lb.rdf4j.local:8080'}
+      uat: ${cf:rdf4jEcsStack.RDF4JServiceDiscoveryUrl, 'http://lb.rdf4j.local:8080'}
+      prod: ${cf:rdf4jEcsStack.RDF4JServiceDiscoveryUrl, 'http://lb.rdf4j.local:8080'}
 
   # Finch (S3 sync plugin)
   client:

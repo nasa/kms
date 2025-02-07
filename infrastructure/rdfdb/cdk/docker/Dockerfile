@@ -17,7 +17,8 @@ COPY config/tomcat-users.xml /usr/local/tomcat/conf/tomcat-users.xml
 
 # Copy scripts
 COPY scripts/setup.sh /usr/local/tomcat/setup.sh
-COPY scripts/modify_web_xml.sh /usr/local/tomcat/modify_web_xml.sh
+COPY scripts/setup_web_auth.sh /usr/local/tomcat/setup_web_auth.sh
+COPY scripts/create_repository.sh /usr/local/tomcat/create_repository.sh
 
 RUN chown -R tomcat:nogroup /usr/local/tomcat
 RUN rm -r /usr/local/tomcat/webapps/rdf4j-workbench*
