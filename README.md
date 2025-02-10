@@ -45,6 +45,8 @@ To run the test suite, run:
 ```export AWS_ACCESS_KEY_ID=[your access key id]
 export AWS_SECRET_ACCESS_KEY=[your access secret access key]
 export AWS_SESSION_TOKEN=[your session token]
+export RDF4J_USER_NAME=[your rdf4j user name]
+export RDF4J_PASSWORD=[your rdf4j password]
 ```
 #### Retrieve the VPC_ID from AWS
 ```export VPC_ID=[your vpc id]

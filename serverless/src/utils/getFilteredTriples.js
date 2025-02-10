@@ -5,7 +5,7 @@ import { getApplicationConfig } from './getConfig'
  * @param {String} uri the URI of the SKOS concept
  * @returns the SKOS concept represented as JSON.
  */
-const getFilteredTriples = async (filter) => {
+const getFilteredTriples = async () => {
   // Get credentials from environment variables
   const username = process.env.RDF4J_USER_NAME
   const password = process.env.RDF4J_PASSWORD
