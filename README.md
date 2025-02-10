@@ -66,4 +66,5 @@ cdk deploy rdf4jIamStack
 cdk deploy rdf4jEfsStack
 cdk deploy rdf4jEcsStack
 ```
+
 One thing to note is if you destroy the rdf4jEfsStack and redeploy, this will create a new EFS file system.  You will need to copy the data from the old EFS file system to the new one.  This can be done by mounting the old EFS file system to an EC2 instance and copying the data to the new EFS file system.
