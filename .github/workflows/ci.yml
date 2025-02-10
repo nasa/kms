@@ -96,4 +96,4 @@ jobs:
 
         git fetch --unshallow || true
         echo "GITHUB_COMMIT=$GITHUB_SHA"
-        git push -f ecc $GITHUB_SHA:refs/heads/main
+        git push ecc $GITHUB_SHA:refs/heads/main
