@@ -1,4 +1,4 @@
-import { getApplicationConfig } from '../../../sharedUtils/getConfig'
+import { getApplicationConfig } from '../utils/getConfig'
 
 /**
  * Status endpoint

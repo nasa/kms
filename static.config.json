@@ -1,6 +1,7 @@
 {
   "application": {
     "apiHost": "http://localhost:4001/dev",
+    "sparqlEndpoint": "http://localhost:8080/rdf4j-server/repositories/kms",
     "env": "development",
     "version": "development",
     "defaultResponseHeaders": {

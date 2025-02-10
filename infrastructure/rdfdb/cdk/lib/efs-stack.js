@@ -1,7 +1,7 @@
 /* eslint-disable no-new */
 const { Stack, RemovalPolicy, CfnOutput } = require('aws-cdk-lib')
-const efs = require('aws-cdk-lib/aws-efs')
 const ec2 = require('aws-cdk-lib/aws-ec2')
+const efs = require('aws-cdk-lib/aws-efs')
 
 class EfsStack extends Stack {
   constructor(scope, id, props) {

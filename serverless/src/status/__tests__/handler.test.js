@@ -1,4 +1,4 @@
-import { getApplicationConfig } from '../../../../sharedUtils/getConfig'
+import { getApplicationConfig } from '../../utils/getConfig'
 import status from '../handler'
 
 beforeEach(() => {

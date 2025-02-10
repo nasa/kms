@@ -24,9 +24,8 @@ create_repository() {
     config:rep.type "openrdf:SailRepository";
     config:sail.impl [
       config:sail.type "rdf4j:LmdbStore";
-      ns:mapSize "1073741824";
       ns:readOnly "false";
-      ns:autoGrow "false";
+      ns:autoGrow "true";
       ns:transactionBufferSize "1048576";
       ns:forceSync "true"
     ]

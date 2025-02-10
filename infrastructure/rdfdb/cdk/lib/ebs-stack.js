@@ -22,7 +22,7 @@ class EbsStack extends Stack {
   createEbsVolume() {
     return new ec2.Volume(this, 'rdf4jVolume', {
       availabilityZone: this.vpc.availabilityZones[0],
-      size: Size.gibibytes(100), // Use Size.gibibytes() to specify the size
+      size: Size.gibibytes(16),
       volumeType: ec2.EbsDeviceVolumeType.GP3,
       encrypted: true,
       removalPolicy: RemovalPolicy.RETAIN

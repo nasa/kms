@@ -1,119 +1,259 @@
 /* eslint-disable no-new */
 const {
-  Stack, RemovalPolicy, Duration, CfnOutput,
-  Fn
+  CfnOutput,
+  Duration,
+  Fn,
+  RemovalPolicy,
+  Stack
 } = require('aws-cdk-lib')
+const autoscaling = require('aws-cdk-lib/aws-autoscaling')
+const custom = require('aws-cdk-lib/custom-resources')
 const ec2 = require('aws-cdk-lib/aws-ec2')
-const iam = require('aws-cdk-lib/aws-iam')
 const ecr = require('aws-cdk-lib/aws-ecr')
-const efs = require('aws-cdk-lib/aws-efs')
 const ecs = require('aws-cdk-lib/aws-ecs')
+const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
+const iam = require('aws-cdk-lib/aws-iam')
 const logs = require('aws-cdk-lib/aws-logs')
 const servicediscovery = require('aws-cdk-lib/aws-servicediscovery')
-const ecspatterns = require('aws-cdk-lib/aws-ecs-patterns')
-const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
-const custom = require('aws-cdk-lib/custom-resources')
 
 class EcsStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)
-    const {
-      vpcId
-    } = props
+    const { vpcId, roleArn, ebsStack } = props
 
-    this.initializeResources(vpcId)
-    this.createEcsResources()
-    this.configureSecurity()
+    this.ebsStack = ebsStack
+    this.initializeBaseResources(vpcId, roleArn)
+    this.addSecurityGroupRules()
     this.addOutputs()
   }
 
-  initializeResources(vpcId) {
+  initializeBaseResources(vpcId, roleArn) {
     this.vpc = this.getVpc(vpcId)
-    this.role = this.createRole()
+    this.role = this.getRole(roleArn)
+    this.ebsVolumeId = this.getEbsVolumeId()
+    this.ebsVolumeAz = this.getEbsVolumeAz()
+
+    this.createSecurityGroups()
     this.namespace = this.createCloudMapNamespace()
-    this.fileSystem = this.getFileSystem()
-    this.ecsTasksSecurityGroup = this.createEcsTasksSecurityGroup()
-    this.configureEFSSecurityGroups()
-    this.cluster = this.createECSCluster()
     this.repository = this.createOrGetECRRepository()
     this.logGroup = this.createLogGroup()
+
+    this.cluster = this.createEcsCluster()
+    this.taskDefinition = this.createTaskDefinition()
+    const container = this.addContainerToTaskDefinition(this.taskDefinition)
+    this.addEbsVolumeToTaskDefinition(this.taskDefinition)
+    this.addMountPointToContainer(container)
+
+    // Import Load Balancer resources
+    this.loadBalancerDns = Fn.importValue('LoadBalancerDNS')
+    this.targetGroupArn = Fn.importValue('TargetGroupArn')
+    this.loadBalancerSecurityGroupId = Fn.importValue('LoadBalancerSecurityGroupId')
+
+    // Create the target group from the imported ARN
+    this.targetGroup = elbv2.ApplicationTargetGroup.fromTargetGroupAttributes(this, 'ImportedTargetGroup', {
+      targetGroupArn: this.targetGroupArn
+    })
+
+    // Create ECS service
+    this.createEcsService()
   }
 
-  createEcsTasksSecurityGroup() {
-    return new ec2.SecurityGroup(this, 'EcsTasksSecurityGroup', {
+  createSecurityGroups() {
+    this.ecsTasksSecurityGroup = new ec2.SecurityGroup(this, 'EcsTasksSecurityGroup', {
       vpc: this.vpc,
       description: 'Security group for ECS tasks',
       allowAllOutbound: true
     })
   }
 
-  getFileSystem() {
-    const fileSystemId = Fn.importValue('rdf4jFileSystemId')
-    const securityGroupId = Fn.importValue('rdf4jEfsSecurityGroupId')
-
-    return efs.FileSystem.fromFileSystemAttributes(this, 'ImportedEFS', {
-      fileSystemId,
-      securityGroup: ec2.SecurityGroup.fromSecurityGroupId(this, 'EFSSecurityGroup', securityGroupId)
-    })
-  }
-  // GetEcsTasksSecurityGroup(ecsTasksSecurityGroup) {
-  //   return ec2.SecurityGroup.fromSecurityGroupId(
-  //     this,
-  //     'ImportedEcsTasksSecurityGroup',
-  //     ecsTasksSecurityGroup.securityGroupId
-  //   )
-  // }
-
-  configureEFSSecurityGroups() {
+  addSecurityGroupRules() {
+    // Allow inbound traffic on port 8080 from anywhere to ECS tasks
     this.ecsTasksSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       ec2.Port.tcp(8080),
       'Allow inbound traffic on port 8080 from anywhere'
     )
 
-    this.fileSystem.connections.allowDefaultPortFrom(this.ecsTasksSecurityGroup)
-
+    // Allow traffic from Load Balancer to ECS tasks
     this.ecsTasksSecurityGroup.addIngressRule(
-      this.fileSystem.connections.securityGroups[0],
-      ec2.Port.tcp(2049),
-      'Allow ECS tasks to access EFS'
-    )
-
-    this.fileSystem.connections.securityGroups[0].addIngressRule(
-      this.ecsTasksSecurityGroup,
-      ec2.Port.tcp(2049),
-      'Allow EFS to accept connections from ECS tasks'
+      ec2.Peer.securityGroupId(this.loadBalancerSecurityGroupId),
+      ec2.Port.tcp(8080),
+      'Allow traffic from Load Balancer'
     )
   }
 
   createCloudMapNamespace() {
-    return new servicediscovery.PrivateDnsNamespace(this, 'RDF4JNamespace', {
+    return new servicediscovery.PrivateDnsNamespace(this, 'rdf4jNamespace', {
       name: 'rdf4j.local',
       vpc: this.vpc,
-      description: 'Private namespace for RDF4J service'
+      description: 'Private namespace for rdf4j service'
     })
-  }
-
-  createRole() {
-    return iam.Role.fromRoleArn(this, 'ImportedRole', Fn.importValue('rdf4jRoleArn'))
   }
 
   getVpc(vpcId) {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  createECSCluster() {
-    return new ecs.Cluster(this, 'rdf4jEcsCluster', {
+  getEbsVolumeId() {
+    return this.ebsStack.volume.volumeId
+  }
+
+  getEbsVolumeAz() {
+    return this.ebsStack.volume.availabilityZone
+  }
+
+  getRole() {
+    return iam.Role.fromRoleArn(this, 'ImportedRole', Fn.importValue('rdf4jRoleArn'))
+  }
+
+  createEcsCluster() {
+    const { ebsVolumeId } = this
+
+    const userData = ec2.UserData.forLinux()
+    userData.addCommands(`
+    #!/bin/bash
+    set -e
+    set -x
+    
+    echo "Starting EBS mount script"
+    
+    # Install AWS CLI
+    echo "Installing AWS CLI..."
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    yum install -y unzip
+    unzip awscliv2.zip
+    ./aws/install
+    echo "AWS CLI installed successfully"
+    
+    DEVICE="/dev/xvdf"
+    MOUNT_POINT="/mnt/rdf4j-data"
+    
+    # Get instance ID and region
+    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+    
+    echo "Instance ID: $INSTANCE_ID"
+    echo "Region: $REGION"
+    
+    # Set the AWS region
+    export AWS_DEFAULT_REGION=$REGION
+    
+    # Get EBS volume ID (passed as an environment variable in user data)
+    EBS_VOLUME_ID="${ebsVolumeId}"
+    echo "EBS Volume ID: $EBS_VOLUME_ID"
+    
+    # Attach the EBS volume if not already attached
+    aws ec2 attach-volume --volume-id $EBS_VOLUME_ID --instance-id $INSTANCE_ID --device $DEVICE
+    
+    # Wait for the device to be available
+    TIMEOUT=60
+    for i in $(seq 1 $TIMEOUT); do
+        if [ -e $DEVICE ]; then
+            echo "$DEVICE is now available"
+            break
+        fi
+        if [ $i -eq $TIMEOUT ]; then
+            echo "Timeout waiting for $DEVICE to become available"
+            exit 1
+        fi
+        echo "Waiting for $DEVICE... ($i/$TIMEOUT)"
+        sleep 5
+    done
+    
+    # List block devices
+    lsblk
+    
+    # Check if the device is already formatted
+    if ! blkid $DEVICE; then
+        echo "Formatting $DEVICE..."
+        mkfs -t ext4 $DEVICE
+    else
+        echo "$DEVICE is already formatted"
+    fi
+    
+    # Mount the volume with more permissive options
+    mkdir -p $MOUNT_POINT
+    if mount -o rw,exec,auto $DEVICE $MOUNT_POINT; then
+        echo "Successfully mounted $DEVICE to $MOUNT_POINT"
+    else
+        echo "Failed to mount $DEVICE to $MOUNT_POINT"
+        exit 1
+    fi
+
+    # Ensure the mount persists across reboots
+    echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" | tee -a /etc/fstab
+    
+    # Set appropriate permissions
+    chown -R 1000:1000 $MOUNT_POINT
+
+    # Set very permissive permissions (be cautious with this in production)
+    chmod 777 $MOUNT_POINT
+    
+    echo "EBS mount script completed successfully"
+    `)
+
+    const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
+      machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
+      minCapacity: 1,
+      maxCapacity: 1,
       vpc: this.vpc,
-      clusterName: 'rdf4jEcs'
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        availabilityZones: [this.getEbsVolumeAz()]
+      },
+      userData,
+      blockDevices: [
+        {
+          deviceName: '/dev/xvda',
+          volume: autoscaling.BlockDeviceVolume.ebs(32, {
+            volumeType: autoscaling.EbsDeviceVolumeType.GP2,
+            deleteOnTermination: false
+          })
+        }
+      ],
+      role: this.role
     })
+
+    // Add a lifecycle hook to ensure instances are launched in the correct AZ
+    autoScalingGroup.addLifecycleHook('EbsAzHook', {
+      lifecycleTransition: autoscaling.LifecycleTransition.INSTANCE_LAUNCHING,
+      defaultResult: autoscaling.DefaultResult.ABANDON,
+      heartbeatTimeout: Duration.minutes(5),
+      notificationMetadata: JSON.stringify({ targetAz: this.ebsVolumeAz })
+    })
+
+    // Add the security groups of the VPC endpoints to the Auto Scaling Group
+    const cluster = new ecs.Cluster(this, 'rdf4jEcsCluster', {
+      vpc: this.vpc,
+      clusterName: 'rdf4jEcs',
+      securityGroups: [this.ecsTasksSecurityGroup]
+    })
+
+    this.capacityProvider = new ecs.AsgCapacityProvider(this, 'rdf4jAsgCapacityProvider', {
+      autoScalingGroup,
+      enableManagedTerminationProtection: false // Maybe remove.
+    })
+
+    cluster.addAsgCapacityProvider(this.capacityProvider)
+
+    return cluster
   }
 
   createOrGetECRRepository() {
     const repositoryName = 'rdf4j'
     const checkRepo = this.createCheckRepositoryCustomResource(repositoryName)
 
-    return this.getOrCreateRepository(repositoryName, checkRepo)
+    try {
+      checkRepo.getResponseField('repositories')
+
+      return ecr.Repository.fromRepositoryName(this, 'Existingrdf4jRepository', repositoryName)
+    } catch (e) {
+      return new ecr.Repository(this, 'rdf4jRepository', {
+        repositoryName,
+        removalPolicy: RemovalPolicy.RETAIN
+      })
+    }
   }
 
   createCheckRepositoryCustomResource(repositoryName) {
@@ -131,19 +271,6 @@ class EcsStack extends Stack {
     })
   }
 
-  getOrCreateRepository(repositoryName, checkRepo) {
-    try {
-      checkRepo.getResponseField('repositories')
-
-      return ecr.Repository.fromRepositoryName(this, 'ExistingRDF4JRepository', repositoryName)
-    } catch (e) {
-      return new ecr.Repository(this, 'rdf4jRepository', {
-        repositoryName,
-        removalPolicy: RemovalPolicy.RETAIN
-      })
-    }
-  }
-
   createLogGroup() {
     return new logs.LogGroup(this, 'rdf4jContainerLogs', {
       logGroupName: '/ecs/rdf4j',
@@ -152,58 +279,82 @@ class EcsStack extends Stack {
     })
   }
 
-  createEcsResources() {
-    const taskDefinition = this.createTaskDefinition()
-    const container = this.addContainerToTaskDefinition(taskDefinition)
-    this.addEFSVolumeToTaskDefinition(taskDefinition)
-    this.addMountPointToContainer(container)
-    this.fargateService = this.createFargateService(taskDefinition)
-    this.configureAutoScaling(this.fargateService)
-    this.configureHealthCheck(this.fargateService)
+  createEcsService() {
+    this.ecsService = new ecs.Ec2Service(this, 'rdf4jService', {
+      cluster: this.cluster,
+      taskDefinition: this.taskDefinition,
+      desiredCount: 1,
+      minHealthyPercent: 0,
+      maxHealthyPercent: 100,
+      enableExecuteCommand: true,
+      securityGroups: [this.ecsTasksSecurityGroup],
+      assignPublicIp: false,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        availabilityZones: [this.getEbsVolumeAz()]
+      },
+      cloudMapOptions: {
+        name: 'lb',
+        dnsRecordType: servicediscovery.DnsRecordType.SRV,
+        dnsTtl: Duration.seconds(60),
+        cloudMapNamespace: this.namespace
+      },
+      capacityProviderStrategies: [
+        {
+          capacityProvider: this.capacityProvider.capacityProviderName,
+          weight: 1
+        }
+      ]
+    })
+
+    // Attach ECS service to the imported target group
+    this.ecsService.attachToApplicationTargetGroup(this.targetGroup)
   }
 
   createTaskDefinition() {
-    return new ecs.FargateTaskDefinition(this, 'rdf4jTaskDef', {
-      memoryLimitMiB: 3072,
-      cpu: 1024,
-      executionRole: this.role,
+    const taskDef = new ecs.Ec2TaskDefinition(this, 'rdf4jTaskDefinition', {
       taskRole: this.role,
+      executionRole: this.role,
       networkMode: ecs.NetworkMode.AWS_VPC
     })
+
+    return taskDef
   }
 
   addContainerToTaskDefinition(taskDefinition) {
     const VERSION = process.env.VERSION || 'latest'
 
-    return taskDefinition.addContainer('rdf4j-container', {
+    const container = taskDefinition.addContainer('rdf4jContainer', {
       image: ecs.ContainerImage.fromEcrRepository(this.repository, VERSION),
+      user: 'root',
+      memoryLimitMiB: 3000,
       logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: 'rdf4j-ecs',
+        streamPrefix: 'rdf4j',
         logGroup: this.logGroup
       }),
       environment: {
-        REGION: this.region,
-        ACCOUNT: this.account,
-        rdf4j_DATA_DIR: '/rdf4j-data',
+        ACCOUNT: process.env.CDK_DEFAULT_ACCOUNT,
+        REGION: process.env.CDK_DEFAULT_REGION,
+        RDF4J_DATA_DIR: '/rdf4j-data',
         RDF4J_USER_NAME: process.env.RDF4J_USER_NAME,
         RDF4J_PASSWORD: process.env.RDF4J_PASSWORD
-      },
-      portMappings: [{ containerPort: 8080 }],
-      essential: true,
-      memoryReservationMiB: 512
+      }
     })
+
+    container.addPortMappings({
+      containerPort: 8080,
+      hostPort: 8080,
+      protocol: ecs.Protocol.TCP
+    })
+
+    return container
   }
 
-  addEFSVolumeToTaskDefinition(taskDefinition) {
+  addEbsVolumeToTaskDefinition(taskDefinition) {
     taskDefinition.addVolume({
       name: 'rdf4j-data',
-      efsVolumeConfiguration: {
-        fileSystemId: this.fileSystem.fileSystemId,
-        transitEncryption: 'ENABLED',
-        authorizationConfig: {
-          accessPointId: Fn.importValue('rdf4jAccessPointId'),
-          iam: 'ENABLED'
-        }
+      host: {
+        sourcePath: '/mnt/rdf4j-data'
       }
     })
   }
@@ -216,66 +367,34 @@ class EcsStack extends Stack {
     })
   }
 
-  // RDF4j cannot scale horizontally, so we set the desired count to 1 and disable scaling.
-  createFargateService(taskDefinition) {
-    return new ecspatterns.ApplicationLoadBalancedFargateService(this, 'rdf4jService', {
-      cluster: this.cluster,
-      taskDefinition,
-      desiredCount: 1,
-      publicLoadBalancer: false,
-      listenerPort: 8080,
-      targetProtocol: elbv2.ApplicationProtocol.HTTP,
-      minHealthyPercent: 0,
-      maxHealthyPercent: 100,
-      enableExecuteCommand: true,
-      securityGroups: [this.ecsTasksSecurityGroup],
-      assignPublicIp: false,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-      cloudMapOptions: {
-        name: 'lb',
-        dnsRecordType: servicediscovery.DnsRecordType.A,
-        dnsTtl: Duration.seconds(60),
-        cloudMapNamespace: this.namespace
-      }
-    })
-  }
-
-  // To further prevent any accidental scaling, we add a scaling lock.  This explicitly sets both the
-  // minimum and maximum number of tasks to 1, preventing any scaling operations.
-  configureAutoScaling(fargateService) {
-    fargateService.service.autoScaleTaskCount({
-      maxCapacity: 1,
-      minCapacity: 1
-    })
-  }
-
-  configureHealthCheck(fargateService) {
-    fargateService.targetGroup.configureHealthCheck({
-      path: '/rdf4j-server/protocol',
-      port: '8080',
-      healthyHttpCodes: '200,301,302',
-      healthyThresholdCount: 2,
-      unhealthyThresholdCount: 3,
-      timeout: Duration.seconds(10),
-      interval: Duration.seconds(30),
-      matcher: {
-        httpCode: '200-399'
-      }
-    })
-  }
-
-  configureSecurity() {
-    this.fileSystem.connections.allowDefaultPortFrom(this.ecsTasksSecurityGroup)
-  }
-
   addOutputs() {
+    new CfnOutput(this, 'rdf4jCluster', {
+      value: this.cluster.clusterName,
+      description: 'The rdf4j cluster'
+    })
+
+    new CfnOutput(this, 'rdf4jServiceName', {
+      value: this.ecsService.serviceName,
+      description: 'The rdf4j service name'
+    })
+
+    new CfnOutput(this, 'rdf4jNamespaceId', {
+      value: this.namespace.namespaceId,
+      description: 'ID of the CloudMap Namespace'
+    })
+
+    new CfnOutput(this, 'rdf4jNamespaceName', {
+      value: this.namespace.namespaceName,
+      description: 'Name of the CloudMap Namespace'
+    })
+
     new CfnOutput(this, 'LoadBalancerDNS', {
-      value: this.fargateService.loadBalancer.loadBalancerDnsName,
+      value: this.loadBalancerDns,
       description: 'DNS name of the load balancer'
     })
 
     new CfnOutput(this, 'rdf4jServiceUrl', {
-      value: `http://${this.fargateService.loadBalancer.loadBalancerDnsName}:8080`,
+      value: `http://${this.loadBalancerDns}:8080`,
       description: 'URL of the RDF4J service'
     })
 
@@ -284,7 +403,6 @@ class EcsStack extends Stack {
       description: 'URL of the RDF4J service using service discovery'
     })
 
-    // Output the security group ID
     new CfnOutput(this, 'EcsTasksSecurityGroupId', {
       value: this.ecsTasksSecurityGroup.securityGroupId,
       exportName: `${this.stackName}-EcsTasksSecurityGroupId`

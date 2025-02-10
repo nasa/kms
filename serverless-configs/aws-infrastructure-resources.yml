@@ -1,17 +1,17 @@
 Resources:
-  # ServiceDiscoveryPolicy:
-  #   Type: AWS::IAM::Policy
-  #   Properties:
-  #     PolicyName: ${self:provider.stage}-ServiceDiscoveryPolicy
-  #     PolicyDocument:
-  #       Version: '2012-10-17'
-  #       Statement:
-  #         - Effect: Allow
-  #           Action:
-  #             - servicediscovery:DiscoverInstances
-  #           Resource: '*'
-  #     Roles:
-  #       - Ref: ServerlessAppRole
+  ServiceDiscoveryPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: ${self:provider.stage}-ServiceDiscoveryPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - servicediscovery:DiscoverInstances
+            Resource: '*'
+      Roles:
+        - Ref: ServerlessAppRole
   LambdaSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:

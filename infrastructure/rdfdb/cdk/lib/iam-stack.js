@@ -10,11 +10,10 @@ class IamStack extends Stack {
 
     this.vpc = this.getVpc(vpcId)
     this.role = this.createIAMRole()
-    this.addManagedPolicies(this.role)
-    this.addInlinePolicies(this.role)
-    this.addEcsExecuteCommandPermissions(this.role)
-    this.addCustomPolicy(this.role)
     this.addCloudMapPermissions(this.role)
+    this.addEbsVolumePermissions(this.role)
+    this.addEcrAndElbPermissions(this.role)
+    this.addSsmPermissions(this.role)
     this.addOutputs()
   }
 
@@ -22,29 +21,67 @@ class IamStack extends Stack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
+  addSsmPermissions(role) {
+    role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'))
+  }
+
   createIAMRole() {
-    return new iam.Role(this, 'rdf4jRole', {
+    const role = new iam.Role(this, 'rdf4jRole', {
       roleName: 'rdf4jRole',
-      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com')
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+        new iam.ServicePrincipal('ec2.amazonaws.com')
+      ),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonEC2ContainerServiceforEC2Role'),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy')
+      ]
     })
+
+    return role
   }
 
-  addManagedPolicies(role) {
-    role.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy')
-    )
-  }
-
-  addInlinePolicies(role) {
+  addEbsVolumePermissions(role) {
+    // Keep this method as is
     role.addToPolicy(new iam.PolicyStatement({
-      actions: ['elasticfilesystem:ClientMount', 'elasticfilesystem:ClientWrite'],
-      resources: [`arn:aws:elasticfilesystem:${this.region}:${this.account}:access-point/*`]
+      actions: [
+        'ec2:AttachVolume',
+        'ec2:DetachVolume',
+        'ec2:DescribeVolumes',
+        'ec2:DescribeVolumeStatus',
+        'ec2:DescribeVolumeAttribute',
+        'ec2:DescribeVolumesModifications',
+        'ec2:ModifyVolume'
+      ],
+      resources: ['*']
+    }))
+  }
+
+  addEcrAndElbPermissions(role) {
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        'ecr:GetAuthorizationToken',
+        'ecr:BatchCheckLayerAvailability',
+        'ecr:GetDownloadUrlForLayer',
+        'ecr:BatchGetImage',
+        'elasticloadbalancing:DeregisterInstancesFromLoadBalancer',
+        'elasticloadbalancing:DeregisterTargets',
+        'elasticloadbalancing:Describe*',
+        'elasticloadbalancing:RegisterInstancesWithLoadBalancer',
+        'elasticloadbalancing:RegisterTargets',
+        'ec2:DescribeInstances',
+        'logs:CreateLogStream',
+        'logs:PutLogEvents'
+      ],
+      resources: ['*']
     }))
   }
 
   addCloudMapPermissions(role) {
     role.addToPolicy(new iam.PolicyStatement({
       actions: [
+        'servicediscovery:DiscoverInstances',
         'servicediscovery:CreateService',
         'servicediscovery:DeleteService',
         'servicediscovery:GetService',
@@ -55,46 +92,10 @@ class IamStack extends Stack {
         'servicediscovery:ListNamespaces',
         'servicediscovery:ListServices',
         'servicediscovery:GetInstancesHealthStatus',
-        'servicediscovery:UpdateInstanceCustomHealthStatus'],
-      resources: ['*']
-    }))
-  }
-
-  addEcsExecuteCommandPermissions(role) {
-    role.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        'ssmmessages:CreateControlChannel',
-        'ssmmessages:CreateDataChannel',
-        'ssmmessages:OpenControlChannel',
-        'ssmmessages:OpenDataChannel',
-        'logs:CreateLogStream',
-        'logs:PutLogEvents'
+        'servicediscovery:UpdateInstanceCustomHealthStatus'
       ],
       resources: ['*']
     }))
-  }
-
-  addCustomPolicy(role) {
-    const policy = new iam.Policy(this, 'rdf4jRolePolicy', {
-      statements: [
-        new iam.PolicyStatement({
-          actions: [
-            'ecr:GetAuthorizationToken',
-            'ecr:BatchCheckLayerAvailability',
-            'ecr:GetDownloadUrlForLayer',
-            'ecr:BatchGetImage',
-            'elasticloadbalancing:DeregisterInstancesFromLoadBalancer',
-            'elasticloadbalancing:DeregisterTargets',
-            'elasticloadbalancing:Describe*',
-            'elasticloadbalancing:RegisterInstancesWithLoadBalancer',
-            'elasticloadbalancing:RegisterTargets'
-          ],
-          resources: ['*']
-        })
-      ]
-    })
-
-    policy.attachToRole(role)
   }
 
   addOutputs() {

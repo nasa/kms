@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 const cdk = require('aws-cdk-lib')
+const { EbsStack } = require('../lib/ebs-stack')
 const { EcsStack } = require('../lib/ecs-stack')
-const { EfsStack } = require('../lib/efs-stack')
 const { IamStack } = require('../lib/iam-stack')
+const { LoadBalancerStack } = require('../lib/lb-stack')
 
 async function main() {
-  const app = new cdk.App()
+  const app = new cdk.App({
+    context: {
+      '@aws-cdk/aws-ecs:enableImdsBlockingDeprecatedFeature': true
+    }
+  })
 
   const env = {
     account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -18,7 +23,13 @@ async function main() {
     env,
     vpcId
   })
-  const efsStack = new EfsStack(app, 'rdf4jEfsStack', {
+
+  const lbStack = new LoadBalancerStack(app, 'rdf4jLoadBalancerStack', {
+    env,
+    vpcId
+  })
+
+  const ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
     env,
     vpcId
   })
@@ -26,13 +37,17 @@ async function main() {
   const ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
     env,
     vpcId,
-    role: iamStack.role
+    roleArn: iamStack.role.roleArn,
+    lbStack,
+    ebsStack
   })
 
   // Add dependencies
-  efsStack.addDependency(iamStack)
+  ebsStack.addDependency(iamStack)
+  lbStack.addDependency(iamStack)
   ecsStack.addDependency(iamStack)
-  ecsStack.addDependency(efsStack)
+  ecsStack.addDependency(ebsStack)
+  ecsStack.addDependency(lbStack)
 
   app.synth()
 }
