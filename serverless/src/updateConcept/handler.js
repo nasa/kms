@@ -1,21 +1,16 @@
 import conceptIdExists from '../utils/conceptIdExists'
 import { getApplicationConfig } from '../utils/getConfig'
+import { sparqlRequest } from '../utils/sparqlRequest'
 
 /**
  * Updates existing SKOS Concepts
  * @param {Object} event Details about the HTTP request that it received
  */
 const updateConcept = async (event) => {
-  const { defaultResponseHeaders, sparqlEndpoint } = getApplicationConfig()
+  const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event
   const { conceptId } = event.pathParameters // Assuming the concept ID is passed as a path parameter
 
-  // Get credentials from environment variables
-  const username = process.env.RDF4J_USER_NAME
-  const password = process.env.RDF4J_PASSWORD
-
-  // Create the basic auth header
-  const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
   // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
@@ -30,13 +25,11 @@ const updateConcept = async (event) => {
     }
 
     // If the concept exists, proceed with the update
-    const response = await fetch(`${sparqlEndpoint}/statements`, {
+    const response = await sparqlRequest({
+      contentType: 'application/rdf+xml',
+      accept: 'application/rdf+xml',
+      path: '/statements',
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/rdf+xml',
-        Accept: 'application/rdf+xml',
-        Authorization: `Basic ${base64Credentials}`
-      },
       body: rdfXml
     })
 

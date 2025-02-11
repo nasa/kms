@@ -1,20 +1,15 @@
 import { getApplicationConfig } from '../utils/getConfig'
+import { sparqlRequest } from '../utils/sparqlRequest'
 
 /**
  * Deletes a SKOS Concept based on its rdf:about identifier
  * @param {Object} event Details about the HTTP request that it received
  */
 const deleteConcept = async (event) => {
-  const { defaultResponseHeaders, sparqlEndpoint } = getApplicationConfig()
+  const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
   const { conceptId } = pathParameters
 
-  // Get credentials from environment variables
-  const username = process.env.RDF4J_USER_NAME
-  const password = process.env.RDF4J_PASSWORD
-
-  // Create the basic auth header
-  const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
   // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
@@ -31,13 +26,11 @@ const deleteConcept = async (event) => {
   `
 
   try {
-    const response = await fetch(`${sparqlEndpoint}/statements`, {
+    const response = await sparqlRequest({
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      path: '/statements',
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-update',
-        Accept: 'application/sparql-results+json',
-        Authorization: `Basic ${base64Credentials}`
-      },
       body: deleteQuery
     })
 

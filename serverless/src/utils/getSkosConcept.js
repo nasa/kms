@@ -1,4 +1,4 @@
-import { getApplicationConfig } from './getConfig'
+import { sparqlRequest } from './sparqlRequest'
 import toSkosJson from './toSkosJson'
 
 /**
@@ -7,12 +7,6 @@ import toSkosJson from './toSkosJson'
  * @returns the SKOS concept represented as JSON.
  */
 const getSkosConcept = async (conceptIRI) => {
-  // Get credentials from environment variables
-  const username = process.env.RDF4J_USER_NAME
-  const password = process.env.RDF4J_PASSWORD
-
-  // Create the basic auth header
-  const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
   const sparqlQuery = `
   SELECT ?s ?p ?o
   WHERE {
@@ -26,16 +20,11 @@ const getSkosConcept = async (conceptIRI) => {
     }
   }
 `
-  const { sparqlEndpoint } = getApplicationConfig()
-
   try {
-    const response = await fetch(`${sparqlEndpoint}`, {
+    const response = await sparqlRequest({
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-        Authorization: `Basic ${base64Credentials}`
-      },
       body: sparqlQuery
     })
 

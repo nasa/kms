@@ -1,4 +1,3 @@
-import conceptIdExists from '../utils/conceptIdExists'
 import { getApplicationConfig } from '../utils/getConfig'
 import { sparqlRequest } from '../utils/sparqlRequest'
 
@@ -9,19 +8,6 @@ import { sparqlRequest } from '../utils/sparqlRequest'
 const createConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event
-  const { conceptId } = event.pathParameters // Assuming the concept ID is passed as a path parameter
-
-  // Create the basic auth header
-  const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
-
-  const exists = await conceptIdExists(conceptIRI)
-  if (exists) {
-    return {
-      statusCode: 404,
-      body: JSON.stringify({ message: `Concept ${conceptIRI} already exists.` }),
-      headers: defaultResponseHeaders
-    }
-  }
 
   try {
     const response = await sparqlRequest({

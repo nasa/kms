@@ -1,5 +1,3 @@
-// Helpers.js or utils/helpers.js
-
 const processTriples = (triples) => {
   const bNodeMap = {}
   const nodes = {}

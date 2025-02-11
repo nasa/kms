@@ -13,17 +13,7 @@ const status = async () => {
     const protocolEndpointUrl = `${rdf4jServiceUrl}/rdf4j-server/protocol`
 
     // Make a GET request to the protocol endpoint
-    // Create the basic auth header
-    const username = 'rdf4j'
-    const password = 'rdf4j'
-    const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
-
-    // Make a GET request to the protocol endpoint with basic auth
-    const response = await fetch(protocolEndpointUrl, {
-      headers: {
-        Authorization: `Basic ${base64Credentials}`
-      }
-    })
+    const response = await fetch(protocolEndpointUrl)
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
