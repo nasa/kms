@@ -14,7 +14,6 @@ const ecs = require('aws-cdk-lib/aws-ecs')
 const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const iam = require('aws-cdk-lib/aws-iam')
 const logs = require('aws-cdk-lib/aws-logs')
-const servicediscovery = require('aws-cdk-lib/aws-servicediscovery')
 
 class EcsStack extends Stack {
   constructor(scope, id, props) {
@@ -34,7 +33,6 @@ class EcsStack extends Stack {
     this.ebsVolumeAz = this.getEbsVolumeAz()
 
     this.createSecurityGroups()
-    this.namespace = this.createCloudMapNamespace()
     this.repository = this.createOrGetECRRepository()
     this.logGroup = this.createLogGroup()
 
@@ -45,9 +43,9 @@ class EcsStack extends Stack {
     this.addMountPointToContainer(container)
 
     // Import Load Balancer resources
-    this.loadBalancerDns = Fn.importValue('LoadBalancerDNS')
-    this.targetGroupArn = Fn.importValue('TargetGroupArn')
-    this.loadBalancerSecurityGroupId = Fn.importValue('LoadBalancerSecurityGroupId')
+    this.loadBalancerDns = Fn.importValue('rdf4jLoadBalancerDNS')
+    this.targetGroupArn = Fn.importValue('rdf4jTargetGroupArn')
+    this.loadBalancerSecurityGroupId = Fn.importValue('rdf4jLoadBalancerSecurityGroupId')
 
     // Create the target group from the imported ARN
     this.targetGroup = elbv2.ApplicationTargetGroup.fromTargetGroupAttributes(this, 'ImportedTargetGroup', {
@@ -80,14 +78,6 @@ class EcsStack extends Stack {
       ec2.Port.tcp(8080),
       'Allow traffic from Load Balancer'
     )
-  }
-
-  createCloudMapNamespace() {
-    return new servicediscovery.PrivateDnsNamespace(this, 'rdf4jNamespace', {
-      name: 'rdf4j.local',
-      vpc: this.vpc,
-      description: 'Private namespace for rdf4j service'
-    })
   }
 
   getVpc(vpcId) {
@@ -293,12 +283,6 @@ class EcsStack extends Stack {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
         availabilityZones: [this.getEbsVolumeAz()]
       },
-      cloudMapOptions: {
-        name: 'lb',
-        dnsRecordType: servicediscovery.DnsRecordType.SRV,
-        dnsTtl: Duration.seconds(60),
-        cloudMapNamespace: this.namespace
-      },
       capacityProviderStrategies: [
         {
           capacityProvider: this.capacityProvider.capacityProviderName,
@@ -370,42 +354,20 @@ class EcsStack extends Stack {
   addOutputs() {
     new CfnOutput(this, 'rdf4jCluster', {
       value: this.cluster.clusterName,
-      description: 'The rdf4j cluster'
+      description: 'The rdf4j cluster',
+      exportName: 'rdf4jCluster'
     })
 
     new CfnOutput(this, 'rdf4jServiceName', {
       value: this.ecsService.serviceName,
-      description: 'The rdf4j service name'
-    })
-
-    new CfnOutput(this, 'rdf4jNamespaceId', {
-      value: this.namespace.namespaceId,
-      description: 'ID of the CloudMap Namespace'
-    })
-
-    new CfnOutput(this, 'rdf4jNamespaceName', {
-      value: this.namespace.namespaceName,
-      description: 'Name of the CloudMap Namespace'
-    })
-
-    new CfnOutput(this, 'LoadBalancerDNS', {
-      value: this.loadBalancerDns,
-      description: 'DNS name of the load balancer'
-    })
-
-    new CfnOutput(this, 'rdf4jServiceUrl', {
-      value: `http://${this.loadBalancerDns}:8080`,
-      description: 'URL of the RDF4J service'
-    })
-
-    new CfnOutput(this, 'RDF4JServiceDiscoveryUrl', {
-      value: `http://lb.${this.namespace.namespaceName}:8080`,
-      description: 'URL of the RDF4J service using service discovery'
+      description: 'The rdf4j service name',
+      exportName: 'rdf4jServiceName'
     })
 
     new CfnOutput(this, 'EcsTasksSecurityGroupId', {
       value: this.ecsTasksSecurityGroup.securityGroupId,
-      exportName: `${this.stackName}-EcsTasksSecurityGroupId`
+      description: 'The ECS Tasks Security Group ID',
+      exportName: 'rdf4jEcsTasksSecurityGroupId'
     })
   }
 }

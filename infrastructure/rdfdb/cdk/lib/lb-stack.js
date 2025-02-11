@@ -74,19 +74,30 @@ class LoadBalancerStack extends Stack {
       defaultTargetGroups: [this.targetGroup]
     })
 
+    // Outputs
+
     new CfnOutput(this, 'LoadBalancerDNS', {
       value: this.alb.loadBalancerDnsName,
-      exportName: 'LoadBalancerDNS'
+      description: 'DNS name of the Application Load Balancer',
+      exportName: 'rdf4jLoadBalancerDNS'
     })
 
     new CfnOutput(this, 'TargetGroupArn', {
       value: this.targetGroup.targetGroupArn,
-      exportName: 'TargetGroupArn'
+      description: 'ARN of the Target Group',
+      exportName: 'rdf4jTargetGroupArn'
     })
 
     new CfnOutput(this, 'LoadBalancerSecurityGroupId', {
       value: this.loadBalancerSecurityGroup.securityGroupId,
-      exportName: 'LoadBalancerSecurityGroupId'
+      description: 'ID of the Load Balancer Security Group',
+      exportName: 'rdf4jLoadBalancerSecurityGroupId'
+    })
+
+    new CfnOutput(this, 'RDF4JServiceUrl', {
+      value: `http://${this.alb.loadBalancerDnsName}:8080`,
+      description: 'URL of the RDF4J service',
+      exportName: 'rdf4jServiceUrl'
     })
   }
 }

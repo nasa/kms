@@ -20,12 +20,9 @@ provider:
       - ${env:SUBNET_ID_B, 'subnetIdB'}
       - ${env:SUBNET_ID_C, 'subnetIdC'}
   environment:
-    RDF4J_SERVICE_URL: ${self:custom.cloudMap.serviceUrl.${self:provider.stage}, 'http://localhost:8080'}  
+    RDF4J_SERVICE_URL: ${self:custom.cloudMap.${self:provider.stage}.serviceUrl, 'http://localhost:8080'}  
     RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
     RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
-    # RDF4J_SERVICE_URL: ${self:custom.cloudMap.serviceUrl.${self:provider.stage}, 'http://localhost:8080'}  
-
-
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
     skipPolicySetup: true
@@ -59,13 +56,14 @@ custom:
   infrastructureStackName: kms-infrastructure-${self:provider.stage}
 
   cloudMap:
-    serviceUrl: 
-      dev: ${env:LOCAL_RDF4J_URL, 'http://localhost:8080'}
-      sit: ${env:SIT_RDF4J_URL, 'http://lb.rdf4j.local:8080'}
-      uat: ${env:UAT_RDF4J_URL, 'http://lb.rdf4j.local:8080'}
-      prod: ${env:PROD_RDF4J_URL, 'http://lb.rdf4j.local:8080'}
-
-  # Finch (S3 sync plugin)
+    dev:
+      serviceUrl: ${env:LOCAL_RDF4J_URL, 'http://localhost:8080'}
+    sit:
+      serviceUrl: ${cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, env:SIT_RDF4J_URL, 'http://localhost:8080'}
+    uat:
+      serviceUrl: ${cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, env:UAT_RDF4J_URL, 'http://localhost:8080'}
+    prod:
+      serviceUrl: ${cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, env:PROD_RDF4J_URL, 'http://localhost:8080'}  # Finch (S3 sync plugin)
   client:
     bucketName: ${self:custom.siteName}
     distributionFolder: dist
