@@ -12,7 +12,6 @@ config="`cat static.config.json`"
 # update keys for deployment
 config="`jq '.application.env = $newValue' --arg newValue $bamboo_STAGE_NAME <<< $config`"
 config="`jq '.application.apiHost = $newValue' --arg newValue $bamboo_API_HOST <<< $config`"
-config="`jq '.application.sparqlEndpoint = $newValue' --arg newValue $bamboo_SPARQL_ENDPOINT <<< $config`"
 
 # overwrite static.config.json with new values
 echo $config > tmp.$$.json && mv tmp.$$.json static.config.json

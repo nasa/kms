@@ -20,7 +20,7 @@ provider:
       - ${env:SUBNET_ID_B, 'subnetIdB'}
       - ${env:SUBNET_ID_C, 'subnetIdC'}
   environment:
-    RDF4J_SERVICE_URL: ${self:custom.cloudMap.${self:provider.stage}.serviceUrl, 'http://localhost:8080'}  
+    RDF4J_SERVICE_URL: ${env:RDF4J_SERVICE_URL, cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, 'http://localhost:8080'} 
     RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
     RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
@@ -55,15 +55,6 @@ custom:
   collectionTemplatesBucketName: ${self:custom.siteName}-collection-templates
   infrastructureStackName: kms-infrastructure-${self:provider.stage}
 
-  cloudMap:
-    dev:
-      serviceUrl: ${env:LOCAL_RDF4J_URL, 'http://localhost:8080'}
-    sit:
-      serviceUrl: ${cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, env:SIT_RDF4J_URL, 'http://localhost:8080'}
-    uat:
-      serviceUrl: ${cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, env:UAT_RDF4J_URL, 'http://localhost:8080'}
-    prod:
-      serviceUrl: ${cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, env:PROD_RDF4J_URL, 'http://localhost:8080'}  # Finch (S3 sync plugin)
   client:
     bucketName: ${self:custom.siteName}
     distributionFolder: dist

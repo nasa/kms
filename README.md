@@ -28,7 +28,7 @@ In order to run KMS locally, you first need to setup a RDF database.
 In order to run serverless-offline, which is used for mimicking API Gateway to call lambda functions, run:
 
 ```bash
-    npm run offline
+    RDF4J_SERVICE_URL=http://localhost:8080 npm run offline
 ```
 
 ## Local Testing

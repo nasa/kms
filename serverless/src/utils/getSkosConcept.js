@@ -46,6 +46,10 @@ const getSkosConcept = async (conceptIRI) => {
 
     const json = await response.json()
 
+    if (json.results.bindings.length === 0) {
+      throw new Error(`No results found for concept: ${conceptIRI}`)
+    }
+
     return toSkosJson(conceptIRI, json.results.bindings)
   } catch (error) {
     console.error('Error fetching SKOS concept:', error)
