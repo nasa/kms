@@ -5,8 +5,25 @@ import toSkosJson from '../utils/toSkosJson'
 import processTriples from '../utils/processTriples'
 
 /**
- * Fetches a single SKOS Concept
- * @param {Object} event Details about the HTTP request that it received
+ * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
+ *
+ * This function fetches all SKOS concepts from the RDF store,
+ * processes them, and constructs an RDF/XML representation of the concepts.
+ * It limits the output to 2000 concepts to manage response size.
+ *
+ * @async
+ * @function getConcepts
+ * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ *
+ * @example
+ * const result = await getConcepts();
+ * console.log(result);
+ * // Output on success:
+ * // {
+ * //   statusCode: 200,
+ * //   body: '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" ...>...</rdf:RDF>',
+ * //   headers: { ... }
+ * // }
  */
 const getConcepts = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()

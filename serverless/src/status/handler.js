@@ -1,10 +1,37 @@
 import { getApplicationConfig } from '../utils/getConfig'
 
 /**
- * Status endpoint
- * @param {Object} event Details about the HTTP request that it received
- */
-const status = async () => {
+ * Provides a status check for the RDF4J database connection.
+ *
+ * This function attempts to connect to the RDF4J server's protocol endpoint
+ * to verify that the database connection is healthy. It returns a success
+ * response if the connection is established, or an error response if the
+ * connection fails.
+ *
+ * @async
+ * @function status
+ * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ *
+ * @example
+ * const result = await status();
+ * console.log(result);
+ * // Output on success:
+ * // {
+ * //   statusCode: 200,
+ * //   body: 'Database connection healthy',
+ * //   headers: {
+ * //     'Content-Type': 'text/plain',
+ * //     ... other headers ...
+ * //   }
+ * // }
+ *
+ * // Output on failure:
+ * // {
+ * //   statusCode: 500,
+ * //   body: '{"error":"Failed to fetch RDF4J status"}',
+ * //   headers: { ... }
+ * // }
+ */const status = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const rdf4jServiceUrl = process.env.RDF4J_SERVICE_URL
 

@@ -2,8 +2,32 @@ import { getApplicationConfig } from '../utils/getConfig'
 import { sparqlRequest } from '../utils/sparqlRequest'
 
 /**
- * Deletes a SKOS Concept based on its rdf:about identifier
- * @param {Object} event Details about the HTTP request that it received
+ * Deletes a SKOS Concept from the RDF store based on its rdf:about identifier.
+ *
+ * This function constructs a SPARQL DELETE query to remove all triples where the
+ * specified concept is the subject. It then sends this query to the SPARQL endpoint.
+ *
+ * @async
+ * @function deleteConcept
+ * @param {Object} event - The Lambda event object.
+ * @param {Object} event.pathParameters - The path parameters from the API Gateway event.
+ * @param {string} event.pathParameters.conceptId - The ID of the concept to be deleted.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ *
+ * @example
+ * // Lambda event object
+ * const event = {
+ *   pathParameters: { conceptId: '123' }
+ * };
+ *
+ * const result = await deleteConcept(event);
+ * console.log(result);
+ * // Output on success:
+ * // {
+ * //   statusCode: 200,
+ * //   body: '{"message":"Successfully deleted concept: 123"}',
+ * //   headers: { ... }
+ * // }
  */
 const deleteConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()

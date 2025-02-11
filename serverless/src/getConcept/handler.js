@@ -3,8 +3,32 @@ import { getApplicationConfig } from '../utils/getConfig'
 import getSkosConcept from '../utils/getSkosConcept'
 
 /**
- * Fetches a single SKOS Concept
- * @param {Object} event Details about the HTTP request that it received
+ * Retrieves a SKOS Concept by its ID and returns it as RDF/XML.
+ *
+ * This function fetches a SKOS concept from the RDF store using its ID,
+ * constructs an RDF/XML representation of the concept, and returns it in the response.
+ *
+ * @async
+ * @function getConcept
+ * @param {Object} event - The Lambda event object.
+ * @param {Object} event.pathParameters - The path parameters from the API Gateway event.
+ * @param {string} event.pathParameters.conceptId - The ID of the concept to retrieve.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ *
+ * @example
+ * // Lambda event object
+ * const event = {
+ *   pathParameters: { conceptId: '123' }
+ * };
+ *
+ * const result = await getConcept(event);
+ * console.log(result);
+ * // Output on success:
+ * // {
+ * //   statusCode: 200,
+ * //   body: '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" ...>...</rdf:RDF>',
+ * //   headers: { ... }
+ * // }
  */
 const getConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()

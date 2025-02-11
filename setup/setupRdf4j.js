@@ -7,6 +7,12 @@ const username = process.env.RDF4J_USER_NAME || 'rdf4j'
 const password = process.env.RDF4J_PASSWORD || 'rdf4j'
 const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
 
+/**
+ * Checks if the RDF4J server is running and accessible.
+ *
+ * @async
+ * @returns {Promise<boolean>} True if the server is running, false otherwise.
+ */
 const checkRDF4JServer = async () => {
   try {
     const response = await fetch(`${baseUrl}/protocol`, {
@@ -26,6 +32,12 @@ const checkRDF4JServer = async () => {
   return false
 }
 
+/**
+ * Checks if the specified repository exists and retrieves its size.
+ *
+ * @async
+ * @returns {Promise<boolean>} True if the repository exists, false otherwise.
+ */
 const checkRepository = async () => {
   try {
     const response = await fetch(`${baseUrl}/repositories/${repoId}/size`, {
@@ -47,6 +59,16 @@ const checkRepository = async () => {
   return false
 }
 
+/**
+ * Waits for the repository to become available, checking at regular intervals.
+ *
+ * @async
+ * @param {Object} options - The options for waiting.
+ * @param {number} [options.maxAttempts=30] - Maximum number of attempts.
+ * @param {number} [options.interval=5000] - Interval between attempts in milliseconds.
+ * @param {number} [options.currentAttempt=1] - Current attempt number.
+ * @returns {Promise<boolean>} True if the repository becomes available, false otherwise.
+ */
 const waitForRepository = async ({
   maxAttempts = 30, interval = 5000, currentAttempt = 1
 }) => {
@@ -75,6 +97,12 @@ const waitForRepository = async ({
   })
 }
 
+/**
+ * Loads RDF/XML data from a file into the RDF4J repository.
+ *
+ * @async
+ * @param {string} filePath - Path to the RDF/XML file.
+ */
 const loadRDFXMLToRDF4J = async (filePath) => {
   try {
     const xmlData = await fs.readFile(filePath, 'utf8')
@@ -101,6 +129,16 @@ const loadRDFXMLToRDF4J = async (filePath) => {
   }
 }
 
+/**
+ * Main function to execute the setup process.
+ *
+ * This function performs the following steps:
+ * 1. Checks if the RDF4J server is running.
+ * 2. Waits for the specified repository to become available.
+ * 3. Loads the RDF/XML data into the repository.
+ *
+ * @async
+ */
 const main = async () => {
   const inputFile = 'setup/data/concepts.rdf'
 
