@@ -1,5 +1,4 @@
 import { describe } from 'vitest'
-import { getApplicationConfig } from '../../utils/getConfig'
 import status from '../handler'
 
 const originalConsoleLog = console.log
