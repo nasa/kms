@@ -46,7 +46,7 @@ const getConcepts = async () => {
 
     const concepts = []
 
-    const conceptURIs = fullURIs.splice(0, 2000)
+    const conceptURIs = fullURIs.slice(0, 2000)
     conceptURIs.forEach((uri) => {
       const ntriples = [...nodes[uri]]
       concepts.push(toSkosJson(uri, ntriples, bNodeMap))

@@ -3,6 +3,7 @@ import { getApplicationConfig } from '../utils/getConfig'
 
 /**
  * Deletes all triples from the RDF store.
+ * @todo: This function is intended for use in development and testing environments only.
  * THIS IS A DANGEROUS OPERATION AND SHOULD BE USED WITH CAUTION.
  * This function is intended for use in development and testing environments only.
  *

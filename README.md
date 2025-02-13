@@ -41,8 +41,8 @@ In order to run KMS locally, you first need to setup a RDF database.
 ### Prerequisites
 #### Set the RDFDB user name and password
 ```
-export RDFDB_USER_NAME=[your rdfdb user name]
-export RDFDB_PASSWORD=[your rdfdb password]
+export RDF4J_USER_NAME=[user name]
+export RDF4J_PASSWORD=[password]
 ```
 ### Building and Running the RDF Database
 #### Build the docker image
@@ -57,6 +57,29 @@ npm run rdf4j:start
 ```
 npm run rdf4j:setup
 ```
+
+# Deployments
+## Deploying KMS to AWS
+### Prerequisites
+#### Copy your AWS credentials and set these up as env variables
+```
+export bamboo_STAGE_NAME=[sit|uat|prod]
+export bamboo_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+export bamboo_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+export bamboo_AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+export bamboo_LAMBDA_TIMEOUT=30
+export bamboo_SUBNET_ID_A={subnet #1}
+export bamboo_SUBNET_ID_B={subnet #2}
+export bamboo_SUBNET_ID_C={subnet #3}
+export bamboo_VPC_ID={your vpc id}
+export RDF4J_USER_NAME=[your rdfdb user name]
+export RDF4J_PASSWORD=[your rdfdb password]
+```
+#### Deploy KMS Application
+```
+./bin/deploy_bamboo.sh
+```
+
 ## Deploying RDF Database to AWS
 ### Prerequisites
 #### Copy your AWS credentials and set these up as env variables
@@ -77,8 +100,8 @@ export VPC_ID=[your vpc id]
 ```
 #### Set the RDFDB user name and password
 ```
-export RDFDB_USER_NAME=[your rdfdb user name]
-export RDFDB_PASSWORD=[your rdfdb password]
+export RDF4J_USER_NAME=[your rdfdb user name]
+export RDF4J_PASSWORD=[your rdfdb password]
 ```
 
 #### Deploy Docker Container to Registry

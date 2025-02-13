@@ -55,6 +55,8 @@ dockerRun() {
         --env "SUBNET_ID_B=$bamboo_SUBNET_ID_B" \
         --env "SUBNET_ID_C=$bamboo_SUBNET_ID_C" \
         --env "VPC_ID=$bamboo_VPC_ID" \
+        --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
+        --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
         $dockerTag "$@"
 }
 

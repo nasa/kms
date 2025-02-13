@@ -1,6 +1,5 @@
 {
   "application": {
-    "apiHost": "https://cmr.sit.earthdata.nasa.gov/kms",
     "env": "sit",
     "version": "development",
     "defaultResponseHeaders": {

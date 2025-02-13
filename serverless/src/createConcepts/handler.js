@@ -5,6 +5,7 @@ import { sparqlRequest } from '../utils/sparqlRequest'
 /**
  * Handler function to create multiple SKOS concepts from RDF/XML data.
  *
+ * @todo Implement deletion of existing concept triples before loading new ones.
  * This function processes RDF/XML input, counts the number of concepts,
  * and loads them into an RDF4J triplestore using a SPARQL endpoint.
  *
