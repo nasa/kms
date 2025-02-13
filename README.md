@@ -59,27 +59,6 @@ npm run rdf4j:setup
 ```
 
 # Deployments
-## Deploying KMS to AWS
-### Prerequisites
-#### Copy your AWS credentials and set these up as env variables
-```
-export bamboo_STAGE_NAME=[sit|uat|prod]
-export bamboo_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-export bamboo_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-export bamboo_AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-export bamboo_LAMBDA_TIMEOUT=30
-export bamboo_SUBNET_ID_A={subnet #1}
-export bamboo_SUBNET_ID_B={subnet #2}
-export bamboo_SUBNET_ID_C={subnet #3}
-export bamboo_VPC_ID={your vpc id}
-export RDF4J_USER_NAME=[your rdfdb user name]
-export RDF4J_PASSWORD=[your rdfdb password]
-```
-#### Deploy KMS Application
-```
-./bin/deploy_bamboo.sh
-```
-
 ## Deploying RDF Database to AWS
 ### Prerequisites
 #### Copy your AWS credentials and set these up as env variables
@@ -125,3 +104,25 @@ cd infrastructure/rdfdb/cdk
 cdk deploy --all
 ```
 One thing to note is if you destroy the rdf4jEbsStack and redeploy, this will create a new EBS file system.  You will need to copy the data from the old EBS file system to the new one.  This can be done by mounting the old EBS file system to an EC2 instance and copying the data to the new EBS file system.
+
+## Deploying KMS to AWS
+### Prerequisites
+#### Copy your AWS credentials and set these up as env variables
+```
+export bamboo_STAGE_NAME=[sit|uat|prod]
+export bamboo_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+export bamboo_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+export bamboo_AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+export bamboo_LAMBDA_TIMEOUT=30
+export bamboo_SUBNET_ID_A={subnet #1}
+export bamboo_SUBNET_ID_B={subnet #2}
+export bamboo_SUBNET_ID_C={subnet #3}
+export bamboo_VPC_ID={your vpc id}
+export bamboo_RDF4J_USER_NAME=[your rdfdb user name]
+export bamboo_RDF4J_PASSWORD=[your rdfdb password]
+```
+#### Deploy KMS Application
+```
+./bin/deploy_bamboo.sh
+```
+
