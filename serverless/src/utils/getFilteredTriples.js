@@ -1,7 +1,8 @@
 import { sparqlRequest } from './sparqlRequest'
 
 /**
- * Retrieves all triples from the configured SPARQL endpoint.
+ * Retrieves all triples from the configured SPARQL endpoint.   This function will
+ * eventually be passed a filter to limit the triples returned.
  *
  * This function performs the following operations:
  * 1. Constructs a SPARQL query to fetch all triples in the database given the specified filter (filter work tbd)

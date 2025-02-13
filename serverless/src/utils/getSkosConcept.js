@@ -20,10 +20,31 @@ import toSkosJson from './toSkosJson'
  * @throws {Error} If the HTTP request fails, if no results are found for the concept,
  *                 or if there's an error during the fetching or processing of the concept data.
  *
- * @example
+* @example
  * try {
  *   const conceptData = await getSkosConcept('http://example.com/concept/123');
  *   console.log(conceptData);
+ *   // Example output:
+ *   // {
+ *   //   "@rdf:about": "http://example.com/concept/123",
+ *   //   "skos:prefLabel": {
+ *   //     "_text": "Example Concept",
+ *   //     "@xml:lang": "en"
+ *   //   },
+ *   //   "skos:definition": {
+ *   //     "_text": "This is an example SKOS concept.",
+ *   //     "@xml:lang": "en"
+ *   //   },
+ *   //   "skos:broader": {
+ *   //     "@rdf:resource": "http://example.com/concept/parent"
+ *   //   },
+ *   //   "skos:narrower": [
+ *   //     { "@rdf:resource": "http://example.com/concept/child1" },
+ *   //     { "@rdf:resource": "http://example.com/concept/child2" }
+ *   //   ],
+ *   //   "dcterms:created": "2023-01-15",
+ *   //   "dcterms:modified": "2023-06-30"
+ *   // }
  * } catch (error) {
  *   console.error('Failed to get concept:', error);
  * }

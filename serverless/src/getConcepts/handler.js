@@ -10,7 +10,9 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
  *
  * This function fetches all SKOS concepts from the RDF store,
  * processes them, and constructs an RDF/XML representation of the concepts.
- * It limits the output to 2000 concepts to manage response size.
+ * It limits the output to 2000 concepts to manage response size.  Paging
+ * is not supported yet.
+ *
  *
  * @async
  * @function getConcepts
