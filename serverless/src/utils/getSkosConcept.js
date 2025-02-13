@@ -33,18 +33,20 @@ import toSkosJson from './toSkosJson'
  */
 const getSkosConcept = async (conceptIRI) => {
   const sparqlQuery = `
-  SELECT ?s ?p ?o
-  WHERE {
-    {
-      <${conceptIRI}> ?p ?o .
-      BIND(<${conceptIRI}> AS ?s)
-    } UNION {
-      <${conceptIRI}> ?p ?s .
-      ?s ?p ?o .
-      FILTER(isBlank(?s))
-    }
+SELECT DISTINCT ?s ?p ?o
+WHERE {
+  {
+    <${conceptIRI}> ?p ?o .
+    BIND(<${conceptIRI}> AS ?s)
+  } 
+  UNION 
+  {
+    <${conceptIRI}> ?p1 ?bnode .
+    ?bnode ?p ?o .
+    BIND(?bnode AS ?s)
+    FILTER(isBlank(?bnode))
   }
-`
+}  `
   try {
     const response = await sparqlRequest({
       contentType: 'application/sparql-query',
@@ -54,7 +56,6 @@ const getSkosConcept = async (conceptIRI) => {
     })
 
     if (!response.ok) {
-      console.log('response=', await response.text())
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 

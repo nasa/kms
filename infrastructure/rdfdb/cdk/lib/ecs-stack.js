@@ -15,7 +15,27 @@ const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const iam = require('aws-cdk-lib/aws-iam')
 const logs = require('aws-cdk-lib/aws-logs')
 
-class EcsStack extends Stack {
+/**
+ * Stack for creating ECS (Elastic Container Service) resources for RDF4J.
+ *
+ * This stack sets up the necessary infrastructure to run RDF4J in an ECS cluster,
+ * including:
+ *
+ * - An ECS cluster with EC2 instances
+ * - An Auto Scaling Group for managing EC2 instances
+ * - A task definition and service for running the RDF4J container
+ * - Security groups and IAM roles for the ECS tasks
+ * - An ECR repository for storing the RDF4J Docker image
+ * - CloudWatch log groups for container logs
+ * - Integration with an existing Application Load Balancer
+ * - EBS volume mounting for persistent storage
+ *
+ * The stack also handles the creation and configuration of necessary networking
+ * components and ensures that the ECS tasks are running in the same Availability
+ * Zone as the EBS volume for data persistence.
+ *
+ * @extends Stack
+ */class EcsStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)
     const { vpcId, roleArn, ebsStack } = props

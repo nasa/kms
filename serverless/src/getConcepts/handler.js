@@ -3,6 +3,7 @@ import { getApplicationConfig } from '../utils/getConfig'
 import getFilteredTriples from '../utils/getFilteredTriples'
 import toSkosJson from '../utils/toSkosJson'
 import processTriples from '../utils/processTriples'
+import getGcmdMetadata from '../utils/getGcmdMetadata'
 
 /**
  * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
@@ -50,11 +51,12 @@ const getConcepts = async () => {
     })
 
     const rdfJson = {
-      rdf: {
+      'rdf:RDF': {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
         '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
         '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
         '@xmlns:kms': 'https://gcmd.earthdata.nasa.gov/kms#',
+        'gcmd:gcmd': await getGcmdMetadata({ gcmdHits: fullURIs.length }),
         'skos:Concept': concepts
       }
     }
@@ -63,7 +65,10 @@ const getConcepts = async () => {
 
     return {
       body: xml,
-      headers: defaultResponseHeaders
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/xml; charset=utf-8'
+      }
     }
   } catch (error) {
     console.error(`Error retrieving concept, error=${error.toString()}`)

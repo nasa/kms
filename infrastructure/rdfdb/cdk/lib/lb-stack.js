@@ -8,12 +8,14 @@ const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const ec2 = require('aws-cdk-lib/aws-ec2')
 
 /**
+ * Stack for creating Load Balancer resources for RDF4J.
  * Technically, we don't really need a load balancer since we are
  * not scaling horizontally.   But having one provides a static DNS
  * endpoint that doesn't change even if the underlying container or
  * EC2 instance changes.   Also it can provide HTTPs (not implemented
  * yet) as add an additional security layer, as well as health
  * checks.
+ * @extends Stack
  */
 class LoadBalancerStack extends Stack {
   constructor(scope, id, props) {

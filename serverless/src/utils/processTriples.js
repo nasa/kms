@@ -17,6 +17,57 @@
  * This processed data structure allows for efficient lookup and manipulation of the RDF data,
  * particularly useful for operations involving blank nodes, subject-based grouping,
  * and concept identification.
+* @example
+ * // Input triples (subset of GREENLANDIAN data):
+ * const triples = [
+ *   {
+ *     s: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3' },
+ *     p: { type: 'uri', value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+ *     o: { type: 'literal', 'xml:lang': 'en', value: 'GREENLANDIAN' }
+ *   },
+ *   {
+ *     s: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3' },
+ *     p: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms#reference' },
+ *     o: { type: 'bnode', value: '68e59f870786c032' }
+ *   },
+ *   {
+ *     s: { type: 'bnode', value: '68e59f870786c032' },
+ *     p: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms#text' },
+ *     o: { type: 'literal', 'xml:lang': 'en', value: 'International Commission on Stratigraphy (http://www.stratigraphy.org/)' }
+ *   }
+ * ];
+ *
+ * const result = processTriples(triples);
+ *
+ * console.log(result);
+* // Output:
+ * // {
+ * //   bNodeMap: {
+ * //     '68e59f870786c032': [
+ * //       {
+ * //         s: { type: 'bnode', value: '68e59f870786c032' },
+ * //         p: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms#text' },
+ * //         o: { type: 'literal', 'xml:lang': 'en', value: 'International Commission on Stratigraphy (http://www.stratigraphy.org/)' }
+ * //       }
+ * //     ]
+ * //   },
+ * //   nodes: {
+ * //     'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3': [
+ * //       {
+ * //         s: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3' },
+ * //         p: { type: 'uri', value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+ * //         o: { type: 'literal', 'xml:lang': 'en', value: 'GREENLANDIAN' }
+ * //       },
+ * //       {
+ * //         s: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3' },
+ * //         p: { type: 'uri', value: 'https://gcmd.earthdata.nasa.gov/kms#reference' },
+ * //         o: { type: 'bnode', value: '68e59f870786c032' }
+ * //       }
+ * //     ]
+ * //   },
+ * //   conceptURIs: ['https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3']
+ * // }
+ *
  */
 const processTriples = (triples) => {
   const bNodeMap = {}

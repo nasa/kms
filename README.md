@@ -23,6 +23,21 @@ To install the necessary components, run:
 
 In order to run KMS locally, you first need to setup a RDF database.
 
+#### Setting up the RDF Database for local development
+##### Set the RDFDB user name and password
+```export RDFDB_USER_NAME=[your rdfdb user name]
+export RDFDB_PASSWORD=[your rdfdb password]
+```
+##### Build the docker image
+```bash npm run rdf4j:build
+```
+##### Run the docker image
+```bash npm run rdf4j:start
+```
+##### Setup and load data into the RDF database
+```bash npm run rdf4j:setup
+```
+
 #### Running Serverless Offline (API Gateway/Lambdas)
 
 In order to run serverless-offline, which is used for mimicking API Gateway to call lambda functions, run:
@@ -39,7 +54,7 @@ To run the test suite, run:
     npm run test
 ```
 
-## Deploying RDF Database
+## Deploying RDF Database to AWS
 ### Prerequisites
 #### Copy your AWS credentials and set these up as env variables
 ```export AWS_ACCESS_KEY_ID=[your access key id]

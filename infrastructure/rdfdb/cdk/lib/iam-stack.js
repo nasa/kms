@@ -3,6 +3,10 @@ const { Stack, CfnOutput } = require('aws-cdk-lib')
 const ec2 = require('aws-cdk-lib/aws-ec2')
 const iam = require('aws-cdk-lib/aws-iam')
 
+/**
+ * Stack for creating IAM resources for RDF4J.
+ * @extends Stack
+ */
 class IamStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)

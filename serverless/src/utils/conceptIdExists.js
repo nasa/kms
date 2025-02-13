@@ -37,12 +37,10 @@ const conceptIdExists = async (conceptIRI) => {
 
   if (!checkResponse.ok) {
     const errorText = await checkResponse.text()
-    console.error(`Error response: ${errorText}`)
     throw new Error(`Error checking concept existence: ${checkResponse.status}. ${errorText}`)
   }
 
   const checkResult = await checkResponse.json()
-  console.log('checkResult=', checkResult, checkResult.results.bindings.length > 0)
 
   return checkResult.results.bindings.length > 0
 }

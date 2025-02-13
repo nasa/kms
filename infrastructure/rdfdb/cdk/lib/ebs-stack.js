@@ -4,6 +4,10 @@ const {
 } = require('aws-cdk-lib')
 const ec2 = require('aws-cdk-lib/aws-ec2')
 
+/**
+ * Stack for creating an Elastic Block Store (EBS) volume for RDF4J.
+ * @extends Stack
+ */
 class EbsStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props)

@@ -1,44 +1,78 @@
+import { XMLParser } from 'fast-xml-parser'
 import { getApplicationConfig } from '../utils/getConfig'
 import { sparqlRequest } from '../utils/sparqlRequest'
 
 /**
- * Creates new SKOS Concepts in the RDF store.
+ * Handler function to create multiple SKOS concepts from RDF/XML data.
  *
- * This function takes RDF/XML data representing one or more SKOS concepts and
- * adds them to the RDF store using a SPARQL endpoint.
+ * This function processes RDF/XML input, counts the number of concepts,
+ * and loads them into an RDF4J triplestore using a SPARQL endpoint.
+ *
+ * This function is not quite ready for production use, as it needs to
+ * delete the existing concept triples before loading the new ones; if this
+ * is not done, the triplestore will contain duplicate data.
  *
  * @async
- * @function createConcept
+ * @function createConcepts
  * @param {Object} event - The Lambda event object.
- * @param {string} event.body - The RDF/XML representation of the concept(s) to be created.
- * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ * @param {string} event.body - The RDF/XML data containing SKOS concepts.
+ * @returns {Promise<Object>} A promise that resolves to an object containing:
+ *   - statusCode {number} - HTTP status code (200 for success, 400 for invalid input, 500 for server error)
+ *   - body {string} - JSON stringified response body
+ *   - headers {Object} - Response headers
  *
  * @example
- * // Lambda event object
- * const event = {
- *   body: `
- *     <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
- *              xmlns:skos="http://www.w3.org/2004/02/skos/core#">
- *       <skos:Concept rdf:about="http://example.com/concept/123">
- *         <skos:prefLabel>Example Concept</skos:prefLabel>
- *       </skos:Concept>
- *     </rdf:RDF>
- *   `
- * };
- *
- * const result = await createConcept(event);
+ * // Successful creation
+ * const event = { body: '<rdf:RDF>...</rdf:RDF>' };
+ * const result = await createConcepts(event);
  * console.log(result);
- * // Output on success:
  * // {
  * //   statusCode: 200,
- * //   body: 'Successfully loaded RDF XML into RDF4J',
+ * //   body: '{"message":"Successfully loaded RDF XML into RDF4J","conceptsLoaded":5}',
  * //   headers: { ... }
  * // }
- */const createConcept = async (event) => {
+ *
+ * @example
+ * // Invalid input
+ * const event = { body: null };
+ * const result = await createConcepts(event);
+ * console.log(result);
+ * // {
+ * //   statusCode: 400,
+ * //   body: '{"message":"Invalid input: RDF/XML data is required"}',
+ * //   headers: { ... }
+ * // }
+ */
+const createConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event
 
+  if (!rdfXml || typeof rdfXml !== 'string') {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'Invalid input: RDF/XML data is required' }),
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      }
+    }
+  }
+
+  let conceptCount = 0
   try {
+    // Parse the XML and count the number of skos:Concept elements
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      allowBooleanAttributes: true
+    })
+    const result = parser.parse(rdfXml)
+
+    // Count the number of Concept elements
+    const concepts = result['rdf:RDF']['skos:Concept']
+    // eslint-disable-next-line no-nested-ternary
+    conceptCount = Array.isArray(concepts) ? concepts.length : (concepts ? 1 : 0)
+
     const response = await sparqlRequest({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
@@ -49,26 +83,50 @@ import { sparqlRequest } from '../utils/sparqlRequest'
 
     if (!response.ok) {
       const responseText = await response.text()
-      console.log('Response text:', responseText)
-      throw new Error(`HTTP error! status: ${response.status}`)
+      console.error('Error response:', responseText)
+
+      return {
+        statusCode: response.status,
+        body: JSON.stringify({
+          message: `Error from SPARQL endpoint: ${responseText}`,
+          conceptsAttempted: conceptCount
+        }),
+        headers: {
+          ...defaultResponseHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
     }
 
-    console.log('Successfully loaded RDF XML into RDF4J')
+    console.log(`Successfully loaded ${conceptCount} concepts into RDF4J`)
 
     return {
       statusCode: 200,
-      body: 'Successfully loaded RDF XML into RDF4J',
-      headers: defaultResponseHeaders
+      body: JSON.stringify({
+        message: 'Successfully loaded RDF XML into RDF4J',
+        conceptsLoaded: conceptCount
+      }),
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      }
     }
   } catch (error) {
     console.error('Error loading RDF XML into RDF4J:', error)
 
     return {
       statusCode: 500,
-      body: 'Error loading RDF XML into RDF4J',
-      headers: defaultResponseHeaders
+      body: JSON.stringify({
+        message: 'Error loading RDF XML into RDF4J',
+        error: error.message,
+        conceptsAttempted: conceptCount
+      }),
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      }
     }
   }
 }
 
-export default createConcept
+export default createConcepts

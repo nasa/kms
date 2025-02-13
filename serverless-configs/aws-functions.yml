@@ -63,3 +63,11 @@ deleteConcept:
         method: delete
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept/{conceptId}
+deleteAll:
+  handler: serverless/src/deleteAll/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: delete
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: deleteAll

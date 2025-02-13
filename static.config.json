@@ -1,12 +1,1 @@
-{
-  "application": {
-    "apiHost": "http://localhost:4001/dev",
-    "env": "development",
-    "version": "development",
-    "defaultResponseHeaders": {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
-      "Access-Control-Allow-Credentials": true
-    }
-  }
-}
+{ "application": { "apiHost": "https://cmr.sit.earthdata.nasa.gov/kms", "env": "sit", "version": "development", "defaultResponseHeaders": { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Credentials": true } } }

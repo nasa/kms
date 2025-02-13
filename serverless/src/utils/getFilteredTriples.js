@@ -1,13 +1,12 @@
-import { getApplicationConfig } from './getConfig'
+import { sparqlRequest } from './sparqlRequest'
 
 /**
  * Retrieves all triples from the configured SPARQL endpoint.
  *
  * This function performs the following operations:
- * 1. Retrieves authentication credentials from environment variables.
- * 2. Constructs a SPARQL query to fetch all triples in the database given the specified filter (filter work tbd)
- * 3. Sends an authenticated request to the SPARQL endpoint.
- * 4. Processes and returns the SPARQL query results.
+ * 1. Constructs a SPARQL query to fetch all triples in the database given the specified filter (filter work tbd)
+ * 2. Sends a request to the SPARQL endpoint using sparqlRequest.
+ * 3. Processes and returns the SPARQL query results.
  *
  * The SPARQL query used is a simple SELECT that retrieves all distinct subject-predicate-object triples.
  *
@@ -25,21 +24,11 @@ import { getApplicationConfig } from './getConfig'
  *   console.error('Failed to get triples:', error);
  * }
  *
- * @note This function requires the following environment variables to be set:
- *       - RDF4J_USER_NAME: Username for authenticating with the SPARQL endpoint
- *       - RDF4J_PASSWORD: Password for authenticating with the SPARQL endpoint
- *
  * @see getApplicationConfig - Used to retrieve the SPARQL endpoint URL.
+ * @see sparqlRequest - Used to make the SPARQL query request.
  */
 
 const getFilteredTriples = async () => {
-  // Get credentials from environment variables
-  const username = process.env.RDF4J_USER_NAME
-  const password = process.env.RDF4J_PASSWORD
-
-  // Create the basic auth header
-  const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
-
   const sparqlQuery = `
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
   SELECT DISTINCT ?s ?p ?o
@@ -47,22 +36,17 @@ const getFilteredTriples = async () => {
     {
       ?s ?p ?o .
     } 
-`
-  const { sparqlEndpoint } = getApplicationConfig()
+  `
 
   try {
-    const response = await fetch(`${sparqlEndpoint}`, {
+    const response = await sparqlRequest({
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-        Authorization: `Basic ${base64Credentials}`
-      },
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
       body: sparqlQuery
     })
 
     if (!response.ok) {
-      console.log('response=', await response.text())
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
@@ -70,7 +54,7 @@ const getFilteredTriples = async () => {
 
     return json.results.bindings
   } catch (error) {
-    console.error('Error fetching SKOS identifiers:', error)
+    console.error('Error fetching triples:', error)
     throw error
   }
 }

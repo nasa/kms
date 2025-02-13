@@ -145,7 +145,8 @@ const main = async () => {
   try {
     const serverRunning = await checkRDF4JServer(baseUrl)
     if (!serverRunning) {
-      console.error('RDF4J server is not running. Please start the server and try again.')
+      console.error(`RDF4J server is not running. Please start the server and try again.   
+        If you just started it, give it a minute to fully start up, then try running setup again.`)
 
       return
     }

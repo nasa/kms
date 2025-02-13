@@ -27,9 +27,12 @@ async function loadConcepts(filePath, batchSize = 100) {
 
   // Configure the parser
   const options = {
+    format: true,
     ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    allowBooleanAttributes: true,
+    indentBy: '  ',
+    attributeNamePrefix: '@',
+    suppressEmptyNode: true,
+    textNodeName: '_text',
     parseAttributeValue: true
   }
 
@@ -49,16 +52,18 @@ async function loadConcepts(filePath, batchSize = 100) {
     textNodeName: '_text'
   })
 
-  const username = process.env.RDF4J_USER_NAME || 'rdf4j'
-  const password = process.env.RDF4J_PASSWORD || 'rdf4j'
-
-  const header = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+  for (let i = 0; i < concepts.length; i += 100) {
+    const concept = concepts[i]
+    delete concept['@xmlns:rdf']
+    delete concept['@xmlns:skos']
+    delete concept['@xmlns:gcmd']
+    delete concept['@xmlns:kms']
+  }
 
   for (let i = 0; i < concepts.length; i += batchSize) {
     const batch = concepts.slice(i, i + batchSize)
-
     const rdfJson = {
-      rdf: {
+      'rdf:RDF': {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
         '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
         '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
@@ -74,14 +79,16 @@ async function loadConcepts(filePath, batchSize = 100) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/rdf+xml',
-        Accept: 'application/json',
-        Authorization: header
+        Accept: 'application/rdf+xml'
       },
       body: xml
     })
+
     if (!response.ok) {
       console.error(`Error loading batch ${i / batchSize + 1}:`, response.statusText)
     }
+
+    console.log('Success: ', await response.text())
 
     // Add a delay of 100 ms between each batch
     await delay(100)
