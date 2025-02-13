@@ -14,6 +14,8 @@ const ecs = require('aws-cdk-lib/aws-ecs')
 const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const iam = require('aws-cdk-lib/aws-iam')
 const logs = require('aws-cdk-lib/aws-logs')
+const fs = require('fs')
+const path = require('path')
 
 /**
  * Stack for creating ECS (Elastic Container Service) resources for RDF4J.
@@ -120,87 +122,14 @@ const logs = require('aws-cdk-lib/aws-logs')
     const { ebsVolumeId } = this
 
     const userData = ec2.UserData.forLinux()
-    userData.addCommands(`
-    #!/bin/bash
-    set -e
-    set -x
-    
-    echo "Starting EBS mount script"
-    
-    # Install AWS CLI
-    echo "Installing AWS CLI..."
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    yum install -y unzip
-    unzip awscliv2.zip
-    ./aws/install
-    echo "AWS CLI installed successfully"
-    
-    DEVICE="/dev/xvdf"
-    MOUNT_POINT="/mnt/rdf4j-data"
-    
-    # Get instance ID and region
-    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-    REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-    
-    echo "Instance ID: $INSTANCE_ID"
-    echo "Region: $REGION"
-    
-    # Set the AWS region
-    export AWS_DEFAULT_REGION=$REGION
-    
-    # Get EBS volume ID (passed as an environment variable in user data)
-    EBS_VOLUME_ID="${ebsVolumeId}"
-    echo "EBS Volume ID: $EBS_VOLUME_ID"
-    
-    # Attach the EBS volume if not already attached
-    aws ec2 attach-volume --volume-id $EBS_VOLUME_ID --instance-id $INSTANCE_ID --device $DEVICE
-    
-    # Wait for the device to be available
-    TIMEOUT=60
-    for i in $(seq 1 $TIMEOUT); do
-        if [ -e $DEVICE ]; then
-            echo "$DEVICE is now available"
-            break
-        fi
-        if [ $i -eq $TIMEOUT ]; then
-            echo "Timeout waiting for $DEVICE to become available"
-            exit 1
-        fi
-        echo "Waiting for $DEVICE... ($i/$TIMEOUT)"
-        sleep 5
-    done
-    
-    # List block devices
-    lsblk
-    
-    # Check if the device is already formatted
-    if ! blkid $DEVICE; then
-        echo "Formatting $DEVICE..."
-        mkfs -t ext4 $DEVICE
-    else
-        echo "$DEVICE is already formatted"
-    fi
-    
-    # Mount the volume with more permissive options
-    mkdir -p $MOUNT_POINT
-    if mount -o rw,exec,auto $DEVICE $MOUNT_POINT; then
-        echo "Successfully mounted $DEVICE to $MOUNT_POINT"
-    else
-        echo "Failed to mount $DEVICE to $MOUNT_POINT"
-        exit 1
-    fi
 
-    # Ensure the mount persists across reboots
-    echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" | tee -a /etc/fstab
-    
-    # Set appropriate permissions
-    chown -R 1000:1000 $MOUNT_POINT
+    // Read the script from file
+    const userDataScript = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'ebs-mount-script.sh'), 'utf8')
 
-    # Set very permissive permissions (be cautious with this in production)
-    chmod 777 $MOUNT_POINT
-    
-    echo "EBS mount script completed successfully"
-    `)
+    // Replace the placeholder with the actual EBS volume ID
+    // eslint-disable-next-line no-template-curly-in-string
+    const scriptWithVolume = userDataScript.replace('${EBS_VOLUME_ID}', ebsVolumeId)
+    userData.addCommands(scriptWithVolume)
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
