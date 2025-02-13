@@ -21,6 +21,9 @@ COPY scripts/setup_web_auth.sh /usr/local/tomcat/setup_web_auth.sh
 COPY scripts/create_repository.sh /usr/local/tomcat/create_repository.sh
 
 RUN chown -R tomcat:nogroup /usr/local/tomcat
+# Uncomment the line below to include rdf4j workbench, which is is a web-based 
+# user interface that provides a graphical way to interact with and manage 
+# RDF4J repositories.   To access it, go here: http://localhost:8080/rdf4j-workbench
 # RUN rm -r /usr/local/tomcat/webapps/rdf4j-workbench*
 
 # We'll keep the container running as root to allow permission changes at runtime
