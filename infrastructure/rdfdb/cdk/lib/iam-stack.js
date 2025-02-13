@@ -14,7 +14,6 @@ class IamStack extends Stack {
 
     this.vpc = this.getVpc(vpcId)
     this.role = this.createIAMRole()
-    this.addCloudMapPermissions(this.role)
     this.addEbsVolumePermissions(this.role)
     this.addEcrAndElbPermissions(this.role)
     this.addSsmPermissions(this.role)
@@ -77,26 +76,6 @@ class IamStack extends Stack {
         'ec2:DescribeInstances',
         'logs:CreateLogStream',
         'logs:PutLogEvents'
-      ],
-      resources: ['*']
-    }))
-  }
-
-  addCloudMapPermissions(role) {
-    role.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        'servicediscovery:DiscoverInstances',
-        'servicediscovery:CreateService',
-        'servicediscovery:DeleteService',
-        'servicediscovery:GetService',
-        'servicediscovery:GetInstance',
-        'servicediscovery:RegisterInstance',
-        'servicediscovery:DeregisterInstance',
-        'servicediscovery:ListInstances',
-        'servicediscovery:ListNamespaces',
-        'servicediscovery:ListServices',
-        'servicediscovery:GetInstancesHealthStatus',
-        'servicediscovery:UpdateInstanceCustomHealthStatus'
       ],
       resources: ['*']
     }))
