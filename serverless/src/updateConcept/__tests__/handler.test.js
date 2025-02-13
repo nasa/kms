@@ -30,7 +30,7 @@ describe('updateConcept', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  it('should return 404 if concept does not exist', async () => {
+  test('should return 404 if concept does not exist', async () => {
     conceptIdExists.mockResolvedValue(false)
 
     const result = await updateConcept(mockEvent)
@@ -42,7 +42,7 @@ describe('updateConcept', () => {
     })
   })
 
-  it('should update concept and return 200 if concept exists', async () => {
+  test('should update concept and return 200 if concept exists', async () => {
     conceptIdExists.mockResolvedValue(true)
     sparqlRequest.mockResolvedValue({ ok: true })
 
@@ -63,7 +63,7 @@ describe('updateConcept', () => {
     })
   })
 
-  it('should return 500 if sparqlRequest fails', async () => {
+  test('should return 500 if sparqlRequest fails', async () => {
     conceptIdExists.mockResolvedValue(true)
     sparqlRequest.mockResolvedValue({
       ok: false,
@@ -83,7 +83,7 @@ describe('updateConcept', () => {
     })
   })
 
-  it('should return 500 if an error is thrown', async () => {
+  test('should return 500 if an error is thrown', async () => {
     conceptIdExists.mockResolvedValue(true)
     sparqlRequest.mockRejectedValue(new Error('Network error'))
 
@@ -99,7 +99,7 @@ describe('updateConcept', () => {
     })
   })
 
-  it('should handle missing conceptId in path parameters', async () => {
+  test('should handle missing conceptId in path parameters', async () => {
     const eventWithoutConceptId = {
       body: '<rdf:RDF>...</rdf:RDF>',
       pathParameters: {}

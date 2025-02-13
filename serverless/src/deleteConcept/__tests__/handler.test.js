@@ -38,7 +38,7 @@ describe('deleteConcept', () => {
     consoleErrorSpy.mockRestore()
   })
 
-  it('should successfully delete a concept and return 200', async () => {
+  test('should successfully delete a concept and return 200', async () => {
     sparqlRequest.mockResolvedValue({ ok: true })
 
     const result = await deleteConcept(mockEvent)
@@ -60,7 +60,7 @@ describe('deleteConcept', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(`Successfully deleted concept: ${mockConceptId}`)
   })
 
-  it('should handle SPARQL endpoint errors and return 500', async () => {
+  test('should handle SPARQL endpoint errors and return 500', async () => {
     const errorMessage = 'SPARQL endpoint error'
     sparqlRequest.mockResolvedValue({
       ok: false,
@@ -84,7 +84,7 @@ describe('deleteConcept', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting concept:', expect.any(Error))
   })
 
-  it('should handle unexpected errors and return 500', async () => {
+  test('should handle unexpected errors and return 500', async () => {
     const error = new Error('Unexpected error')
     sparqlRequest.mockRejectedValue(error)
 
@@ -103,7 +103,7 @@ describe('deleteConcept', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting concept:', error)
   })
 
-  it('should construct the correct SPARQL query', async () => {
+  test('should construct the correct SPARQL query', async () => {
     sparqlRequest.mockResolvedValue({ ok: true })
 
     await deleteConcept(mockEvent)
@@ -128,7 +128,7 @@ describe('deleteConcept', () => {
     })
   })
 
-  it('should handle missing conceptId in path parameters', async () => {
+  test('should handle missing conceptId in path parameters', async () => {
     const eventWithoutConceptId = { pathParameters: {} }
 
     const result = await deleteConcept(eventWithoutConceptId)
@@ -142,7 +142,7 @@ describe('deleteConcept', () => {
     expect(consoleErrorSpy).toHaveBeenCalled()
   })
 
-  it('should use the correct content type and accept headers', async () => {
+  test('should use the correct content type and accept headers', async () => {
     sparqlRequest.mockResolvedValue({ ok: true })
 
     await deleteConcept(mockEvent)
@@ -155,7 +155,7 @@ describe('deleteConcept', () => {
     )
   })
 
-  it('should use the correct path and method for the SPARQL request', async () => {
+  test('should use the correct path and method for the SPARQL request', async () => {
     sparqlRequest.mockResolvedValue({ ok: true })
 
     await deleteConcept(mockEvent)

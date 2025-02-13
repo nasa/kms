@@ -1,5 +1,3 @@
-// GetConceptScheme.test.js
-
 import { describe, expect } from 'vitest'
 import getConceptScheme from '../getConceptScheme'
 import { sparqlRequest } from '../sparqlRequest'

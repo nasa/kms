@@ -34,7 +34,7 @@ describe('deleteAll', () => {
     consoleErrorSpy.mockRestore()
   })
 
-  it('should successfully delete all triples and return 200', async () => {
+  test('should successfully delete all triples and return 200', async () => {
     deleteAllTriples.mockResolvedValue({ ok: true })
 
     const result = await deleteAll()
@@ -42,14 +42,14 @@ describe('deleteAll', () => {
     expect(deleteAllTriples).toHaveBeenCalled()
     expect(result).toEqual({
       statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully deleted everything.' }),
+      body: JSON.stringify({ message: 'Successfully deleted all triples.' }),
       headers: mockDefaultHeaders
     })
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Successfully deleted everything')
+    expect(consoleLogSpy).toHaveBeenCalledWith('Successfully deleted all triples')
   })
 
-  it('should handle errors from deleteAllTriples and return 500', async () => {
+  test('should handle errors from deleteAllTriples and return 500', async () => {
     deleteAllTriples.mockResolvedValue({
       ok: false,
       status: 500
@@ -61,16 +61,16 @@ describe('deleteAll', () => {
     expect(result).toEqual({
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Error deleting everything',
+        message: 'Error deleting all triples',
         error: 'HTTP error! status: 500'
       }),
       headers: mockDefaultHeaders
     })
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting everything:', expect.any(Error))
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting all triples:', expect.any(Error))
   })
 
-  it('should handle unexpected errors and return 500', async () => {
+  test('should handle unexpected errors and return 500', async () => {
     const error = new Error('Unexpected error')
     deleteAllTriples.mockRejectedValue(error)
 
@@ -80,12 +80,12 @@ describe('deleteAll', () => {
     expect(result).toEqual({
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Error deleting everything',
+        message: 'Error deleting all triples',
         error: 'Unexpected error'
       }),
       headers: mockDefaultHeaders
     })
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting everything:', error)
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting all triples:', error)
   })
 })

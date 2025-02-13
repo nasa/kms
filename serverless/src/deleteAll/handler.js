@@ -24,7 +24,7 @@ import { getApplicationConfig } from '../utils/getConfig'
  * console.log(result);
  * // {
  * //   statusCode: 200,
- * //   body: '{"message":"Successfully deleted everything."}',
+ * //   body: '{"message":"Successfully deleted all triples."}',
  * //   headers: { ... }
  * // }
  *
@@ -34,7 +34,7 @@ import { getApplicationConfig } from '../utils/getConfig'
  * console.log(result);
  * // {
  * //   statusCode: 500,
- * //   body: '{"message":"Error deleting everything","error":"HTTP error! status: 500"}',
+ * //   body: '{"message":"Error deleting all triples","error":"HTTP error! status: 500"}',
  * //   headers: { ... }
  * // }
  */
@@ -49,20 +49,20 @@ const deleteAll = async () => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    console.log('Successfully deleted everything')
+    console.log('Successfully deleted all triples')
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully deleted everything.' }),
+      body: JSON.stringify({ message: 'Successfully deleted all triples.' }),
       headers: defaultResponseHeaders
     }
   } catch (error) {
-    console.error('Error deleting everything:', error)
+    console.error('Error deleting all triples:', error)
 
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Error deleting everything',
+        message: 'Error deleting all triples',
         error: error.message
       }),
       headers: defaultResponseHeaders

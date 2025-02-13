@@ -1,5 +1,3 @@
-// Serverless/src/utils/__tests__/prefixNode.test.js
-
 import prefixNode from '../prefixNode'
 
 describe('prefixNode', () => {

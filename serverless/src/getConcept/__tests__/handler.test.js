@@ -32,7 +32,7 @@ describe('getConcept', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  it('should successfully retrieve a concept and return RDF/XML', async () => {
+  test('should successfully retrieve a concept and return RDF/XML', async () => {
     const mockSkosConcept = {
       '@rdf:about': mockConceptId,
       'skos:prefLabel': 'Test Concept'
@@ -58,7 +58,7 @@ describe('getConcept', () => {
     expect(result.body).toContain('<gcmd:keywordVersion>1.0</gcmd:keywordVersion>')
   })
 
-  it('should handle errors and return a 500 status code', async () => {
+  test('should handle errors and return a 500 status code', async () => {
     getSkosConcept.mockRejectedValue(new Error('Test error'))
 
     const result = await getConcept(mockEvent)

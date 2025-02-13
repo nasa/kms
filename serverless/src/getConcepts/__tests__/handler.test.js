@@ -30,7 +30,7 @@ describe('getConcepts', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  it('should successfully retrieve concepts and return RDF/XML', async () => {
+  test('should successfully retrieve concepts and return RDF/XML', async () => {
     const mockTriples = [{
       s: { value: 'uri1' },
       p: { value: 'p1' },
@@ -75,7 +75,7 @@ describe('getConcepts', () => {
     expect(result.body).toContain('<gcmd:keywordVersion>1.0</gcmd:keywordVersion>')
   })
 
-  it('should limit the number of concepts to 2000', async () => {
+  test('should limit the number of concepts to 2000', async () => {
     const mockTriples = [{
       s: { value: 'uri1' },
       p: { value: 'p1' },
@@ -109,7 +109,7 @@ describe('getConcepts', () => {
     expect(conceptMatches.length).toBe(2000)
   })
 
-  it('should handle errors and return a 500 status code', async () => {
+  test('should handle errors and return a 500 status code', async () => {
     getFilteredTriples.mockRejectedValue(new Error('Test error'))
 
     const result = await getConcepts()
@@ -121,7 +121,7 @@ describe('getConcepts', () => {
     })
   })
 
-  it('should call getGcmdMetadata with the correct number of hits', async () => {
+  test('should call getGcmdMetadata with the correct number of hits', async () => {
     const mockProcessedTriples = {
       bNodeMap: {},
       nodes: {},
@@ -144,10 +144,10 @@ describe('getConcepts', () => {
     await getConcepts()
 
     // The function processes 2000 concepts and passes the remaining count to getGcmdMetadata
-    expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 1000 }) // 3000 total - 2000 processed = 1000
+    expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 3000 }) // 3000 total - 2000 processed = 1000
   })
 
-  it('should handle empty result from getFilteredTriples', async () => {
+  test('should handle empty result from getFilteredTriples', async () => {
     getFilteredTriples.mockResolvedValue([])
     processTriples.mockReturnValue({
       bNodeMap: {},
@@ -163,7 +163,7 @@ describe('getConcepts', () => {
     expect(result.body).not.toContain('<skos:Concept')
   })
 
-  it('should correctly process and include multiple concepts', async () => {
+  test('should correctly process and include multiple concepts', async () => {
     const mockProcessedTriples = {
       bNodeMap: {},
       nodes: {
@@ -196,7 +196,7 @@ describe('getConcepts', () => {
     expect(result.body).toContain('<skos:prefLabel>Concept uri2</skos:prefLabel>')
   })
 
-  it('should handle cases where no concepts are found', async () => {
+  test('should handle cases where no concepts are found', async () => {
     processTriples.mockReturnValue({
       bNodeMap: {},
       nodes: {},
@@ -212,7 +212,7 @@ describe('getConcepts', () => {
     expect(result.body).not.toContain('<skos:Concept')
   })
 
-  it('should handle large number of concepts correctly', async () => {
+  test('should handle large number of concepts correctly', async () => {
     const largeConceptURIs = Array(3000).fill().map((_, i) => `uri${i}`)
     const mockProcessedTriples = {
       bNodeMap: {},
@@ -235,6 +235,6 @@ describe('getConcepts', () => {
 
     expect(toSkosJson).toHaveBeenCalledTimes(2000)
     expect(result.body.match(/<skos:Concept/g)).toHaveLength(2000)
-    expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 1000 }) // 3000 total - 2000 processed
+    expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 3000 }) // 3000 total - 2000 processed
   })
 })

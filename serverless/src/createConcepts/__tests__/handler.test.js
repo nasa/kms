@@ -26,7 +26,7 @@ describe('createConcepts', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  it('should return 400 if RDF/XML data is missing', async () => {
+  test('should return 400 if RDF/XML data is missing', async () => {
     const event = { body: null }
     const result = await createConcepts(event)
 
@@ -40,7 +40,7 @@ describe('createConcepts', () => {
     })
   })
 
-  it('should successfully create multiple concepts and return 200', async () => {
+  test('should successfully create multiple concepts and return 200', async () => {
     const mockRdfXml = `
       <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#">
         <skos:Concept rdf:about="concept1"/>
@@ -73,7 +73,7 @@ describe('createConcepts', () => {
     })
   })
 
-  it('should successfully create a single concept and return 200', async () => {
+  test('should successfully create a single concept and return 200', async () => {
     const mockRdfXml = `
       <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#">
         <skos:Concept rdf:about="concept1"/>
@@ -97,7 +97,7 @@ describe('createConcepts', () => {
     })
   })
 
-  it('should handle SPARQL endpoint errors', async () => {
+  test('should handle SPARQL endpoint errors', async () => {
     const mockRdfXml = '<rdf:RDF><skos:Concept rdf:about="concept1"/></rdf:RDF>'
     const event = { body: mockRdfXml }
     sparqlRequest.mockResolvedValue({
@@ -121,7 +121,7 @@ describe('createConcepts', () => {
     })
   })
 
-  it('should handle unexpected errors', async () => {
+  test('should handle unexpected errors', async () => {
     const mockRdfXml = '<rdf:RDF><skos:Concept rdf:about="concept1"/></rdf:RDF>'
     const event = { body: mockRdfXml }
     sparqlRequest.mockRejectedValue(new Error('Network error'))
@@ -142,7 +142,7 @@ describe('createConcepts', () => {
     })
   })
 
-  it('should handle invalid XML', async () => {
+  test('should handle invalid XML', async () => {
     const invalidXml = '<invalid>XML</invalid>'
     const event = { body: invalidXml }
 
@@ -160,7 +160,7 @@ describe('createConcepts', () => {
     expect(JSON.parse(result.body).conceptsAttempted).toBe(0)
   })
 
-  it('should handle empty RDF/XML with no concepts', async () => {
+  test('should handle empty RDF/XML with no concepts', async () => {
     const emptyRdfXml = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#"></rdf:RDF>'
     const event = { body: emptyRdfXml }
     sparqlRequest.mockResolvedValue({ ok: true })

@@ -32,7 +32,7 @@ describe('createConcept', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  it('should return 404 if concept already exists', async () => {
+  test('should return 404 if concept already exists', async () => {
     conceptIdExists.mockResolvedValue(true)
 
     const result = await createConcept(mockEvent)
@@ -44,7 +44,7 @@ describe('createConcept', () => {
     })
   })
 
-  it('should create concept and return 200 if concept does not exist', async () => {
+  test('should create concept and return 200 if concept does not exist', async () => {
     conceptIdExists.mockResolvedValue(false)
     sparqlRequest.mockResolvedValue({ ok: true })
 
@@ -65,7 +65,7 @@ describe('createConcept', () => {
     })
   })
 
-  it('should return 500 if sparqlRequest fails', async () => {
+  test('should return 500 if sparqlRequest fails', async () => {
     conceptIdExists.mockResolvedValue(false)
     sparqlRequest.mockResolvedValue({
       ok: false,
@@ -82,7 +82,7 @@ describe('createConcept', () => {
     })
   })
 
-  it('should return 500 if an error is thrown', async () => {
+  test('should return 500 if an error is thrown', async () => {
     conceptIdExists.mockResolvedValue(false)
     sparqlRequest.mockRejectedValue(new Error('Network error'))
 

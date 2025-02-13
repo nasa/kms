@@ -22,7 +22,7 @@ describe('status', () => {
 
   describe('perform status check', () => {
     describe('if database is healthy', () => {
-      it('returns a 200 status code', async () => {
+      test('returns a 200 status code', async () => {
         // Mock a successful fetch response
         global.fetch = vi.fn(() => Promise.resolve({
           ok: true,
@@ -41,7 +41,7 @@ describe('status', () => {
     })
 
     describe('if database is not healthy', () => {
-      it('returns a 500 with status message', async () => {
+      test('returns a 500 with status message', async () => {
         global.fetch = vi.fn(() => Promise.resolve({
           ok: false,
           status: 500
@@ -55,7 +55,7 @@ describe('status', () => {
     })
 
     describe('if network failure', () => {
-      it('returns a 500 with error message', async () => {
+      test('returns a 500 with error message', async () => {
         global.fetch = vi.fn(() => Promise.reject(new Error('Network error')))
 
         const result = await status()

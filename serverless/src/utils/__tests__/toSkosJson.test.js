@@ -1,5 +1,3 @@
-// Serverless/src/utils/__tests__/toSkosJson.test.js
-
 import { describe, expect } from 'vitest'
 import toSkosJson from '../toSkosJson'
 import mockInput from '../__mocks__/triples_GREENLANDIAN_input'
