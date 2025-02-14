@@ -88,13 +88,8 @@ const toRDF = async (jsonURL, xmlURL) => {
     } = json
 
     const { concept: xmlConcept } = xml
-    const { changeNotes, creationDate, altSymbols } = xmlConcept
+    const { changeNotes, creationDate } = xmlConcept
     const { changeNote } = changeNotes
-
-    if (altSymbols) {
-      console.log(altSymbols)
-      console.log(json.uuid)
-    }
 
     if (lastModifiedDate) {
       concept.ele('dcterms:modified').txt(lastModifiedDate)
