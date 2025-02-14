@@ -8,7 +8,10 @@
     "lint": "eslint . --ext .jsx,.js",
     "preview": "vite preview",
     "test": "vitest",
-    "offline": "serverless offline start"
+    "offline": "serverless offline start",
+    "rdf4j:build": "docker build -t rdf4j:latest ./infrastructure/rdfdb/cdk/docker",
+    "rdf4j:start": "docker run -d -p 8080:8080 -e RDF4J_USER_NAME=$RDF4J_USER_NAME -e RDF4J_PASSWORD=$RDF4J_PASSWORD -e JAVA_OPTS=\"-Xms1g -Xmx8g\" -v logs:/usr/local/tomcat/logs rdf4j:latest",
+    "rdf4j:setup": "node setup/setupRdf4j.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.1.0",
@@ -17,6 +20,7 @@
     "esbuild": "^0.19.5",
     "eslint-import-resolver-alias": "^1.1.2",
     "eslint-plugin-testing-library": "^6.2.2",
+    "fast-xml-parser": "^4.5.1",
     "node-http-proxy": "^0.2.4",
     "postcss-scss": "^4.0.9",
     "prop-types": "^15.8.1",
@@ -28,6 +32,7 @@
     "request": "^2.88.2",
     "rollup-plugin-polyfill-node": "^0.12.0",
     "serverless": "^3.35.2",
+    "serverless-dotenv-plugin": "^6.0.0",
     "serverless-esbuild": "^1.48.5",
     "serverless-finch": "^4.0.3",
     "serverless-offline": "^13.2.0",

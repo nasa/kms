@@ -3,6 +3,18 @@
 # Bail on unset variables, errors and trace execution
 set -eux
 
+# Deployment configuration/variables
+####################################
+
+# read in static.config.json
+config="`cat static.config.json`"
+
+# update keys for deployment
+config="`jq '.application.env = $newValue' --arg newValue $bamboo_STAGE_NAME <<< $config`"
+
+# overwrite static.config.json with new values
+echo $config > tmp.$$.json && mv tmp.$$.json static.config.json
+
 # Set up Docker image
 #####################
 
@@ -42,6 +54,8 @@ dockerRun() {
         --env "SUBNET_ID_B=$bamboo_SUBNET_ID_B" \
         --env "SUBNET_ID_C=$bamboo_SUBNET_ID_C" \
         --env "VPC_ID=$bamboo_VPC_ID" \
+        --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
+        --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
         $dockerTag "$@"
 }
 

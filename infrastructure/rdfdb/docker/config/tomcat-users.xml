@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<tomcat-users xmlns="http://tomcat.apache.org/xml"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
-              version="1.0">
-  <role rolename="rdf4j-user"/>
-  <role rolename="rdf4j-admin"/>
-  <user username="${RDF4J_USER_NAME}" password="${RDF4J_PASSWORD}" roles="rdf4j-user,rdf4j-admin"/>
-</tomcat-users>

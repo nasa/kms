@@ -1,14 +1,17 @@
 service: kms
 frameworkVersion: '3'
-useDotenv: true
 
 provider:
   name: aws
   runtime: nodejs18.x
+  httpApi: 
+    payload: '2.0'
   versionFunctions: false
   stage: ${opt:stage, 'dev'}
   region: us-east-1
   endpointType: PRIVATE
+  role: 
+    Fn::ImportValue: ${self:provider.stage}-KMSServerlessAppRole
   vpc:
     securityGroupIds:
       - Fn::ImportValue: ${self:provider.stage}-LambdaSecurityGroup
@@ -16,7 +19,10 @@ provider:
       - ${env:SUBNET_ID_A, 'subnetIdA'}
       - ${env:SUBNET_ID_B, 'subnetIdB'}
       - ${env:SUBNET_ID_C, 'subnetIdC'}
-
+  environment:
+    RDF4J_SERVICE_URL: ${env:RDF4J_SERVICE_URL, cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, 'http://localhost:8080'} 
+    RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
+    RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
     skipPolicySetup: true
@@ -47,10 +53,8 @@ plugins:
 custom:
   siteName: kms-${self:provider.stage}
   collectionTemplatesBucketName: ${self:custom.siteName}-collection-templates
-
   infrastructureStackName: kms-infrastructure-${self:provider.stage}
 
-  # Finch (S3 sync plugin)
   client:
     bucketName: ${self:custom.siteName}
     distributionFolder: dist
@@ -67,6 +71,7 @@ custom:
     httpPort: 4001
     lambdaPort: 4003
     allowCache: true
+    noAuth: true
 
   s3:
     host: localhost

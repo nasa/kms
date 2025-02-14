@@ -1,7 +1,6 @@
 {
   "application": {
-    "apiHost": "http://localhost:4001/dev",
-    "env": "development",
+    "env": "sit",
     "version": "development",
     "defaultResponseHeaders": {
       "Access-Control-Allow-Origin": "*",

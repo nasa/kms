@@ -44,6 +44,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['serverless/src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}']
+    include: ['serverless/src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    coverage: {
+      enabled: true,
+      include: [
+        'serverless/src/**/*.js'
+      ],
+      provider: 'istanbul',
+      reporter: ['text', 'lcov', 'clover', 'json'],
+      reportOnFailure: true
+    }
+
   }
 })

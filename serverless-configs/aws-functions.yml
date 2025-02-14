@@ -14,3 +14,60 @@ status:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: status
+getConcepts:
+  handler: serverless/src/getConcepts/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '900'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concepts
+getConcept:
+  handler: serverless/src/getConcept/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concept/{conceptId}
+createConcept:
+  handler: serverless/src/createConcept/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: post
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concept/{conceptId}
+createConcepts:
+  handler: serverless/src/createConcepts/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: post
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concepts
+updateConcept:
+  handler: serverless/src/updateConcept/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: put
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concept/{conceptId}
+
+deleteConcept:
+  handler: serverless/src/deleteConcept/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: delete
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concept/{conceptId}
+deleteAll:
+  handler: serverless/src/deleteAll/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: delete
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: deleteAll
