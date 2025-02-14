@@ -47,6 +47,7 @@ const getConcept = async (event) => {
     })
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
+    const concept = await getSkosConcept(conceptIRI)
     const rdfJson = {
       'rdf:RDF': {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -54,7 +55,7 @@ const getConcept = async (event) => {
         '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
         '@xmlns:kms': 'https://gcmd.earthdata.nasa.gov/kms#',
         'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
-        'skos:Concept': [await getSkosConcept(conceptIRI)]
+        'skos:Concept': [concept]
 
       }
     }
