@@ -6,8 +6,25 @@ echo "Starting EBS mount script"
 
 # Install AWS CLI
 echo "Installing AWS CLI..."
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+
+# Specify the version and its corresponding SHA256 hash
+AWS_CLI_VERSION="2.13.8"
+AWS_CLI_SHA256="8b3e3f8f57c8c3c3492fa3e3a436f1fa115cdc983fde3801bdc1c2feb3517531"
+
+# Download the specific version
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip"
+
+# Verify the integrity of the downloaded file
+COMPUTED_SHA256=$(sha256sum awscliv2.zip | cut -d' ' -f1)
+
+if [ "$COMPUTED_SHA256" != "$AWS_CLI_SHA256" ]; then
+    echo "SHA256 mismatch. Expected $AWS_CLI_SHA256, got $COMPUTED_SHA256"
+    exit 1
+fi
+
+echo "SHA256 verification passed"
 yum install -y unzip
+
 unzip awscliv2.zip
 ./aws/install
 echo "AWS CLI installed successfully"
