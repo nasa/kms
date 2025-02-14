@@ -6,90 +6,165 @@ import {
 } from 'vitest'
 import createConcept from '../handler'
 import conceptIdExists from '../../utils/conceptIdExists'
+import getConceptId from '../../utils/getConceptId'
 import { getApplicationConfig } from '../../utils/getConfig'
 import { sparqlRequest } from '../../utils/sparqlRequest'
 
 // Mock the dependencies
 vi.mock('../../utils/conceptIdExists')
+vi.mock('../../utils/getConceptId')
 vi.mock('../../utils/getConfig')
 vi.mock('../../utils/sparqlRequest')
 
 describe('createConcept', () => {
-  const mockEvent = {
-    body: '<rdf:RDF>...</rdf:RDF>',
-    pathParameters: { conceptId: '123' }
-  }
-
+  const mockRdfXml = '<rdf:RDF>...</rdf:RDF>'
+  const mockEvent = { body: mockRdfXml }
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
-  beforeAll(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-  })
+  const mockConceptId = '123'
+  const mockConceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`
 
   beforeEach(() => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    getConceptId.mockReturnValue(mockConceptId)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  test('should return 404 if concept already exists', async () => {
-    conceptIdExists.mockResolvedValue(true)
+  test('should handle missing body in event', async () => {
+    const eventWithoutBody = {}
 
-    const result = await createConcept(mockEvent)
+    const result = await createConcept(eventWithoutBody)
 
     expect(result).toEqual({
-      statusCode: 404,
-      body: JSON.stringify({ message: 'Concept https://gcmd.earthdata.nasa.gov/kms/concept/123 already exists.' }),
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Error creating concept',
+        error: 'Missing RDF/XML data in request body'
+      }),
       headers: mockDefaultHeaders
     })
   })
 
-  test('should create concept and return 200 if concept does not exist', async () => {
+  test('should successfully create a concept', async () => {
     conceptIdExists.mockResolvedValue(false)
     sparqlRequest.mockResolvedValue({ ok: true })
 
     const result = await createConcept(mockEvent)
 
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+    expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI)
     expect(sparqlRequest).toHaveBeenCalledWith({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: mockEvent.body
+      body: mockRdfXml
     })
 
     expect(result).toEqual({
-      statusCode: 200,
-      body: 'Successfully loaded RDF XML into RDF4J',
+      statusCode: 201,
+      body: JSON.stringify({
+        message: 'Successfully created concept',
+        conceptId: mockConceptId
+      }),
       headers: mockDefaultHeaders
     })
   })
 
-  test('should return 500 if sparqlRequest fails', async () => {
-    conceptIdExists.mockResolvedValue(false)
-    sparqlRequest.mockResolvedValue({
-      ok: false,
-      status: 500,
-      text: () => Promise.resolve('Server error')
+  test('should return 409 if concept already exists', async () => {
+    conceptIdExists.mockResolvedValue(true)
+
+    const result = await createConcept(mockEvent)
+
+    expect(result).toEqual({
+      statusCode: 409,
+      body: JSON.stringify({ message: `Concept ${mockConceptIRI} already exists.` }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle getConceptId throwing an error', async () => {
+    getConceptId.mockImplementation(() => {
+      throw new Error('Invalid XML')
     })
 
     const result = await createConcept(mockEvent)
 
     expect(result).toEqual({
-      statusCode: 500,
-      body: 'Error loading RDF XML into RDF4J',
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Error creating concept',
+        error: 'Invalid XML'
+      }),
       headers: mockDefaultHeaders
     })
   })
 
-  test('should return 500 if an error is thrown', async () => {
+  test('should handle missing concept ID', async () => {
+    getConceptId.mockReturnValue(null)
+
+    const result = await createConcept(mockEvent)
+
+    expect(result).toEqual({
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Error creating concept',
+        error: 'Invalid or missing concept ID'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle sparqlRequest failure', async () => {
+    conceptIdExists.mockResolvedValue(false)
+    sparqlRequest.mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => 'Internal Server Error'
+    })
+
+    const result = await createConcept(mockEvent)
+
+    expect(result).toEqual({
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Error creating concept',
+        error: 'HTTP error! status: 500'
+      }),
+      headers: mockDefaultHeaders
+    })
+
+    expect(console.log).toHaveBeenCalledWith('Response text:', 'Internal Server Error')
+  })
+
+  test('should handle conceptIdExists throwing an error', async () => {
+    conceptIdExists.mockRejectedValue(new Error('Database error'))
+
+    const result = await createConcept(mockEvent)
+
+    expect(result).toEqual({
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Error creating concept',
+        error: 'Database error'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle sparqlRequest throwing an error', async () => {
     conceptIdExists.mockResolvedValue(false)
     sparqlRequest.mockRejectedValue(new Error('Network error'))
 
     const result = await createConcept(mockEvent)
 
     expect(result).toEqual({
-      statusCode: 500,
-      body: 'Error loading RDF XML into RDF4J',
+      statusCode: 400,
+      body: JSON.stringify({
+        message: 'Error creating concept',
+        error: 'Network error'
+      }),
       headers: mockDefaultHeaders
     })
   })

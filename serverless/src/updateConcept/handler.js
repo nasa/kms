@@ -3,6 +3,7 @@ import { sparqlRequest } from '../utils/sparqlRequest'
 import conceptIdExists from '../utils/conceptIdExists'
 import deleteTriples from '../utils/deleteTriples'
 import rollback from '../utils/rollback'
+import getConceptId from '../utils/getConceptId'
 
 /**
  * Updates an existing SKOS Concept in the RDF store.
@@ -14,8 +15,6 @@ import rollback from '../utils/rollback'
  * @function updateConcept
  * @param {Object} event - The Lambda event object.
  * @param {string} event.body - The RDF/XML representation of the updated concept.
- * @param {Object} event.pathParameters - The path parameters from the API Gateway event.
- * @param {string} event.pathParameters.conceptId - The ID of the concept to update.
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
@@ -37,12 +36,20 @@ import rollback from '../utils/rollback'
 
 const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event
-  const { conceptId } = event.pathParameters
-
-  const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
+  const { body: rdfXml } = event || {} // Use empty object as fallback
 
   try {
+    if (!rdfXml) {
+      throw new Error('Missing RDF/XML data in request body')
+    }
+
+    const conceptId = getConceptId(rdfXml)
+    if (!conceptId) {
+      throw new Error('Invalid or missing concept ID')
+    }
+
+    const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
+
     const exists = await conceptIdExists(conceptIRI)
     if (!exists) {
       return {

@@ -9,6 +9,7 @@ import updateConcept from '../handler'
 import conceptIdExists from '../../utils/conceptIdExists'
 import deleteTriples from '../../utils/deleteTriples'
 import rollback from '../../utils/rollback'
+import getConceptId from '../../utils/getConceptId'
 import { getApplicationConfig } from '../../utils/getConfig'
 import { sparqlRequest } from '../../utils/sparqlRequest'
 
@@ -16,15 +17,15 @@ import { sparqlRequest } from '../../utils/sparqlRequest'
 vi.mock('../../utils/conceptIdExists')
 vi.mock('../../utils/deleteTriples')
 vi.mock('../../utils/rollback')
+vi.mock('../../utils/getConceptId')
 vi.mock('../../utils/getConfig')
 vi.mock('../../utils/sparqlRequest')
 
 describe('updateConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
-  const mockEvent = {
-    body: '<rdf:RDF>...</rdf:RDF>',
-    pathParameters: { conceptId: '123' }
-  }
+  const mockRdfXml = '<rdf:RDF>...</rdf:RDF>'
+  const mockEvent = { body: mockRdfXml }
+  const mockConceptId = '123'
   const mockDeletedTriples = [{
     s: { value: 'subject' },
     p: { value: 'predicate' },
@@ -37,6 +38,7 @@ describe('updateConcept', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    getConceptId.mockReturnValue(mockConceptId)
     deleteTriples.mockResolvedValue({
       deletedTriples: mockDeletedTriples,
       deleteResponse: { ok: true }
@@ -50,6 +52,7 @@ describe('updateConcept', () => {
 
     const result = await updateConcept(mockEvent)
 
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
     expect(result).toEqual({
       statusCode: 404,
       body: JSON.stringify({ message: 'Concept https://gcmd.earthdata.nasa.gov/kms/concept/123 not found' }),
@@ -63,13 +66,14 @@ describe('updateConcept', () => {
 
     const result = await updateConcept(mockEvent)
 
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
     expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
     expect(sparqlRequest).toHaveBeenCalledWith({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: mockEvent.body
+      body: mockRdfXml
     })
 
     expect(result).toEqual({
@@ -88,13 +92,14 @@ describe('updateConcept', () => {
 
     const result = await updateConcept(mockEvent)
 
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
     expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
     expect(sparqlRequest).toHaveBeenCalledWith({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: mockEvent.body
+      body: mockRdfXml
     })
 
     expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
@@ -121,6 +126,7 @@ describe('updateConcept', () => {
 
     const result = await updateConcept(mockEvent)
 
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
     expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
     expect(sparqlRequest).not.toHaveBeenCalled()
     expect(rollback).not.toHaveBeenCalled()
@@ -146,6 +152,7 @@ describe('updateConcept', () => {
 
     const result = await updateConcept(mockEvent)
 
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
     expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
     expect(sparqlRequest).toHaveBeenCalled()
     expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
@@ -160,15 +167,90 @@ describe('updateConcept', () => {
     })
   })
 
-  test('should handle missing conceptId in path parameters', async () => {
-    const eventWithoutConceptId = {
-      body: '<rdf:RDF>...</rdf:RDF>',
-      pathParameters: {}
-    }
+  test('should handle missing body in event', async () => {
+    const eventWithoutBody = {}
 
-    const result = await updateConcept(eventWithoutConceptId)
+    const result = await updateConcept(eventWithoutBody)
 
-    expect(result.statusCode).toBe(404)
-    expect(JSON.parse(result.body).message).toContain('not found')
+    expect(getConceptId).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error updating concept',
+        error: 'Missing RDF/XML data in request body'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle getConceptId returning null', async () => {
+    getConceptId.mockReturnValue(null)
+
+    const result = await updateConcept(mockEvent)
+
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error updating concept',
+        error: 'Invalid or missing concept ID'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle getConceptId throwing an error', async () => {
+    getConceptId.mockImplementation(() => {
+      throw new Error('Invalid XML')
+    })
+
+    const result = await updateConcept(mockEvent)
+
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error updating concept',
+        error: 'Invalid XML'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle conceptIdExists throwing an error', async () => {
+    conceptIdExists.mockRejectedValue(new Error('Database error'))
+
+    const result = await updateConcept(mockEvent)
+
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+    expect(conceptIdExists).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error updating concept',
+        error: 'Database error'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should handle sparqlRequest throwing an error', async () => {
+    conceptIdExists.mockResolvedValue(true)
+    sparqlRequest.mockRejectedValue(new Error('Network error'))
+
+    const result = await updateConcept(mockEvent)
+
+    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+    expect(sparqlRequest).toHaveBeenCalled()
+    expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error updating concept',
+        error: 'Network error'
+      }),
+      headers: mockDefaultHeaders
+    })
   })
 })

@@ -37,7 +37,7 @@ createConcept:
     - http:
         method: post
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: concept/{conceptId}
+        path: concept
 createConcepts:
   handler: serverless/src/createConcepts/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -53,7 +53,7 @@ updateConcept:
     - http:
         method: put
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: concept/{conceptId}
+        path: concept
 
 deleteConcept:
   handler: serverless/src/deleteConcept/handler.default
