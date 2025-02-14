@@ -1,4 +1,3 @@
-// Serverless/src/utils/deleteTriples.js
 import { sparqlRequest } from './sparqlRequest'
 
 async function deleteTriples(conceptIRI) {

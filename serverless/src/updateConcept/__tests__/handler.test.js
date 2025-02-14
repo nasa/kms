@@ -1,4 +1,3 @@
-// Serverless/src/updateConcept/__tests__/handler.test.js
 import {
   describe,
   expect,

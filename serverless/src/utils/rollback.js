@@ -1,4 +1,3 @@
-// Serverless/src/utils/rollback.js
 import { sparqlRequest } from './sparqlRequest'
 
 /**

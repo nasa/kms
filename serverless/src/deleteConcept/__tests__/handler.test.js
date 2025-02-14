@@ -1,4 +1,3 @@
-// Serverless/src/deleteConcept/__tests__/handler.test.js
 import {
   describe,
   test,
