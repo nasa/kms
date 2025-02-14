@@ -1,75 +1,72 @@
 import {
   describe,
+  test,
   expect,
   vi,
-  beforeEach,
-  afterEach
+  beforeEach
 } from 'vitest'
 import deleteConcept from '../handler'
+import deleteTriples from '../../utils/deleteTriples'
 import { getApplicationConfig } from '../../utils/getConfig'
-import { sparqlRequest } from '../../utils/sparqlRequest'
 
 // Mock the dependencies
+vi.mock('../../utils/deleteTriples')
 vi.mock('../../utils/getConfig')
-vi.mock('../../utils/sparqlRequest')
 
 describe('deleteConcept', () => {
-  const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
-  const mockConceptId = '123'
+  const mockDefaultHeaders = { 'Content-Type': 'application/json' }
   const mockEvent = {
-    pathParameters: { conceptId: mockConceptId }
+    pathParameters: { conceptId: '123' }
   }
-  let consoleLogSpy
-  let consoleErrorSpy
 
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-
-    // Set up spies for console.log and console.error
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  afterEach(() => {
-    // Restore the original console methods after each test
-    consoleLogSpy.mockRestore()
-    consoleErrorSpy.mockRestore()
-  })
-
-  test('should successfully delete a concept and return 200', async () => {
-    sparqlRequest.mockResolvedValue({ ok: true })
+  test('should successfully delete a concept', async () => {
+    deleteTriples.mockResolvedValue({ deleteResponse: { ok: true } })
 
     const result = await deleteConcept(mockEvent)
 
-    expect(sparqlRequest).toHaveBeenCalledWith({
-      contentType: 'application/sparql-update',
-      accept: 'application/sparql-results+json',
-      path: '/statements',
-      method: 'POST',
-      body: expect.stringContaining(`https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`)
-    })
-
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
     expect(result).toEqual({
       statusCode: 200,
-      body: JSON.stringify({ message: `Successfully deleted concept: ${mockConceptId}` }),
+      body: JSON.stringify({ message: 'Successfully deleted concept: 123' }),
       headers: mockDefaultHeaders
     })
-
-    expect(consoleLogSpy).toHaveBeenCalledWith(`Successfully deleted concept: ${mockConceptId}`)
   })
 
-  test('should handle SPARQL endpoint errors and return 500', async () => {
-    const errorMessage = 'SPARQL endpoint error'
-    sparqlRequest.mockResolvedValue({
-      ok: false,
-      status: 400,
-      text: () => Promise.resolve(errorMessage)
+  test('should return 500 if deleteTriples fails', async () => {
+    const mockError = new Error('Delete failed')
+    deleteTriples.mockRejectedValue(mockError)
+
+    const result = await deleteConcept(mockEvent)
+
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error deleting concept',
+        error: 'Delete failed'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should return 500 if deleteTriples returns non-ok response', async () => {
+    deleteTriples.mockResolvedValue({
+      deleteResponse: {
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve('Bad Request')
+      }
     })
 
     const result = await deleteConcept(mockEvent)
 
-    expect(sparqlRequest).toHaveBeenCalled()
     expect(result).toEqual({
       statusCode: 500,
       body: JSON.stringify({
@@ -78,92 +75,29 @@ describe('deleteConcept', () => {
       }),
       headers: mockDefaultHeaders
     })
-
-    expect(consoleLogSpy).toHaveBeenCalledWith('Response text:', errorMessage)
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting concept:', expect.any(Error))
   })
 
-  test('should handle unexpected errors and return 500', async () => {
-    const error = new Error('Unexpected error')
-    sparqlRequest.mockRejectedValue(error)
-
-    const result = await deleteConcept(mockEvent)
-
-    expect(sparqlRequest).toHaveBeenCalled()
-    expect(result).toEqual({
-      statusCode: 500,
-      body: JSON.stringify({
-        message: 'Error deleting concept',
-        error: 'Unexpected error'
-      }),
-      headers: mockDefaultHeaders
-    })
-
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Error deleting concept:', error)
-  })
-
-  test('should construct the correct SPARQL query', async () => {
-    sparqlRequest.mockResolvedValue({ ok: true })
-
-    await deleteConcept(mockEvent)
-
-    const expectedQuery = `
-     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-     DELETE {
-       ?s ?p ?o .
-     }
-     WHERE {
-       ?s ?p ?o .
-       FILTER(?s = <https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}>)
-     }
-   `
-
-    expect(sparqlRequest).toHaveBeenCalledWith({
-      accept: 'application/sparql-results+json',
-      body: expectedQuery,
-      contentType: 'application/sparql-update',
-      method: 'POST',
-      path: '/statements'
-    })
-  })
-
-  test('should handle missing conceptId in path parameters', async () => {
+  test('should handle missing conceptId', async () => {
     const eventWithoutConceptId = { pathParameters: {} }
 
     const result = await deleteConcept(eventWithoutConceptId)
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       statusCode: 500,
-      body: expect.stringContaining('Error deleting concept'),
       headers: mockDefaultHeaders
     })
 
-    expect(consoleErrorSpy).toHaveBeenCalled()
+    const body = JSON.parse(result.body)
+    expect(body).toHaveProperty('message', 'Error deleting concept')
+    expect(body).toHaveProperty('error')
+    expect(typeof body.error).toBe('string')
   })
 
-  test('should use the correct content type and accept headers', async () => {
-    sparqlRequest.mockResolvedValue({ ok: true })
+  test('should use correct conceptIRI format', async () => {
+    deleteTriples.mockResolvedValue({ deleteResponse: { ok: true } })
 
     await deleteConcept(mockEvent)
 
-    expect(sparqlRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contentType: 'application/sparql-update',
-        accept: 'application/sparql-results+json'
-      })
-    )
-  })
-
-  test('should use the correct path and method for the SPARQL request', async () => {
-    sparqlRequest.mockResolvedValue({ ok: true })
-
-    await deleteConcept(mockEvent)
-
-    expect(sparqlRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: '/statements',
-        method: 'POST'
-      })
-    )
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
   })
 })
