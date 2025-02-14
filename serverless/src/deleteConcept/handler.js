@@ -1,5 +1,5 @@
+import deleteTriples from '../utils/deleteTriples'
 import { getApplicationConfig } from '../utils/getConfig'
-import { sparqlRequest } from '../utils/sparqlRequest'
 
 /**
  * Deletes a SKOS Concept from the RDF store based on its rdf:about identifier.
@@ -37,26 +37,8 @@ const deleteConcept = async (event) => {
   // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
-  // Construct the SPARQL DELETE query
-  const deleteQuery = `
-     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-     DELETE {
-       ?s ?p ?o .
-     }
-     WHERE {
-       ?s ?p ?o .
-       FILTER(?s = <${conceptIRI}>)
-     }
-   `
-
   try {
-    const response = await sparqlRequest({
-      contentType: 'application/sparql-update',
-      accept: 'application/sparql-results+json',
-      path: '/statements',
-      method: 'POST',
-      body: deleteQuery
-    })
+    const { deleteResponse: response } = await deleteTriples(conceptIRI)
 
     if (!response.ok) {
       const responseText = await response.text()
@@ -64,8 +46,7 @@ const deleteConcept = async (event) => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    console.log(`Successfully deleted concept: ${conceptId}`)
-
+    // Return success response
     return {
       statusCode: 200,
       body: JSON.stringify({ message: `Successfully deleted concept: ${conceptId}` }),

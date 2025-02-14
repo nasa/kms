@@ -1,6 +1,8 @@
-import conceptIdExists from '../utils/conceptIdExists'
 import { getApplicationConfig } from '../utils/getConfig'
 import { sparqlRequest } from '../utils/sparqlRequest'
+import conceptIdExists from '../utils/conceptIdExists'
+import deleteTriples from '../utils/deleteTriples'
+import rollback from '../utils/rollback'
 
 /**
  * Updates an existing SKOS Concept in the RDF store.
@@ -32,12 +34,12 @@ import { sparqlRequest } from '../utils/sparqlRequest'
  * //   headers: { ... }
  * // }
  */
+
 const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event
-  const { conceptId } = event.pathParameters // Assuming the concept ID is passed as a path parameter
+  const { conceptId } = event.pathParameters
 
-  // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
   try {
@@ -50,27 +52,50 @@ const updateConcept = async (event) => {
       }
     }
 
-    // If the concept exists, proceed with the update
-    const response = await sparqlRequest({
-      contentType: 'application/rdf+xml',
-      accept: 'application/rdf+xml',
-      path: '/statements',
-      method: 'POST',
-      body: rdfXml
-    })
+    // Delete existing triples and get the deleted data
+    const { deletedTriples, deleteResponse } = await deleteTriples(conceptIRI)
 
-    if (!response.ok) {
-      const responseText = await response.text()
-      console.log('Response text:', responseText)
-      throw new Error(`HTTP error! status: ${response.status}`)
+    if (!deleteResponse.ok) {
+      throw new Error(`HTTP error! delete status: ${deleteResponse.status}`)
     }
 
-    console.log(`Successfully updated concept: ${conceptId}`)
+    console.log(`Successfully deleted concept: ${conceptId}`)
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: `Successfully updated concept: ${conceptId}` }),
-      headers: defaultResponseHeaders
+    // Try to insert the new data
+    try {
+      const insertResponse = await sparqlRequest({
+        contentType: 'application/rdf+xml',
+        accept: 'application/rdf+xml',
+        path: '/statements',
+        method: 'POST',
+        body: rdfXml
+      })
+
+      if (!insertResponse.ok) {
+        throw new Error(`HTTP error! insert status: ${insertResponse.status}`)
+      }
+
+      console.log(`Successfully updated concept: ${conceptId}`)
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ message: `Successfully updated concept: ${conceptId}` }),
+        headers: defaultResponseHeaders
+      }
+    } catch (insertError) {
+      console.error('Error inserting new data, rolling back:', insertError)
+
+      // Rollback: reinsert the deleted triples
+      await rollback(deletedTriples)
+
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          message: 'Error updating concept',
+          error: insertError.message
+        }),
+        headers: defaultResponseHeaders
+      }
     }
   } catch (error) {
     console.error('Error updating concept:', error)

@@ -1,16 +1,22 @@
+// Serverless/src/updateConcept/__tests__/handler.test.js
 import {
   describe,
   expect,
   vi,
-  beforeEach
+  beforeEach,
+  test
 } from 'vitest'
 import updateConcept from '../handler'
 import conceptIdExists from '../../utils/conceptIdExists'
+import deleteTriples from '../../utils/deleteTriples'
+import rollback from '../../utils/rollback'
 import { getApplicationConfig } from '../../utils/getConfig'
 import { sparqlRequest } from '../../utils/sparqlRequest'
 
 // Mock the dependencies
 vi.mock('../../utils/conceptIdExists')
+vi.mock('../../utils/deleteTriples')
+vi.mock('../../utils/rollback')
 vi.mock('../../utils/getConfig')
 vi.mock('../../utils/sparqlRequest')
 
@@ -20,6 +26,11 @@ describe('updateConcept', () => {
     body: '<rdf:RDF>...</rdf:RDF>',
     pathParameters: { conceptId: '123' }
   }
+  const mockDeletedTriples = [{
+    s: { value: 'subject' },
+    p: { value: 'predicate' },
+    o: { value: 'object' }
+  }]
 
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -27,6 +38,12 @@ describe('updateConcept', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    deleteTriples.mockResolvedValue({
+      deletedTriples: mockDeletedTriples,
+      deleteResponse: { ok: true }
+    })
+
+    rollback.mockResolvedValue()
   })
 
   test('should return 404 if concept does not exist', async () => {
@@ -41,12 +58,13 @@ describe('updateConcept', () => {
     })
   })
 
-  test('should update concept and return 200 if concept exists', async () => {
+  test('should update concept and return 200 if concept exists and update succeeds', async () => {
     conceptIdExists.mockResolvedValue(true)
     sparqlRequest.mockResolvedValue({ ok: true })
 
     const result = await updateConcept(mockEvent)
 
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
     expect(sparqlRequest).toHaveBeenCalledWith({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
@@ -62,37 +80,82 @@ describe('updateConcept', () => {
     })
   })
 
-  test('should return 500 if sparqlRequest fails', async () => {
+  test('should rollback and return 500 if delete succeeds but insert fails', async () => {
     conceptIdExists.mockResolvedValue(true)
     sparqlRequest.mockResolvedValue({
       ok: false,
-      status: 500,
-      text: () => Promise.resolve('Server error')
+      status: 500
     })
 
     const result = await updateConcept(mockEvent)
+
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+    expect(sparqlRequest).toHaveBeenCalledWith({
+      contentType: 'application/rdf+xml',
+      accept: 'application/rdf+xml',
+      path: '/statements',
+      method: 'POST',
+      body: mockEvent.body
+    })
+
+    expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
 
     expect(result).toEqual({
       statusCode: 500,
       body: JSON.stringify({
         message: 'Error updating concept',
-        error: 'HTTP error! status: 500'
+        error: 'HTTP error! insert status: 500'
       }),
       headers: mockDefaultHeaders
     })
   })
 
-  test('should return 500 if an error is thrown', async () => {
+  test('should return 500 if delete operation fails', async () => {
     conceptIdExists.mockResolvedValue(true)
-    sparqlRequest.mockRejectedValue(new Error('Network error'))
+    deleteTriples.mockResolvedValue({
+      deletedTriples: mockDeletedTriples,
+      deleteResponse: {
+        ok: false,
+        status: 500
+      }
+    })
 
     const result = await updateConcept(mockEvent)
+
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+    expect(sparqlRequest).not.toHaveBeenCalled()
+    expect(rollback).not.toHaveBeenCalled()
 
     expect(result).toEqual({
       statusCode: 500,
       body: JSON.stringify({
         message: 'Error updating concept',
-        error: 'Network error'
+        error: 'HTTP error! delete status: 500'
+      }),
+      headers: mockDefaultHeaders
+    })
+  })
+
+  test('should return 500 if rollback fails', async () => {
+    conceptIdExists.mockResolvedValue(true)
+    sparqlRequest.mockResolvedValue({
+      ok: false,
+      status: 500
+    })
+
+    rollback.mockRejectedValue(new Error('Rollback failed'))
+
+    const result = await updateConcept(mockEvent)
+
+    expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+    expect(sparqlRequest).toHaveBeenCalled()
+    expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
+
+    expect(result).toEqual({
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Error updating concept',
+        error: 'Rollback failed'
       }),
       headers: mockDefaultHeaders
     })
