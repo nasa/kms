@@ -3,12 +3,38 @@ const xml2js = require('xml2js')
 const { create } = require('xmlbuilder2')
 
 // Example files to use with main() below for the purposes of testing skos:concept element output
-// const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/70cb0f31-5c7e-48c1-a145-b7b99f0709a7?format=json'
-// const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/70cb0f31-5c7e-48c1-a145-b7b99f0709a7?format=xml'
+// const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/00c0412e-b0d6-401d-8945-efd2dcdeb022?format=json'
+// const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/00c0412e-b0d6-401d-8945-efd2dcdeb022?format=xml'
 // const rootfragment = create({
 //   version: '1.0',
 //   encoding: 'UTF-8'
 // })
+
+const maxRetries = 3
+const retryDelay = 5000 // 5 seconds
+
+// eslint-disable-next-line no-promise-executor-return
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const fetchWithRetry = async (url, retries = 0) => {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return response
+  } catch (error) {
+    if (retries < maxRetries) {
+      console.log(`Fetch failed. Retrying in ${retryDelay / 1000} seconds... (Attempt ${retries + 1}/${maxRetries})`)
+      await delay(retryDelay)
+
+      return fetchWithRetry(url, retries + 1)
+    }
+
+    throw error
+  }
+}
 
 /**
    * Combines information from JSON and XML files to create RDF.
@@ -18,14 +44,14 @@ const { create } = require('xmlbuilder2')
    */
 const toRDF = async (jsonURL, xmlURL) => {
   try {
-    const jsonResponse = await fetch(jsonURL)
+    const jsonResponse = await fetchWithRetry(jsonURL)
     if (!jsonResponse.ok) {
       throw new Error(`HTTP error! status: ${jsonResponse.status}`)
     }
 
     const json = await jsonResponse.json()
 
-    const xmlResponse = await fetch(xmlURL)
+    const xmlResponse = await fetchWithRetry(xmlURL)
     if (!xmlResponse.ok) {
       throw new Error(`HTTP error! status: ${xmlResponse.status}`)
     }
@@ -62,17 +88,27 @@ const toRDF = async (jsonURL, xmlURL) => {
     } = json
 
     const { concept: xmlConcept } = xml
-    const { changeNotes } = xmlConcept
+    const { changeNotes, creationDate, altSymbols } = xmlConcept
     const { changeNote } = changeNotes
 
-    concept.ele('dcterms:modified').txt(lastModifiedDate)
+    if (altSymbols) {
+      console.log(altSymbols)
+      console.log(json.uuid)
+    }
+
+    if (lastModifiedDate) {
+      concept.ele('dcterms:modified').txt(lastModifiedDate)
+    }
+
+    if (creationDate) {
+      concept.ele('dcterms:created').txt(creationDate)
+    }
 
     altLabels.forEach((label) => {
       concept.ele('skos:altLabel', {
         'gcmd:category': label.category,
-        'gcmd:text': label.text,
         'xml:lang': 'en'
-      })
+      }).txt(label.text)
     })
 
     definitions.forEach((definition) => {
@@ -113,7 +149,7 @@ const toRDF = async (jsonURL, xmlURL) => {
         if (note.changeNoteItems) {
           const { changeNoteItems } = note
           const {
-            date, userId, userNote, status
+            date, userId, userNote
           } = note.$
           let changeNoteText = `${date} [${userId}] ${userNote}`
           const { changeNoteItem } = changeNoteItems
@@ -128,19 +164,19 @@ const toRDF = async (jsonURL, xmlURL) => {
             })
           }
 
-          concept.ele('skos:changeNote').att('gcmd:status', status).txt(changeNoteText)
+          concept.ele('skos:changeNote').txt(changeNoteText)
         } else {
           const {
-            status, userId, date, userNote
+            userId, date, userNote
           } = note.$
 
-          concept.ele('skos:changeNote').att('gcmd:status', status).txt(`${date} [${userId}] ${userNote}`)
+          concept.ele('skos:changeNote').txt(`${date} [${userId}] ${userNote}`)
         }
       })
     } else if (changeNote?.length) {
       const { changeNoteItems } = changeNote
       const {
-        date, userId, userNote, status
+        date, userId, userNote
       } = changeNote.$
       let changeNoteText = `${date} [${userId}] ${userNote}`
       const { changeNoteItem } = changeNoteItems
@@ -155,7 +191,7 @@ const toRDF = async (jsonURL, xmlURL) => {
         })
       }
 
-      concept.ele('skos:changeNote').att('gcmd:status', status).txt(changeNoteText)
+      concept.ele('skos:changeNote').txt(changeNoteText)
     }
 
     const rdfString = fragment.end({ prettyPrint: true })
