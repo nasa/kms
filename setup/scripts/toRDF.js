@@ -3,8 +3,8 @@ const xml2js = require('xml2js')
 const { create } = require('xmlbuilder2')
 
 // Example files to use with main() below for the purposes of testing skos:concept element output
-// const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/00c0412e-b0d6-401d-8945-efd2dcdeb022?format=json'
-// const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/00c0412e-b0d6-401d-8945-efd2dcdeb022?format=xml'
+// const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/0086ca79-d40d-4119-97d0-f5911df75a37?format=json'
+// const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/0086ca79-d40d-4119-97d0-f5911df75a37?format=xml'
 // const rootfragment = create({
 //   version: '1.0',
 //   encoding: 'UTF-8'
@@ -100,7 +100,7 @@ const toRDF = async (jsonURL, xmlURL) => {
     }
 
     altLabels.forEach((label) => {
-      concept.ele('skos:altLabel', {
+      concept.ele('gcmd:longName', {
         'gcmd:category': label.category,
         'xml:lang': 'en'
       }).txt(label.text)
