@@ -1,3 +1,4 @@
+import fs from 'fs/promises'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -29,22 +30,56 @@ import { sparqlRequest } from './sparqlRequest'
  * @see sparqlRequest - Used to make the SPARQL query request.
  */
 
-const getFilteredTriples = async () => {
-  const sparqlQuery = `
+const getFilteredTriples = async ({ conceptScheme, pattern }) => {
+  const prefixes = `
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+`
+
+  const selectClause = `
   SELECT DISTINCT ?s ?p ?o
-  WHERE
-    {
-      ?s ?p ?o .
-    } 
+`
+
+  const createWhereClause = () => {
+    const conditions = []
+
+    if (conceptScheme) {
+      conditions.push(`?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${conceptScheme}>`)
+    }
+
+    if (pattern) {
+      conditions.push('?s skos:prefLabel ?prefLabel')
+      conditions.push(`FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${pattern}")))`)
+    }
+
+    const directPattern = conditions.length > 0
+      ? `${conditions.join(' .\n    ')} .\n    ?s ?p ?o .`
+      : '?s ?p ?o .'
+
+    const blankNodePattern = conditions.length > 0
+      ? `${conditions.map((c) => c.replace('?s', '?original')).join(' .\n    ')} .\n    ?original ?p1 ?s .\n    ?s ?p ?o .\n    FILTER(isBlank(?s))`
+      : '?original ?p1 ?s .\n    ?s ?p ?o .\n    FILTER(isBlank(?s))'
+
+    return `
+    WHERE {
+      { ${directPattern} }
+      UNION
+      { ${blankNodePattern} }
+    }
   `
+  }
+
+  const sparql = `
+  ${prefixes}
+  ${selectClause}
+  ${createWhereClause()}
+`
 
   try {
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: sparqlQuery
+      body: sparql
     })
 
     if (!response.ok) {

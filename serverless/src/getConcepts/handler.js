@@ -28,8 +28,12 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
  * //   headers: { ... }
  * // }
  */
-const getConcepts = async () => {
+const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  const { pathParameters } = event
+  const { conceptScheme, pattern } = pathParameters || {}
+
+  console.log('here', conceptScheme, pattern)
 
   try {
     const builder = new XMLBuilder({
@@ -41,7 +45,10 @@ const getConcepts = async () => {
       textNodeName: '_text'
     })
 
-    const triples = await getFilteredTriples()
+    const triples = await getFilteredTriples({
+      conceptScheme,
+      pattern
+    })
     const { bNodeMap, nodes, conceptURIs: fullURIs } = processTriples(triples)
 
     const concepts = []

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#">
+  <skos:Concept rdf:about="071a00d6-29c6-460a-9d59-d593e430d263" xml:base="https://gcmd.earthdata.nasa.gov/kms/concept/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#">
+    <skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/chronounits"></skos:inScheme>
+    <skos:prefLabel xml:lang="en">SINEMURIAN UPDATED</skos:prefLabel>
+    <skos:definition xml:lang="en">In the geologic timescale, the Sinemurian is an age and stage in the Early or Lower Jurassic epoch or series. It spans the time between 199.3 ± 2 Ma and 190.8 ± 1.5 Ma (million years ago). The Sinemurian is preceded by the Hettangian and is followed by the Pliensbac</skos:definition>
+    <gcmd:reference gcmd:text="International Commission on Stratigraphy (http://www.stratigraphy.org/)" xml:lang="en"></gcmd:reference>
+    <skos:broader rdf:resource="bc9f3b87-69ff-4841-a227-309c69c952c2"></skos:broader>
+    <skos:changeNote>2019-10-11 13:19:39.0 [tstevens]  
+insert Definition (id: null
+text: In the geologic timescale, the Sinemurian is an age and stage in the Early or Lower Jurassic epoch or series. It spans the time between 199.3 ± 2 Ma and 190.8 ± 1.5 Ma (million years ago). The Sinemurian is preceded by the Hettangian and is followed by the Pliensbac
+language code: en);</skos:changeNote>
+    <skos:changeNote>2019-10-09 07:50:06.0 [tstevens] Insert Concept 
+add broader relation (SINEMURIAN [071a00d6-29c6-460a-9d59-d593e430d263,369345] - LOWER [bc9f3b87-69ff-4841-a227-309c69c952c2,369305]);</skos:changeNote>
+  </skos:Concept>
+</rdf:RDF>

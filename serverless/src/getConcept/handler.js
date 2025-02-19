@@ -33,7 +33,7 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
  */
 const getConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { pathParameters } = event
+  const { pathParameters } = event || {}
   const { conceptId } = pathParameters
 
   try {

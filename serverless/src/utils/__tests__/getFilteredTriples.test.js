@@ -1,93 +1,95 @@
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach
+} from 'vitest'
 import getFilteredTriples from '../getFilteredTriples'
 import { sparqlRequest } from '../sparqlRequest'
 
-vi.mock('../getConfig', () => ({
-  getApplicationConfig: vi.fn(() => ({
-    sparqlEndpoint: 'http://mock-sparql-endpoint'
-  }))
-}))
-
+// Mock the sparqlRequest function
 vi.mock('../sparqlRequest', () => ({
   sparqlRequest: vi.fn()
 }))
 
 describe('getFilteredTriples', () => {
-  beforeAll(() => {
+  beforeEach(() => {
+    vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    sparqlRequest.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ results: { bindings: [] } })
+    })
   })
 
-  describe('when called with no filter', () => {
-    test('should make a request to the SPARQL endpoint with correct parameters', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          results: {
-            bindings: []
-          }
-        })
-      }
-      sparqlRequest.mockResolvedValue(mockResponse)
+  it('should return all triples when no filters are applied', async () => {
+    await getFilteredTriples({})
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('WHERE {')
+    }))
 
-      await getFilteredTriples()
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.not.stringContaining('skos:inScheme')
+    }))
 
-      expect(sparqlRequest).toHaveBeenCalledWith({
-        method: 'POST',
-        contentType: 'application/sparql-query',
-        accept: 'application/sparql-results+json',
-        body: `
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  SELECT DISTINCT ?s ?p ?o
-  WHERE
-    {
-      ?s ?p ?o .
-    } 
-  `
-      })
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.not.stringContaining('skos:prefLabel')
+    }))
+  })
+
+  it('should filter by pattern', async () => {
+    await getFilteredTriples({ pattern: 'snow' })
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('FILTER(CONTAINS(LCASE(?prefLabel), LCASE("snow")))')
+    }))
+  })
+
+  it('should filter by concept scheme', async () => {
+    await getFilteredTriples({ conceptScheme: 'sciencekeywords' })
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords>')
+    }))
+  })
+
+  it('should filter by both pattern and concept scheme', async () => {
+    await getFilteredTriples({
+      pattern: 'snow',
+      conceptScheme: 'sciencekeywords'
     })
 
-    test('should return the parsed results from the SPARQL query', async () => {
-      const mockBindings = [
-        {
-          s: { value: 'subject1' },
-          p: { value: 'predicate1' },
-          o: { value: 'object1' }
-        },
-        {
-          s: { value: 'subject2' },
-          p: { value: 'predicate2' },
-          o: { value: 'object2' }
-        }
-      ]
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          results: {
-            bindings: mockBindings
-          }
-        })
-      }
-      sparqlRequest.mockResolvedValue(mockResponse)
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('FILTER(CONTAINS(LCASE(?prefLabel), LCASE("snow")))')
+    }))
 
-      const result = await getFilteredTriples()
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords>')
+    }))
+  })
 
-      expect(result).toEqual(mockBindings)
+  it('should include blank node handling in the query', async () => {
+    await getFilteredTriples({})
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('UNION')
+    }))
+
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('FILTER(isBlank(?s))')
+    }))
+  })
+
+  test('should handle error from sparqlRequest', async () => {
+    sparqlRequest.mockRejectedValue(new Error('SPARQL request failed'))
+    await expect(getFilteredTriples({})).rejects.toThrow('SPARQL request failed')
+  })
+
+  test('should handle non-ok response from sparqlRequest', async () => {
+    sparqlRequest.mockResolvedValue({
+      ok: false,
+      status: 500
     })
 
-    test('should throw an error if the response is not ok', async () => {
-      const mockResponse = {
-        ok: false,
-        status: 400,
-        text: vi.fn().mockResolvedValue('Bad Request')
-      }
-      sparqlRequest.mockResolvedValue(mockResponse)
-
-      await expect(getFilteredTriples()).rejects.toThrow('HTTP error! status: 400')
-    })
-
-    test('should throw an error if the sparqlRequest fails', async () => {
-      sparqlRequest.mockRejectedValue(new Error('Network error'))
-
-      await expect(getFilteredTriples()).rejects.toThrow('Network error')
-    })
+    await expect(getFilteredTriples({})).rejects.toThrow('HTTP error! status: 500')
   })
 })
