@@ -1,5 +1,5 @@
 /* eslint-disable import/no-extraneous-dependencies */
-const xml2js = require('xml2js')
+const { escape } = require('html-escaper')
 const { create } = require('xmlbuilder2')
 
 // Example files to use with main() below for the purposes of testing skos:concept element output
@@ -143,46 +143,39 @@ const toRDF = async (jsonURL, xmlURL) => {
       changeNote.forEach((note) => {
         if (note.changeNoteItems) {
           const { changeNoteItems } = note
-          const {
-            date, userId, userNote
-          } = note.$
+          const { date, userId, userNote } = note.$
           let changeNoteText = `${date} [${userId}] ${userNote}`
           const { changeNoteItem } = changeNoteItems
 
           if (changeNoteItem?.$) {
             const { systemNote, newValue } = changeNoteItem.$
-            changeNoteText += ` ${systemNote} (${newValue?.replace(/\n/g, '').trim()}); `
+            changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
           } else {
             changeNoteItem.forEach((item) => {
               const { systemNote, newValue } = item.$
-              changeNoteText += ` ${systemNote} (${newValue?.replace(/\n/g, '').trim()}); `
+              changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
             })
           }
 
           concept.ele('skos:changeNote').txt(changeNoteText)
         } else {
-          const {
-            userId, date, userNote
-          } = note.$
-
-          concept.ele('skos:changeNote').txt(`${date} [${userId}] ${userNote}`)
+          const { userId, date, userNote } = note.$
+          concept.ele('skos:changeNote').txt(`${date} [${userId}] ${escape(userNote)}`)
         }
       })
     } else if (changeNote?.length) {
       const { changeNoteItems } = changeNote
-      const {
-        date, userId, userNote
-      } = changeNote.$
-      let changeNoteText = `${date} [${userId}] ${userNote}`
+      const { date, userId, userNote } = changeNote.$
+      let changeNoteText = `${date} [${userId}] ${escape(userNote)}`
       const { changeNoteItem } = changeNoteItems
 
       if (changeNoteItem.$) {
         const { systemNote, newValue } = changeNoteItem.$
-        changeNoteText += ` ${systemNote} (${newValue?.replace(/\n/g, '').trim()}); `
+        changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
       } else {
         changeNoteItem.forEach((item) => {
           const { systemNote, newValue } = item.$
-          changeNoteText += ` ${systemNote} (${newValue?.replace(/\n/g, '').trim()}); `
+          changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
         })
       }
 
