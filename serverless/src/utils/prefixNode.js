@@ -3,7 +3,9 @@
 const prefixes = {
   'http://www.w3.org/2004/02/skos/core#': 'skos:',
   'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'rdf:',
-  'https://gcmd.earthdata.nasa.gov/kms#': 'gcmd:'
+  'https://gcmd.earthdata.nasa.gov/kms#': 'gcmd:',
+  'http://purl.org/dc/terms/': 'dcterms:'
+
 }
 
 /**

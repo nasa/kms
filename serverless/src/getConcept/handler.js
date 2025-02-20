@@ -53,12 +53,13 @@ const getConcept = async (event) => {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
         '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
         '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
-        '@xmlns:kms': 'https://gcmd.earthdata.nasa.gov/kms#',
+        '@xmlns:dcterms': 'http://purl.org/dc/terms/',
         'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
         'skos:Concept': [concept]
 
       }
     }
+    console.log('json=', JSON.stringify(rdfJson, null, 2))
 
     const xml = await builder.build(rdfJson)
 
