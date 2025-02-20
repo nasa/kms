@@ -4,6 +4,7 @@ import getFilteredTriples from '../utils/getFilteredTriples'
 import toSkosJson from '../utils/toSkosJson'
 import processTriples from '../utils/processTriples'
 import getGcmdMetadata from '../utils/getGcmdMetadata'
+import getRootConcepts from '../utils/getRootConcepts'
 
 /**
  * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
@@ -42,11 +43,16 @@ const getConcepts = async (event) => {
       suppressEmptyNode: true,
       textNodeName: '_text'
     })
+    let triples
+    if (event?.path === '/concepts/root') {
+      triples = await getRootConcepts()
+    } else {
+      triples = await getFilteredTriples({
+        conceptScheme,
+        pattern
+      })
+    }
 
-    const triples = await getFilteredTriples({
-      conceptScheme,
-      pattern
-    })
     const { bNodeMap, nodes, conceptURIs: fullURIs } = processTriples(triples)
 
     const concepts = []

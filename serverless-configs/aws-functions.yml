@@ -25,6 +25,10 @@ getConcepts:
     - http:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concepts/root
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concepts/concept_scheme/{conceptScheme}
     - http:
         method: get
@@ -42,6 +46,14 @@ getConcept:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept/{conceptId}
+getConceptSchemes:
+  handler: serverless/src/getConceptSchemes/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_schemes
 createConcept:
   handler: serverless/src/createConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
