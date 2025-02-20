@@ -6,10 +6,10 @@ import {
   vi
 } from 'vitest'
 import getGcmdMetadata from '../getGcmdMetadata'
-import getConceptScheme from '../getConceptScheme'
+import getConceptSchemeOfConcept from '../getConceptSchemeOfConcept'
 
 // Mock the getConceptScheme function
-vi.mock('../getConceptScheme')
+vi.mock('../getConceptSchemeOfConcept')
 
 describe('getGcmdMetadata', () => {
   test('should return base metadata when no arguments are provided', async () => {
@@ -33,7 +33,7 @@ describe('getGcmdMetadata', () => {
   test('should include scheme-specific metadata when conceptIRI is provided', async () => {
     const mockConceptIRI = 'https://gcmd.earthdata.nasa.gov/kms/concept/1234'
     const mockScheme = 'https://gcmd.earthdata.nasa.gov/kms/concept/scheme/5678'
-    getConceptScheme.mockResolvedValue(mockScheme)
+    getConceptSchemeOfConcept.mockResolvedValue(mockScheme)
 
     const result = await getGcmdMetadata({ conceptIRI: mockConceptIRI })
     expect(result).toMatchObject({
@@ -41,12 +41,12 @@ describe('getGcmdMetadata', () => {
       'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/5678/1234' }
     })
 
-    expect(getConceptScheme).toHaveBeenCalledWith(mockConceptIRI)
+    expect(getConceptSchemeOfConcept).toHaveBeenCalledWith(mockConceptIRI)
   })
 
-  test('should handle errors from getConceptScheme', async () => {
+  test('should handle errors from getConceptSchemeOfConcept', async () => {
     const mockConceptIRI = 'https://gcmd.earthdata.nasa.gov/kms/concept/1234'
-    getConceptScheme.mockRejectedValue(new Error('Scheme not found'))
+    getConceptSchemeOfConcept.mockRejectedValue(new Error('Scheme not found'))
 
     await expect(getGcmdMetadata({ conceptIRI: mockConceptIRI })).rejects.toThrow('Scheme not found')
   })
@@ -54,7 +54,7 @@ describe('getGcmdMetadata', () => {
   test('should include all metadata when both gcmdHits and conceptIRI are provided', async () => {
     const mockConceptIRI = 'https://gcmd.earthdata.nasa.gov/kms/concept/1234'
     const mockScheme = 'https://gcmd.earthdata.nasa.gov/kms/concept/scheme/5678'
-    getConceptScheme.mockResolvedValue(mockScheme)
+    getConceptSchemeOfConcept.mockResolvedValue(mockScheme)
 
     const result = await getGcmdMetadata({
       conceptIRI: mockConceptIRI,
@@ -70,7 +70,7 @@ describe('getGcmdMetadata', () => {
       'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/5678/1234' }
     })
 
-    expect(getConceptScheme).toHaveBeenCalledWith(mockConceptIRI)
+    expect(getConceptSchemeOfConcept).toHaveBeenCalledWith(mockConceptIRI)
   })
 
   test('should handle non-numeric gcmdHits', async () => {
@@ -80,7 +80,7 @@ describe('getGcmdMetadata', () => {
 
   test('should handle conceptIRI with unexpected format', async () => {
     const mockConceptIRI = 'https://example.com/invalid/concept'
-    getConceptScheme.mockResolvedValue('https://example.com/invalid/scheme')
+    getConceptSchemeOfConcept.mockResolvedValue('https://example.com/invalid/scheme')
 
     const result = await getGcmdMetadata({ conceptIRI: mockConceptIRI })
     expect(result['gcmd:viewer']._text).toBe('https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/scheme/concept')

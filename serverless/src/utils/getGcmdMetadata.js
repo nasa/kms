@@ -1,4 +1,4 @@
-import getConceptScheme from './getConceptScheme'
+import getConceptScheme from './getConceptSchemeOfConcept'
 
 /**
  * Generates GCMD (Global Change Master Directory) metadata based on provided parameters.

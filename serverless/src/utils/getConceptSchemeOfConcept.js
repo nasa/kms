@@ -18,7 +18,7 @@ import { sparqlRequest } from './sparqlRequest'
  *   console.error('Error:', error.message);
  * }
  */
-const getConceptScheme = async (conceptUri) => {
+const getConceptSchemeOfConcept = async (conceptUri) => {
   const query = `
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
     SELECT ?scheme
@@ -54,4 +54,4 @@ const getConceptScheme = async (conceptUri) => {
   }
 }
 
-export default getConceptScheme
+export default getConceptSchemeOfConcept

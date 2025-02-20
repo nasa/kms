@@ -2,7 +2,8 @@ import {
   describe,
   expect,
   vi,
-  beforeEach
+  beforeEach,
+  test
 } from 'vitest'
 import getConceptSchemeDetails from '../getConceptSchemeDetails'
 import * as sparqlRequestModule from '../sparqlRequest'
@@ -14,18 +15,18 @@ vi.mock('../sparqlRequest', () => ({
 
 describe('getConceptSchemeDetails', () => {
   beforeEach(() => {
-    // Clear all mocks before each test
     vi.clearAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  test('should return concept scheme details when found', async () => {
+  test('should return single concept scheme details when schemeName is provided', async () => {
     const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
         results: {
           bindings: [
             {
+              scheme: { value: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations' },
               prefLabel: { value: 'Chained Operations' },
               notation: { value: 'ChainedOperations' },
               modified: { value: '2025-01-31' },
@@ -41,6 +42,7 @@ describe('getConceptSchemeDetails', () => {
     const result = await getConceptSchemeDetails('ChainedOperations')
 
     expect(result).toEqual({
+      uri: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations',
       prefLabel: 'Chained Operations',
       notation: 'ChainedOperations',
       modified: '2025-01-31',
@@ -49,12 +51,67 @@ describe('getConceptSchemeDetails', () => {
 
     expect(sparqlRequestModule.sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'POST',
+      body: expect.stringContaining('FILTER(?notation = "ChainedOperations")'),
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json'
     }))
   })
 
-  test('should return null when concept scheme is not found', async () => {
+  test('should return all concept schemes when no schemeName is provided', async () => {
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [
+            {
+              scheme: { value: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations' },
+              prefLabel: { value: 'Chained Operations' },
+              notation: { value: 'ChainedOperations' },
+              modified: { value: '2025-01-31' },
+              csvHeaders: { value: 'Header1,Header2' }
+            },
+            {
+              scheme: { value: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/CollectionDataType' },
+              prefLabel: { value: 'Collection Data Type' },
+              notation: { value: 'CollectionDataType' },
+              modified: { value: '2025-01-31' },
+              csvHeaders: null
+            }
+          ]
+        }
+      })
+    }
+
+    sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
+
+    const result = await getConceptSchemeDetails()
+
+    expect(result).toEqual([
+      {
+        uri: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations',
+        prefLabel: 'Chained Operations',
+        notation: 'ChainedOperations',
+        modified: '2025-01-31',
+        csvHeaders: 'Header1,Header2'
+      },
+      {
+        uri: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/CollectionDataType',
+        prefLabel: 'Collection Data Type',
+        notation: 'CollectionDataType',
+        modified: '2025-01-31',
+        csvHeaders: null
+      }
+    ])
+
+    expect(sparqlRequestModule.sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'POST',
+      body: expect.not.stringContaining('FILTER'),
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json'
+    }))
+  })
+
+  test('should return null when no concept schemes are found', async () => {
     const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -66,7 +123,7 @@ describe('getConceptSchemeDetails', () => {
 
     sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-    const result = await getConceptSchemeDetails('NonExistentScheme')
+    const result = await getConceptSchemeDetails()
 
     expect(result).toBeNull()
   })
@@ -79,7 +136,7 @@ describe('getConceptSchemeDetails', () => {
 
     sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-    await expect(getConceptSchemeDetails('ChainedOperations')).rejects.toThrow('HTTP error! status: 500')
+    await expect(getConceptSchemeDetails()).rejects.toThrow('HTTP error! status: 500')
   })
 
   test('should handle concept scheme without csvHeaders', async () => {
@@ -89,6 +146,7 @@ describe('getConceptSchemeDetails', () => {
         results: {
           bindings: [
             {
+              scheme: { value: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/TestScheme' },
               prefLabel: { value: 'Test Scheme' },
               notation: { value: 'TestScheme' },
               modified: { value: '2025-01-31' }
@@ -103,6 +161,7 @@ describe('getConceptSchemeDetails', () => {
     const result = await getConceptSchemeDetails('TestScheme')
 
     expect(result).toEqual({
+      uri: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/TestScheme',
       prefLabel: 'Test Scheme',
       notation: 'TestScheme',
       modified: '2025-01-31',
