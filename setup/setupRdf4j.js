@@ -140,6 +140,8 @@ const loadRDFXMLToRDF4J = async (filePath) => {
  * @async
  */
 const main = async () => {
+  const inputFile = 'setup/data/convertedFiles.rdf'
+
   try {
     const serverRunning = await checkRDF4JServer(baseUrl)
     if (!serverRunning) {

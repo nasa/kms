@@ -30,7 +30,7 @@ const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms) })
  * Creates an rdf doc of all concepts by iterating through UUIDs, fetching their data in different formats, and synthesizing them into one .rdf
  * @returns concepts.rdf in setup/data
  */
-const convertFiles = async () => {
+const convertFilestoRDF = async () => {
   const { extractedUUIDs: extractedUUIDsData } = extractedUUIDs
 
   // Create Root Document
@@ -82,4 +82,4 @@ const convertFiles = async () => {
   }
 }
 
-convertFiles()
+convertFilestoRDF()

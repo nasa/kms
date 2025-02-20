@@ -13,7 +13,7 @@ const conceptsPath = path.join(rootDir, 'data/raw_concepts_data.rdf')
  */
 const extractUUIDs = async () => {
   try {
-    // Read the concepts.rdf file
+    // Read the raw_concept_data.rdf file
     const data = await fs.readFile(conceptsPath, 'utf8')
 
     // Parse the XML
@@ -25,7 +25,7 @@ const extractUUIDs = async () => {
 
     return rdfUUIDs
   } catch (error) {
-    console.error('Error processing concepts.rdf:', error)
+    console.error('Error processing raw_concepts_data.rdf:', error)
     throw error
   }
 }
