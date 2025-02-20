@@ -1,4 +1,3 @@
-import fs from 'fs/promises'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -33,6 +32,7 @@ import { sparqlRequest } from './sparqlRequest'
 const getFilteredTriples = async ({ conceptScheme, pattern }) => {
   const prefixes = `
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 `
 
   const selectClause = `
@@ -40,7 +40,9 @@ const getFilteredTriples = async ({ conceptScheme, pattern }) => {
 `
 
   const createWhereClause = () => {
-    const conditions = []
+    const conditions = [
+      '?s rdf:type skos:Concept' // This ensures we only get skos:Concept triples
+    ]
 
     if (conceptScheme) {
       conditions.push(`?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${conceptScheme}>`)
@@ -51,19 +53,27 @@ const getFilteredTriples = async ({ conceptScheme, pattern }) => {
       conditions.push(`FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${pattern}")))`)
     }
 
-    const directPattern = conditions.length > 0
-      ? `${conditions.join(' .\n    ')} .\n    ?s ?p ?o .`
-      : '?s ?p ?o .'
+    const directPattern = `
+      ${conditions.join(' .\n    ')} .
+      ?s ?p ?o .
+    `
 
-    const blankNodePattern = conditions.length > 0
-      ? `${conditions.map((c) => c.replace('?s', '?original')).join(' .\n    ')} .\n    ?original ?p1 ?s .\n    ?s ?p ?o .\n    FILTER(isBlank(?s))`
-      : '?original ?p1 ?s .\n    ?s ?p ?o .\n    FILTER(isBlank(?s))'
+    const blankNodePattern = `
+      ${conditions.map((c) => c.replace(/\?s/g, '?original')).join(' .\n    ')} .
+      ?original ?p1 ?s .
+      ?s ?p ?o .
+      FILTER(isBlank(?s))
+    `
 
     return `
     WHERE {
-      { ${directPattern} }
+      {
+        ${directPattern}
+      }
       UNION
-      { ${blankNodePattern} }
+      {
+        ${blankNodePattern}
+      }
     }
   `
   }

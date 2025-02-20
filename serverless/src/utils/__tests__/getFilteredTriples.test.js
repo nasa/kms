@@ -1,9 +1,9 @@
 import {
   describe,
-  it,
   expect,
   vi,
-  beforeEach
+  beforeEach,
+  test
 } from 'vitest'
 import getFilteredTriples from '../getFilteredTriples'
 import { sparqlRequest } from '../sparqlRequest'
@@ -24,10 +24,14 @@ describe('getFilteredTriples', () => {
     })
   })
 
-  it('should return all triples when no filters are applied', async () => {
+  test('should return all skos:Concept triples when no filters are applied', async () => {
     await getFilteredTriples({})
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining('WHERE {')
+    }))
+
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?s rdf:type skos:Concept')
     }))
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -39,27 +43,39 @@ describe('getFilteredTriples', () => {
     }))
   })
 
-  it('should filter by pattern', async () => {
+  test('should filter by pattern for skos:Concept triples', async () => {
     await getFilteredTriples({ pattern: 'snow' })
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?s rdf:type skos:Concept')
+    }))
+
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining('FILTER(CONTAINS(LCASE(?prefLabel), LCASE("snow")))')
     }))
   })
 
-  it('should filter by concept scheme', async () => {
+  test('should filter by concept scheme for skos:Concept triples', async () => {
     await getFilteredTriples({ conceptScheme: 'sciencekeywords' })
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?s rdf:type skos:Concept')
+    }))
+
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining('?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords>')
     }))
   })
 
-  it('should filter by both pattern and concept scheme', async () => {
+  test('should filter by both pattern and concept scheme for skos:Concept triples', async () => {
     await getFilteredTriples({
       pattern: 'snow',
       conceptScheme: 'sciencekeywords'
     })
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?s rdf:type skos:Concept')
+    }))
+
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining('FILTER(CONTAINS(LCASE(?prefLabel), LCASE("snow")))')
     }))
 
@@ -68,7 +84,7 @@ describe('getFilteredTriples', () => {
     }))
   })
 
-  it('should include blank node handling in the query', async () => {
+  test('should include blank node handling in the query for skos:Concept triples', async () => {
     await getFilteredTriples({})
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining('UNION')
@@ -76,6 +92,10 @@ describe('getFilteredTriples', () => {
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.stringContaining('FILTER(isBlank(?s))')
+    }))
+
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('?original rdf:type skos:Concept')
     }))
   })
 

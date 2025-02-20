@@ -30,10 +30,8 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
  */
 const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { pathParameters } = event
-  const { conceptScheme, pattern } = pathParameters || {}
 
-  console.log('here', conceptScheme, pattern)
+  const { conceptScheme, pattern } = event?.pathParameters || {}
 
   try {
     const builder = new XMLBuilder({
