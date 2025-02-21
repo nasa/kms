@@ -1,21 +1,12 @@
-/* eslint-disable import/no-extraneous-dependencies */
-const { escape } = require('html-escaper')
-const { create } = require('xmlbuilder2')
+const { XMLParser, XMLBuilder } = require('fast-xml-parser')
 
-// Example files to use with main() below for the purposes of testing skos:concept element output
-// const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/0086ca79-d40d-4119-97d0-f5911df75a37?format=json'
-// const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/0086ca79-d40d-4119-97d0-f5911df75a37?format=xml'
-// const rootfragment = create({
-//   version: '1.0',
-//   encoding: 'UTF-8'
-// })
-
-const maxRetries = 3
-const retryDelay = 5000 // 5 seconds
+const maxRetries = 10
+const retryDelay = 5000
 
 // eslint-disable-next-line no-promise-executor-return
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Continues to fetch if previous attempts do not succeed
 const fetchWithRetry = async (url, retries = 0) => {
   try {
     const response = await fetch(url)
@@ -36,153 +27,125 @@ const fetchWithRetry = async (url, retries = 0) => {
   }
 }
 
-/**
-   * Combines information from JSON and XML files to create RDF.
-   * @param {String} jsonURL url of json file
-   * @param {String} xmlURL url of xml file
-   * @returns new RDF
-   */
+// Synthesizes information from jsonURL and xmlURL into one RDF skos:concept
 const toRDF = async (jsonURL, xmlURL) => {
   try {
     const jsonResponse = await fetchWithRetry(jsonURL)
-    if (!jsonResponse.ok) {
-      throw new Error(`HTTP error! status: ${jsonResponse.status}`)
-    }
-
     const json = await jsonResponse.json()
 
     const xmlResponse = await fetchWithRetry(xmlURL)
-    if (!xmlResponse.ok) {
-      throw new Error(`HTTP error! status: ${xmlResponse.status}`)
-    }
-
     const xmlText = await xmlResponse.text()
 
-    const parser = new xml2js.Parser({ explicitArray: false })
-    const xml = await parser.parseStringPromise(xmlText)
-
-    const fragment = create()
-
-    const concept = fragment.ele('skos:Concept', {
-      'xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-      'xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
-      'rdf:about': json.uuid,
-      'xml:base': 'https://gcmd.earthdata.nasa.gov/kms/concept/',
-      'xmlns:dcterms': 'http://purl.org/dc/terms/'
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      textNodeName: '#text'
     })
+    const xml = parser.parse(xmlText)
 
-    concept.ele('skos:inScheme', {
-      'rdf:resource': `https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${json.scheme.shortName}`
-    })
+    // Reads raw text and changes it from a literal string to a formated one
+    const decodeHtmlEntities = (text) => text.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
 
-    concept.ele('skos:prefLabel', { 'xml:lang': 'en' }).txt(json.prefLabel)
-
-    const {
-      altLabels,
-      broader,
-      definitions,
-      lastModifiedDate,
-      narrower,
-      related,
-      resources
-    } = json
-
-    const { concept: xmlConcept } = xml
-    const { changeNotes, creationDate } = xmlConcept
-    const { changeNote } = changeNotes
-
-    if (lastModifiedDate) {
-      concept.ele('dcterms:modified').txt(lastModifiedDate)
-    }
-
-    if (creationDate) {
-      concept.ele('dcterms:created').txt(creationDate)
-    }
-
-    altLabels.forEach((label) => {
-      concept.ele('gcmd:longName', {
-        'gcmd:category': label.category,
-        'xml:lang': 'en'
-      }).txt(label.text)
-    })
-
-    definitions.forEach((definition) => {
-      concept.ele('skos:definition', { 'xml:lang': 'en' }).txt(definition.text.replace(/\n/g, ''))
-      concept.ele('gcmd:reference', {
-        'gcmd:text': definition.reference,
-        'xml:lang': 'en'
-      })
-    })
-
-    resources.forEach((resource) => {
-      concept.ele('gcmd:resource', {
-        'gcmd:type': resource.type,
-        'gcmd:url': resource.url
-      })
-    })
-
-    broader.forEach((broad) => {
-      concept.ele('skos:broader', { 'rdf:resource': broad.uuid })
-    })
-
-    narrower.forEach((narrow) => {
-      concept.ele('skos:narrower', { 'rdf:resource': narrow.uuid })
-    })
-
-    related.forEach((rel) => {
-      const { type, uuid } = rel
-
-      if (type === 'has_instrument') {
-        concept.ele('gcmd:hasInstrument', { 'rdf:resource': uuid })
-      } else {
-        concept.ele('gcmd:onPlatform', { 'rdf:resource': uuid })
-      }
-    })
-
-    if (changeNote?.length !== undefined) {
-      changeNote.forEach((note) => {
-        if (note.changeNoteItems) {
-          const { changeNoteItems } = note
-          const { date, userId, userNote } = note.$
-          let changeNoteText = `${date} [${userId}] ${userNote}`
-          const { changeNoteItem } = changeNoteItems
-
-          if (changeNoteItem?.$) {
-            const { systemNote, newValue } = changeNoteItem.$
-            changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
-          } else {
-            changeNoteItem.forEach((item) => {
-              const { systemNote, newValue } = item.$
-              changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
-            })
-          }
-
-          concept.ele('skos:changeNote').txt(changeNoteText)
-        } else {
-          const { userId, date, userNote } = note.$
-          concept.ele('skos:changeNote').txt(`${date} [${userId}] ${escape(userNote)}`)
-        }
-      })
-    } else if (changeNote?.length) {
-      const { changeNoteItems } = changeNote
-      const { date, userId, userNote } = changeNote.$
-      let changeNoteText = `${date} [${userId}] ${escape(userNote)}`
-      const { changeNoteItem } = changeNoteItems
-
-      if (changeNoteItem.$) {
-        const { systemNote, newValue } = changeNoteItem.$
-        changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
-      } else {
+    // Helper function to provide information for <skos:changeNote> based on what the xml data looks like
+    const createChangeNote = (date, userId, userNote, changeNoteItems) => {
+      let changeNoteText = `${date} [${userId}] ${userNote}`
+      if (changeNoteItems) {
+        const changeNoteItem = Array.isArray(changeNoteItems.changeNoteItem)
+          ? changeNoteItems.changeNoteItem
+          : [changeNoteItems.changeNoteItem]
         changeNoteItem.forEach((item) => {
-          const { systemNote, newValue } = item.$
-          changeNoteText += ` ${systemNote} (${escape(newValue?.replace(/\n/g, '').trim())}); `
+          const { '@_systemNote': systemNote, '@_newValue': newValue } = item
+          const decodedNewValue = decodeHtmlEntities(newValue || '').trim()
+          changeNoteText += `\n${systemNote} (${decodedNewValue})`
         })
       }
 
-      concept.ele('skos:changeNote').txt(changeNoteText)
+      return changeNoteText
     }
 
-    const rdfString = fragment.end({ prettyPrint: true })
+    const concept = {
+      '@_xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+      '@_xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
+      '@_rdf:about': json.uuid,
+      '@_xml:base': 'https://gcmd.earthdata.nasa.gov/kms/concept/',
+      '@_xmlns:dcterms': 'http://purl.org/dc/terms/',
+      'skos:inScheme': {
+        '@_rdf:resource': `https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${json.scheme.shortName}`
+      },
+      'skos:prefLabel': {
+        '@_xml:lang': 'en',
+        '#text': json.prefLabel
+      }
+    }
+
+    if (json.lastModifiedDate) {
+      concept['dcterms:modified'] = json.lastModifiedDate
+    }
+
+    if (xml.concept.creationDate) {
+      concept['dcterms:created'] = xml.concept.creationDate
+    }
+
+    concept['gcmd:altLabel'] = json.altLabels.map((label) => ({
+      '@_gcmd:category': label.category,
+      '@_gcmd:text': label.text,
+      '@_xml:lang': 'en'
+    }))
+
+    concept['skos:definition'] = json.definitions.map((def) => ({
+      '@_xml:lang': 'en',
+      '#text': def.text.replace(/\n/g, '')
+    }))
+
+    concept['gcmd:reference'] = json.definitions.map((def) => ({
+      '@_gcmd:text': def.reference,
+      '@_xml:lang': 'en'
+    }))
+
+    concept['gcmd:resource'] = json.resources.map((resource) => ({
+      '@_gcmd:type': resource.type,
+      '@_gcmd:url': resource.url
+    }))
+
+    concept['skos:broader'] = json.broader.map((broad) => ({
+      '@_rdf:resource': broad.uuid
+    }))
+
+    concept['skos:narrower'] = json.narrower.map((narrow) => ({
+      '@_rdf:resource': narrow.uuid
+    }))
+
+    concept['skos:related'] = json.related.map((rel) => ({
+      '@_gcmd:type': rel.type === 'has_instrument' ? 'hasInstrument' : 'onPlatform',
+      '@_rdf:resource': rel.uuid
+    }))
+
+    const { changeNotes } = xml.concept
+    const changeNote = changeNotes?.changeNote
+
+    if (Array.isArray(changeNote)) {
+      concept['skos:changeNote'] = changeNote.map((note) => ({
+        '#text': createChangeNote(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)
+      }))
+    } else if (changeNote) {
+      concept['skos:changeNote'] = {
+        '#text': createChangeNote(changeNote['@_date'], changeNote['@_userId'], changeNote['@_userNote'], changeNote.changeNoteItems)
+      }
+    }
+
+    const rdfObject = {
+      'rdf:RDF': {
+        'skos:Concept': concept
+      }
+    }
+
+    const builder = new XMLBuilder({
+      ignoreAttributes: false,
+      format: true,
+      indentBy: '  '
+    })
+
+    const rdfString = builder.build(rdfObject)
 
     return rdfString
   } catch (error) {
@@ -193,10 +156,12 @@ const toRDF = async (jsonURL, xmlURL) => {
 
 module.exports = toRDF
 
-// Run to test function above
+// Uncomment to test the function
 // const main = async () => {
 //   try {
-//     const rdfString = await toRDF(jsonFileURL, xmlFileURL, rootfragment)
+//     const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/017ac312-b650-4800-992f-5167708b4d31?format=json'
+//     const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/017ac312-b650-4800-992f-5167708b4d31?format=xml'
+//     const rdfString = await toRDF(jsonFileURL, xmlFileURL)
 //     console.log('🚀 ~ main ~ rdfString:', rdfString)
 //   } catch (error) {
 //     console.error('Error in main:', error)
