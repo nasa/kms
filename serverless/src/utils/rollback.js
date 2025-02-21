@@ -1,3 +1,4 @@
+import { getInsertTriplesQuery } from '../operations/updates/getInsertTriplesQuery'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -18,21 +19,13 @@ import { sparqlRequest } from './sparqlRequest'
  * is logged and re-thrown for handling by the caller.
  */
 const rollback = async (deletedTriples) => {
-  const rollbackQuery = `
-    INSERT DATA {
-      ${deletedTriples.map((triple) => `<${triple.s.value}> <${triple.p.value}> ${
-    triple.o.type === 'uri' ? `<${triple.o.value}>` : `"${triple.o.value}"`
-  } .`).join('\n')}
-    }
-  `
-
   try {
     const rollbackResponse = await sparqlRequest({
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
       path: '/statements',
       method: 'POST',
-      body: rollbackQuery
+      body: getInsertTriplesQuery(deletedTriples)
     })
 
     if (!rollbackResponse.ok) {

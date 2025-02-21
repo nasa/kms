@@ -1,3 +1,4 @@
+import { getConceptSchemeDetailsQuery } from '../operations/queries/getConceptSchemeDetailsQuery'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -7,26 +8,10 @@ import { sparqlRequest } from './sparqlRequest'
  * @returns {Promise<Object|Array<Object>>} A promise that resolves to an object (for a single scheme) or an array of objects (for all schemes) containing the scheme details
  */
 const getConceptSchemeDetails = async (schemeName = null) => {
-  const query = `
-    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-    PREFIX dcterms: <http://purl.org/dc/terms/>
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms/>
-
-    SELECT ?scheme ?prefLabel ?notation ?modified ?csvHeaders
-    WHERE {
-      ?scheme a skos:ConceptScheme ;
-              skos:prefLabel ?prefLabel ;
-              skos:notation ?notation ;
-              dcterms:modified ?modified .
-      OPTIONAL { ?scheme gcmd:csvHeaders ?csvHeaders }
-      ${schemeName ? `FILTER(?notation = "${schemeName}")` : ''}
-    }
-  `
-
   try {
     const response = await sparqlRequest({
       method: 'POST',
-      body: query,
+      body: getConceptSchemeDetailsQuery(schemeName),
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json'
     })

@@ -34,9 +34,18 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
 const getConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event || {}
-  const { conceptId } = pathParameters
+  const { conceptId, shortName, altLabel } = pathParameters
+  const { queryStringParameters } = event || {}
+  const { scheme } = queryStringParameters || {}
+  console.log('q=', scheme)
 
   try {
+    const decode = (str) => {
+      if (!str) return null
+
+      return decodeURIComponent(str.replace(/\+/g, ' '))
+    }
+
     const builder = new XMLBuilder({
       format: true,
       ignoreAttributes: false,
@@ -46,8 +55,13 @@ const getConcept = async (event) => {
       textNodeName: '_text'
     })
 
-    const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
-    const concept = await getSkosConcept(conceptIRI)
+    const concept = await getSkosConcept({
+      conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
+      shortName: shortName ? decode(shortName) : null,
+      altLabel: altLabel ? decode(altLabel) : null,
+      scheme: scheme ? decode(scheme) : null
+    })
+    const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
     const rdfJson = {
       'rdf:RDF': {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -59,7 +73,6 @@ const getConcept = async (event) => {
 
       }
     }
-    console.log('json=', JSON.stringify(rdfJson, null, 2))
 
     const xml = await builder.build(rdfJson)
 

@@ -1,3 +1,6 @@
+import { getTriplesForAltLabelQuery } from '../operations/queries/getTriplesForAltLabelQuery'
+import { getTriplesForConceptQuery } from '../operations/queries/getTriplesForConceptQuery'
+import { getTriplesForShortNameQuery } from '../operations/queries/getTriplesForShortNameQuery'
 import { sparqlRequest } from './sparqlRequest'
 import toSkosJson from './toSkosJson'
 
@@ -22,7 +25,7 @@ import toSkosJson from './toSkosJson'
  *
 * @example
  * try {
- *   const conceptData = await getSkosConcept('http://example.com/concept/123');
+ *   const conceptData = await getSkosConcept({ conceptIRI: 'http://example.com/concept/123' });
  *   console.log(conceptData);
  *   // Example output:
  *   // {
@@ -52,22 +55,27 @@ import toSkosJson from './toSkosJson'
  * @see sparqlRequest - For details on how the SPARQL query is executed.
  * @see toSkosJson - For details on how the SPARQL results are converted to SKOS JSON.
  */
-const getSkosConcept = async (conceptIRI) => {
-  const sparqlQuery = `
-SELECT DISTINCT ?s ?p ?o
-WHERE {
-  {
-    <${conceptIRI}> ?p ?o .
-    BIND(<${conceptIRI}> AS ?s)
-  } 
-  UNION 
-  {
-    <${conceptIRI}> ?p1 ?bnode .
-    ?bnode ?p ?o .
-    BIND(?bnode AS ?s)
-    FILTER(isBlank(?bnode))
+const getSkosConcept = async ({
+  conceptIRI, shortName, altLabel, scheme
+}) => {
+  let sparqlQuery
+
+  if (conceptIRI) {
+    sparqlQuery = getTriplesForConceptQuery(conceptIRI)
+  } else if (shortName) {
+    sparqlQuery = getTriplesForShortNameQuery({
+      shortName,
+      scheme
+    })
+  } else if (altLabel) {
+    sparqlQuery = getTriplesForAltLabelQuery({
+      altLabel,
+      scheme
+    })
+  } else {
+    throw new Error('Either conceptIRI, shortName, or altLabel must be provided')
   }
-}  `
+
   try {
     const response = await sparqlRequest({
       contentType: 'application/sparql-query',
@@ -83,10 +91,23 @@ WHERE {
     const json = await response.json()
 
     if (json.results.bindings.length === 0) {
-      throw new Error(`No results found for concept: ${conceptIRI}`)
+      throw new Error('No results found for concept query.')
     }
 
-    return toSkosJson(conceptIRI, json.results.bindings)
+    let fetchedConceptIRI = conceptIRI
+    if (!fetchedConceptIRI) {
+      // If shortName was used, find the conceptIRI from the results
+      const conceptTriple = json.results.bindings.find((triple) => triple.p.value === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+        && triple.o.value === 'http://www.w3.org/2004/02/skos/core#Concept')
+
+      if (!conceptTriple) {
+        throw new Error('Could not find concept URI in retrieved concept')
+      }
+
+      fetchedConceptIRI = conceptTriple.s.value
+    }
+
+    return toSkosJson(fetchedConceptIRI, json.results.bindings)
   } catch (error) {
     console.error('Error fetching SKOS concept:', error)
     throw error

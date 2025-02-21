@@ -1,3 +1,4 @@
+import { getDeleteAllTriplesQuery } from '../operations/updates/getDeleteAllTriplesQuery'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -8,22 +9,11 @@ import { sparqlRequest } from './sparqlRequest'
  * @returns {Promise<boolean>} A promise that resolves to true if the deletion was successful.
  * @throws Will throw an error if the DELETE operation fails.
  */
-const deleteAllTriples = async () => {
-  const deleteQuery = `
-    DELETE {
-      ?s ?p ?o
-    }
-    WHERE {
-      ?s ?p ?o
-    }
-  `
-
-  return sparqlRequest({
-    path: '/statements',
-    method: 'POST',
-    contentType: 'application/sparql-update',
-    body: deleteQuery
-  })
-}
+const deleteAllTriples = async () => sparqlRequest({
+  path: '/statements',
+  method: 'POST',
+  contentType: 'application/sparql-update',
+  body: getDeleteAllTriplesQuery()
+})
 
 export default deleteAllTriples

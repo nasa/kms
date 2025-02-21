@@ -68,4 +68,39 @@ describe('getConcept', () => {
       error: 'Error: Test error'
     })
   })
+
+  test('should correctly decode URL parameters', async () => {
+    const encodedShortName = 'Test+Short+Name'
+    const encodedAltLabel = 'Alt%2BLabel%2BTest'
+    const encodedScheme = 'Test%20Scheme'
+
+    // eslint-disable-next-line no-shadow
+    const mockEvent = {
+      pathParameters: {
+        shortName: encodedShortName,
+        altLabel: encodedAltLabel
+      },
+      queryStringParameters: {
+        scheme: encodedScheme
+      }
+    }
+
+    const mockSkosConcept = {
+      '@rdf:about': '123',
+      'skos:prefLabel': 'Test Concept'
+    }
+    const mockGcmdMetadata = { 'gcmd:keywordVersion': { _text: '1.0' } }
+
+    getSkosConcept.mockResolvedValue(mockSkosConcept)
+    getGcmdMetadata.mockResolvedValue(mockGcmdMetadata)
+
+    await getConcept(mockEvent)
+
+    expect(getSkosConcept).toHaveBeenCalledWith({
+      conceptIRI: null,
+      shortName: 'Test Short Name',
+      altLabel: 'Alt+Label+Test',
+      scheme: 'Test Scheme'
+    })
+  })
 })
