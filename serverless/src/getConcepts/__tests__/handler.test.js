@@ -10,6 +10,7 @@ import toSkosJson from '../../utils/toSkosJson'
 import processTriples from '../../utils/processTriples'
 import { getApplicationConfig } from '../../utils/getConfig'
 import getGcmdMetadata from '../../utils/getGcmdMetadata'
+import getRootConcepts from '../../utils/getRootConcepts'
 
 // Mock the specified dependencies
 vi.mock('../../utils/getFilteredTriples')
@@ -17,6 +18,7 @@ vi.mock('../../utils/toSkosJson')
 vi.mock('../../utils/processTriples')
 vi.mock('../../utils/getConfig')
 vi.mock('../../utils/getGcmdMetadata')
+vi.mock('../../utils/getRootConcepts')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -235,5 +237,44 @@ describe('getConcepts', () => {
     expect(toSkosJson).toHaveBeenCalledTimes(2000)
     expect(result.body.match(/<skos:Concept/g)).toHaveLength(2000)
     expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 3000 }) // 3000 total - 2000 processed
+  })
+
+  // Add this test case to your describe block
+  test('should fetch root concepts when path is /concepts/root', async () => {
+    const mockRootTriples = [{
+      s: { value: 'rootUri1' },
+      p: { value: 'p1' },
+      o: { value: 'o1' }
+    }]
+    const mockProcessedTriples = {
+      bNodeMap: {},
+      nodes: {
+        rootUri1: new Set([{
+          s: { value: 'rootUri1' },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        }])
+      },
+      conceptURIs: ['rootUri1']
+    }
+    const mockConcept = {
+      '@rdf:about': 'rootUri1',
+      'skos:prefLabel': 'Root Concept 1'
+    }
+    const mockGcmdMetadata = { 'gcmd:keywordVersion': { _text: '1.0' } }
+
+    getRootConcepts.mockResolvedValue(mockRootTriples)
+    processTriples.mockReturnValue(mockProcessedTriples)
+    toSkosJson.mockReturnValue(mockConcept)
+    getGcmdMetadata.mockResolvedValue(mockGcmdMetadata)
+
+    const event = { path: '/concepts/root' }
+    const result = await getConcepts(event)
+
+    expect(getRootConcepts).toHaveBeenCalled()
+    expect(getFilteredTriples).not.toHaveBeenCalled()
+    expect(result.body).toContain('<rdf:RDF')
+    expect(result.body).toContain('<skos:Concept rdf:about="rootUri1">')
+    expect(result.body).toContain('<skos:prefLabel>Root Concept 1</skos:prefLabel>')
   })
 })
