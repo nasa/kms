@@ -16,7 +16,9 @@ import getConceptScheme from './getConceptSchemeOfConcept'
  *   gcmdHits: 100
  * });
  */
-const getGcmdMetadata = async ({ conceptIRI = null, gcmdHits = null }) => {
+const getGcmdMetadata = async ({
+  conceptIRI = null, gcmdHits = null, pageNum = 1, pageSize = 2000
+}) => {
   const baseMetadata = {}
   if (gcmdHits !== null) {
     baseMetadata['gcmd:hits'] = {
@@ -24,11 +26,11 @@ const getGcmdMetadata = async ({ conceptIRI = null, gcmdHits = null }) => {
     }
 
     baseMetadata['gcmd:page_num'] = {
-      _text: '1' // Todo: when implementing paging.
+      _text: `${pageNum}`
     }
 
     baseMetadata['gcmd:page_size'] = {
-      _text: '2000' // Todo: when implementing paging.
+      _text: `${pageSize}`
     }
   }
 

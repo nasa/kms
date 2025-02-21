@@ -94,4 +94,95 @@ describe('getGcmdMetadata', () => {
     expect(result).not.toHaveProperty('gcmd:schemeVersion')
     expect(result['gcmd:viewer']._text).toBe('https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all')
   })
+
+  test('should include gcmd:hits, gcmd:page_num, and gcmd:page_size when provided', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: 2,
+      pageSize: 50
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: '2' },
+      'gcmd:page_size': { _text: '50' }
+    })
+  })
+
+  test('should handle string values for pageNum and pageSize', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: 2,
+      pageSize: 50
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: '2' },
+      'gcmd:page_size': { _text: '50' }
+    })
+  })
+
+  test('should handle non-numeric pageNum and pageSize', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: 'invalid',
+      pageSize: 'invalid'
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: 'invalid' },
+      'gcmd:page_size': { _text: 'invalid' }
+    })
+  })
+
+  test('should handle zero values for pageNum and pageSize', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: 0,
+      pageSize: 0
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: '0' },
+      'gcmd:page_size': { _text: '0' }
+    })
+  })
+
+  test('should handle negative values for pageNum and pageSize', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: -1,
+      pageSize: -10
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: '-1' },
+      'gcmd:page_size': { _text: '-10' }
+    })
+  })
+
+  test('should handle very large values for pageNum and pageSize', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: 1000000,
+      pageSize: 1000000
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: '1000000' },
+      'gcmd:page_size': { _text: '1000000' }
+    })
+  })
+
+  test('should handle decimal values for pageNum and pageSize', async () => {
+    const result = await getGcmdMetadata({
+      gcmdHits: 100,
+      pageNum: 2.5,
+      pageSize: 50.5
+    })
+    expect(result).toMatchObject({
+      'gcmd:hits': { _text: '100' },
+      'gcmd:page_num': { _text: '2.5' },
+      'gcmd:page_size': { _text: '50.5' }
+    })
+  })
 })
