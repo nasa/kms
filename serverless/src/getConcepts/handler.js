@@ -5,6 +5,10 @@ import toSkosJson from '../utils/toSkosJson'
 import processTriples from '../utils/processTriples'
 import getGcmdMetadata from '../utils/getGcmdMetadata'
 import getRootConcepts from '../utils/getRootConcepts'
+import getPaths from '../utils/getPaths'
+import createCsv from '../utils/createCsv'
+import getCsvHeaders from '../utils/getCsvHeaders'
+import getCsvMetadata from '../utils/getCsvMetadata'
 
 /**
  * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
@@ -31,6 +35,38 @@ import getRootConcepts from '../utils/getRootConcepts'
  */
 const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+
+  const { queryStringParameters } = event
+  const { format, scheme } = queryStringParameters
+
+  if (format === 'csv') {
+    try {
+      const csvMetadata = await getCsvMetadata(scheme)
+
+      const csvHeaders = await getCsvHeaders(scheme)
+      let maxLevel = csvHeaders.length - 2
+      if (scheme === 'providers') {
+        maxLevel -= 1
+      }
+
+      const paths = await getPaths(scheme, maxLevel)
+
+      return {
+        body: await createCsv(csvMetadata, csvHeaders, paths),
+        headers: defaultResponseHeaders
+      }
+    } catch (error) {
+      console.error(`Error retrieving full path, error=${error.toString()}`)
+
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 500,
+        body: JSON.stringify({
+          error: error.toString()
+        })
+      }
+    }
+  }
 
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000' } = event?.queryStringParameters || {}

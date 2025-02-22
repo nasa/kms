@@ -1,22 +1,13 @@
+import { getNarrowerConceptsQuery } from '../operations/queries/getNarrowerConceptsQuery'
 import { sparqlRequest } from './sparqlRequest'
 
 const getNarrowersMap = async (scheme) => {
-  const sparqlQuery = `
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  SELECT ?subject ?prefLabel ?narrower ?narrowerPrefLabel
-  WHERE {
-    ?subject skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .
-    ?subject skos:prefLabel ?prefLabel .
-    ?subject skos:narrower ?narrower .
-    ?narrower skos:prefLabel ?narrowerPrefLabel
-  }`
-
   try {
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: sparqlQuery
+      body: getNarrowerConceptsQuery(scheme)
     })
 
     if (!response.ok) {
