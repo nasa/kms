@@ -4,7 +4,7 @@ set -e
 echo 'org.apache.tomcat.util.digester.PROPERTY_SOURCE=org.apache.tomcat.util.digester.EnvironmentPropertySource' >> /usr/local/tomcat/conf/catalina.properties
 echo "RDF4J_DATA_DIR is set to: ${RDF4J_DATA_DIR}"
 
-/usr/local/tomcat/setup_web_auth.sh
+# /usr/local/tomcat/setup_web_auth.sh
 
 echo "showing rdf4j data directory"
 ls -l /rdf4j-data

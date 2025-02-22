@@ -22,6 +22,14 @@ getConcepts:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concepts
+getConceptsCsv:
+  handler: serverless/src/getConceptsCsv/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '900'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: conceptsCsv
 getConcept:
   handler: serverless/src/getConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
