@@ -1,5 +1,8 @@
 import { cloneDeep } from 'lodash'
-import fetchNarrowers from './fetchNarrowers'
+import getRootConcept from './getRootConcept'
+import getNarrowersMap from './getNarrowersMap'
+import getLongNamesMap from './getLongNamesMap'
+import getProviderUrlsMap from './getProviderUrlsMap'
 
 const longNameFlag = (scheme) => {
   if (['platforms', 'instruments', 'projects', 'providers', 'idnnode'].includes(scheme)) {
@@ -77,6 +80,22 @@ const formatPath = (scheme, maxLevel, path, isLeaf) => {
   return path
 }
 
+const fetchNarrowers = (uri, map) => {
+  const triples = map[uri] || []
+
+  const results = triples.map((item) => {
+    const { prefLabel, narrower, narrowerPrefLabel } = item
+
+    return {
+      prefLabel: prefLabel.value,
+      narrowerPrefLabel: narrowerPrefLabel.value,
+      uri: narrower.value
+    }
+  })
+
+  return results
+}
+
 const traverseGraph = async (maxLevel, providerUrlsMap, longNamesMap, scheme, n, map, path = [], paths = []) => {
   const { narrowerPrefLabel, uri } = n
 
@@ -121,4 +140,26 @@ const traverseGraph = async (maxLevel, providerUrlsMap, longNamesMap, scheme, n,
   }
 }
 
-export default traverseGraph
+const getCsvPaths = async (scheme, maxLevel) => {
+  const root = await getRootConcept(scheme)
+
+  const node = {
+    prefLabel: root.prefLabel.value,
+    narrowerPrefLabel: root.prefLabel.value,
+    uri: root.subject.value
+  }
+
+  const narrowersMap = await getNarrowersMap(scheme)
+  const longNamesMap = await getLongNamesMap(scheme)
+  let providerUrlsMap = []
+  if (scheme === 'providers') {
+    providerUrlsMap = await getProviderUrlsMap(scheme)
+  }
+
+  const keywords = []
+  await traverseGraph(maxLevel, providerUrlsMap, longNamesMap, scheme, node, narrowersMap, [], keywords)
+
+  return keywords.reverse()
+}
+
+export default getCsvPaths

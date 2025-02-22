@@ -5,7 +5,7 @@ import toSkosJson from '../utils/toSkosJson'
 import processTriples from '../utils/processTriples'
 import getGcmdMetadata from '../utils/getGcmdMetadata'
 import getRootConcepts from '../utils/getRootConcepts'
-import getPaths from '../utils/getPaths'
+import getCsvPaths from '../utils/getCsvPaths'
 import createCsv from '../utils/createCsv'
 import getCsvHeaders from '../utils/getCsvHeaders'
 import getCsvMetadata from '../utils/getCsvMetadata'
@@ -49,7 +49,7 @@ const getConcepts = async (event) => {
         maxLevel -= 1
       }
 
-      const paths = await getPaths(scheme, maxLevel)
+      const paths = await getCsvPaths(scheme, maxLevel)
 
       return {
         body: await createCsv(csvMetadata, csvHeaders, paths),
