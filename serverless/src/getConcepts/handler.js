@@ -4,6 +4,7 @@ import getFilteredTriples from '../utils/getFilteredTriples'
 import toSkosJson from '../utils/toSkosJson'
 import processTriples from '../utils/processTriples'
 import getGcmdMetadata from '../utils/getGcmdMetadata'
+import getRootConcepts from '../utils/getRootConcepts'
 
 /**
  * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
@@ -28,8 +29,35 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
  * //   headers: { ... }
  * // }
  */
-const getConcepts = async () => {
+const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+
+  const { conceptScheme, pattern } = event?.pathParameters || {}
+  const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000' } = event?.queryStringParameters || {}
+
+  // Convert page_num and page_size to integers
+  const pageNum = parseInt(pageNumStr, 10)
+  const pageSize = parseInt(pageSizeStr, 10)
+
+  // Validate page_num and page_size
+  if (Number.isNaN(pageNum) || pageNum < 1
+  || pageNum !== Number(pageNumStr)) {
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid page_num parameter' })
+    }
+  }
+
+  if (Number.isNaN(pageSize)
+  || pageSize < 1 || pageSize > 2000
+  || pageSize !== Number(pageSizeStr)) {
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid page_size parameter. Must be between 1 and 2000.' })
+    }
+  }
 
   try {
     const builder = new XMLBuilder({
@@ -40,13 +68,27 @@ const getConcepts = async () => {
       suppressEmptyNode: true,
       textNodeName: '_text'
     })
+    let triples
+    if (event?.path === '/concepts/root') {
+      triples = await getRootConcepts()
+    } else {
+      triples = await getFilteredTriples({
+        conceptScheme,
+        pattern
+      })
+    }
 
-    const triples = await getFilteredTriples()
     const { bNodeMap, nodes, conceptURIs: fullURIs } = processTriples(triples)
 
-    const concepts = []
+    const totalConcepts = fullURIs.length
+    const totalPages = Math.ceil(totalConcepts / pageSize)
 
-    const conceptURIs = fullURIs.slice(0, 2000)
+    // Calculate start and end indices for the current page
+    const startIndex = (pageNum - 1) * pageSize
+    const endIndex = Math.min(startIndex + pageSize, totalConcepts)
+
+    const concepts = []
+    const conceptURIs = fullURIs.slice(startIndex, endIndex)
     conceptURIs.forEach((uri) => {
       const ntriples = [...nodes[uri]]
       concepts.push(toSkosJson(uri, ntriples, bNodeMap))
@@ -57,8 +99,12 @@ const getConcepts = async () => {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
         '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
         '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
-        '@xmlns:kms': 'https://gcmd.earthdata.nasa.gov/kms#',
-        'gcmd:gcmd': await getGcmdMetadata({ gcmdHits: fullURIs.length }),
+        '@xmlns:dcterms': 'http://purl.org/dc/terms/',
+        'gcmd:gcmd': await getGcmdMetadata({
+          pageNum,
+          pageSize,
+          gcmdHits: fullURIs.length
+        }),
         'skos:Concept': concepts
       }
     }
@@ -66,10 +112,15 @@ const getConcepts = async () => {
     const xml = await builder.build(rdfJson)
 
     return {
+      statusCode: 200,
       body: xml,
       headers: {
         ...defaultResponseHeaders,
-        'Content-Type': 'application/xml; charset=utf-8'
+        'Content-Type': 'application/xml; charset=utf-8',
+        'X-Total-Count': totalConcepts.toString(),
+        'X-Page-Number': pageNum.toString(),
+        'X-Page-Size': pageSize.toString(),
+        'X-Total-Pages': totalPages.toString()
       }
     }
   } catch (error) {

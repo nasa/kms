@@ -57,7 +57,7 @@ async function loadConcepts(filePath, batchSize = 100) {
     delete concept['@xmlns:rdf']
     delete concept['@xmlns:skos']
     delete concept['@xmlns:gcmd']
-    delete concept['@xmlns:kms']
+    delete concept['@xmlns:dcterms']
   }
 
   for (let i = 0; i < concepts.length; i += batchSize) {
@@ -67,7 +67,7 @@ async function loadConcepts(filePath, batchSize = 100) {
         '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
         '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
         '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
-        '@xmlns:kms': 'https://gcmd.earthdata.nasa.gov/kms#',
+        '@xmlns:dcterms': 'http://purl.org/dc/terms/',
         'skos:Concept': batch
       }
     }

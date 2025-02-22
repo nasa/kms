@@ -1,32 +1,17 @@
+import { getTriplesForConceptQuery } from '../operations/queries/getTriplesForConceptQuery'
+import {
+  getDeleteTriplesForConceptQuery
+} from '../operations/updates/getDeleteTriplesForConceptQuery'
 import { sparqlRequest } from './sparqlRequest'
 
 async function deleteTriples(conceptIRI) {
-  const selectQuery = `
-    SELECT ?s ?p ?o
-    WHERE {
-      ?s ?p ?o .
-      FILTER(?s = <${conceptIRI}>)
-    }
-  `
-
-  const deleteQuery = `
-    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-    DELETE {
-      ?s ?p ?o .
-    }
-    WHERE {
-      ?s ?p ?o .
-      FILTER(?s = <${conceptIRI}>)
-    }
-  `
-
   try {
     // First, select all triples
     const selectResponse = await sparqlRequest({
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       method: 'POST',
-      body: selectQuery
+      body: getTriplesForConceptQuery(conceptIRI)
     })
 
     if (!selectResponse.ok) {
@@ -42,7 +27,7 @@ async function deleteTriples(conceptIRI) {
       accept: 'application/sparql-results+json',
       path: '/statements',
       method: 'POST',
-      body: deleteQuery
+      body: getDeleteTriplesForConceptQuery(conceptIRI)
     })
 
     if (!deleteResponse.ok) {

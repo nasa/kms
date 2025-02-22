@@ -63,19 +63,10 @@ npm run rdf4j:setup
 ### Prerequisites
 #### Copy your AWS credentials and set these up as env variables
 ```
-export bamboo_STAGE_NAME=[sit|uat|prod]
-export bamboo_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-export bamboo_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-export bamboo_AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-export bamboo_LAMBDA_TIMEOUT=30
-export bamboo_SUBNET_ID_A={subnet #1}
-export bamboo_SUBNET_ID_B={subnet #2}
-export bamboo_SUBNET_ID_C={subnet #3}
-export bamboo_VPC_ID={your vpc id}
-```
-#### Retrieve the VPC_ID from AWS
-```
-export VPC_ID=[your vpc id]
+export AWS_ACCESS_KEY_ID=${your access key id}
+export AWS_SECRET_ACCESS_KEY=${your secret access key}
+export AWS_SESSION_TOKEN=${your session token}
+export VPC_ID={your vpc id}
 ```
 #### Set the RDFDB user name and password
 ```

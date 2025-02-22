@@ -1,3 +1,4 @@
+import { getConceptIdExistsQuery } from '../operations/queries/getConceptIdExistsQuery'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -22,17 +23,11 @@ import { sparqlRequest } from './sparqlRequest'
  * }
  */
 const conceptIdExists = async (conceptIRI) => {
-  const checkQuery = `
-    SELECT ?p ?o 
-    WHERE { <${conceptIRI}> ?p ?o } 
-    LIMIT 1
-  `
-
   const checkResponse = await sparqlRequest({
     contentType: 'application/sparql-query',
     accept: 'application/sparql-results+json',
     method: 'POST',
-    body: checkQuery
+    body: getConceptIdExistsQuery(conceptIRI)
   })
 
   if (!checkResponse.ok) {

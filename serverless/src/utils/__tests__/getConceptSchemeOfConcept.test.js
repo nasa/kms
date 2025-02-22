@@ -1,11 +1,11 @@
 import { describe, expect } from 'vitest'
-import getConceptScheme from '../getConceptScheme'
+import getConceptSchemeOfConcept from '../getConceptSchemeOfConcept'
 import { sparqlRequest } from '../sparqlRequest'
 
 // Mock the sparqlRequest function
 vi.mock('../sparqlRequest')
 
-describe('getConceptScheme', () => {
+describe('getConceptSchemeOfConcept', () => {
   const mockConceptUri = 'https://gcmd.earthdata.nasa.gov/kms/concept/1234'
   const mockSchemeUri = 'https://gcmd.earthdata.nasa.gov/kms/concept/scheme/5678'
 
@@ -30,7 +30,7 @@ describe('getConceptScheme', () => {
       })
     })
 
-    const result = await getConceptScheme(mockConceptUri)
+    const result = await getConceptSchemeOfConcept(mockConceptUri)
     expect(result).toBe(mockSchemeUri)
     expect(sparqlRequest).toHaveBeenCalledTimes(1)
   })
@@ -46,7 +46,7 @@ describe('getConceptScheme', () => {
       })
     })
 
-    await expect(getConceptScheme(mockConceptUri)).rejects.toThrow('No scheme found for the given concept')
+    await expect(getConceptSchemeOfConcept(mockConceptUri)).rejects.toThrow('No scheme found for the given concept')
     expect(sparqlRequest).toHaveBeenCalledTimes(1)
   })
 
@@ -57,7 +57,7 @@ describe('getConceptScheme', () => {
       status: 404
     })
 
-    await expect(getConceptScheme(mockConceptUri)).rejects.toThrow('HTTP error! status: 404')
+    await expect(getConceptSchemeOfConcept(mockConceptUri)).rejects.toThrow('HTTP error! status: 404')
     expect(sparqlRequest).toHaveBeenCalledTimes(1)
   })
 
@@ -65,7 +65,7 @@ describe('getConceptScheme', () => {
     // Mock sparqlRequest throwing an error
     sparqlRequest.mockRejectedValue(new Error('Network error'))
 
-    await expect(getConceptScheme(mockConceptUri)).rejects.toThrow('Network error')
+    await expect(getConceptSchemeOfConcept(mockConceptUri)).rejects.toThrow('Network error')
     expect(sparqlRequest).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,3 +1,6 @@
+import {
+  getTriplesForConceptSchemeOrPattern
+} from '../operations/queries/getTriplesForConceptSchemeOrPattern'
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -29,22 +32,16 @@ import { sparqlRequest } from './sparqlRequest'
  * @see sparqlRequest - Used to make the SPARQL query request.
  */
 
-const getFilteredTriples = async () => {
-  const sparqlQuery = `
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-  SELECT DISTINCT ?s ?p ?o
-  WHERE
-    {
-      ?s ?p ?o .
-    } 
-  `
-
+const getFilteredTriples = async ({ conceptScheme, pattern }) => {
   try {
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: sparqlQuery
+      body: getTriplesForConceptSchemeOrPattern({
+        conceptScheme,
+        pattern
+      })
     })
 
     if (!response.ok) {

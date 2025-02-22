@@ -46,15 +46,22 @@ describe('deleteTriples', () => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       method: 'POST',
-      body: expect.stringContaining(`FILTER(?s = <${mockConceptIRI}>)`)
+      body: expect.stringContaining('SELECT DISTINCT ?s ?p ?o')
     }))
+
+    // Check for specific parts of the query
+    const firstCallBody = sparqlRequest.mock.calls[0][0].body
+    expect(firstCallBody).toContain(`<${mockConceptIRI}> ?p ?o`)
+    expect(firstCallBody).toContain(`BIND(<${mockConceptIRI}> AS ?s)`)
+    expect(firstCallBody).toContain('UNION')
+    expect(firstCallBody).toContain('FILTER(isBlank(?bnode))')
 
     expect(sparqlRequest).toHaveBeenNthCalledWith(2, expect.objectContaining({
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
       path: '/statements',
       method: 'POST',
-      body: expect.stringContaining(`FILTER(?s = <${mockConceptIRI}>)`)
+      body: expect.stringContaining('DELETE')
     }))
 
     expect(result).toEqual({
@@ -124,11 +131,17 @@ describe('deleteTriples', () => {
     const selectCall = sparqlRequest.mock.calls[0][0]
     const deleteCall = sparqlRequest.mock.calls[1][0]
 
-    expect(selectCall.body).toContain('SELECT ?s ?p ?o')
-    expect(selectCall.body).toContain(`FILTER(?s = <${mockConceptIRI}>)`)
+    // Check SELECT query
+    expect(selectCall.body).toContain('SELECT DISTINCT ?s ?p ?o')
+    expect(selectCall.body).toContain(`<${mockConceptIRI}> ?p ?o`)
+    expect(selectCall.body).toContain(`BIND(<${mockConceptIRI}> AS ?s)`)
+    expect(selectCall.body).toContain('UNION')
+    expect(selectCall.body).toContain('FILTER(isBlank(?bnode))')
 
+    // Check DELETE query
     expect(deleteCall.body).toContain('DELETE {')
-    expect(deleteCall.body).toContain(`FILTER(?s = <${mockConceptIRI}>)`)
+    expect(deleteCall.body).toContain('WHERE {')
+    expect(deleteCall.body).toContain(`<${mockConceptIRI}>`)
   })
 
   test('should handle large number of triples', async () => {
