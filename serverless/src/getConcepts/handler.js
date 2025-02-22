@@ -44,12 +44,10 @@ const getConcepts = async (event) => {
       const csvMetadata = await getCsvMetadata(scheme)
 
       const csvHeaders = await getCsvHeaders(scheme)
-      let maxLevel = csvHeaders.length - 2
-      if (scheme === 'providers') {
-        maxLevel -= 1
-      }
+      // const maxLevel = csvHeaders.length - 2
+      const csvHeadersCount = csvHeaders.length
 
-      const paths = await getCsvPaths(scheme, maxLevel)
+      const paths = await getCsvPaths(scheme, csvHeadersCount)
 
       return {
         body: await createCsv(csvMetadata, csvHeaders, paths),

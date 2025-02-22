@@ -20,34 +20,36 @@ const providerUrlFlag = (scheme) => {
   return false
 }
 
-const formatPath = (scheme, maxLevel, path, isLeaf) => {
+const formatPath = (scheme, csvHeadersCount, path, isLeaf) => {
   if (['platforms', 'instruments', 'projects'].includes(scheme)) {
-    if (maxLevel + 1 === path.length) {
+    const maxLevel = csvHeadersCount - 2
+    if (maxLevel === path.length) {
       return path
     }
 
-    if ((maxLevel + 1 > path.length) && !isLeaf) {
-      while (maxLevel + 1 > path.length) {
+    if ((maxLevel > path.length) && !isLeaf) {
+      while (maxLevel > path.length) {
         path.push(' ')
       }
 
       return path
     }
 
-    if ((maxLevel + 1 > path.length) && isLeaf) {
-      path.splice(maxLevel - 1, 0, ' ')
+    if ((maxLevel > path.length) && isLeaf) {
+      path.splice(maxLevel - 2, 0, ' ')
 
       return path
     }
   }
 
   if (['sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', 'measurementname'].includes(scheme)) {
-    if (maxLevel + 1 === path.length) {
+    const maxLevel = csvHeadersCount - 1
+    if (maxLevel === path.length) {
       return path
     }
 
-    if (maxLevel + 1 > path.length) {
-      while (maxLevel + 1 > path.length) {
+    if (maxLevel > path.length) {
+      while (maxLevel > path.length) {
         path.push(' ')
       }
 
@@ -56,6 +58,7 @@ const formatPath = (scheme, maxLevel, path, isLeaf) => {
   }
 
   if (['providers'].includes(scheme)) {
+    const maxLevel = csvHeadersCount - 3
     if (maxLevel === path.length) {
       return path
     }
@@ -96,7 +99,7 @@ const fetchNarrowers = (uri, map) => {
   return results
 }
 
-const traverseGraph = async (maxLevel, providerUrlsMap, longNamesMap, scheme, n, map, path = [], paths = []) => {
+const traverseGraph = async (csvHeadersCount, providerUrlsMap, longNamesMap, scheme, n, map, path = [], paths = []) => {
   const { narrowerPrefLabel, uri } = n
 
   const uuid = n.uri.split('/')[n.uri.split('/').length - 1]
@@ -110,13 +113,13 @@ const traverseGraph = async (maxLevel, providerUrlsMap, longNamesMap, scheme, n,
 
   // eslint-disable-next-line no-restricted-syntax
   for (const obj of narrowers) {
-    traverseGraph(maxLevel, providerUrlsMap, longNamesMap, scheme, obj, map, cloneDeep(path), paths)
+    traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, obj, map, cloneDeep(path), paths)
   }
 
   if (path.length > 1) {
     path.shift()
 
-    formatPath(scheme, maxLevel, path, isLeaf)
+    formatPath(scheme, csvHeadersCount, path, isLeaf)
 
     if (longNameFlag(scheme)) {
       if (longNameArray) {
@@ -140,7 +143,7 @@ const traverseGraph = async (maxLevel, providerUrlsMap, longNamesMap, scheme, n,
   }
 }
 
-const getCsvPaths = async (scheme, maxLevel) => {
+const getCsvPaths = async (scheme, csvHeadersCount) => {
   const root = await getRootConcept(scheme)
 
   const node = {
@@ -157,7 +160,7 @@ const getCsvPaths = async (scheme, maxLevel) => {
   }
 
   const keywords = []
-  await traverseGraph(maxLevel, providerUrlsMap, longNamesMap, scheme, node, narrowersMap, [], keywords)
+  await traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, node, narrowersMap, [], keywords)
 
   return keywords.reverse()
 }
