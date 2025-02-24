@@ -1,7 +1,7 @@
+const fs = require('fs').promises
+
 // eslint-disable-next-line import/no-extraneous-dependencies
 const { create } = require('xmlbuilder2')
-
-const fs = require('fs').promises
 
 const extractedUUIDs = require('../data/extractedUUIDs.json')
 
