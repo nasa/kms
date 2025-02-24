@@ -33,21 +33,17 @@ import getCsvMetadata from '../utils/getCsvMetadata'
  * //   headers: { ... }
  * // }
  */
-const getConcepts = async (event) => {
+const getConcepts = async (event = {}) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-
-  const { queryStringParameters } = event
-  const { format, scheme } = queryStringParameters
-
+  const { queryStringParameters = {} } = event
+  const { format = '', scheme = '' } = queryStringParameters
   if (format === 'csv') {
     try {
       const csvMetadata = await getCsvMetadata(scheme)
-
       const csvHeaders = await getCsvHeaders(scheme)
-      // const maxLevel = csvHeaders.length - 2
       const csvHeadersCount = csvHeaders.length
-
       const paths = await getCsvPaths(scheme, csvHeadersCount)
+      defaultResponseHeaders['Content-Disposition'] = `attachment; filename=${scheme}.csv`
 
       return {
         body: await createCsv(csvMetadata, csvHeaders, paths),

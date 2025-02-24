@@ -11,6 +11,10 @@ import processTriples from '../../utils/processTriples'
 import { getApplicationConfig } from '../../utils/getConfig'
 import getGcmdMetadata from '../../utils/getGcmdMetadata'
 import getRootConcepts from '../../utils/getRootConcepts'
+import getCsvMetadata from '../../utils/getCsvMetadata'
+import getCsvHeaders from '../../utils/getCsvHeaders'
+import getCsvPaths from '../../utils/getCsvPaths'
+import createCsv from '../../utils/createCsv'
 
 // Mock the specified dependencies
 vi.mock('../../utils/getFilteredTriples')
@@ -19,6 +23,10 @@ vi.mock('../../utils/processTriples')
 vi.mock('../../utils/getConfig')
 vi.mock('../../utils/getGcmdMetadata')
 vi.mock('../../utils/getRootConcepts')
+vi.mock('../../utils/getCsvPaths', () => ({ default: vi.fn() }))
+vi.mock('../../utils/createCsv', () => ({ default: vi.fn() }))
+vi.mock('../../utils/getCsvHeaders', () => ({ default: vi.fn() }))
+vi.mock('../../utils/getCsvMetadata', () => ({ default: vi.fn() }))
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -29,6 +37,40 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+  })
+
+  it('should return CSV when format is csv', async () => {
+    // Mock the necessary functions
+    vi.mocked(getApplicationConfig).mockReturnValue({
+      defaultResponseHeaders: { 'Content-Type': 'text/csv' }
+    })
+
+    vi.mocked(getCsvMetadata).mockResolvedValue('mockCsvMetadata')
+    vi.mocked(getCsvHeaders).mockResolvedValue(['header1', 'header2'])
+    vi.mocked(getCsvPaths).mockResolvedValue(['path1', 'path2'])
+    vi.mocked(createCsv).mockResolvedValue('mockCsvContent')
+
+    const event = {
+      queryStringParameters: {
+        format: 'csv',
+        scheme: 'testScheme'
+      }
+    }
+
+    const result = await getConcepts(event)
+
+    expect(result).toEqual({
+      body: 'mockCsvContent',
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename=testScheme.csv'
+      }
+    })
+
+    expect(getCsvMetadata).toHaveBeenCalledWith('testScheme')
+    expect(getCsvHeaders).toHaveBeenCalledWith('testScheme')
+    expect(getCsvPaths).toHaveBeenCalledWith('testScheme', 2)
+    expect(createCsv).toHaveBeenCalledWith('mockCsvMetadata', ['header1', 'header2'], ['path1', 'path2'])
   })
 
   describe('Basic functionality', () => {
