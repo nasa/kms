@@ -114,3 +114,5 @@ export const getConcept = async (event) => {
     }
   }
 }
+
+export default getConcept

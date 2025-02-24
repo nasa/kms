@@ -66,3 +66,5 @@ export const status = async () => {
     }
   }
 }
+
+export default status

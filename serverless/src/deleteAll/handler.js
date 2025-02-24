@@ -69,3 +69,5 @@ export const deleteAll = async () => {
     }
   }
 }
+
+export default deleteAll

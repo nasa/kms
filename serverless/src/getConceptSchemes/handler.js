@@ -65,3 +65,5 @@ export const getConceptSchemes = async () => {
     }
   }
 }
+
+export default getConceptSchemes

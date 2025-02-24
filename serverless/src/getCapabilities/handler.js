@@ -156,3 +156,5 @@ export const getCapabilities = async () => {
     }
   }
 }
+
+export default getCapabilities

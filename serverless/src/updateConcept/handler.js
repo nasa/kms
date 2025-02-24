@@ -117,3 +117,5 @@ export const updateConcept = async (event) => {
     }
   }
 }
+
+export default updateConcept

@@ -56,3 +56,5 @@ export const errorLogger = async (event) => {
     headers: defaultResponseHeaders
   }
 }
+
+export default errorLogger

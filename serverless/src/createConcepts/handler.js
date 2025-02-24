@@ -130,3 +130,5 @@ export const createConcepts = async (event) => {
     }
   }
 }
+
+export default createConcepts

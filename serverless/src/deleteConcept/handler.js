@@ -65,3 +65,5 @@ export const deleteConcept = async (event) => {
     }
   }
 }
+
+export default deleteConcept
