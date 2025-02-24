@@ -1,6 +1,6 @@
 import {
-  getTriplesForConceptSchemeOrPattern
-} from '@/shared/operations/queries/getTriplesForConceptSchemeOrPattern'
+  getTriplesForConceptSchemeOrPatternQuery
+} from '@/shared/operations/queries/getTriplesForConceptSchemeOrPatternQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -38,7 +38,7 @@ export const getFilteredTriples = async ({ conceptScheme, pattern }) => {
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getTriplesForConceptSchemeOrPattern({
+      body: getTriplesForConceptSchemeOrPatternQuery({
         conceptScheme,
         pattern
       })

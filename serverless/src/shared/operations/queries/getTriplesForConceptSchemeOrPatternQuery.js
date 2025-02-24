@@ -1,4 +1,4 @@
-export const getTriplesForConceptSchemeOrPattern = ({ conceptScheme, pattern }) => {
+export const getTriplesForConceptSchemeOrPatternQuery = ({ conceptScheme, pattern }) => {
   const prefixes = `
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
   PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
