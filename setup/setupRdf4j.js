@@ -162,7 +162,7 @@ const main = async () => {
       return
     }
 
-    await loadRDFXMLToRDF4J('setup/data/concepts.rdf', rdf4jUrl)
+    await loadRDFXMLToRDF4J('setup/data/convertedConcepts.rdf', rdf4jUrl)
     await loadRDFXMLToRDF4J('setup/data/schemes.rdf', rdf4jUrl)
   } catch (error) {
     console.error('An error occurred:', error)
