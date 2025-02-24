@@ -98,7 +98,7 @@ async function loadConcepts(filePath, batchSize = 100) {
 
 async function main() {
   try {
-    await loadConcepts('../data/concepts.rdf')
+    await loadConcepts('../data/convertedConcepts.rdf')
     console.log('All concepts loaded successfully')
   } catch (error) {
     console.error('Error loading concepts:', error)
