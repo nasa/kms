@@ -1,10 +1,12 @@
 import { XMLBuilder } from 'fast-xml-parser'
-import { getApplicationConfig } from '../utils/getConfig'
-import getFilteredTriples from '../utils/getFilteredTriples'
-import toSkosJson from '../utils/toSkosJson'
-import processTriples from '../utils/processTriples'
-import getGcmdMetadata from '../utils/getGcmdMetadata'
-import getRootConcepts from '../utils/getRootConcepts'
+
+import { namespaces } from '@/shared/constants/namespaces'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { getFilteredTriples } from '@/shared/getFilteredTriples'
+import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
+import { getRootConcepts } from '@/shared/getRootConcepts'
+import { processTriples } from '@/shared/processTriples'
+import { toSkosJson } from '@/shared/toSkosJson'
 
 /**
  * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
@@ -29,7 +31,7 @@ import getRootConcepts from '../utils/getRootConcepts'
  * //   headers: { ... }
  * // }
  */
-const getConcepts = async (event) => {
+export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
   const { conceptScheme, pattern } = event?.pathParameters || {}
@@ -96,10 +98,7 @@ const getConcepts = async (event) => {
 
     const rdfJson = {
       'rdf:RDF': {
-        '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-        '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
-        '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
-        '@xmlns:dcterms': 'http://purl.org/dc/terms/',
+        ...namespaces,
         'gcmd:gcmd': await getGcmdMetadata({
           pageNum,
           pageSize,
@@ -135,5 +134,3 @@ const getConcepts = async (event) => {
     }
   }
 }
-
-export default getConcepts

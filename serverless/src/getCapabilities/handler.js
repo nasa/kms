@@ -1,5 +1,6 @@
 import { XMLBuilder } from 'fast-xml-parser'
-import { getApplicationConfig } from '../utils/getConfig'
+
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Generates and returns the capabilities of the KMS system in XML format.
@@ -9,7 +10,7 @@ import { getApplicationConfig } from '../utils/getConfig'
  * @returns {Object} An object containing the XML response body and headers.
  * @throws {Error} If there's an error during the XML generation process.
  */
-const getCapabilities = async () => {
+export const getCapabilities = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
   try {
@@ -155,5 +156,3 @@ const getCapabilities = async () => {
     }
   }
 }
-
-export default getCapabilities

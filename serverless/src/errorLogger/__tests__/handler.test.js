@@ -1,4 +1,4 @@
-import errorLogger from '../handler'
+import { errorLogger } from '../handler'
 
 beforeEach(() => {
   vi.clearAllMocks()

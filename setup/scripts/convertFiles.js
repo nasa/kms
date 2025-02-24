@@ -1,7 +1,10 @@
 // eslint-disable-next-line import/no-extraneous-dependencies
 const { create } = require('xmlbuilder2')
+
 const fs = require('fs').promises
+
 const extractedUUIDs = require('../data/extractedUUIDs.json')
+
 const toRDF = require('./toRDF')
 
 // Helper function to fetch data based on UUIDs

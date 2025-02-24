@@ -1,5 +1,5 @@
-import deleteTriples from '../utils/deleteTriples'
-import { getApplicationConfig } from '../utils/getConfig'
+import { deleteTriples } from '@/shared/deleteTriples'
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Deletes a SKOS Concept from the RDF store based on its rdf:about identifier.
@@ -29,7 +29,7 @@ import { getApplicationConfig } from '../utils/getConfig'
  * //   headers: { ... }
  * // }
  */
-const deleteConcept = async (event) => {
+export const deleteConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
   const { conceptId } = pathParameters
@@ -65,5 +65,3 @@ const deleteConcept = async (event) => {
     }
   }
 }
-
-export default deleteConcept

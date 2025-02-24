@@ -1,9 +1,9 @@
-import { getApplicationConfig } from '../utils/getConfig'
-import { sparqlRequest } from '../utils/sparqlRequest'
-import conceptIdExists from '../utils/conceptIdExists'
-import deleteTriples from '../utils/deleteTriples'
-import rollback from '../utils/rollback'
-import getConceptId from '../utils/getConceptId'
+import { conceptIdExists } from '@/shared/conceptIdExists'
+import { deleteTriples } from '@/shared/deleteTriples'
+import { getConceptId } from '@/shared/getConceptId'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { rollback } from '@/shared/rollback'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Updates an existing SKOS Concept in the RDF store.
@@ -34,7 +34,7 @@ import getConceptId from '../utils/getConceptId'
  * // }
  */
 
-const updateConcept = async (event) => {
+export const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event || {} // Use empty object as fallback
 
@@ -117,5 +117,3 @@ const updateConcept = async (event) => {
     }
   }
 }
-
-export default updateConcept

@@ -1,6 +1,7 @@
 import { XMLBuilder } from 'fast-xml-parser'
-import { getApplicationConfig } from '../utils/getConfig'
-import getConceptSchemeDetails from '../utils/getConceptSchemeDetails'
+
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Retrieves and formats concept schemes as XML.
@@ -16,7 +17,7 @@ import getConceptSchemeDetails from '../utils/getConceptSchemeDetails'
  *   - statusCode: HTTP status code (only present in case of an error).
  * @throws Will throw an error if there's a problem fetching or processing the concept schemes.
  */
-const getConceptSchemes = async () => {
+export const getConceptSchemes = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
   try {
@@ -64,5 +65,3 @@ const getConceptSchemes = async () => {
     }
   }
 }
-
-export default getConceptSchemes

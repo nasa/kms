@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser'
-import { getApplicationConfig } from '../utils/getConfig'
-import { sparqlRequest } from '../utils/sparqlRequest'
+
+import { getApplicationConfig } from '@/shared/getConfig'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Handler function to create multiple SKOS concepts from RDF/XML data.
@@ -44,7 +45,7 @@ import { sparqlRequest } from '../utils/sparqlRequest'
  * //   headers: { ... }
  * // }
  */
-const createConcepts = async (event) => {
+export const createConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event
 
@@ -129,5 +130,3 @@ const createConcepts = async (event) => {
     }
   }
 }
-
-export default createConcepts

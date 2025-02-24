@@ -1,7 +1,7 @@
-import conceptIdExists from '../utils/conceptIdExists'
-import getConceptId from '../utils/getConceptId'
-import { getApplicationConfig } from '../utils/getConfig'
-import { sparqlRequest } from '../utils/sparqlRequest'
+import { conceptIdExists } from '@/shared/conceptIdExists'
+import { getConceptId } from '@/shared/getConceptId'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Handles the creation of a new concept in the SPARQL endpoint.
@@ -31,7 +31,7 @@ import { sparqlRequest } from '../utils/sparqlRequest'
  * //   headers: { ... }
  * // }
  */
-const createConcept = async (event) => {
+export const createConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml } = event || {} // Use empty object as fallback
 
@@ -93,5 +93,3 @@ const createConcept = async (event) => {
     }
   }
 }
-
-export default createConcept

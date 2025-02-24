@@ -1,4 +1,7 @@
 /* eslint-disable no-new */
+const fs = require('fs')
+const path = require('path')
+
 const {
   CfnOutput,
   Duration,
@@ -7,15 +10,13 @@ const {
   Stack
 } = require('aws-cdk-lib')
 const autoscaling = require('aws-cdk-lib/aws-autoscaling')
-const custom = require('aws-cdk-lib/custom-resources')
 const ec2 = require('aws-cdk-lib/aws-ec2')
 const ecr = require('aws-cdk-lib/aws-ecr')
 const ecs = require('aws-cdk-lib/aws-ecs')
 const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const iam = require('aws-cdk-lib/aws-iam')
 const logs = require('aws-cdk-lib/aws-logs')
-const fs = require('fs')
-const path = require('path')
+const custom = require('aws-cdk-lib/custom-resources')
 
 /**
  * Stack for creating ECS (Elastic Container Service) resources for RDF4J.

@@ -1,7 +1,9 @@
 import { XMLBuilder } from 'fast-xml-parser'
-import { getApplicationConfig } from '../utils/getConfig'
-import getSkosConcept from '../utils/getSkosConcept'
-import getGcmdMetadata from '../utils/getGcmdMetadata'
+
+import { namespaces } from '@/shared/constants/namespaces'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
+import { getSkosConcept } from '@/shared/getSkosConcept'
 
 /**
  * Retrieves a SKOS Concept and returns it as RDF/XML.
@@ -52,13 +54,12 @@ import getGcmdMetadata from '../utils/getGcmdMetadata'
  *
  * @throws {Error} If there's an error retrieving or processing the concept.
  */
-const getConcept = async (event) => {
+export const getConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { pathParameters } = event || {}
+  const { pathParameters } = event
   const { conceptId, shortName, altLabel } = pathParameters
-  const { queryStringParameters } = event || {}
+  const { queryStringParameters } = event
   const { scheme } = queryStringParameters || {}
-  console.log('q=', scheme)
 
   try {
     const decode = (str) => {
@@ -85,10 +86,7 @@ const getConcept = async (event) => {
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
     const rdfJson = {
       'rdf:RDF': {
-        '@xmlns:rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-        '@xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
-        '@xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
-        '@xmlns:dcterms': 'http://purl.org/dc/terms/',
+        ...namespaces,
         'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
         'skos:Concept': [concept]
 
@@ -116,5 +114,3 @@ const getConcept = async (event) => {
     }
   }
 }
-
-export default getConcept

@@ -1,4 +1,4 @@
-import { getApplicationConfig } from '../utils/getConfig'
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Provides a status check for the RDF4J database connection.
@@ -31,7 +31,8 @@ import { getApplicationConfig } from '../utils/getConfig'
  * //   body: '{"error":"Failed to fetch RDF4J status"}',
  * //   headers: { ... }
  * // }
- */const status = async () => {
+ */
+export const status = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const rdf4jServiceUrl = process.env.RDF4J_SERVICE_URL
 
@@ -65,5 +66,3 @@ import { getApplicationConfig } from '../utils/getConfig'
     }
   }
 }
-
-export default status

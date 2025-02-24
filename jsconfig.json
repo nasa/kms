@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["serverless/src/*"]
+    }
+  },
+  "include": ["serverless/src/**/*"]
+}
