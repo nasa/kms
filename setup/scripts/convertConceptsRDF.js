@@ -1,7 +1,9 @@
 /* eslint-disable no-await-in-loop */
-const { XMLParser, XMLBuilder } = require('fast-xml-parser')
 const fs = require('fs').promises
 const path = require('path')
+
+const { XMLParser, XMLBuilder } = require('fast-xml-parser')
+
 const toRDF = require('./toRDF')
 
 // STAGE 1 fetches all uuids from gcmd and puts them in an array
