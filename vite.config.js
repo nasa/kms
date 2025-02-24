@@ -1,6 +1,7 @@
-import { defineConfig } from 'vite'
-import path from 'path'
 import fs from 'fs'
+import path from 'path'
+
+import { defineConfig } from 'vite'
 
 function getHandlerEntries(dir) {
   return fs.readdirSync(dir, { withFileTypes: true })

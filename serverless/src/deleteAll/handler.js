@@ -1,5 +1,5 @@
-import deleteAllTriples from '../utils/deleteAllTriples'
-import { getApplicationConfig } from '../utils/getConfig'
+import { deleteAllTriples } from '@/shared/deleteAllTriples'
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Deletes all triples from the RDF store.
@@ -39,7 +39,7 @@ import { getApplicationConfig } from '../utils/getConfig'
  * // }
  */
 
-const deleteAll = async () => {
+export const deleteAll = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
   try {

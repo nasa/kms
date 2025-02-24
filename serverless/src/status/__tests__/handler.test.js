@@ -1,5 +1,6 @@
 import { describe } from 'vitest'
-import status from '../handler'
+
+import { status } from '../handler'
 
 const originalConsoleLog = console.log
 const originalConsoleError = console.error

@@ -1,8 +1,9 @@
 /* eslint-disable import/no-extraneous-dependencies */
-const axios = require('axios')
 const path = require('path')
-const xml2js = require('xml2js')
+
+const axios = require('axios')
 const fs = require('fs-extra')
+const xml2js = require('xml2js')
 
 /**
  * Grabs concepts from all https://gcmd.earthdata.nasa.gov/kms/concepts pages and converts them to one rdf

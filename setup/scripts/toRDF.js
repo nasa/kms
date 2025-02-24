@@ -1,6 +1,6 @@
 /* eslint-disable import/no-extraneous-dependencies */
-const { create } = require('xmlbuilder2')
 const xml2js = require('xml2js')
+const { create } = require('xmlbuilder2')
 
 // Example files to use with main() below for the purposes of testing skos:concept element output
 // const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/70cb0f31-5c7e-48c1-a145-b7b99f0709a7?format=json'

@@ -123,9 +123,9 @@ const loadRDFXMLToRDF4J = async (filePath) => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    console.log('Successfully loaded RDF XML into RDF4J')
+    console.log(`Successfully loaded ${filePath} into RDF4J`)
   } catch (error) {
-    console.error('Error loading RDF XML into RDF4J:', error)
+    console.error(`Error loading ${filePath} into RDF4J:`, error)
   }
 }
 
@@ -140,8 +140,6 @@ const loadRDFXMLToRDF4J = async (filePath) => {
  * @async
  */
 const main = async () => {
-  const inputFile = 'setup/data/concepts.rdf'
-
   try {
     const serverRunning = await checkRDF4JServer(baseUrl)
     if (!serverRunning) {
@@ -162,7 +160,8 @@ const main = async () => {
       return
     }
 
-    await loadRDFXMLToRDF4J(inputFile, rdf4jUrl)
+    await loadRDFXMLToRDF4J('setup/data/concepts.rdf', rdf4jUrl)
+    await loadRDFXMLToRDF4J('setup/data/schemes.rdf', rdf4jUrl)
   } catch (error) {
     console.error('An error occurred:', error)
   }

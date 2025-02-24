@@ -1,20 +1,21 @@
 import {
+  beforeEach,
   describe,
   expect,
-  vi,
-  beforeEach
+  vi
 } from 'vitest'
-import createConcept from '../handler'
-import conceptIdExists from '../../utils/conceptIdExists'
-import getConceptId from '../../utils/getConceptId'
-import { getApplicationConfig } from '../../utils/getConfig'
-import { sparqlRequest } from '../../utils/sparqlRequest'
+
+import { createConcept } from '@/createConcept/handler'
+import { conceptIdExists } from '@/shared/conceptIdExists'
+import { getConceptId } from '@/shared/getConceptId'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 // Mock the dependencies
-vi.mock('../../utils/conceptIdExists')
-vi.mock('../../utils/getConceptId')
-vi.mock('../../utils/getConfig')
-vi.mock('../../utils/sparqlRequest')
+vi.mock('@/shared/conceptIdExists')
+vi.mock('@/shared/getConceptId')
+vi.mock('@/shared/getConfig')
+vi.mock('@/shared/sparqlRequest')
 
 describe('createConcept', () => {
   const mockRdfXml = '<rdf:RDF>...</rdf:RDF>'
@@ -31,141 +32,145 @@ describe('createConcept', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  test('should handle missing body in event', async () => {
-    const eventWithoutBody = {}
+  describe('when successful', () => {
+    test('should successfully create a concept', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
 
-    const result = await createConcept(eventWithoutBody)
+      const result = await createConcept(mockEvent)
 
-    expect(result).toEqual({
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error creating concept',
-        error: 'Missing RDF/XML data in request body'
-      }),
-      headers: mockDefaultHeaders
+      expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+      expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI)
+      expect(sparqlRequest).toHaveBeenCalledWith({
+        contentType: 'application/rdf+xml',
+        accept: 'application/rdf+xml',
+        path: '/statements',
+        method: 'POST',
+        body: mockRdfXml
+      })
+
+      expect(result).toEqual({
+        statusCode: 201,
+        body: JSON.stringify({
+          message: 'Successfully created concept',
+          conceptId: mockConceptId
+        }),
+        headers: mockDefaultHeaders
+      })
     })
   })
 
-  test('should successfully create a concept', async () => {
-    conceptIdExists.mockResolvedValue(false)
-    sparqlRequest.mockResolvedValue({ ok: true })
+  describe('when unsuccessful', () => {
+    test('should handle missing body in event', async () => {
+      const eventWithoutBody = {}
 
-    const result = await createConcept(mockEvent)
+      const result = await createConcept(eventWithoutBody)
 
-    expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-    expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI)
-    expect(sparqlRequest).toHaveBeenCalledWith({
-      contentType: 'application/rdf+xml',
-      accept: 'application/rdf+xml',
-      path: '/statements',
-      method: 'POST',
-      body: mockRdfXml
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'Missing RDF/XML data in request body'
+        }),
+        headers: mockDefaultHeaders
+      })
     })
 
-    expect(result).toEqual({
-      statusCode: 201,
-      body: JSON.stringify({
-        message: 'Successfully created concept',
-        conceptId: mockConceptId
-      }),
-      headers: mockDefaultHeaders
-    })
-  })
+    test('should return 409 if concept already exists', async () => {
+      conceptIdExists.mockResolvedValue(true)
 
-  test('should return 409 if concept already exists', async () => {
-    conceptIdExists.mockResolvedValue(true)
+      const result = await createConcept(mockEvent)
 
-    const result = await createConcept(mockEvent)
-
-    expect(result).toEqual({
-      statusCode: 409,
-      body: JSON.stringify({ message: `Concept ${mockConceptIRI} already exists.` }),
-      headers: mockDefaultHeaders
-    })
-  })
-
-  test('should handle getConceptId throwing an error', async () => {
-    getConceptId.mockImplementation(() => {
-      throw new Error('Invalid XML')
+      expect(result).toEqual({
+        statusCode: 409,
+        body: JSON.stringify({ message: `Concept ${mockConceptIRI} already exists.` }),
+        headers: mockDefaultHeaders
+      })
     })
 
-    const result = await createConcept(mockEvent)
+    test('should handle getConceptId throwing an error', async () => {
+      getConceptId.mockImplementation(() => {
+        throw new Error('Invalid XML')
+      })
 
-    expect(result).toEqual({
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error creating concept',
-        error: 'Invalid XML'
-      }),
-      headers: mockDefaultHeaders
-    })
-  })
+      const result = await createConcept(mockEvent)
 
-  test('should handle missing concept ID', async () => {
-    getConceptId.mockReturnValue(null)
-
-    const result = await createConcept(mockEvent)
-
-    expect(result).toEqual({
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error creating concept',
-        error: 'Invalid or missing concept ID'
-      }),
-      headers: mockDefaultHeaders
-    })
-  })
-
-  test('should handle sparqlRequest failure', async () => {
-    conceptIdExists.mockResolvedValue(false)
-    sparqlRequest.mockResolvedValue({
-      ok: false,
-      status: 500,
-      text: async () => 'Internal Server Error'
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'Invalid XML'
+        }),
+        headers: mockDefaultHeaders
+      })
     })
 
-    const result = await createConcept(mockEvent)
+    test('should handle missing concept ID', async () => {
+      getConceptId.mockReturnValue(null)
 
-    expect(result).toEqual({
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error creating concept',
-        error: 'HTTP error! status: 500'
-      }),
-      headers: mockDefaultHeaders
+      const result = await createConcept(mockEvent)
+
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'Invalid or missing concept ID'
+        }),
+        headers: mockDefaultHeaders
+      })
     })
 
-    expect(console.log).toHaveBeenCalledWith('Response text:', 'Internal Server Error')
-  })
+    test('should handle sparqlRequest failure', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: async () => 'Internal Server Error'
+      })
 
-  test('should handle conceptIdExists throwing an error', async () => {
-    conceptIdExists.mockRejectedValue(new Error('Database error'))
+      const result = await createConcept(mockEvent)
 
-    const result = await createConcept(mockEvent)
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'HTTP error! status: 500'
+        }),
+        headers: mockDefaultHeaders
+      })
 
-    expect(result).toEqual({
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error creating concept',
-        error: 'Database error'
-      }),
-      headers: mockDefaultHeaders
+      expect(console.log).toHaveBeenCalledWith('Response text:', 'Internal Server Error')
     })
-  })
 
-  test('should handle sparqlRequest throwing an error', async () => {
-    conceptIdExists.mockResolvedValue(false)
-    sparqlRequest.mockRejectedValue(new Error('Network error'))
+    test('should handle conceptIdExists throwing an error', async () => {
+      conceptIdExists.mockRejectedValue(new Error('Database error'))
 
-    const result = await createConcept(mockEvent)
+      const result = await createConcept(mockEvent)
 
-    expect(result).toEqual({
-      statusCode: 400,
-      body: JSON.stringify({
-        message: 'Error creating concept',
-        error: 'Network error'
-      }),
-      headers: mockDefaultHeaders
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'Database error'
+        }),
+        headers: mockDefaultHeaders
+      })
+    })
+
+    test('should handle sparqlRequest throwing an error', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockRejectedValue(new Error('Network error'))
+
+      const result = await createConcept(mockEvent)
+
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'Network error'
+        }),
+        headers: mockDefaultHeaders
+      })
     })
   })
 })

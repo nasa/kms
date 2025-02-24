@@ -3,9 +3,8 @@ const {
   Stack, CfnOutput,
   Duration
 } = require('aws-cdk-lib')
-
-const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 const ec2 = require('aws-cdk-lib/aws-ec2')
+const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
 
 /**
  * Stack for creating Load Balancer resources for RDF4J.

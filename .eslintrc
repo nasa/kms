@@ -6,18 +6,19 @@
     "node": true,
     "jest": true
   },
-
   "overrides": [
     {
-      "files": [ "**/__tests__/**/*.js?(x)" ],
-      "extends": ["plugin:testing-library/react"]
+      "files": [
+        "**/__tests__/**/*.js?(x)"
+      ],
+      "extends": [
+        "plugin:testing-library/react"
+      ]
     }
   ],
-
   "extends": [
     "@edsc"
   ],
-
   // Define version settings
   "settings": {
     "react": {
@@ -27,7 +28,10 @@
     "import/resolver": {
       "alias": {
         "map": [
-          [ "@", "./static/src" ]
+          [
+            "@",
+            "./serverless/src"
+          ]
         ],
         "extensions": [
           ".js",
@@ -37,7 +41,6 @@
       }
     }
   },
-
   "parserOptions": {
     "requireConfigFile": false,
     "babelOptions": {
@@ -46,9 +49,33 @@
       ]
     }
   },
-
   // Define any global variables to avoid no-undef errors
   "globals": {
     "vi": "readonly"
+  },
+  "plugins": [
+    "import"
+  ],
+"rules": {
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "newlines-between": "always",
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ],
+    "sort-imports": [
+      "error",
+      {
+        "ignoreCase": true,
+        "ignoreDeclarationSort": true,
+        "ignoreMemberSort": false,
+        "memberSyntaxSortOrder": ["none", "all", "multiple", "single"]
+      }
+    ] 
   }
 }

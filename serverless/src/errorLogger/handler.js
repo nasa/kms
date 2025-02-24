@@ -1,4 +1,4 @@
-import { getApplicationConfig } from '../utils/getConfig'
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Logs an error reported by a client.
@@ -38,7 +38,8 @@ import { getApplicationConfig } from '../utils/getConfig'
  *
  * // Console output:
  * // Error reported Action: fetchData - Message: Unexpected error occurred - Location: https://example.com/page - Stack: "Error: Unexpected error occurred\n    at SomeFunction (app.js:123)"
- */const errorLogger = async (event) => {
+ */
+export const errorLogger = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body } = event
   const {

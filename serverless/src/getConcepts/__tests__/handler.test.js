@@ -1,22 +1,26 @@
 import {
+  beforeEach,
   describe,
   expect,
-  vi,
-  beforeEach
+  test,
+  vi
 } from 'vitest'
-import getConcepts from '../handler'
-import getFilteredTriples from '../../utils/getFilteredTriples'
-import toSkosJson from '../../utils/toSkosJson'
-import processTriples from '../../utils/processTriples'
-import { getApplicationConfig } from '../../utils/getConfig'
-import getGcmdMetadata from '../../utils/getGcmdMetadata'
+
+import { getConcepts } from '@/getConcepts/handler'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { getFilteredTriples } from '@/shared/getFilteredTriples'
+import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
+import { getRootConcepts } from '@/shared/getRootConcepts'
+import { processTriples } from '@/shared/processTriples'
+import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
-vi.mock('../../utils/getFilteredTriples')
-vi.mock('../../utils/toSkosJson')
-vi.mock('../../utils/processTriples')
-vi.mock('../../utils/getConfig')
-vi.mock('../../utils/getGcmdMetadata')
+vi.mock('@/shared/getFilteredTriples')
+vi.mock('@/shared/toSkosJson')
+vi.mock('@/shared/processTriples')
+vi.mock('@/shared/getConfig')
+vi.mock('@/shared/getGcmdMetadata')
+vi.mock('@/shared/getRootConcepts')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -29,211 +33,592 @@ describe('getConcepts', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  test('should successfully retrieve concepts and return RDF/XML', async () => {
-    const mockTriples = [{
-      s: { value: 'uri1' },
-      p: { value: 'p1' },
-      o: { value: 'o1' }
-    }]
-    const mockProcessedTriples = {
-      bNodeMap: {},
-      nodes: {
-        uri1: new Set([{
+  describe('when successful', () => {
+    test('returns concepts by pattern', async () => {
+      const mockTriples = [
+        {
+          s: { value: 'uri1' },
+          p: { value: 'p1' },
+          o: { value: 'matching pattern' }
+        },
+        {
+          s: { value: 'uri2' },
+          p: { value: 'p1' },
+          o: { value: 'non-matching' }
+        }
+      ]
+      getFilteredTriples.mockResolvedValue(mockTriples)
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: { uri1: new Set([mockTriples[0]]) },
+        conceptURIs: ['uri1']
+      })
+
+      toSkosJson.mockReturnValue({
+        '@rdf:about': 'uri1',
+        'skos:prefLabel': 'Matching Concept'
+      })
+
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = { pathParameters: { pattern: 'matching' } }
+      const result = await getConcepts(event)
+
+      expect(getFilteredTriples).toHaveBeenCalledWith({ pattern: 'matching' })
+      expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
+      expect(result.body).not.toContain('<skos:Concept rdf:about="uri2">')
+    })
+
+    test('returns concepts by concept scheme', async () => {
+      const mockTriples = [
+        {
+          s: { value: 'uri1' },
+          p: { value: 'inScheme' },
+          o: { value: 'scheme1' }
+        },
+        {
+          s: { value: 'uri2' },
+          p: { value: 'inScheme' },
+          o: { value: 'scheme2' }
+        }
+      ]
+      getFilteredTriples.mockResolvedValue(mockTriples)
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: { uri1: new Set([mockTriples[0]]) },
+        conceptURIs: ['uri1']
+      })
+
+      toSkosJson.mockReturnValue({
+        '@rdf:about': 'uri1',
+        'skos:prefLabel': 'Scheme 1 Concept'
+      })
+
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = { pathParameters: { conceptScheme: 'scheme1' } }
+      const result = await getConcepts(event)
+
+      expect(getFilteredTriples).toHaveBeenCalledWith({ conceptScheme: 'scheme1' })
+      expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
+      expect(result.body).not.toContain('<skos:Concept rdf:about="uri2">')
+    })
+
+    test('returns concepts by both pattern and concept scheme', async () => {
+      const mockTriples = [
+        {
+          s: { value: 'uri1' },
+          p: { value: 'inScheme' },
+          o: { value: 'scheme1' }
+        },
+        {
+          s: { value: 'uri1' },
+          p: { value: 'prefLabel' },
+          o: { value: 'matching pattern' }
+        },
+        {
+          s: { value: 'uri2' },
+          p: { value: 'inScheme' },
+          o: { value: 'scheme2' }
+        }
+      ]
+      getFilteredTriples.mockResolvedValue(mockTriples)
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: { uri1: new Set([mockTriples[0], mockTriples[1]]) },
+        conceptURIs: ['uri1']
+      })
+
+      toSkosJson.mockReturnValue({
+        '@rdf:about': 'uri1',
+        'skos:prefLabel': 'Matching Concept in Scheme 1'
+      })
+
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        pathParameters: {
+          conceptScheme: 'scheme1',
+          pattern: 'matching'
+        }
+      }
+      const result = await getConcepts(event)
+
+      expect(getFilteredTriples).toHaveBeenCalledWith({
+        conceptScheme: 'scheme1',
+        pattern: 'matching'
+      })
+
+      expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
+      expect(result.body).not.toContain('<skos:Concept rdf:about="uri2">')
+    })
+
+    test('returns all concepts when no pattern or concept scheme is provided', async () => {
+      const mockTriples = [
+        {
           s: { value: 'uri1' },
           p: { value: 'p1' },
           o: { value: 'o1' }
-        }])
-      },
-      conceptURIs: ['uri1']
-    }
-    const mockConcept = {
-      '@rdf:about': 'uri1',
-      'skos:prefLabel': 'Concept 1'
-    }
-    const mockGcmdMetadata = { 'gcmd:keywordVersion': { _text: '1.0' } }
-
-    getFilteredTriples.mockResolvedValue(mockTriples)
-    processTriples.mockReturnValue(mockProcessedTriples)
-    toSkosJson.mockReturnValue(mockConcept)
-    getGcmdMetadata.mockResolvedValue(mockGcmdMetadata)
-
-    const result = await getConcepts()
-
-    // Check if headers include both the default headers and the Content-Type
-    expect(result.headers).toEqual({
-      ...mockDefaultHeaders,
-      'Content-Type': 'application/xml; charset=utf-8'
-    })
-
-    expect(result.body).toContain('<rdf:RDF')
-    expect(result.body).toContain('xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"')
-    expect(result.body).toContain('xmlns:skos="http://www.w3.org/2004/02/skos/core#"')
-    expect(result.body).toContain('xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#"')
-    expect(result.body).toContain('<skos:Concept')
-    expect(result.body).toContain('<gcmd:gcmd')
-    expect(result.body).toContain('<gcmd:keywordVersion>1.0</gcmd:keywordVersion>')
-  })
-
-  test('should limit the number of concepts to 2000', async () => {
-    const mockTriples = [{
-      s: { value: 'uri1' },
-      p: { value: 'p1' },
-      o: { value: 'o1' }
-    }]
-    const mockProcessedTriples = {
-      bNodeMap: {},
-      nodes: {},
-      conceptURIs: Array(3000).fill().map((_, i) => `uri${i}`)
-    }
-    // Populate nodes with mock data for each URI
-    mockProcessedTriples.conceptURIs.forEach((uri) => {
-      mockProcessedTriples.nodes[uri] = new Set([{
-        s: { value: uri },
-        p: { value: 'p1' },
-        o: { value: 'o1' }
-      }])
-    })
-
-    getFilteredTriples.mockResolvedValue(mockTriples)
-    processTriples.mockReturnValue(mockProcessedTriples)
-    toSkosJson.mockReturnValue({})
-    getGcmdMetadata.mockResolvedValue({})
-
-    const result = await getConcepts()
-
-    expect(toSkosJson).toHaveBeenCalledTimes(2000)
-    expect(result.body).toContain('<rdf:RDF')
-    // Check that we have exactly 2000 <skos:Concept> elements
-    const conceptMatches = result.body.match(/<skos:Concept/g) || []
-    expect(conceptMatches.length).toBe(2000)
-  })
-
-  test('should handle errors and return a 500 status code', async () => {
-    getFilteredTriples.mockRejectedValue(new Error('Test error'))
-
-    const result = await getConcepts()
-
-    expect(result.statusCode).toBe(500)
-    expect(result.headers).toEqual(mockDefaultHeaders)
-    expect(JSON.parse(result.body)).toEqual({
-      error: expect.stringContaining('Test error')
-    })
-  })
-
-  test('should call getGcmdMetadata with the correct number of hits', async () => {
-    const mockProcessedTriples = {
-      bNodeMap: {},
-      nodes: {},
-      conceptURIs: Array(3000).fill().map((_, i) => `uri${i}`)
-    }
-    // Populate nodes with mock data for each URI
-    mockProcessedTriples.conceptURIs.forEach((uri) => {
-      mockProcessedTriples.nodes[uri] = new Set([{
-        s: { value: uri },
-        p: { value: 'p1' },
-        o: { value: 'o1' }
-      }])
-    })
-
-    getFilteredTriples.mockResolvedValue([])
-    processTriples.mockReturnValue(mockProcessedTriples)
-    toSkosJson.mockReturnValue({})
-    getGcmdMetadata.mockResolvedValue({})
-
-    await getConcepts()
-
-    // The function processes 2000 concepts and passes the remaining count to getGcmdMetadata
-    expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 3000 }) // 3000 total - 2000 processed = 1000
-  })
-
-  test('should handle empty result from getFilteredTriples', async () => {
-    getFilteredTriples.mockResolvedValue([])
-    processTriples.mockReturnValue({
-      bNodeMap: {},
-      nodes: {},
-      conceptURIs: []
-    })
-
-    getGcmdMetadata.mockResolvedValue({})
-
-    const result = await getConcepts()
-
-    expect(result.body).toContain('<rdf:RDF')
-    expect(result.body).not.toContain('<skos:Concept')
-  })
-
-  test('should correctly process and include multiple concepts', async () => {
-    const mockProcessedTriples = {
-      bNodeMap: {},
-      nodes: {
-        uri1: new Set([{
-          s: { value: 'uri1' },
-          p: { value: 'p1' },
-          o: { value: 'o1' }
-        }]),
-        uri2: new Set([{
+        },
+        {
           s: { value: 'uri2' },
           p: { value: 'p2' },
           o: { value: 'o2' }
-        }])
-      },
-      conceptURIs: ['uri1', 'uri2']
-    }
-    processTriples.mockReturnValue(mockProcessedTriples)
-    toSkosJson.mockImplementation((uri) => ({
-      '@rdf:about': uri,
-      'skos:prefLabel': `Concept ${uri}`
-    }))
+        }
+      ]
+      getFilteredTriples.mockResolvedValue(mockTriples)
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {
+          uri1: new Set([mockTriples[0]]),
+          uri2: new Set([mockTriples[1]])
+        },
+        conceptURIs: ['uri1', 'uri2']
+      })
 
-    getGcmdMetadata.mockResolvedValue({ 'gcmd:keywordVersion': { _text: '1.0' } })
+      toSkosJson.mockImplementation((uri) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': `Concept ${uri}`
+      }))
 
-    const result = await getConcepts()
+      getGcmdMetadata.mockResolvedValue({})
 
-    expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
-    expect(result.body).toContain('<skos:Concept rdf:about="uri2">')
-    expect(result.body).toContain('<skos:prefLabel>Concept uri1</skos:prefLabel>')
-    expect(result.body).toContain('<skos:prefLabel>Concept uri2</skos:prefLabel>')
-  })
+      const event = {}
+      const result = await getConcepts(event)
 
-  test('should handle cases where no concepts are found', async () => {
-    processTriples.mockReturnValue({
-      bNodeMap: {},
-      nodes: {},
-      conceptURIs: []
+      expect(getFilteredTriples).toHaveBeenCalledWith({})
+      expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
+      expect(result.body).toContain('<skos:Concept rdf:about="uri2">')
     })
 
-    getGcmdMetadata.mockResolvedValue({ 'gcmd:keywordVersion': { _text: '1.0' } })
-
-    const result = await getConcepts()
-
-    expect(result.body).toContain('<rdf:RDF')
-    expect(result.body).toContain('<gcmd:gcmd>')
-    expect(result.body).not.toContain('<skos:Concept')
-  })
-
-  test('should handle large number of concepts correctly', async () => {
-    const largeConceptURIs = Array(3000).fill().map((_, i) => `uri${i}`)
-    const mockProcessedTriples = {
-      bNodeMap: {},
-      nodes: largeConceptURIs.reduce((acc, uri) => {
-        acc[uri] = new Set([{
-          s: { value: uri },
+    test('returns root concepts', async () => {
+      const mockRootTriples = [
+        {
+          s: { value: 'rootUri1' },
           p: { value: 'p1' },
           o: { value: 'o1' }
-        }])
+        },
+        {
+          s: { value: 'rootUri2' },
+          p: { value: 'p2' },
+          o: { value: 'o2' }
+        }
+      ]
+      const mockProcessedTriples = {
+        bNodeMap: {},
+        nodes: {
+          rootUri1: new Set([mockRootTriples[0]]),
+          rootUri2: new Set([mockRootTriples[1]])
+        },
+        conceptURIs: ['rootUri1', 'rootUri2']
+      }
+      getRootConcepts.mockResolvedValue(mockRootTriples)
+      processTriples.mockReturnValue(mockProcessedTriples)
+      toSkosJson.mockImplementation((uri) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': `Root Concept ${uri}`
+      }))
 
-        return acc
-      }, {}),
-      conceptURIs: largeConceptURIs
-    }
-    processTriples.mockReturnValue(mockProcessedTriples)
-    toSkosJson.mockImplementation((uri) => ({ '@rdf:about': uri }))
-    getGcmdMetadata.mockResolvedValue({ 'gcmd:keywordVersion': { _text: '1.0' } })
+      getGcmdMetadata.mockResolvedValue({ 'gcmd:keywordVersion': { _text: '1.0' } })
 
-    const result = await getConcepts()
+      const event = { path: '/concepts/root' }
+      const result = await getConcepts(event)
 
-    expect(toSkosJson).toHaveBeenCalledTimes(2000)
-    expect(result.body.match(/<skos:Concept/g)).toHaveLength(2000)
-    expect(getGcmdMetadata).toHaveBeenCalledWith({ gcmdHits: 3000 }) // 3000 total - 2000 processed
+      expect(getRootConcepts).toHaveBeenCalled()
+      expect(getFilteredTriples).not.toHaveBeenCalled()
+      expect(result.body).toContain('<rdf:RDF')
+      expect(result.body).toContain('<skos:Concept rdf:about="rootUri1">')
+      expect(result.body).toContain('<skos:Concept rdf:about="rootUri2">')
+      expect(result.body).toContain('<skos:prefLabel>Root Concept rootUri1</skos:prefLabel>')
+      expect(result.body).toContain('<skos:prefLabel>Root Concept rootUri2</skos:prefLabel>')
+    })
+
+    describe('when paging', async () => {
+      test('handles pagination correctly for different page sizes', async () => {
+        const mockTriples = Array(100).fill().map((_, i) => ({
+          s: { value: `uri${i}` },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        }))
+        const mockProcessedTriples = {
+          bNodeMap: {},
+          nodes: Object.fromEntries(mockTriples.map((t) => [t.s.value, new Set([t])])),
+          conceptURIs: mockTriples.map((t) => t.s.value)
+        }
+
+        getFilteredTriples.mockResolvedValue(mockTriples)
+        processTriples.mockReturnValue(mockProcessedTriples)
+        toSkosJson.mockImplementation((uri) => ({
+          '@rdf:about': uri,
+          'skos:prefLabel': { _text: `Concept ${uri}` }
+        }))
+
+        getGcmdMetadata.mockResolvedValue({})
+
+        const testCases = [
+          {
+            pageNum: '1',
+            pageSize: '10',
+            expectedConcepts: 10,
+            expectedTotalPages: '10'
+          },
+          {
+            pageNum: '2',
+            pageSize: '25',
+            expectedConcepts: 25,
+            expectedTotalPages: '4'
+          },
+          {
+            pageNum: '2',
+            pageSize: '50',
+            expectedConcepts: 50,
+            expectedTotalPages: '2'
+          }
+        ]
+
+        // eslint-disable-next-line no-restricted-syntax
+        for (const {
+          pageNum, pageSize, expectedConcepts, expectedTotalPages
+        } of testCases) {
+          const event = {
+            queryStringParameters: {
+              page_num: pageNum,
+              page_size: pageSize
+            }
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          const result = await getConcepts(event)
+
+          expect(result.headers['X-Total-Count']).toBe('100')
+          expect(result.headers['X-Page-Number']).toBe(pageNum)
+          expect(result.headers['X-Page-Number']).toBe(pageNum)
+          expect(result.headers['X-Page-Size']).toBe(pageSize)
+          expect(result.headers['X-Total-Pages']).toBe(expectedTotalPages)
+
+          const conceptMatches = result.body.match(/<skos:Concept/g) || []
+          expect(conceptMatches.length).toBe(expectedConcepts)
+
+          // Check that the correct range of concepts is included
+          const startIndex = (parseInt(pageNum, 10) - 1) * parseInt(pageSize, 10)
+          const endIndex = Math.min(startIndex + parseInt(pageSize, 10), 100)
+          for (let i = startIndex; i < endIndex; i += 1) {
+            expect(result.body).toContain(`<skos:Concept rdf:about="uri${i}">`)
+            expect(result.body).toContain(`<skos:prefLabel>Concept uri${i}</skos:prefLabel>`)
+          }
+
+          expect(getGcmdMetadata).toHaveBeenCalledWith({
+            pageNum: parseInt(pageNum, 10),
+            pageSize: parseInt(pageSize, 10),
+            gcmdHits: 100
+          })
+        }
+      })
+
+      test('returns last page correctly when not full', async () => {
+        const mockTriples = Array(95).fill().map((_, i) => ({
+          s: { value: `uri${i}` },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        }))
+        const mockProcessedTriples = {
+          bNodeMap: {},
+          nodes: Object.fromEntries(mockTriples.map((t) => [t.s.value, new Set([t])])),
+          conceptURIs: mockTriples.map((t) => t.s.value)
+        }
+
+        getFilteredTriples.mockResolvedValue(mockTriples)
+        processTriples.mockReturnValue(mockProcessedTriples)
+        toSkosJson.mockImplementation((uri) => ({ '@rdf:about': uri }))
+        getGcmdMetadata.mockResolvedValue({})
+
+        const event = {
+          queryStringParameters: {
+            page_num: '4',
+            page_size: '30'
+          }
+        }
+
+        const result = await getConcepts(event)
+
+        expect(result.headers['X-Total-Count']).toBe('95')
+        expect(result.headers['X-Page-Number']).toBe('4')
+        expect(result.headers['X-Page-Size']).toBe('30')
+        expect(result.headers['X-Total-Pages']).toBe('4')
+
+        const conceptMatches = result.body.match(/<skos:Concept/g) || []
+        expect(conceptMatches.length).toBe(5) // Only 5 concepts on the last page
+
+        expect(getGcmdMetadata).toHaveBeenCalledWith({
+          pageNum: 4,
+          pageSize: 30,
+          gcmdHits: 95
+        })
+      })
+
+      test('uses default pagination when no parameters are provided', async () => {
+        const mockTriples = Array(2500).fill().map((_, i) => ({
+          s: { value: `uri${i}` },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        }))
+        const mockProcessedTriples = {
+          bNodeMap: {},
+          nodes: Object.fromEntries(mockTriples.map((t) => [t.s.value, new Set([t])])),
+          conceptURIs: mockTriples.map((t) => t.s.value)
+        }
+
+        getFilteredTriples.mockResolvedValue(mockTriples)
+        processTriples.mockReturnValue(mockProcessedTriples)
+        toSkosJson.mockImplementation((uri) => ({ '@rdf:about': uri }))
+        getGcmdMetadata.mockResolvedValue({})
+
+        const event = {} // No query parameters
+
+        const result = await getConcepts(event)
+
+        expect(result.headers['X-Total-Count']).toBe('2500')
+        expect(result.headers['X-Page-Number']).toBe('1')
+        expect(result.headers['X-Page-Size']).toBe('2000')
+        expect(result.headers['X-Total-Pages']).toBe('2')
+
+        const conceptMatches = result.body.match(/<skos:Concept/g) || []
+        expect(conceptMatches.length).toBe(2000) // Default page size
+
+        expect(getGcmdMetadata).toHaveBeenCalledWith({
+          pageNum: 1,
+          pageSize: 2000,
+          gcmdHits: 2500
+        })
+      })
+
+      test('handles edge cases in pagination', async () => {
+        const mockTriples = Array(10).fill().map((_, i) => ({
+          s: { value: `uri${i}` },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        }))
+        const mockProcessedTriples = {
+          bNodeMap: {},
+          nodes: Object.fromEntries(mockTriples.map((t) => [t.s.value, new Set([t])])),
+          conceptURIs: mockTriples.map((t) => t.s.value)
+        }
+
+        getFilteredTriples.mockResolvedValue(mockTriples)
+        processTriples.mockReturnValue(mockProcessedTriples)
+        toSkosJson.mockImplementation((uri) => ({ '@rdf:about': uri }))
+        getGcmdMetadata.mockResolvedValue({})
+
+        // Test case 1: Page size larger than total concepts
+        const event1 = {
+          queryStringParameters: {
+            page_num: '1',
+            page_size: '20'
+          }
+        }
+        const result1 = await getConcepts(event1)
+        expect(result1.headers['X-Total-Count']).toBe('10')
+        expect(result1.headers['X-Page-Number']).toBe('1')
+        expect(result1.headers['X-Page-Size']).toBe('20')
+        expect(result1.headers['X-Total-Pages']).toBe('1')
+        expect(result1.body.match(/<skos:Concept/g).length).toBe(10)
+
+        // Test case 2: Requesting a page beyond available data
+        const event2 = {
+          queryStringParameters: {
+            page_num: '3',
+            page_size: '5'
+          }
+        }
+        const result2 = await getConcepts(event2)
+        expect(result2.headers['X-Total-Count']).toBe('10')
+        expect(result2.headers['X-Page-Number']).toBe('3')
+        expect(result2.headers['X-Page-Size']).toBe('5')
+        expect(result2.headers['X-Total-Pages']).toBe('2')
+        expect(result2.body.match(/<skos:Concept/g)).toBeNull() // No concepts on this page
+
+        // Test case 3: Minimum page size
+        const event3 = {
+          queryStringParameters: {
+            page_num: '1',
+            page_size: '1'
+          }
+        }
+        const result3 = await getConcepts(event3)
+        expect(result3.headers['X-Total-Count']).toBe('10')
+        expect(result3.headers['X-Page-Number']).toBe('1')
+        expect(result3.headers['X-Page-Size']).toBe('1')
+        expect(result3.headers['X-Total-Pages']).toBe('10')
+        expect(result3.body.match(/<skos:Concept/g).length).toBe(1)
+
+        // Test case 4: Maximum page size
+        const event4 = {
+          queryStringParameters: {
+            page_num: '1',
+            page_size: '2000'
+          }
+        }
+        const result4 = await getConcepts(event4)
+        expect(result4.headers['X-Total-Count']).toBe('10')
+        expect(result4.headers['X-Page-Number']).toBe('1')
+        expect(result4.headers['X-Page-Size']).toBe('2000')
+        expect(result4.headers['X-Total-Pages']).toBe('1')
+        expect(result4.body.match(/<skos:Concept/g).length).toBe(10)
+
+        // Test case 5: Last page with remaining concepts
+        const event5 = {
+          queryStringParameters: {
+            page_num: '2',
+            page_size: '7'
+          }
+        }
+        const result5 = await getConcepts(event5)
+        expect(result5.headers['X-Total-Count']).toBe('10')
+        expect(result5.headers['X-Page-Number']).toBe('2')
+        expect(result5.headers['X-Page-Size']).toBe('7')
+        expect(result5.headers['X-Total-Pages']).toBe('2')
+        expect(result5.body.match(/<skos:Concept/g).length).toBe(3)
+
+        // Test case 6: Page number less than 1
+        const event6 = {
+          queryStringParameters: {
+            page_num: '0',
+            page_size: '5'
+          }
+        }
+        const result6 = await getConcepts(event6)
+        expect(result6.statusCode).toBe(400)
+        expect(JSON.parse(result6.body)).toEqual({
+          error: 'Invalid page_num parameter'
+        })
+
+        // Test case 7: Non-integer page number
+        const event7 = {
+          queryStringParameters: {
+            page_num: '1.5',
+            page_size: '5'
+          }
+        }
+        const result7 = await getConcepts(event7)
+        expect(result7.statusCode).toBe(400)
+        expect(JSON.parse(result7.body)).toEqual({
+          error: 'Invalid page_num parameter'
+        })
+
+        // Test case 8: Empty result set
+        const emptyTriples = []
+        const emptyProcessedTriples = {
+          bNodeMap: {},
+          nodes: {},
+          conceptURIs: []
+        }
+        getFilteredTriples.mockResolvedValue(emptyTriples)
+        processTriples.mockReturnValue(emptyProcessedTriples)
+
+        const event8 = {
+          queryStringParameters: {
+            page_num: '1',
+            page_size: '10'
+          }
+        }
+        const result8 = await getConcepts(event8)
+        expect(result8.headers['X-Total-Count']).toBe('0')
+        expect(result8.headers['X-Page-Number']).toBe('1')
+        expect(result8.headers['X-Page-Size']).toBe('10')
+        expect(result8.headers['X-Total-Pages']).toBe('0')
+        expect(result8.body.match(/<skos:Concept/g)).toBeNull()
+      })
+
+      test('returns 400 for invalid pagination parameters', async () => {
+        const eventInvalidPageNum = {
+          queryStringParameters: {
+            page_num: 'invalid',
+            page_size: '20'
+          }
+        }
+
+        const resultInvalidPageNum = await getConcepts(eventInvalidPageNum)
+        expect(resultInvalidPageNum.statusCode).toBe(400)
+        expect(JSON.parse(resultInvalidPageNum.body)).toEqual({
+          error: 'Invalid page_num parameter'
+        })
+
+        const eventInvalidPageSize = {
+          queryStringParameters: {
+            page_num: '1',
+            page_size: '3000'
+          }
+        }
+
+        const resultInvalidPageSize = await getConcepts(eventInvalidPageSize)
+        expect(resultInvalidPageSize.statusCode).toBe(400)
+        expect(JSON.parse(resultInvalidPageSize.body)).toEqual({
+          error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+        })
+      })
+
+      test('handles requests for pages beyond available data', async () => {
+        const mockTriples = Array(50).fill().map((_, i) => ({
+          s: { value: `uri${i}` },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        }))
+        const mockProcessedTriples = {
+          bNodeMap: {},
+          nodes: Object.fromEntries(mockTriples.map((t) => [t.s.value, new Set([t])])),
+          conceptURIs: mockTriples.map((t) => t.s.value)
+        }
+
+        getFilteredTriples.mockResolvedValue(mockTriples)
+        processTriples.mockReturnValue(mockProcessedTriples)
+        toSkosJson.mockImplementation((uri) => ({ '@rdf:about': uri }))
+        getGcmdMetadata.mockResolvedValue({})
+
+        const event = {
+          queryStringParameters: {
+            page_num: '3',
+            page_size: '25'
+          }
+        }
+
+        const result = await getConcepts(event)
+
+        expect(result.headers['X-Total-Count']).toBe('50')
+        expect(result.headers['X-Page-Number']).toBe('3')
+        expect(result.headers['X-Page-Size']).toBe('25')
+        expect(result.headers['X-Total-Pages']).toBe('2')
+
+        const conceptMatches = result.body.match(/<skos:Concept/g) || []
+        expect(conceptMatches.length).toBe(0) // No concepts on this page
+
+        expect(getGcmdMetadata).toHaveBeenCalledWith({
+          pageNum: 3,
+          pageSize: 25,
+          gcmdHits: 50
+        })
+      })
+    })
+  })
+
+  describe('when unsuccesful', () => {
+    test('returns 500 status code and error message when an exception is thrown', async () => {
+      // Mock an error being thrown
+      const mockError = new Error('Test error')
+      getFilteredTriples.mockRejectedValue(mockError)
+
+      const event = {} // Empty event object
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 500,
+        body: JSON.stringify({
+          error: mockError.toString()
+        })
+      })
+
+      // Verify that the error was logged
+      expect(console.error).toHaveBeenCalledWith(`Error retrieving concept, error=${mockError.toString()}`)
+    })
   })
 })
