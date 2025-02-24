@@ -39,41 +39,79 @@ describe('getConcepts', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  it('should return CSV when format is csv', async () => {
-    // Mock the necessary functions
-    vi.mocked(getApplicationConfig).mockReturnValue({
-      defaultResponseHeaders: { 'Content-Type': 'text/csv' }
-    })
-
-    vi.mocked(getCsvMetadata).mockResolvedValue('mockCsvMetadata')
-    vi.mocked(getCsvHeaders).mockResolvedValue(['header1', 'header2'])
-    vi.mocked(getCsvPaths).mockResolvedValue(['path1', 'path2'])
-    vi.mocked(createCsv).mockResolvedValue('mockCsvContent')
-
-    const event = {
-      queryStringParameters: {
-        format: 'csv',
-        scheme: 'testScheme'
-      }
-    }
-
-    const result = await getConcepts(event)
-
-    expect(result).toEqual({
-      body: 'mockCsvContent',
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': 'attachment; filename=testScheme.csv'
-      }
-    })
-
-    expect(getCsvMetadata).toHaveBeenCalledWith('testScheme')
-    expect(getCsvHeaders).toHaveBeenCalledWith('testScheme')
-    expect(getCsvPaths).toHaveBeenCalledWith('testScheme', 2)
-    expect(createCsv).toHaveBeenCalledWith('mockCsvMetadata', ['header1', 'header2'], ['path1', 'path2'])
-  })
-
   describe('Basic functionality', () => {
+    test('should return CSV when format is csv', async () => {
+      // Mock the necessary functions
+      vi.mocked(getApplicationConfig).mockReturnValue({
+        defaultResponseHeaders: { 'Content-Type': 'text/csv' }
+      })
+
+      vi.mocked(getCsvMetadata).mockResolvedValue('mockCsvMetadata')
+      vi.mocked(getCsvHeaders).mockResolvedValue(['header1', 'header2'])
+      vi.mocked(getCsvPaths).mockResolvedValue(['path1', 'path2'])
+      vi.mocked(createCsv).mockResolvedValue('mockCsvContent')
+
+      const event = {
+        queryStringParameters: {
+          format: 'csv',
+          scheme: 'testScheme'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        body: 'mockCsvContent',
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename=testScheme.csv'
+        }
+      })
+
+      expect(getCsvMetadata).toHaveBeenCalledWith('testScheme')
+      expect(getCsvHeaders).toHaveBeenCalledWith('testScheme')
+      expect(getCsvPaths).toHaveBeenCalledWith('testScheme', 2)
+      expect(createCsv).toHaveBeenCalledWith('mockCsvMetadata', ['header1', 'header2'], ['path1', 'path2'])
+    })
+
+    test('should handle errors in CSV processing', async () => {
+      // Mock the necessary functions
+      vi.mocked(getApplicationConfig).mockReturnValue({
+        defaultResponseHeaders: { 'Content-Type': 'text/csv' }
+      })
+
+      vi.mocked(getCsvMetadata).mockResolvedValue('mockCsvMetadata')
+      vi.mocked(getCsvHeaders).mockResolvedValue(['header1', 'header2'])
+      vi.mocked(getCsvPaths).mockRejectedValue(new Error('Failed to get CSV paths'))
+      vi.mocked(createCsv).mockResolvedValue('mockCsvContent')
+
+      const event = {
+        queryStringParameters: {
+          format: 'csv',
+          scheme: 'testScheme'
+        }
+      }
+
+      const result = await getConcepts(event)
+      expect(result).toEqual({
+        headers: { 'Content-Type': 'text/csv' },
+        statusCode: 500,
+        body: JSON.stringify({
+          error: 'Error: Failed to get CSV paths'
+        })
+      })
+
+      expect(getCsvMetadata).toHaveBeenCalledWith('testScheme')
+      expect(getCsvHeaders).toHaveBeenCalledWith('testScheme')
+      expect(getCsvPaths).toHaveBeenCalledWith('testScheme', 2)
+      expect(createCsv).not.toHaveBeenCalled()
+
+      // Verify that the error was logged
+      expect(console.error).toHaveBeenCalledWith(
+        'Error retrieving full path, error=Error: Failed to get CSV paths'
+      )
+    })
+
     test('should successfully retrieve concepts and return RDF/XML with pagination', async () => {
       const mockTriples = Array(100).fill().map((_, i) => ({
         s: { value: `uri${i}` },
