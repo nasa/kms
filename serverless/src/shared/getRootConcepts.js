@@ -24,8 +24,6 @@ export const getRootConcepts = async () => {
 
     const result = await response.json()
 
-    console.log('root concepts=', result.results.bindings)
-
     return result.results.bindings
   } catch (error) {
     console.error('Error fetching root concepts:', error)

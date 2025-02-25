@@ -19,7 +19,7 @@ describe('namespaces', () => {
   it('should have the correct URI for each namespace', () => {
     expect(namespaces['@xmlns:rdf']).toBe('http://www.w3.org/1999/02/22-rdf-syntax-ns#')
     expect(namespaces['@xmlns:skos']).toBe('http://www.w3.org/2004/02/skos/core#')
-    expect(namespaces['@xmlns:gcmd']).toBe('https://gcmd.earthdata.nasa.gov/kms#')
+    expect(namespaces['@xmlns:gcmd']).toBe('https://gcmd.earthdata.nasa.gov/kms/')
     expect(namespaces['@xmlns:dcterms']).toBe('http://purl.org/dc/terms/')
   })
 

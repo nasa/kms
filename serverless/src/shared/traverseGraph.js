@@ -9,8 +9,6 @@ const traverseGraph = async (csvHeadersCount, providerUrlsMap, longNamesMap, sch
   const { narrowerPrefLabel, uri } = n
 
   const uuid = n.uri?.split('/')[n.uri.split('/').length - 1]
-  console.log('uuid=', uuid)
-  console.log('label=', narrowerPrefLabel)
   const longNameArray = longNamesMap[n.uri]
   const providerUrlsArray = providerUrlsMap[n.uri]
 

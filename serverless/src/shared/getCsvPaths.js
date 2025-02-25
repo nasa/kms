@@ -31,8 +31,6 @@ const getCsvPaths = async (scheme, csvHeadersCount) => {
   // Initialize an array to store keywords
   const keywords = []
 
-  console.log('NODE=', node)
-
   // Traverse the graph to populate keywords
   await traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, node, narrowersMap, [], keywords)
 

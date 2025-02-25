@@ -1,7 +1,8 @@
-export const getConceptSchemeDetailsQuery = (schemeName = null) => `
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX dcterms: <http://purl.org/dc/terms/>
-PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms/>
+import { prefixes } from '../../constants/prefixes'
+
+export const getConceptSchemeDetailsQuery = (schemeName) => `
+${prefixes}
+
 SELECT ?scheme ?prefLabel ?notation ?modified ?csvHeaders
 WHERE {
   ?scheme a skos:ConceptScheme ;
