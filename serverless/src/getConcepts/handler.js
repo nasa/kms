@@ -39,10 +39,15 @@ const getConcepts = async (event = {}) => {
   const { format = '', scheme = '' } = queryStringParameters
   if (format === 'csv') {
     try {
+      // Get CSV output metadata
       const csvMetadata = await getCsvMetadata(scheme)
+      // Get CSV headers
       const csvHeaders = await getCsvHeaders(scheme)
+      // Calculate CSV header count
       const csvHeadersCount = csvHeaders.length
+      // Get CSV row data
       const paths = await getCsvPaths(scheme, csvHeadersCount)
+      // Set CSV response header
       defaultResponseHeaders['Content-Disposition'] = `attachment; filename=${scheme}.csv`
 
       return {
