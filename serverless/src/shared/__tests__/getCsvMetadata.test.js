@@ -1,42 +1,88 @@
 import { format } from 'date-fns'
 import {
+  afterEach,
+  beforeEach,
   describe,
   expect,
+  it,
   vi
 } from 'vitest'
 
+import { sparqlRequest } from '@/shared/sparqlRequest'
+
 import getCsvMetadata from '../getCsvMetadata'
 
+// Mock the sparqlRequest function
+vi.mock('@/shared/sparqlRequest', () => ({
+  sparqlRequest: vi.fn()
+}))
+
 describe('getCsvMetadata', () => {
-  test('should return an array of metadata strings', () => {
-    const result = getCsvMetadata('testScheme')
-    expect(Array.isArray(result)).toBe(true)
-    expect(result.length).toBe(5)
-  })
-
-  test('should include the correct static metadata strings', () => {
-    const result = getCsvMetadata('testScheme')
-    expect(result).toContain('Keyword Version: N')
-    expect(result).toContain('Revision: N')
-    expect(result).toContain('Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf')
-  })
-
-  test('should include a correctly formatted timestamp', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
     vi.useFakeTimers()
-    const fakeNow = new Date('2023-01-01T12:00:00Z')
-    vi.setSystemTime(fakeNow)
+    vi.setSystemTime(new Date('2023-06-15T12:00:00Z'))
+  })
 
-    const result = getCsvMetadata('testScheme')
-    const expectedTimestamp = `Timestamp: ${format(fakeNow, 'yyyy-MM-dd HH:mm:ss')}`
-    expect(result).toContain(expectedTimestamp)
-
+  afterEach(() => {
     vi.useRealTimers()
   })
 
-  test('should include the correct XML representation URL', () => {
-    const scheme = 'testScheme'
-    const result = getCsvMetadata(scheme)
-    const expectedUrl = `The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}/?format=xml`
-    expect(result).toContain(expectedUrl)
+  it('should return correct metadata when sparqlRequest is successful', async () => {
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [
+            {
+              modified: { value: '2023-06-14' }
+            }
+          ]
+        }
+      })
+    }
+    sparqlRequest.mockResolvedValue(mockResponse)
+
+    const result = await getCsvMetadata('testScheme')
+
+    expect(result).toEqual([
+      'Keyword Version: N',
+      'Revision: 2023-06-14',
+      `Timestamp: ${format(new Date('2023-06-15T12:00:00Z'), 'yyyy-MM-dd HH:mm:ss')}`,
+      'Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
+      'The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/testScheme/?format=xml'
+    ])
+  })
+
+  it('should handle case when sparqlRequest returns no data', async () => {
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: []
+        }
+      })
+    }
+    sparqlRequest.mockResolvedValue(mockResponse)
+
+    const result = await getCsvMetadata('testScheme')
+
+    expect(result[1]).toBe('Revision: undefined')
+  })
+
+  it('should throw an error when sparqlRequest fails', async () => {
+    const mockResponse = {
+      ok: false,
+      status: 500
+    }
+    sparqlRequest.mockResolvedValue(mockResponse)
+
+    await expect(getCsvMetadata('testScheme')).rejects.toThrow('HTTP error! status: 500')
+  })
+
+  it('should throw an error when sparqlRequest throws an error', async () => {
+    sparqlRequest.mockRejectedValue(new Error('Network error'))
+
+    await expect(getCsvMetadata('testScheme')).rejects.toThrow('Network error')
   })
 })

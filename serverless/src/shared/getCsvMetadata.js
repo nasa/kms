@@ -1,15 +1,49 @@
 import { format } from 'date-fns'
+
+import {
+  getConceptSchemeDetailsQuery
+} from '@/shared/operations/queries/getConceptSchemeDetailsQuery'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 /**
  * Generates metadata for CSV files
  * @param {string} scheme - The scheme name for the XML representation URL
  * @returns {string[]} An array of metadata strings
  */
-const getCsvMetadata = (scheme) => {
+const getCsvMetadata = async (scheme) => {
+  let updateDate = 'N/A'
+  try {
+    // Make a SPARQL request to fetch concept scheme details
+    const response = await sparqlRequest({
+      method: 'POST',
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
+      body: getConceptSchemeDetailsQuery(scheme)
+    })
+
+    // Check if the response is successful
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    // Parse the JSON response
+    const json = await response.json()
+
+    // Extract the triples from the response
+    const triples = json.results.bindings
+
+    // Get the CSV headers string from the first triple
+    updateDate = triples[0]?.modified?.value
+  } catch (error) {
+    // Log and re-throw any errors that occur during the process
+    console.error('Error fetching triples:', error)
+    throw error
+  }
+
   // Initialize an empty array to store metadata
   const metadata = []
   // Add standard metadata information
   metadata.push('Keyword Version: N')
-  metadata.push('Revision: N')
+  metadata.push(`Revision: ${updateDate}`)
   // Add timestamp in the format 'yyyy-MM-dd HH:mm:ss'
   metadata.push(`Timestamp: ${format(Date.now(), 'yyyy-MM-dd HH:mm:ss')}`)
   // Add Terms of Use URL
