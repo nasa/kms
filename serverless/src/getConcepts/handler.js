@@ -1,7 +1,11 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
+import createCsv from '@/shared/createCsv'
 import { getApplicationConfig } from '@/shared/getConfig'
+import getCsvHeaders from '@/shared/getCsvHeaders'
+import getCsvMetadata from '@/shared/getCsvMetadata'
+import getCsvPaths from '@/shared/getCsvPaths'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
@@ -33,6 +37,42 @@ import { toSkosJson } from '@/shared/toSkosJson'
  */
 export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  const { queryStringParameters = {} } = event
+  const { format = '', scheme = '' } = queryStringParameters
+  if (format === 'csv') {
+    try {
+      // Get CSV output metadata
+      const csvMetadata = await getCsvMetadata(scheme)
+      // Get CSV headers
+      const csvHeaders = await getCsvHeaders(scheme)
+      // Calculate CSV header count
+      const csvHeadersCount = csvHeaders.length
+      // Get CSV row data
+      const paths = await getCsvPaths(scheme, csvHeadersCount)
+      // Set CSV response header
+      const responseHeaders = {
+        ...defaultResponseHeaders,
+        // 'Content-Type': 'text/csv',
+        // 'Content-Disposition': `attachment; filename=${scheme}.csv`
+      }
+
+      return {
+        statusCode: 200,
+        body: await createCsv(csvMetadata, csvHeaders, paths),
+        headers: responseHeaders
+      }
+    } catch (error) {
+      console.error(`Error retrieving full path, error=${error.toString()}`)
+
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 500,
+        body: JSON.stringify({
+          error: error.toString()
+        })
+      }
+    }
+  }
 
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000' } = event?.queryStringParameters || {}
