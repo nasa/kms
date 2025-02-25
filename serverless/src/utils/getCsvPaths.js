@@ -1,155 +1,16 @@
-import { cloneDeep } from 'lodash'
 import getRootConcept from './getRootConcept'
 import getNarrowersMap from './getNarrowersMap'
 import getLongNamesMap from './getLongNamesMap'
 import getProviderUrlsMap from './getProviderUrlsMap'
-
-const longNameFlag = (scheme) => {
-  if (['platforms', 'instruments', 'projects', 'providers', 'idnnode'].includes(scheme)) {
-    return true
-  }
-
-  return false
-}
-
-const providerUrlFlag = (scheme) => {
-  if (['providers'].includes(scheme)) {
-    return true
-  }
-
-  return false
-}
-
-const formatPath = (scheme, csvHeadersCount, path, isLeaf) => {
-  if (['platforms', 'instruments', 'projects'].includes(scheme)) {
-    const maxLevel = csvHeadersCount - 2
-    if (maxLevel === path.length) {
-      return path
-    }
-
-    if ((maxLevel > path.length) && !isLeaf) {
-      while (maxLevel > path.length) {
-        path.push(' ')
-      }
-
-      return path
-    }
-
-    if ((maxLevel > path.length) && isLeaf) {
-      path.splice(maxLevel - 2, 0, ' ')
-
-      return path
-    }
-  }
-
-  if (['sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', 'measurementname'].includes(scheme)) {
-    const maxLevel = csvHeadersCount - 1
-    if (maxLevel === path.length) {
-      return path
-    }
-
-    if (maxLevel > path.length) {
-      while (maxLevel > path.length) {
-        path.push(' ')
-      }
-
-      return path
-    }
-  }
-
-  if (['providers'].includes(scheme)) {
-    const maxLevel = csvHeadersCount - 3
-    if (maxLevel === path.length) {
-      return path
-    }
-
-    if ((maxLevel > path.length) && !isLeaf) {
-      while (maxLevel > path.length) {
-        path.push(' ')
-      }
-
-      return path
-    }
-
-    if ((maxLevel > path.length) && isLeaf) {
-      while (maxLevel > path.length) {
-        path.splice(path.length - 1, 0, ' ')
-      }
-
-      return path
-    }
-  }
-
-  return path
-}
-
-const fetchNarrowers = (uri, map) => {
-  const triples = map[uri] || []
-
-  const results = triples.map((item) => {
-    const { prefLabel, narrower, narrowerPrefLabel } = item
-
-    return {
-      prefLabel: prefLabel.value,
-      narrowerPrefLabel: narrowerPrefLabel.value,
-      uri: narrower.value
-    }
-  })
-
-  return results
-}
-
-const traverseGraph = async (csvHeadersCount, providerUrlsMap, longNamesMap, scheme, n, map, path = [], paths = []) => {
-  const { narrowerPrefLabel, uri } = n
-
-  const uuid = n.uri.split('/')[n.uri.split('/').length - 1]
-  const longNameArray = longNamesMap[n.uri]
-  const providerUrlsArray = providerUrlsMap[n.uri]
-
-  path.push(narrowerPrefLabel)
-
-  const narrowers = fetchNarrowers(uri, map)
-  const isLeaf = narrowers.length === 0
-
-  // eslint-disable-next-line no-restricted-syntax
-  for (const obj of narrowers) {
-    traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, obj, map, cloneDeep(path), paths)
-  }
-
-  if (path.length > 1) {
-    path.shift()
-
-    formatPath(scheme, csvHeadersCount, path, isLeaf)
-
-    if (longNameFlag(scheme)) {
-      if (longNameArray) {
-        path.push(longNameArray[0])
-      } else {
-        path.push(' ')
-      }
-    }
-
-    if (providerUrlFlag(scheme)) {
-      if (providerUrlsArray) {
-        path.push(providerUrlsArray[0])
-      } else {
-        path.push(' ')
-      }
-    }
-
-    path.push(uuid)
-
-    paths.push(path)
-  }
-}
+import traverseGraph from './traverseGraph'
 
 const getCsvPaths = async (scheme, csvHeadersCount) => {
   const root = await getRootConcept(scheme)
 
   const node = {
-    prefLabel: root.prefLabel.value,
-    narrowerPrefLabel: root.prefLabel.value,
-    uri: root.subject.value
+    prefLabel: root?.prefLabel.value,
+    narrowerPrefLabel: root?.prefLabel.value,
+    uri: root?.subject.value
   }
 
   const narrowersMap = await getNarrowersMap(scheme)
