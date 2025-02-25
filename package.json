@@ -17,6 +17,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "^4.1.0",
     "@xmldom/xmldom": "^0.8.10",
+    "@aws-sdk/client-s3": "^3.540.0",
     "aws-cdk-lib": "^2.177.0",
     "esbuild": "^0.19.5",
     "eslint-import-resolver-alias": "^1.1.2",
@@ -46,7 +47,6 @@
     "xpath": "^0.0.34"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.540.0",
     "@babel/eslint-parser": "^7.22.15",
     "@babel/preset-env": "^7.22.20",
     "@babel/preset-react": "^7.24.1",

@@ -22,7 +22,7 @@ function delay(ms) {
  * @param {string} filePath - The path to the RDF/XML file containing the concepts.
  * @param {number} [batchSize=100] - The number of concepts to send in each batch.
  */
-async function loadConcepts(filePath, batchSize = 100) {
+async function loadConcepts(filePath, batchSize = 1000) {
   // Read the XML file
   const xmlData = fs.readFileSync(filePath, 'utf8')
 
@@ -53,7 +53,7 @@ async function loadConcepts(filePath, batchSize = 100) {
     textNodeName: '_text'
   })
 
-  for (let i = 0; i < concepts.length; i += 100) {
+  for (let i = 0; i < concepts.length; i += 1) {
     const concept = concepts[i]
     delete concept['@xmlns:rdf']
     delete concept['@xmlns:skos']
@@ -92,14 +92,36 @@ async function loadConcepts(filePath, batchSize = 100) {
     console.log('Success: ', await response.text())
 
     // Add a delay of 100 ms between each batch
-    await delay(100)
+    await delay(500)
   }
+}
+
+async function loadSchemes(filePath) {
+  // Read the XML file
+  const xmlData = fs.readFileSync(filePath, 'utf8')
+
+  const response = await fetch('https://cmr.sit.earthdata.nasa.gov/kms/concepts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/rdf+xml',
+      Accept: 'application/rdf+xml'
+    },
+    body: xmlData
+  })
+
+  if (!response.ok) {
+    console.error('Error loading schemes.rdf')
+  }
+
+  console.log('Success: ', await response.text())
 }
 
 async function main() {
   try {
     await loadConcepts('../data/convertedConcepts.rdf')
     console.log('All concepts loaded successfully')
+    await loadSchemes('../data/schemes.rdf')
+    console.log('All schemes loaded successfully')
   } catch (error) {
     console.error('Error loading concepts:', error)
   }

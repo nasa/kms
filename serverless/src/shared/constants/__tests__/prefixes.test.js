@@ -18,7 +18,7 @@ describe('prefixes', () => {
   })
 
   test('should not have any extra lines', () => {
-    const lineCount = prefixes.split('\n').length
+    const lineCount = prefixes.spltest('\n').length
     expect(lineCount).toBe(Object.keys(namespaces).length)
   })
 
