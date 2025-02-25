@@ -28,7 +28,7 @@ describe('getCsvMetadata', () => {
     vi.useRealTimers()
   })
 
-  it('should return correct metadata when sparqlRequest is successful', async () => {
+  test('should return correct metadata when sparqlRequest is successful', async () => {
     const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -54,7 +54,7 @@ describe('getCsvMetadata', () => {
     ])
   })
 
-  it('should handle case when sparqlRequest returns no data', async () => {
+  test('should handle case when sparqlRequest returns no data', async () => {
     const mockResponse = {
       ok: true,
       json: vi.fn().mockResolvedValue({
@@ -70,7 +70,7 @@ describe('getCsvMetadata', () => {
     expect(result[1]).toBe('Revision: undefined')
   })
 
-  it('should throw an error when sparqlRequest fails', async () => {
+  test('should throw an error when sparqlRequest fails', async () => {
     const mockResponse = {
       ok: false,
       status: 500
@@ -80,7 +80,7 @@ describe('getCsvMetadata', () => {
     await expect(getCsvMetadata('testScheme')).rejects.toThrow('HTTP error! status: 500')
   })
 
-  it('should throw an error when sparqlRequest throws an error', async () => {
+  test('should throw an error when sparqlRequest throws an error', async () => {
     sparqlRequest.mockRejectedValue(new Error('Network error'))
 
     await expect(getCsvMetadata('testScheme')).rejects.toThrow('Network error')

@@ -14,7 +14,7 @@ describe('getLongNamesMap', () => {
     vi.clearAllMocks()
   })
 
-  it('should return a correct map of long names', async () => {
+  test('should return a correct map of long names', async () => {
     // Mock the sparqlRequest function
     vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockResolvedValue({
       ok: true,
@@ -57,7 +57,7 @@ describe('getLongNamesMap', () => {
     })
   })
 
-  it('should throw an error if the response is not ok', async () => {
+  test('should throw an error if the response is not ok', async () => {
     vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockResolvedValue({
       ok: false,
       status: 400
@@ -66,13 +66,13 @@ describe('getLongNamesMap', () => {
     await expect(getLongNamesMap('testScheme')).rejects.toThrow('HTTP error! status: 400')
   })
 
-  it('should throw an error if sparqlRequest fails', async () => {
+  test('should throw an error if sparqlRequest fails', async () => {
     vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockRejectedValue(new Error('Network error'))
 
     await expect(getLongNamesMap('testScheme')).rejects.toThrow('Network error')
   })
 
-  it('should handle empty response correctly', async () => {
+  test('should handle empty response correctly', async () => {
     vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({

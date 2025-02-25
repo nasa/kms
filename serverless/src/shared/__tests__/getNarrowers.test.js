@@ -1,13 +1,13 @@
 import getNarrowers from '../getNarrowers'
 
 describe('getNarrowers', () => {
-  it('should return an empty array when the URI is not found in the map', () => {
+  test('should return an empty array when the URI is not found in the map', () => {
     const map = {}
     const result = getNarrowers('nonexistent-uri', map)
     expect(result).toEqual([])
   })
 
-  it('should correctly transform triples into the expected format', () => {
+  test('should correctly transform triples into the expected format', () => {
     const map = {
       'test-uri': [
         {
@@ -40,7 +40,7 @@ describe('getNarrowers', () => {
     expect(result).toEqual(expected)
   })
 
-  it('should handle triples with missing properties', () => {
+  test('should handle triples with missing properties', () => {
     const map = {
       'test-uri': [
         {

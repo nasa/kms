@@ -32,7 +32,7 @@ describe('getRootConcept', () => {
     vi.clearAllMocks()
   })
 
-  it('should return the root concept when successful', async () => {
+  test('should return the root concept when successful', async () => {
     const mockResult = {
       results: {
         bindings: [{ concept: 'root concept' }]
@@ -54,7 +54,7 @@ describe('getRootConcept', () => {
     expect(result).toEqual({ concept: 'root concept' })
   })
 
-  it('should throw an error when the response is not ok', async () => {
+  test('should throw an error when the response is not ok', async () => {
     mockResponse.ok = false
     mockResponse.status = 500
     sparqlRequest.mockResolvedValue(mockResponse)
@@ -62,7 +62,7 @@ describe('getRootConcept', () => {
     await expect(getRootConcept(mockScheme)).rejects.toThrow('HTTP error! status: 500')
   })
 
-  it('should throw an error when no root concept is found', async () => {
+  test('should throw an error when no root concept is found', async () => {
     const mockResult = {
       results: {
         bindings: []
@@ -75,7 +75,7 @@ describe('getRootConcept', () => {
     await expect(getRootConcept(mockScheme)).rejects.toThrow(`No root concept found for scheme: ${mockScheme}`)
   })
 
-  it('should throw an error when sparqlRequest fails', async () => {
+  test('should throw an error when sparqlRequest fails', async () => {
     const mockError = new Error('Network error')
     sparqlRequest.mockRejectedValue(mockError)
 

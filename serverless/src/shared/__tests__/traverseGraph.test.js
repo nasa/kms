@@ -18,7 +18,7 @@ vi.mock('../getCsvLongNameFlag')
 vi.mock('../getCsvProviderUrlFlag')
 
 describe('traverseGraph', () => {
-  it('should traverse the graph and return paths', async () => {
+  test('should traverse the graph and return paths', async () => {
     const csvHeadersCount = 3
     const providerUrlsMap = {
       'http://example.com/1': ['http://provider.com/1'],
@@ -59,7 +59,7 @@ describe('traverseGraph', () => {
     expect(paths[1]).toEqual(['Child2', 'Long Name 2', 'http://provider.com/2', '2'])
   })
 
-  it('should handle nodes without long names or provider URLs', async () => {
+  test('should handle nodes without long names or provider URLs', async () => {
     const csvHeadersCount = 3
     const providerUrlsMap = {}
     const longNamesMap = {}
@@ -89,7 +89,7 @@ describe('traverseGraph', () => {
     expect(paths[0]).toEqual(['Child', ' ', ' ', 'child'])
   })
 
-  it('should not include paths with only one node', async () => {
+  test('should not include paths with only one node', async () => {
     const csvHeadersCount = 3
     const providerUrlsMap = {}
     const longNamesMap = {}
@@ -108,7 +108,7 @@ describe('traverseGraph', () => {
     expect(paths).toHaveLength(0)
   })
 
-  it('should format CSV path for leaf nodes', async () => {
+  test('should format CSV path for leaf nodes', async () => {
     const csvHeadersCount = 3
     const providerUrlsMap = {}
     const longNamesMap = {}

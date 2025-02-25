@@ -26,7 +26,7 @@ describe('getCsvPaths', () => {
     vi.resetAllMocks()
   })
 
-  it('should return reversed keywords array', async () => {
+  test('should return reversed keywords array', async () => {
     // Mock the imported functions
     getRootConcept.mockResolvedValue({
       prefLabel: { value: 'Root' },
@@ -50,7 +50,7 @@ describe('getCsvPaths', () => {
     expect(traverseGraph).toHaveBeenCalled()
   })
 
-  it('should call getProviderUrlsMap when scheme is "providers"', async () => {
+  test('should call getProviderUrlsMap when scheme is "providers"', async () => {
     getRootConcept.mockResolvedValue({
       prefLabel: { value: 'Root' },
       subject: { value: 'http://example.com/root' }
@@ -66,7 +66,7 @@ describe('getCsvPaths', () => {
     expect(getProviderUrlsMap).toHaveBeenCalledWith('providers')
   })
 
-  it('should handle errors gracefully', async () => {
+  test('should handle errors gracefully', async () => {
     getRootConcept.mockRejectedValue(new Error('Root concept error'))
 
     await expect(getCsvPaths('testScheme', 3)).rejects.toThrow('Root concept error')
