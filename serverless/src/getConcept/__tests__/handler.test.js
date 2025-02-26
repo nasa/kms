@@ -127,6 +127,41 @@ describe('getConcept', () => {
       })
     })
 
+    describe('when concept is not found', () => {
+      test('should return 404 when retrieving by concept identifier', async () => {
+        const mockEvent = { pathParameters: { conceptId: '123' } }
+        getSkosConcept.mockResolvedValue(null)
+
+        const result = await getConcept(mockEvent)
+
+        expect(result.statusCode).toBe(404)
+        expect(result.headers['Content-Type']).toBe('application/json')
+        expect(JSON.parse(result.body)).toEqual({ error: 'Concept not found' })
+      })
+
+      test('should return 404 when retrieving by short name', async () => {
+        const mockEvent = { pathParameters: { shortName: 'NonExistentConcept' } }
+        getSkosConcept.mockResolvedValue(null)
+
+        const result = await getConcept(mockEvent)
+
+        expect(result.statusCode).toBe(404)
+        expect(result.headers['Content-Type']).toBe('application/json')
+        expect(JSON.parse(result.body)).toEqual({ error: 'Concept not found' })
+      })
+
+      test('should return 404 when retrieving by altLabel', async () => {
+        const mockEvent = { pathParameters: { altLabel: 'NonExistentLabel' } }
+        getSkosConcept.mockResolvedValue(null)
+
+        const result = await getConcept(mockEvent)
+
+        expect(result.statusCode).toBe(404)
+        expect(result.headers['Content-Type']).toBe('application/json')
+        expect(JSON.parse(result.body)).toEqual({ error: 'Concept not found' })
+      })
+    })
+
     describe('decode function', () => {
       test('should decode URI encoded strings', async () => {
         const mockEvent = { pathParameters: { shortName: 'Test%20Concept%2BWith%2BSpaces' } }

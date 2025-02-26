@@ -129,7 +129,7 @@ describe('getSkosConcept', () => {
         })
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`gcmd:text "${mockShortName}"@en`)
+          body: expect.stringContaining(`FILTER(LCASE(STR(?prefLabel)) = LCASE("${mockShortName}"))`)
         }))
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -158,7 +158,7 @@ describe('getSkosConcept', () => {
         await getSkosConcept({ shortName: mockShortName })
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`gcmd:text "${mockShortName}"@en`)
+          body: expect.stringContaining(`FILTER(LCASE(STR(?prefLabel)) = LCASE("${mockShortName}"))`)
         }))
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -166,6 +166,86 @@ describe('getSkosConcept', () => {
         }))
 
         expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should use skos:prefLabel for matching', async () => {
+        const mockShortName = 'TestShortName'
+        const mockConceptURI = 'http://example.com/concept/101'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              },
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+                o: { value: mockShortName }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ shortName: mockShortName })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('?concept skos:prefLabel ?prefLabel')
+        }))
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining(`FILTER(LCASE(STR(?prefLabel)) = LCASE("${mockShortName}"))`)
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should perform case-insensitive match', async () => {
+        const mockShortName = 'TestShortName'
+        const mockConceptURI = 'http://example.com/concept/102'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              },
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+                o: { value: mockShortName.toUpperCase() }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ shortName: mockShortName.toLowerCase() })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining(`FILTER(LCASE(STR(?prefLabel)) = LCASE("${mockShortName.toLowerCase()}"))`)
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should return null when no matching concept is found', async () => {
+        const mockShortName = 'NonExistentShortName'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: []
+          }
+        })
+
+        const result = await getSkosConcept({ shortName: mockShortName })
+
+        expect(sparqlRequest).toHaveBeenCalled()
+        expect(result).toBeNull()
+        expect(toSkosJson).not.toHaveBeenCalled()
       })
     })
 
@@ -254,11 +334,14 @@ describe('getSkosConcept', () => {
           .rejects.toThrow('HTTP error! status: 404')
       })
 
-      test('should throw an error if no results are found', async () => {
+      test('should return null if no results are found', async () => {
         mockSparqlResponse.json.mockResolvedValue({ results: { bindings: [] } })
 
-        await expect(getSkosConcept({ conceptIRI: 'http://example.com/concept/123' }))
-          .rejects.toThrow('No results found for concept query.')
+        const result = await getSkosConcept({ conceptIRI: 'http://example.com/concept/123' })
+
+        expect(result).toBeNull()
+        expect(sparqlRequest).toHaveBeenCalled()
+        expect(toSkosJson).not.toHaveBeenCalled()
       })
 
       test('should throw an error if no identifier is provided', async () => {

@@ -8,9 +8,8 @@ WHERE {
   {
     SELECT DISTINCT ?concept
     WHERE {
-      ?concept gcmd:altLabel ?altLabel .
-      ?altLabel gcmd:category "primary"@en ;
-               gcmd:text "${shortName}"@en .
+      ?concept skos:prefLabel ?prefLabel .
+      FILTER(LCASE(STR(?prefLabel)) = LCASE("${shortName}"))
       ${scheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .` : ''}
     }
     LIMIT 1

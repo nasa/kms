@@ -83,6 +83,21 @@ export const getConcept = async (event) => {
       altLabel: altLabel ? decode(altLabel) : null,
       scheme: scheme ? decode(scheme) : null
     })
+
+    // Check if concept is null and return 404 if so
+    if (concept === null) {
+      return {
+        statusCode: 404,
+        headers: {
+          ...defaultResponseHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          error: 'Concept not found'
+        })
+      }
+    }
+
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
     const rdfJson = {
       'rdf:RDF': {
