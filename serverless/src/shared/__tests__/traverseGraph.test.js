@@ -1,7 +1,6 @@
 import {
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -131,6 +130,7 @@ describe('traverseGraph', () => {
     getCsvLongNameFlag.mockReturnValue(false)
     getCsvProviderUrlFlag.mockReturnValue(false)
 
+    // eslint-disable-next-line no-unused-vars, no-shadow
     formatCsvPath.mockImplementation((scheme, csvHeadersCount, path, isLeaf) => {
       // Don't modify the path in this mock implementation
     })

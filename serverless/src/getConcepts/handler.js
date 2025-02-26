@@ -51,7 +51,7 @@ export const getConcepts = async (event) => {
       const paths = await getCsvPaths(scheme, csvHeadersCount)
       // Set CSV response header
       const responseHeaders = {
-        ...defaultResponseHeaders,
+        ...defaultResponseHeaders
         // 'Content-Type': 'text/csv',
         // 'Content-Disposition': `attachment; filename=${scheme}.csv`
       }

@@ -3,7 +3,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -68,10 +67,10 @@ describe('getRootConcept', () => {
         bindings: []
       }
     }
-    mockResponse.ok = true; // Ensure the response is ok
+    mockResponse.ok = true// Ensure the response is ok
     mockResponse.json.mockResolvedValue(mockResult)
     sparqlRequest.mockResolvedValue(mockResponse)
-  
+
     await expect(getRootConcept(mockScheme)).rejects.toThrow(`No root concept found for scheme: ${mockScheme}`)
   })
 
