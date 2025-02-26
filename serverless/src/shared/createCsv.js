@@ -1,34 +1,26 @@
 import { stringify } from 'csv'
 
 /**
- * Create CSV output from the 2-dimensional array
- * @param {String[]} csvMetadata - Array containing metadata information
- * @param {String[]} csvHeaders - Array containing header row information
- * @param {String[][]} values - 2D array containing the data values
- * @returns {String|Error} - Returns CSV string or Error object
+ * Create CSV output from the provided metadata, headers, and values
+ * @param {String[]} csvMetadata - Metadata to be included at the top of the CSV
+ * @param {String[]} csvHeaders - Headers for the CSV columns
+ * @param {Array<Array<String>>} values - 2D array of data to be converted to CSV
+ * @returns {Promise<String>} A promise that resolves with the CSV string output
  */
-export const createCsv = (csvMetadata, csvHeaders, values) => {
-  try {
-    // Combine metadata, headers, and values into a single 2D array
-    const data = [csvMetadata, csvHeaders, ...values]
+// eslint-disable-next-line max-len
+export const createCsv = async (csvMetadata, csvHeaders, values) => new Promise((resolve, reject) => {
+  // Add metadata and headers to the beginning of the values array
+  values.splice(0, 0, csvMetadata)
+  values.splice(1, 0, csvHeaders)
 
-    let result = ''
-
-    // Use csv-stringify to convert the data array into CSV format
-    stringify(data, { quoted: true }, (err, output) => {
-      if (err) {
-        // If there's an error during stringification, throw it
-        throw err
-      }
-
-      // Store the CSV output in the result variable
-      result = output
-    })
-
-    // Return the CSV string
-    return result
-  } catch (error) {
-    // If any error occurs during the process, return the error object
-    return error
-  }
-}
+  // Use csv-stringify to convert the 2D array to CSV format
+  stringify(values, { quoted: true }, (err, output) => {
+    if (err) {
+      // If there's an error during CSV creation, reject the promise
+      reject(err)
+    } else {
+      // If successful, resolve the promise with the CSV output
+      resolve(output)
+    }
+  })
+})

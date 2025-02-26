@@ -1,91 +1,72 @@
-import { stringify } from 'csv'
+import * as csv from 'csv'
 import {
   afterEach,
   describe,
   expect,
+  it,
   vi
 } from 'vitest'
 
 import { createCsv } from '../createCsv'
 
-vi.mock('csv', () => ({
-  stringify: vi.fn()
-}))
+vi.mock('csv')
 
 describe('createCsv', () => {
   afterEach(() => {
-    vi.resetAllMocks()
+    vi.restoreAllMocks()
   })
 
-  test('should create a valid CSV string', () => {
-    stringify.mockImplementation((data, options, callback) => {
-      callback(
-        null,
-        '"Metadata 1","Metadata 2"\n'
-        + '"Header 1","Header 2","Header 3"\n'
-        + '"Value 1","Value 2","Value 3"\n'
-        + '"Value 4","Value 5","Value 6"\n'
-      )
+  it('should create a CSV string with metadata and headers', async () => {
+    const mockStringify = vi.fn((data, options, callback) => {
+      callback(null, data.map((row) => row.join(',')).join('\n'))
     })
+    vi.spyOn(csv, 'stringify').mockImplementation(mockStringify)
 
     const csvMetadata = ['Metadata 1', 'Metadata 2']
-    const csvHeaders = ['Header 1', 'Header 2', 'Header 3']
+    const csvHeaders = ['Header 1', 'Header 2']
     const values = [
-      ['Value 1', 'Value 2', 'Value 3'],
-      ['Value 4', 'Value 5', 'Value 6']
+      ['Value 1', 'Value 2'],
+      ['Value 3', 'Value 4']
     ]
 
-    const result = createCsv(csvMetadata, csvHeaders, values)
+    const result = await createCsv(csvMetadata, csvHeaders, values)
 
-    expect(result).toBe(
-      '"Metadata 1","Metadata 2"\n'
-      + '"Header 1","Header 2","Header 3"\n'
-      + '"Value 1","Value 2","Value 3"\n'
-      + '"Value 4","Value 5","Value 6"\n'
-    )
+    const expectedOutput = 'Metadata 1,Metadata 2\n'
+      + 'Header 1,Header 2\n'
+      + 'Value 1,Value 2\n'
+      + 'Value 3,Value 4'
+
+    expect(result).toBe(expectedOutput)
   })
 
-  test('should handle empty input', () => {
-    stringify.mockImplementation((data, options, callback) => {
-      callback(null, '\n')
+  it('should handle empty values', async () => {
+    const mockStringify = vi.fn((data, options, callback) => {
+      callback(null, data.map((row) => row.join(',')).join('\n'))
     })
+    vi.spyOn(csv, 'stringify').mockImplementation(mockStringify)
 
-    const result = createCsv([], [], [])
+    const csvMetadata = ['Metadata']
+    const csvHeaders = ['Header']
+    const values = []
 
-    expect(result).toBe('\n')
+    const result = await createCsv(csvMetadata, csvHeaders, values)
+
+    const expectedOutput = 'Metadata\n'
+      + 'Header'
+
+    expect(result).toBe(expectedOutput)
   })
 
-  test('should handle special characters', () => {
-    stringify.mockImplementation((data, options, callback) => {
-      callback(
-        null,
-        '"Meta,data"\n'
-        + '"Head""er"\n'
-        + '"Val,ue"\n'
-      )
+  it('should reject with an error if stringify fails', async () => {
+    const mockStringify = vi.fn((data, options, callback) => {
+      callback(new Error('Stringify error'))
     })
+    vi.spyOn(csv, 'stringify').mockImplementation(mockStringify)
 
-    const csvMetadata = ['Meta,data']
-    const csvHeaders = ['Head"er']
-    const values = [['Val,ue']]
+    const csvMetadata = ['Metadata']
+    const csvHeaders = ['Header']
+    const values = [['Value']]
 
-    const result = createCsv(csvMetadata, csvHeaders, values)
-
-    expect(result).toBe(
-      '"Meta,data"\n'
-      + '"Head""er"\n'
-      + '"Val,ue"\n'
-    )
-  })
-
-  test('should return an error if stringify fails', () => {
-    stringify.mockImplementation((data, options, callback) => {
-      callback(new Error('Stringify failed'))
-    })
-
-    const result = createCsv(['metadata'], ['header'], [['value']])
-
-    expect(result).toBeInstanceOf(Error)
-    expect(result.message).toBe('Stringify failed')
+    await expect(createCsv(csvMetadata, csvHeaders, values)).rejects.toThrow('Stringify error')
   })
 })

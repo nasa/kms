@@ -37,7 +37,7 @@ export const getConcepts = async (event) => {
   const { queryStringParameters = {} } = event
   const { format = '', scheme = '' } = queryStringParameters
   if (format === 'csv') {
-    createCsvForScheme(scheme)
+    return createCsvForScheme(scheme)
   }
 
   const { conceptScheme, pattern } = event?.pathParameters || {}
