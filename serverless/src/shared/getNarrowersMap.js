@@ -1,9 +1,20 @@
+/**
+ * @file getNarrowersMap.js
+ * @description This module provides functionality to fetch and organize narrower concepts from a SPARQL endpoint.
+ */
+
 // Import necessary functions and modules
 import { getNarrowerConceptsQuery } from '@/shared/operations/queries/getNarrowerConceptsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
-// Function to get a map of narrower concepts
-const getNarrowersMap = async (scheme) => {
+/**
+ * Fetches narrower concepts for a given scheme and organizes them into a map.
+ *
+ * @param {string} scheme - The scheme URI for which to fetch narrower concepts.
+ * @returns {Promise<Object>} A promise that resolves to a map of narrower concepts.
+ * @throws {Error} If there's an error during the SPARQL request or data processing.
+ */
+export const getNarrowersMap = async (scheme) => {
   try {
     // Make a SPARQL request to fetch narrower concepts
     const response = await sparqlRequest({
@@ -44,6 +55,3 @@ const getNarrowersMap = async (scheme) => {
     throw error
   }
 }
-
-// Export the function for use in other modules
-export default getNarrowersMap

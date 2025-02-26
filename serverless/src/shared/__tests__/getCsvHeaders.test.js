@@ -6,7 +6,7 @@ import {
   vi
 } from 'vitest'
 
-import getCsvHeaders from '../getCsvHeaders'
+import { getCsvHeaders } from '../getCsvHeaders'
 import { sparqlRequest } from '../sparqlRequest'
 
 // Mock the sparqlRequest function

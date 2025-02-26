@@ -4,7 +4,7 @@
  * @param {Object} map - A map containing triples for various URIs.
  * @returns {Array} An array of narrower concepts with their labels and URIs.
  */
-const getNarrowers = (uri, map) => {
+export const getNarrowers = (uri, map) => {
   // Get the triples for the given URI, or an empty array if not found
   const triples = map[uri] || []
 
@@ -24,6 +24,3 @@ const getNarrowers = (uri, map) => {
   // Return the array of transformed narrower concepts
   return results
 }
-
-// Export the getNarrowers function as the default export
-export default getNarrowers

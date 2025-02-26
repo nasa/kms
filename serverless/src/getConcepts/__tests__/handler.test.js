@@ -7,11 +7,8 @@ import {
 } from 'vitest'
 
 import { getConcepts } from '@/getConcepts/handler'
-import createCsv from '@/shared/createCsv'
+import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { getApplicationConfig } from '@/shared/getConfig'
-import getCsvHeaders from '@/shared/getCsvHeaders'
-import getCsvMetadata from '@/shared/getCsvMetadata'
-import getCsvPaths from '@/shared/getCsvPaths'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
@@ -19,16 +16,13 @@ import { processTriples } from '@/shared/processTriples'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
+vi.mock('@/shared/createCsvForScheme')
 vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
 vi.mock('@/shared/processTriples')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
-vi.mock('@/shared/createCsv')
-vi.mock('@/shared/getCsvMetadata')
-vi.mock('@/shared/getCsvHeaders')
-vi.mock('@/shared/getCsvPaths')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -39,6 +33,50 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+  })
+
+  describe('when format is csv', () => {
+    test('calls createCsvForScheme when format is csv', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'csv',
+          scheme: 'testScheme'
+        }
+      }
+
+      createCsvForScheme.mockResolvedValue('CSV content')
+
+      await getConcepts(event)
+
+      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme')
+    })
+
+    test('calls createCsvForScheme with empty string when scheme is not provided', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'csv'
+        }
+      }
+
+      createCsvForScheme.mockResolvedValue('CSV content')
+
+      await getConcepts(event)
+
+      expect(createCsvForScheme).toHaveBeenCalledWith('')
+    })
+
+    test('does not call createCsvForScheme when format is not csv', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'xml',
+          scheme: 'testScheme'
+        }
+      }
+
+      await getConcepts(event)
+
+      expect(createCsvForScheme).not.toHaveBeenCalled()
+    })
   })
 
   describe('when successful', () => {
@@ -627,102 +665,6 @@ describe('getConcepts', () => {
 
       // Verify that the error was logged
       expect(console.error).toHaveBeenCalledWith(`Error retrieving concept, error=${mockError.toString()}`)
-    })
-  })
-
-  describe('when format is csv', () => {
-    test('returns CSV data when format=csv is specified', async () => {
-      const mockScheme = 'testScheme'
-      const mockCsvMetadata = { some: 'metadata' }
-      const mockCsvHeaders = ['Header1', 'Header2']
-      const mockCsvPaths = [['Path1', 'Path2'], ['Path3', 'Path4']]
-      const mockCsvContent = 'Header1,Header2\nPath1,Path2\nPath3,Path4'
-
-      getCsvMetadata.mockResolvedValue(mockCsvMetadata)
-      getCsvHeaders.mockResolvedValue(mockCsvHeaders)
-      getCsvPaths.mockResolvedValue(mockCsvPaths)
-      createCsv.mockResolvedValue(mockCsvContent)
-
-      const event = {
-        queryStringParameters: {
-          format: 'csv',
-          scheme: mockScheme
-        }
-      }
-
-      const result = await getConcepts(event)
-
-      expect(getCsvMetadata).toHaveBeenCalledWith(mockScheme)
-      expect(getCsvHeaders).toHaveBeenCalledWith(mockScheme)
-      expect(getCsvPaths).toHaveBeenCalledWith(mockScheme, 2) // 2 is the length of mockCsvHeaders
-      expect(createCsv).toHaveBeenCalledWith(mockCsvMetadata, mockCsvHeaders, mockCsvPaths)
-
-      expect(result).toEqual({
-        statusCode: 200,
-        body: mockCsvContent,
-        headers: {
-          ...mockDefaultHeaders
-          // 'Content-Type': 'text/csv',
-          // 'Content-Disposition': `attachment; filename=${mockScheme}.csv`
-        }
-      })
-    })
-
-    test('returns 500 error when CSV generation fails', async () => {
-      const mockError = new Error('CSV generation failed')
-      getCsvMetadata.mockRejectedValue(mockError)
-
-      const event = {
-        queryStringParameters: {
-          format: 'csv',
-          scheme: 'testScheme'
-        }
-      }
-
-      const result = await getConcepts(event)
-
-      expect(result).toEqual({
-        headers: mockDefaultHeaders,
-        statusCode: 500,
-        body: JSON.stringify({
-          error: mockError.toString()
-        })
-      })
-
-      expect(console.error).toHaveBeenCalledWith(`Error retrieving full path, error=${mockError.toString()}`)
-    })
-
-    test('handles missing scheme parameter', async () => {
-      const mockCsvMetadata = { some: 'metadata' }
-      const mockCsvHeaders = ['Header1', 'Header2']
-      const mockCsvPaths = [['Path1', 'Path2'], ['Path3', 'Path4']]
-      const mockCsvContent = 'Header1,Header2\nPath1,Path2\nPath3,Path4'
-
-      getCsvMetadata.mockResolvedValue(mockCsvMetadata)
-      getCsvHeaders.mockResolvedValue(mockCsvHeaders)
-      getCsvPaths.mockResolvedValue(mockCsvPaths)
-      createCsv.mockResolvedValue(mockCsvContent)
-
-      const event = {
-        queryStringParameters: {
-          format: 'csv'
-        }
-      }
-
-      const result = await getConcepts(event)
-
-      expect(getCsvMetadata).toHaveBeenCalledWith('')
-      expect(getCsvHeaders).toHaveBeenCalledWith('')
-      expect(getCsvPaths).toHaveBeenCalledWith('', 2)
-      expect(createCsv).toHaveBeenCalledWith(mockCsvMetadata, mockCsvHeaders, mockCsvPaths)
-
-      expect(result).toEqual({
-        statusCode: 200,
-        body: mockCsvContent,
-        headers: {
-          ...mockDefaultHeaders
-        }
-      })
     })
   })
 })

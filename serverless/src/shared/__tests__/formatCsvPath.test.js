@@ -1,4 +1,4 @@
-import formatCsvPath from '../formatCsvPath'
+import { formatCsvPath } from '../formatCsvPath'
 
 describe('formatPath', () => {
   describe('platforms, instruments, projects schemes', () => {

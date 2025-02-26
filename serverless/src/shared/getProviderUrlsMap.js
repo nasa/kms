@@ -6,7 +6,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} scheme - The scheme to use for the query.
  * @returns {Object} A map of subject values to their corresponding business object values.
  */
-const getProviderUrlsMap = async (scheme) => {
+export const getProviderUrlsMap = async (scheme) => {
   try {
     // Make a SPARQL request to fetch provider URLs
     const response = await sparqlRequest({
@@ -51,5 +51,3 @@ const getProviderUrlsMap = async (scheme) => {
     throw error
   }
 }
-
-export default getProviderUrlsMap

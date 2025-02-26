@@ -6,7 +6,7 @@ import {
   vi
 } from 'vitest'
 
-import getNarrowersMap from '../getNarrowersMap'
+import { getNarrowersMap } from '../getNarrowersMap'
 import { sparqlRequest } from '../sparqlRequest'
 
 // Mock the sparqlRequest function

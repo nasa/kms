@@ -1,3 +1,8 @@
+/**
+ * @module getCsvHeaders
+ * @description Provides functionality to fetch CSV headers for a given concept scheme.
+ */
+
 import {
   getConceptSchemeDetailsQuery
 } from '@/shared/operations/queries/getConceptSchemeDetailsQuery'
@@ -5,10 +10,34 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Fetches CSV headers for a given concept scheme
+ *
+ * @async
+ * @function getCsvHeaders
  * @param {string} scheme - The concept scheme identifier
  * @returns {Promise<string[]>} - A promise that resolves to an array of CSV headers
+ * @throws {Error} If there's an HTTP error or if the SPARQL request fails
+ *
+ * @example
+ * // Fetch CSV headers for the 'EARTH_SCIENCE' scheme
+ * try {
+ *   const headers = await getCsvHeaders('EARTH_SCIENCE');
+ *   console.log(headers);
+ *   // Output: ['Category', 'Topic', 'Term', 'Variable_Level_1', 'Variable_Level_2', 'Variable_Level_3']
+ * } catch (error) {
+ *   console.error('Failed to fetch CSV headers:', error);
+ * }
+ *
+ * @example
+ * // Fetch CSV headers for a non-existent scheme
+ * try {
+ *   const headers = await getCsvHeaders('NON_EXISTENT_SCHEME');
+ *   console.log(headers);
+ *   // Output: []
+ * } catch (error) {
+ *   console.error('Failed to fetch CSV headers:', error);
+ * }
  */
-const getCsvHeaders = async (scheme) => {
+export const getCsvHeaders = async (scheme) => {
   try {
     // Make a SPARQL request to fetch concept scheme details
     const response = await sparqlRequest({
@@ -44,6 +73,3 @@ const getCsvHeaders = async (scheme) => {
     throw error
   }
 }
-
-// Export the function as the default export
-export default getCsvHeaders

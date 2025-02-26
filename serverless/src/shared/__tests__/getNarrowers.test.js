@@ -1,4 +1,4 @@
-import getNarrowers from '../getNarrowers'
+import { getNarrowers } from '../getNarrowers'
 
 describe('getNarrowers', () => {
   test('should return an empty array when the URI is not found in the map', () => {

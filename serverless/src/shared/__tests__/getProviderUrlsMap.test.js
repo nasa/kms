@@ -5,7 +5,7 @@ import {
   vi
 } from 'vitest'
 
-import getProviderUrlsMap from '../getProviderUrlsMap'
+import { getProviderUrlsMap } from '../getProviderUrlsMap'
 import * as sparqlRequestModule from '../sparqlRequest'
 
 describe('getProviderUrlsMap', () => {

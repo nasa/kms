@@ -7,7 +7,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} scheme - The scheme to fetch long names for
  * @returns {Promise<Object>} A map of subject values to their associated long names
  */
-const getLongNamesMap = async (scheme) => {
+export const getLongNamesMap = async (scheme) => {
   try {
     // Make a SPARQL request to fetch long names
     const response = await sparqlRequest({
@@ -53,6 +53,3 @@ const getLongNamesMap = async (scheme) => {
     throw error
   }
 }
-
-// Export the function for use in other modules
-export default getLongNamesMap

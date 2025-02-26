@@ -5,7 +5,7 @@ import {
   vi
 } from 'vitest'
 
-import getLongNamesMap from '../getLongNamesMap'
+import { getLongNamesMap } from '../getLongNamesMap'
 import * as sparqlRequestModule from '../sparqlRequest'
 
 describe('getLongNamesMap', () => {

@@ -4,19 +4,19 @@ import {
   vi
 } from 'vitest'
 
-import formatCsvPath from '../formatCsvPath'
-import getCsvLongNameFlag from '../getCsvLongNameFlag'
-import getCsvProviderUrlFlag from '../getCsvProviderUrlFlag'
-import getNarrowers from '../getNarrowers'
-import traverseGraph from '../traverseGraph'
+import { buildHierarchicalCsvPaths } from '../buildHierarchicalCsvPaths'
+import { formatCsvPath } from '../formatCsvPath'
+import { getNarrowers } from '../getNarrowers'
+import { isCsvLongNameFlag } from '../isCsvLongNameFlag'
+import { isCsvProviderUrlFlag } from '../isCsvProviderUrlFlag'
 
 // Mock the imported functions
 vi.mock('../getNarrowers')
 vi.mock('../formatCsvPath')
-vi.mock('../getCsvLongNameFlag')
-vi.mock('../getCsvProviderUrlFlag')
+vi.mock('../isCsvLongNameFlag')
+vi.mock('../isCsvProviderUrlFlag')
 
-describe('traverseGraph', () => {
+describe('buildHierarchicalCsvPaths', () => {
   test('should traverse the graph and return paths', async () => {
     const csvHeadersCount = 3
     const providerUrlsMap = {
@@ -47,11 +47,12 @@ describe('traverseGraph', () => {
 
     getNarrowers.mockReturnValue([])
 
-    getCsvLongNameFlag.mockReturnValue(true)
-    getCsvProviderUrlFlag.mockReturnValue(true)
+    isCsvLongNameFlag.mockReturnValue(true)
+    isCsvProviderUrlFlag.mockReturnValue(true)
 
     const paths = []
-    await traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    // eslint-disable-next-line max-len
+    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
 
     expect(paths).toHaveLength(2)
     expect(paths[0]).toEqual(['Child1', 'Long Name 1', 'http://provider.com/1', '1'])
@@ -78,11 +79,12 @@ describe('traverseGraph', () => {
 
     getNarrowers.mockReturnValue([])
 
-    getCsvLongNameFlag.mockReturnValue(true)
-    getCsvProviderUrlFlag.mockReturnValue(true)
+    isCsvLongNameFlag.mockReturnValue(true)
+    isCsvProviderUrlFlag.mockReturnValue(true)
 
     const paths = []
-    await traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    // eslint-disable-next-line max-len
+    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
 
     expect(paths).toHaveLength(1)
     expect(paths[0]).toEqual(['Child', ' ', ' ', 'child'])
@@ -102,7 +104,8 @@ describe('traverseGraph', () => {
     getNarrowers.mockReturnValue([])
 
     const paths = []
-    await traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    // eslint-disable-next-line max-len
+    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
 
     expect(paths).toHaveLength(0)
   })
@@ -127,11 +130,12 @@ describe('traverseGraph', () => {
 
     getNarrowers.mockReturnValue([])
 
-    getCsvLongNameFlag.mockReturnValue(false)
-    getCsvProviderUrlFlag.mockReturnValue(false)
+    isCsvLongNameFlag.mockReturnValue(false)
+    isCsvProviderUrlFlag.mockReturnValue(false)
 
     const paths = []
-    await traverseGraph(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    // eslint-disable-next-line max-len
+    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
 
     expect(formatCsvPath).toHaveBeenCalledWith(scheme, csvHeadersCount, ['Child', 'child'], true)
   })

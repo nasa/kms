@@ -5,20 +5,20 @@ import {
   vi
 } from 'vitest'
 
-import getLongNamesMap from '@/shared/getLongNamesMap'
-import getNarrowersMap from '@/shared/getNarrowersMap'
-import getProviderUrlsMap from '@/shared/getProviderUrlsMap'
-import getRootConcept from '@/shared/getRootConcept'
-import traverseGraph from '@/shared/traverseGraph'
+import { buildHierarchicalCsvPaths } from '@/shared/buildHierarchicalCsvPaths'
+import { getLongNamesMap } from '@/shared/getLongNamesMap'
+import { getNarrowersMap } from '@/shared/getNarrowersMap'
+import { getProviderUrlsMap } from '@/shared/getProviderUrlsMap'
+import { getRootConcept } from '@/shared/getRootConcept'
 
-import getCsvPaths from '../getCsvPaths'
+import { getCsvPaths } from '../getCsvPaths'
 
 // Mock the imported functions
 vi.mock('@/shared/getLongNamesMap')
 vi.mock('@/shared/getNarrowersMap')
 vi.mock('@/shared/getProviderUrlsMap')
 vi.mock('@/shared/getRootConcept')
-vi.mock('@/shared/traverseGraph')
+vi.mock('@/shared/buildHierarchicalCsvPaths')
 
 describe('getCsvPaths', () => {
   beforeEach(() => {
@@ -35,7 +35,8 @@ describe('getCsvPaths', () => {
     getNarrowersMap.mockResolvedValue({})
     getLongNamesMap.mockResolvedValue({})
     getProviderUrlsMap.mockResolvedValue({})
-    traverseGraph.mockImplementation((_, __, ___, ____, _____, ______, _______, keywords) => {
+    // eslint-disable-next-line max-len
+    buildHierarchicalCsvPaths.mockImplementation((_, __, ___, ____, _____, ______, _______, keywords) => {
       keywords.push('Keyword1', 'Keyword2', 'Keyword3')
     })
 
@@ -46,7 +47,7 @@ describe('getCsvPaths', () => {
     expect(getNarrowersMap).toHaveBeenCalledWith('testScheme')
     expect(getLongNamesMap).toHaveBeenCalledWith('testScheme')
     expect(getProviderUrlsMap).not.toHaveBeenCalled()
-    expect(traverseGraph).toHaveBeenCalled()
+    expect(buildHierarchicalCsvPaths).toHaveBeenCalled()
   })
 
   test('should call getProviderUrlsMap when scheme is "providers"', async () => {
@@ -58,7 +59,7 @@ describe('getCsvPaths', () => {
     getNarrowersMap.mockResolvedValue({})
     getLongNamesMap.mockResolvedValue({})
     getProviderUrlsMap.mockResolvedValue({})
-    traverseGraph.mockImplementation(() => {})
+    buildHierarchicalCsvPaths.mockImplementation(() => {})
 
     await getCsvPaths('providers', 3)
 

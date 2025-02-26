@@ -9,7 +9,7 @@ import {
 
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
-import getCsvMetadata from '../getCsvMetadata'
+import { getCsvMetadata } from '../getCsvMetadata'
 
 // Mock the sparqlRequest function
 vi.mock('@/shared/sparqlRequest', () => ({

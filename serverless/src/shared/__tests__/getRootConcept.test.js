@@ -8,7 +8,7 @@ import {
 
 import { getRootConceptQuery } from '@/shared/operations/queries/getRootConceptQuery'
 
-import getRootConcept from '../getRootConcept'
+import { getRootConcept } from '../getRootConcept'
 import { sparqlRequest } from '../sparqlRequest'
 
 // Mock the sparqlRequest and getRootConceptQuery functions

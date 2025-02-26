@@ -9,7 +9,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} scheme - The scheme name for the XML representation URL
  * @returns {string[]} An array of metadata strings
  */
-const getCsvMetadata = async (scheme) => {
+export const getCsvMetadata = async (scheme) => {
   let updateDate = 'N/A'
   try {
     // Make a SPARQL request to fetch concept scheme details
@@ -54,6 +54,3 @@ const getCsvMetadata = async (scheme) => {
   // Return the completed metadata array
   return metadata
 }
-
-// Export the function as the default export
-export default getCsvMetadata

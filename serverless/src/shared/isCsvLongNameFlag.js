@@ -3,7 +3,7 @@
  * @param {string} scheme - The scheme to check.
  * @returns {boolean} - True if the scheme requires a long name flag, false otherwise.
  */
-const getCsvLongNameFlag = (scheme) => {
+export const isCsvLongNameFlag = (scheme) => {
   // Check if the scheme is in the list of schemes that require long names
   if (['platforms', 'instruments', 'projects', 'providers', 'idnnode'].includes(scheme)) {
     return true
@@ -12,6 +12,3 @@ const getCsvLongNameFlag = (scheme) => {
   // Return false for schemes not in the list
   return false
 }
-
-// Export the function as the default export
-export default getCsvLongNameFlag
