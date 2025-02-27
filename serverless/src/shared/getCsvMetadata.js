@@ -8,6 +8,28 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Generates metadata for CSV files
  * @param {string} scheme - The scheme name for the XML representation URL
  * @returns {string[]} An array of metadata strings
+ *
+ * @example
+ * // Example usage:
+ * const metadata = await getCsvMetadata('sciencekeywords');
+ * console.log(metadata);
+ *
+ * // Example output:
+ * // [
+ * //   'Keyword Version: N',
+ * //   'Revision: 2023-06-15',
+ * //   'Timestamp: 2023-06-20 14:30:45',
+ * //   'Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
+ * //   'The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords/?format=xml'
+ * // ]
+ *
+ * @example
+ * // Error handling:
+ * try {
+ *   const metadata = await getCsvMetadata('invalidscheme');
+ * } catch (error) {
+ *   console.error('Error generating metadata:', error);
+ * }
  */
 export const getCsvMetadata = async (scheme) => {
   let updateDate = 'N/A'

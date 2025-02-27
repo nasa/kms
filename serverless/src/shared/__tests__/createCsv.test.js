@@ -3,7 +3,6 @@ import {
   afterEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -16,7 +15,7 @@ describe('createCsv', () => {
     vi.restoreAllMocks()
   })
 
-  it('should create a CSV string with metadata and headers', async () => {
+  test('should create a CSV string with metadata and headers', async () => {
     const mockStringify = vi.fn((data, options, callback) => {
       callback(null, data.map((row) => row.join(',')).join('\n'))
     })
@@ -39,7 +38,7 @@ describe('createCsv', () => {
     expect(result).toBe(expectedOutput)
   })
 
-  it('should handle empty values', async () => {
+  test('should handle empty values', async () => {
     const mockStringify = vi.fn((data, options, callback) => {
       callback(null, data.map((row) => row.join(',')).join('\n'))
     })
@@ -57,7 +56,7 @@ describe('createCsv', () => {
     expect(result).toBe(expectedOutput)
   })
 
-  it('should reject with an error if stringify fails', async () => {
+  test('should reject with an error if stringify fails', async () => {
     const mockStringify = vi.fn((data, options, callback) => {
       callback(new Error('Stringify error'))
     })

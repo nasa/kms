@@ -10,6 +10,26 @@ import { getRootConcept } from '@/shared/getRootConcept'
  * @param {string} scheme - The scheme to get CSV paths for
  * @param {number} csvHeadersCount - The number of CSV headers
  * @returns {Promise<Array>} - A promise that resolves to an array of CSV paths
+ *
+ * @example
+ * // Get CSV paths for 'providers' scheme with 3 CSV headers
+ * const providerPaths = await getCsvPaths('providers', 3);
+ * console.log(providerPaths);
+ * // Output: [
+ * //   ['Root', 'Child1', 'Grandchild1'],
+ * //   ['Root', 'Child1', 'Grandchild2'],
+ * //   ['Root', 'Child2', 'Grandchild3']
+ * // ]
+ *
+ * @example
+ * // Get CSV paths for 'subjects' scheme with 2 CSV headers
+ * const subjectPaths = await getCsvPaths('subjects', 2);
+ * console.log(subjectPaths);
+ * // Output: [
+ * //   ['Root', 'Subject1'],
+ * //   ['Root', 'Subject2'],
+ * //   ['Root', 'Subject3']
+ * // ]
  */
 export const getCsvPaths = async (scheme, csvHeadersCount) => {
   // Get the root concept for the scheme
@@ -37,16 +57,16 @@ export const getCsvPaths = async (scheme, csvHeadersCount) => {
   const keywords = []
 
   // Traverse the graph to populate keywords
-  await buildHierarchicalCsvPaths(
+  await buildHierarchicalCsvPaths({
     csvHeadersCount,
     providerUrlsMap,
     longNamesMap,
     scheme,
-    node,
-    narrowersMap,
-    [],
-    keywords
-  )
+    n: node,
+    map: narrowersMap,
+    path: [],
+    paths: keywords
+  })
 
   // Return the reversed keywords array
   return keywords.reverse()

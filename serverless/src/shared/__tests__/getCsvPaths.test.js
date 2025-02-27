@@ -35,9 +35,9 @@ describe('getCsvPaths', () => {
     getNarrowersMap.mockResolvedValue({})
     getLongNamesMap.mockResolvedValue({})
     getProviderUrlsMap.mockResolvedValue({})
-    // eslint-disable-next-line max-len
-    buildHierarchicalCsvPaths.mockImplementation((_, __, ___, ____, _____, ______, _______, keywords) => {
-      keywords.push('Keyword1', 'Keyword2', 'Keyword3')
+
+    buildHierarchicalCsvPaths.mockImplementation((params) => {
+      params.paths.push('Keyword1', 'Keyword2', 'Keyword3')
     })
 
     const result = await getCsvPaths('testScheme', 3)

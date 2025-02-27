@@ -35,8 +35,15 @@ describe('getConcepts', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
-  describe('when format is csv', () => {
-    test('calls createCsvForScheme when format is csv', async () => {
+  describe('when format is CSV', () => {
+    test('calls createCsvForScheme when format is csv and scheme is provided', async () => {
+      const mockCsvResponse = {
+        statusCode: 200,
+        body: 'csv data',
+        headers: { 'Content-Type': 'text/csv' }
+      }
+      createCsvForScheme.mockResolvedValue(mockCsvResponse)
+
       const event = {
         queryStringParameters: {
           format: 'csv',
@@ -44,38 +51,46 @@ describe('getConcepts', () => {
         }
       }
 
-      createCsvForScheme.mockResolvedValue('CSV content')
-
-      await getConcepts(event)
+      const result = await getConcepts(event)
 
       expect(createCsvForScheme).toHaveBeenCalledWith('testScheme')
+      expect(result).toEqual(mockCsvResponse)
     })
 
-    test('calls createCsvForScheme with empty string when scheme is not provided', async () => {
+    test('returns 400 when format is csv but scheme is not provided', async () => {
       const event = {
         queryStringParameters: {
           format: 'csv'
         }
       }
 
-      createCsvForScheme.mockResolvedValue('CSV content')
+      const result = await getConcepts(event)
 
-      await getConcepts(event)
-
-      expect(createCsvForScheme).toHaveBeenCalledWith('')
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
+      })
     })
 
-    test('does not call createCsvForScheme when format is not csv', async () => {
+    test('returns 400 when format is csv and pattern is provided', async () => {
       const event = {
         queryStringParameters: {
-          format: 'xml',
+          format: 'csv',
           scheme: 'testScheme'
+        },
+        pathParameters: {
+          pattern: 'testPattern'
         }
       }
 
-      await getConcepts(event)
+      const result = await getConcepts(event)
 
-      expect(createCsvForScheme).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      })
     })
   })
 

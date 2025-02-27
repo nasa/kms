@@ -5,6 +5,25 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Fetches provider URLs and creates a map based on the given scheme.
  * @param {string} scheme - The scheme to use for the query.
  * @returns {Object} A map of subject values to their corresponding business object values.
+ *
+ * @example
+ * // Fetch provider URLs for the 'example' scheme
+ * const providerMap = await getProviderUrlsMap('example');
+ *
+ * // Example output:
+ * // {
+ * //   'http://example.com/provider1': ['BusinessObject1', 'BusinessObject2'],
+ * //   'http://example.com/provider2': ['BusinessObject3']
+ * // }
+ *
+ * @example
+ * // Handle potential errors
+ * try {
+ *   const providerMap = await getProviderUrlsMap('example');
+ *   console.log(providerMap);
+ * } catch (error) {
+ *   console.error('Failed to fetch provider URLs:', error);
+ * }
  */
 export const getProviderUrlsMap = async (scheme) => {
   try {

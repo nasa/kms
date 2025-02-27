@@ -6,6 +6,26 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Fetches long names for a given scheme and returns them as a map
  * @param {string} scheme - The scheme to fetch long names for
  * @returns {Promise<Object>} A map of subject values to their associated long names
+ *
+ * @example
+ * // Fetch long names for the 'person' scheme
+ * const longNamesMap = await getLongNamesMap('person');
+ *
+ * // Example output:
+ * // {
+ * //   'http://example.com/person/1': ['John Doe', 'Johnny'],
+ * //   'http://example.com/person/2': ['Jane Smith', 'Janie'],
+ * //   'http://example.com/person/3': ['Bob Johnson']
+ * // }
+ *
+ * @example
+ * // Fetch long names for the 'organization' scheme
+ * try {
+ *   const orgLongNames = await getLongNamesMap('organization');
+ *   console.log(orgLongNames);
+ * } catch (error) {
+ *   console.error('Failed to fetch organization long names:', error);
+ * }
  */
 export const getLongNamesMap = async (scheme) => {
   try {

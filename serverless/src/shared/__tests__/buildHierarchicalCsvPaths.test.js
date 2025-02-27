@@ -51,8 +51,16 @@ describe('buildHierarchicalCsvPaths', () => {
     isCsvProviderUrlFlag.mockReturnValue(true)
 
     const paths = []
-    // eslint-disable-next-line max-len
-    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    await buildHierarchicalCsvPaths({
+      csvHeadersCount,
+      providerUrlsMap,
+      longNamesMap,
+      scheme,
+      n: rootNode,
+      map,
+      path: [],
+      paths
+    })
 
     expect(paths).toHaveLength(2)
     expect(paths[0]).toEqual(['Child1', 'Long Name 1', 'http://provider.com/1', '1'])
@@ -83,8 +91,16 @@ describe('buildHierarchicalCsvPaths', () => {
     isCsvProviderUrlFlag.mockReturnValue(true)
 
     const paths = []
-    // eslint-disable-next-line max-len
-    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    await buildHierarchicalCsvPaths({
+      csvHeadersCount,
+      providerUrlsMap,
+      longNamesMap,
+      scheme,
+      n: rootNode,
+      map,
+      path: [],
+      paths
+    })
 
     expect(paths).toHaveLength(1)
     expect(paths[0]).toEqual(['Child', ' ', ' ', 'child'])
@@ -104,8 +120,16 @@ describe('buildHierarchicalCsvPaths', () => {
     getNarrowers.mockReturnValue([])
 
     const paths = []
-    // eslint-disable-next-line max-len
-    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    await buildHierarchicalCsvPaths({
+      csvHeadersCount,
+      providerUrlsMap,
+      longNamesMap,
+      scheme,
+      n: rootNode,
+      map,
+      path: [],
+      paths
+    })
 
     expect(paths).toHaveLength(0)
   })
@@ -134,8 +158,16 @@ describe('buildHierarchicalCsvPaths', () => {
     isCsvProviderUrlFlag.mockReturnValue(false)
 
     const paths = []
-    // eslint-disable-next-line max-len
-    await buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, rootNode, map, [], paths)
+    await buildHierarchicalCsvPaths({
+      csvHeadersCount,
+      providerUrlsMap,
+      longNamesMap,
+      scheme,
+      n: rootNode,
+      map,
+      path: [],
+      paths
+    })
 
     expect(formatCsvPath).toHaveBeenCalledWith(scheme, csvHeadersCount, ['Child', 'child'], true)
   })

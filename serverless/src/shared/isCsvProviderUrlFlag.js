@@ -3,6 +3,14 @@
  *
  * @param {string} scheme - The scheme to check.
  * @returns {boolean} True if the scheme is a CSV provider URL flag, false otherwise.
+ *
+ * @example
+ * // Returns true
+ * isCsvProviderUrlFlag('providers');
+ *
+ * @example
+ * // Returns false
+ * isCsvProviderUrlFlag('other');
  */
 export const isCsvProviderUrlFlag = (scheme) => {
   // Check if the scheme is in the array of valid CSV provider schemes

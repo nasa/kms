@@ -9,6 +9,26 @@
  * @param {string[]} path - The current path array to be formatted
  * @param {boolean} isLeaf - Indicates whether the current node is a leaf node
  * @returns {string[]} The formatted path array
+ *
+ * @example
+ * // For 'platforms' scheme
+ * formatCsvPath('platforms', 5, ['Level1', 'Level2'], false)
+ * // Returns: ['Level1', 'Level2', ' ']
+ *
+ * @example
+ * // For 'sciencekeywords' scheme
+ * formatCsvPath('sciencekeywords', 4, ['Category', 'Topic'], false)
+ * // Returns: ['Category', 'Topic', ' ']
+ *
+ * @example
+ * // For 'providers' scheme
+ * formatCsvPath('providers', 6, ['Provider1', 'Provider2'], true)
+ * // Returns: ['Provider1', 'Provider2', ' ', ' ']
+ *
+ * @example
+ * // For an unhandled scheme
+ * formatCsvPath('unknown', 3, ['Item1', 'Item2'], false)
+ * // Returns: ['Item1', 'Item2']
  */
 export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
   // Handle 'platforms', 'instruments', and 'projects' schemes

@@ -13,18 +13,83 @@ import { isCsvProviderUrlFlag } from '@/shared/isCsvProviderUrlFlag'
 /**
  * Builds hierarchical CSV paths recursively.
  *
- * @param {number} csvHeadersCount - The number of CSV headers.
- * @param {Object} providerUrlsMap - Map of provider URLs.
- * @param {Object} longNamesMap - Map of long names.
- * @param {Object} scheme - The scheme object.
- * @param {Object} n - The current node in the hierarchy.
- * @param {Object} map - The concept map.
- * @param {Array} path - The current path (default: []).
- * @param {Array} paths - The array to store all paths (default: []).
+ * @param {Object} params - The parameters object.
+ * @param {number} params.csvHeadersCount - The number of CSV headers.
+ * @param {Object} params.providerUrlsMap - Map of provider URLs.
+ * @param {Object} params.longNamesMap - Map of long names.
+ * @param {Object} params.scheme - The scheme object.
+ * @param {Object} params.n - The current node in the hierarchy.
+ * @param {Object} params.map - The concept map.
+ * @param {Array} [params.path=[]] - The current path.
+ * @param {Array} [params.paths=[]] - The array to store all paths.
  * @returns {Promise<void>}
+ *
+ * @example
+ * // Basic usage
+ * await buildHierarchicalCsvPaths({
+ *   csvHeadersCount: 3,
+ *   providerUrlsMap: {
+ *     'http://example.com/concept1': ['http://provider.com/1'],
+ *     'http://example.com/concept2': ['http://provider.com/2']
+ *   },
+ *   longNamesMap: {
+ *     'http://example.com/concept1': ['Long Name 1'],
+ *     'http://example.com/concept2': ['Long Name 2']
+ *   },
+ *   scheme: 'myScheme',
+ *   n: {
+ *     narrowerPrefLabel: 'Root',
+ *     uri: 'http://example.com/root'
+ *   },
+ *   map: new Map([
+ *     ['http://example.com/root', [
+ *       { narrowerPrefLabel: 'Child1', uri: 'http://example.com/concept1' },
+ *       { narrowerPrefLabel: 'Child2', uri: 'http://example.com/concept2' }
+ *     ]]
+ *   ]),
+ *   path: [],
+ *   paths: []
+ * });
+ *
+ * @example
+ * // Usage within a larger function
+ * export const getCsvPaths = async (scheme, csvHeadersCount) => {
+ *   const root = await getRootConcept(scheme);
+ *   const node = {
+ *     narrowerPrefLabel: root?.prefLabel?.value,
+ *     uri: root?.subject?.value
+ *   };
+ *   const narrowersMap = await getNarrowersMap(scheme);
+ *   const longNamesMap = await getLongNamesMap(scheme);
+ *   const providerUrlsMap = scheme === 'providers' ? await getProviderUrlsMap(scheme) : {};
+ *   const keywords = [];
+ *
+ *   await buildHierarchicalCsvPaths({
+ *     csvHeadersCount,
+ *     providerUrlsMap,
+ *     longNamesMap,
+ *     scheme,
+ *     n: node,
+ *     map: narrowersMap,
+ *     path: [],
+ *     paths: keywords
+ *   });
+ *
+ *   return keywords.reverse();
+ * };
  */
-// eslint-disable-next-line max-len
-export const buildHierarchicalCsvPaths = async (csvHeadersCount, providerUrlsMap, longNamesMap, scheme, n, map, path = [], paths = []) => {
+export const buildHierarchicalCsvPaths = async (params) => {
+  const {
+    csvHeadersCount,
+    providerUrlsMap,
+    longNamesMap,
+    scheme,
+    n,
+    map,
+    path = [],
+    paths = []
+  } = params
+
   const { narrowerPrefLabel, uri } = n
 
   // Extract UUID from the URI
@@ -40,8 +105,12 @@ export const buildHierarchicalCsvPaths = async (csvHeadersCount, providerUrlsMap
   // Recursively process narrower concepts
   // eslint-disable-next-line no-restricted-syntax
   for (const obj of narrowers) {
-    // eslint-disable-next-line max-len
-    buildHierarchicalCsvPaths(csvHeadersCount, providerUrlsMap, longNamesMap, scheme, obj, map, cloneDeep(path), paths)
+    // eslint-disable-next-line no-await-in-loop
+    await buildHierarchicalCsvPaths({
+      ...params,
+      n: obj,
+      path: cloneDeep(path)
+    })
   }
 
   if (path.length > 1) {
@@ -53,20 +122,12 @@ export const buildHierarchicalCsvPaths = async (csvHeadersCount, providerUrlsMap
 
     // Add long name if required by the scheme
     if (isCsvLongNameFlag(scheme)) {
-      if (longNameArray) {
-        path.push(longNameArray[0])
-      } else {
-        path.push(' ')
-      }
+      path.push(longNameArray ? longNameArray[0] : ' ')
     }
 
     // Add provider URL if required by the scheme
     if (isCsvProviderUrlFlag(scheme)) {
-      if (providerUrlsArray) {
-        path.push(providerUrlsArray[0])
-      } else {
-        path.push(' ')
-      }
+      path.push(providerUrlsArray ? providerUrlsArray[0] : ' ')
     }
 
     // Add UUID to the path

@@ -36,12 +36,28 @@ export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { queryStringParameters = {} } = event
   const { format = '', scheme = '' } = queryStringParameters
-  if (format === 'csv') {
-    return createCsvForScheme(scheme)
-  }
-
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000' } = event?.queryStringParameters || {}
+
+  if (format === 'csv') {
+    if (!scheme) {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
+      }
+    }
+
+    if (pattern) {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      }
+    }
+
+    return createCsvForScheme(scheme)
+  }
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)

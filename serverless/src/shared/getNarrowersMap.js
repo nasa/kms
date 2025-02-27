@@ -13,6 +13,25 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} scheme - The scheme URI for which to fetch narrower concepts.
  * @returns {Promise<Object>} A promise that resolves to a map of narrower concepts.
  * @throws {Error} If there's an error during the SPARQL request or data processing.
+ *
+ * @example
+ * // Fetch narrower concepts for a specific scheme
+ * const scheme = 'http://example.com/scheme/123';
+ * try {
+ *   const narrowersMap = await getNarrowersMap(scheme);
+ *   console.log(narrowersMap);
+ *   // Output: {
+ *   //   'http://example.com/concept/1': [
+ *   //     { subject: { value: 'http://example.com/concept/1' }, predicate: { value: 'http://www.w3.org/2004/02/skos/core#narrower' }, object: { value: 'http://example.com/concept/2' } },
+ *   //     { subject: { value: 'http://example.com/concept/1' }, predicate: { value: 'http://www.w3.org/2004/02/skos/core#narrower' }, object: { value: 'http://example.com/concept/3' } }
+ *   //   ],
+ *   //   'http://example.com/concept/2': [
+ *   //     { subject: { value: 'http://example.com/concept/2' }, predicate: { value: 'http://www.w3.org/2004/02/skos/core#narrower' }, object: { value: 'http://example.com/concept/4' } }
+ *   //   ]
+ *   // }
+ * } catch (error) {
+ *   console.error('Error:', error);
+ * }
  */
 export const getNarrowersMap = async (scheme) => {
   try {

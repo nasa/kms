@@ -6,6 +6,46 @@ import { stringify } from 'csv'
  * @param {String[]} csvHeaders - Headers for the CSV columns
  * @param {Array<Array<String>>} values - 2D array of data to be converted to CSV
  * @returns {Promise<String>} A promise that resolves with the CSV string output
+ *
+ * @example
+ * // Basic usage
+ * const metadata = ['Report Generated: 2023-06-01'];
+ * const headers = ['Name', 'Age', 'City'];
+ * const data = [
+ *   ['John Doe', '30', 'New York'],
+ *   ['Jane Smith', '25', 'Los Angeles']
+ * ];
+ *
+ * createCsv(metadata, headers, data)
+ *   .then(csv => console.log(csv))
+ *   .catch(err => console.error(err));
+ *
+ * // Output:
+ * // "Report Generated: 2023-06-01"
+ * // "Name","Age","City"
+ * // "John Doe","30","New York"
+ * // "Jane Smith","25","Los Angeles"
+ *
+ * @example
+ * // Using async/await
+ * async function generateReport() {
+ *   const metadata = ['Quarterly Sales Report', 'Q2 2023'];
+ *   const headers = ['Product', 'Units Sold', 'Revenue'];
+ *   const data = [
+ *     ['Widget A', '1000', '$10000'],
+ *     ['Widget B', '500', '$7500'],
+ *     ['Widget C', '750', '$11250']
+ *   ];
+ *
+ *   try {
+ *     const csv = await createCsv(metadata, headers, data);
+ *     console.log(csv);
+ *   } catch (err) {
+ *     console.error('Error generating CSV:', err);
+ *   }
+ * }
+ *
+ * generateReport();
  */
 // eslint-disable-next-line max-len
 export const createCsv = async (csvMetadata, csvHeaders, values) => new Promise((resolve, reject) => {
