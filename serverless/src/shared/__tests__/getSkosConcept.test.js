@@ -61,6 +61,7 @@ describe('getSkosConcept', () => {
         const result = await getSkosConcept({ conceptIRI: mockConceptIRI })
 
         expect(sparqlRequest).toHaveBeenCalledWith({
+          type: 'query',
           contentType: 'application/sparql-query',
           accept: 'application/sparql-results+json',
           method: 'POST',

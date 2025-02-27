@@ -3,8 +3,8 @@ const fs = require('fs').promises
 const baseUrl = 'http://localhost:8080/rdf4j-server'
 const repoId = 'kms'
 const rdf4jUrl = `${baseUrl}/repositories/${repoId}/statements`
-const username = process.env.RDF4J_USER_NAME || 'rdf4j'
-const password = process.env.RDF4J_PASSWORD || 'rdf4j'
+const username = process.env.RDFDB_USER_NAME || 'rdf4j'
+const password = process.env.RDFDB_PASSWORD || 'rdf4j'
 const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
 
 /**

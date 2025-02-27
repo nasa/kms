@@ -8,7 +8,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * @todo Implement deletion of existing concept triples before loading new ones.
  * This function processes RDF/XML input, counts the number of concepts,
- * and loads them into an RDF4J triplestore using a SPARQL endpoint.
+ * and loads them into an RDFDB triplestore using a SPARQL endpoint.
  *
  * This function is not quite ready for production use, as it needs to
  * delete the existing concept triples before loading the new ones; if this
@@ -30,7 +30,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * console.log(result);
  * // {
  * //   statusCode: 200,
- * //   body: '{"message":"Successfully loaded RDF XML into RDF4J","conceptsLoaded":5}',
+ * //   body: '{"message":"Successfully loaded RDF XML into RDFDB","conceptsLoaded":5}',
  * //   headers: { ... }
  * // }
  *
@@ -76,9 +76,9 @@ export const createConcepts = async (event) => {
     conceptCount = Array.isArray(concepts) ? concepts.length : (concepts ? 1 : 0)
 
     const response = await sparqlRequest({
+      type: 'data',
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
-      path: '/statements',
       method: 'POST',
       body: rdfXml
     })
@@ -100,12 +100,12 @@ export const createConcepts = async (event) => {
       }
     }
 
-    console.log(`Successfully loaded ${conceptCount} concepts into RDF4J`)
+    console.log(`Successfully loaded ${conceptCount} concepts into RDFDB`)
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'Successfully loaded RDF XML into RDF4J',
+        message: 'Successfully loaded RDF XML into RDFDB',
         conceptsLoaded: conceptCount
       }),
       headers: {
@@ -114,12 +114,12 @@ export const createConcepts = async (event) => {
       }
     }
   } catch (error) {
-    console.error('Error loading RDF XML into RDF4J:', error)
+    console.error('Error loading RDF XML into RDFDB:', error)
 
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Error loading RDF XML into RDF4J',
+        message: 'Error loading RDF XML into RDFDB',
         error: error.message,
         conceptsAttempted: conceptCount
       }),

@@ -12,8 +12,20 @@ const getConfig = () => staticConfig
 
 const applicationConfig = {
   ...getConfig().application,
-  get sparqlEndpoint() {
-    return `${process.env.RDF4J_SERVICE_URL}/rdf4j-server/repositories/kms`
+  get sparqlQueryEndpoint() {
+    return `${process.env.RDFDB_BASE_URL}${getConfig().application.sparqlServicePath}${getConfig().application.sparqlQueryPath}`
+  },
+  get sparqlUpdateEndpoint() {
+    return `${process.env.RDFDB_BASE_URL}${getConfig().application.sparqlServicePath}${getConfig().application.sparqlUpdatePath}`
+  },
+  get sparqlDataEndpoint() {
+    return `${process.env.RDFDB_BASE_URL}${getConfig().application.sparqlServicePath}${getConfig().application.sparqlDataPath}`
+  },
+  get sparqlHealthCheckEndpoint() {
+    return `${process.env.RDFDB_BASE_URL}${getConfig().application.sparqlHealthCheckPath}`
+  },
+  get sparqlBaseUrl() {
+    return `${process.env.RDFDB_BASE_URL}`
   }
 }
 
@@ -24,6 +36,6 @@ const applicationConfig = {
  * @type {Object}
  * @property {Object} ...getConfig().application - Spreads all properties from the static application configuration.
  * @property {string} sparqlEndpoint - Dynamically constructed SPARQL endpoint URL.
- *                                     Uses the RDF4J_SERVICE_URL environment variable.
+ *                                     Uses the RDFDB_SERVICE_URL environment variable.
  */
 export const getApplicationConfig = () => applicationConfig

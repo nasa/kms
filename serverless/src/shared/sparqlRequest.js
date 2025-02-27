@@ -1,8 +1,10 @@
 /**
- * Utility module for making SPARQL requests to an RDF4J server.
+ * Utility module for making SPARQL requests to an RDFDB server.
  *
  * @module sparqlRequest
  */
+
+import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
  * Sends a request to the SPARQL endpoint with the specified parameters.
@@ -13,15 +15,15 @@
  * @async
  * @function sparqlRequest
  * @param {Object} options - The options for the SPARQL request.
- * @param {string} [options.path=''] - The path to append to the base SPARQL endpoint URL.
+ *  * @param {string} [options.type=''] - The type of request (query, update, data)
  * @param {string} options.method - The HTTP method to use for the request (e.g., 'GET', 'POST').
  * @param {string|Object} [options.body] - The body of the request, if applicable.
- * @param {string} [options.contentType='application/rdf+xml'] - The Content-Type header for the request.
- * @param {string} [options.accept='application/rdf+xml'] - The Accept header for the request.
+ * @param {string} [options.contentType'] - The Content-Type header for the request.
+ * @param {string} [options.accept'] - The Accept header for the request.
  * @returns {Promise<Response>} A promise that resolves to the fetch Response object.
  *
  * @example
- * const response = await sparqlRequest({
+ * const response = await sparqlRequest({type: 'query',
  *   method: 'POST',
  *   body: 'SELECT * WHERE { ?s ?p ?o }',
  *   contentType: 'application/sparql-query',
@@ -31,11 +33,11 @@
  * @throws Will throw an error if the fetch operation fails.
  */
 export const sparqlRequest = async ({
-  path = '',
+  type = 'query',
   method,
   body,
-  contentType = 'application/rdf+xml',
-  accept = 'application/rdf+xml'
+  contentType,
+  accept
 }) => {
   /**
     * Constructs the SPARQL endpoint URL using environment variables.
@@ -45,9 +47,20 @@ export const sparqlRequest = async ({
     * @returns {string} The full URL of the SPARQL endpoint.
     */
   const getSparqlEndpoint = () => {
-    const baseUrl = process.env.RDF4J_SERVICE_URL || 'http://localhost:8080'
+    const { sparqlQueryEndpoint, sparqlUpdateEndpoint, sparqlDataEndpoint } = getApplicationConfig()
+    if (type === 'query') {
+      return sparqlQueryEndpoint
+    }
 
-    return `${baseUrl}/rdf4j-server/repositories/kms`
+    if (type === 'update') {
+      return sparqlUpdateEndpoint
+    }
+
+    if (type === 'data') {
+      return sparqlDataEndpoint
+    }
+
+    throw new Error('Invalid sparql query type')
   }
 
   /**
@@ -58,8 +71,8 @@ export const sparqlRequest = async ({
     * @returns {string} The Basic Auth header value.
     */
   const getAuthHeader = () => {
-    const username = process.env.RDF4J_USER_NAME
-    const password = process.env.RDF4J_PASSWORD
+    const username = process.env.RDFDB_USER_NAME
+    const password = process.env.RDFDB_PASSWORD
 
     return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
   }
@@ -67,7 +80,9 @@ export const sparqlRequest = async ({
   const endpoint = getSparqlEndpoint()
   const authHeader = getAuthHeader()
 
-  return fetch(`${endpoint}${path}`, {
+  console.log('calling ', endpoint)
+
+  return fetch(`${endpoint}`, {
     method,
     headers: {
       'Content-Type': contentType,

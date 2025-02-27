@@ -1,9 +1,9 @@
 {
   "application": {
-    "sparqlServicePath": "/rdf4j-server/repositories/kms",
-    "sparqlUpdatePath": "/statements",
-    "sparqlDataPath": "/statements",
-    "sparqlQueryPath": "",
+    "sparqlServicePath": "/kms",
+    "sparqlUpdatePath": "/update",
+    "sparqlQueryPath": "/query",
+    "sparqlDataPath": "/data",
     "sparqlHealthCheckPath": "/rdf4jserver/protocol",
     "version": "development",
     "defaultResponseHeaders": {

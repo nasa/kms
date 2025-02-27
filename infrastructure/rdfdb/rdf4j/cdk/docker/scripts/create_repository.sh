@@ -11,7 +11,7 @@ create_repository() {
   if [ ! -d "${RDF4J_DATA_DIR}/server/repositories/kms" ]; then
     # Create the repository
     echo "Repository 'kms' does not exist. Creating it..."
-    curl -u rdf4j:rdf4j -X PUT -H "Content-Type: application/x-turtle" --data-binary '
+    curl -u ${RDF4J_USER_NAME}:${RDF4J_PASSWORD} -X PUT -H "Content-Type: application/x-turtle" --data-binary '
 #
 # RDF4J configuration template for a main-memory repository
 #
@@ -25,7 +25,7 @@ create_repository() {
       config:rep.type "openrdf:SailRepository" ;
       config:sail.impl [
         config:sail.type "openrdf:NativeStore" ;
-        config:native.forceSync: true ;
+        config:native.forceSync true ;
         config:sail.memory "false" ;
         config:sail.reindex "true" ;
         config:sail.writeThrough "true" ;

@@ -27,7 +27,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * // Output on success:
  * // {
  * //   statusCode: 200,
- * //   body: 'Successfully loaded RDF XML into RDF4J',
+ * //   body: 'Successfully loaded RDF XML into RDFDB',
  * //   headers: { ... }
  * // }
  */
@@ -57,9 +57,9 @@ export const createConcept = async (event) => {
     }
 
     const response = await sparqlRequest({
+      type: 'data',
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
-      path: '/statements',
       method: 'POST',
       body: rdfXml
     })
@@ -70,7 +70,7 @@ export const createConcept = async (event) => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    console.log('Successfully loaded RDF XML into RDF4J')
+    console.log('Successfully loaded RDF XML into RDFDB')
 
     return {
       statusCode: 201, // Changed from 200 to 201 Created

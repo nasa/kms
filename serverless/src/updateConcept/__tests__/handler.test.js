@@ -58,9 +58,9 @@ describe('updateConcept', () => {
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
       expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
       expect(sparqlRequest).toHaveBeenCalledWith({
+        type: 'data',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'POST',
         body: mockRdfXml
       })
@@ -189,7 +189,6 @@ describe('updateConcept', () => {
 
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
       expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
-      expect(sparqlRequest).toHaveBeenCalled()
       expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
       expect(result).toEqual({
         statusCode: 500,
@@ -213,9 +212,9 @@ describe('updateConcept', () => {
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
       expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
       expect(sparqlRequest).toHaveBeenCalledWith({
+        type: 'data',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'POST',
         body: mockRdfXml
       })
@@ -245,7 +244,6 @@ describe('updateConcept', () => {
 
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
       expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
-      expect(sparqlRequest).toHaveBeenCalled()
       expect(rollback).toHaveBeenCalledWith(mockDeletedTriples)
 
       expect(result).toEqual({

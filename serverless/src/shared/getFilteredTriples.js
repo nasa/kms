@@ -35,6 +35,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const getFilteredTriples = async ({ conceptScheme, pattern }) => {
   try {
     const response = await sparqlRequest({
+      type: 'query',
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',

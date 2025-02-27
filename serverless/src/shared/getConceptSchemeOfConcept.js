@@ -22,6 +22,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const getConceptSchemeOfConcept = async (conceptUri) => {
   try {
     const response = await sparqlRequest({
+      type: 'query',
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',

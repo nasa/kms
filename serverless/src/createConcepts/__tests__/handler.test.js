@@ -40,9 +40,9 @@ describe('createConcepts', () => {
       const result = await createConcepts(event)
 
       expect(sparqlRequest).toHaveBeenCalledWith({
+        type: 'data',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'POST',
         body: mockRdfXml
       })
@@ -50,7 +50,7 @@ describe('createConcepts', () => {
       expect(result).toEqual({
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Successfully loaded RDF XML into RDF4J',
+          message: 'Successfully loaded RDF XML into RDFDB',
           conceptsLoaded: 2
         }),
         headers: {
@@ -74,7 +74,7 @@ describe('createConcepts', () => {
       expect(result).toEqual({
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Successfully loaded RDF XML into RDF4J',
+          message: 'Successfully loaded RDF XML into RDFDB',
           conceptsLoaded: 1
         }),
         headers: {
@@ -94,7 +94,7 @@ describe('createConcepts', () => {
       expect(result).toEqual({
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Successfully loaded RDF XML into RDF4J',
+          message: 'Successfully loaded RDF XML into RDFDB',
           conceptsLoaded: 0
         }),
         headers: {
@@ -154,7 +154,7 @@ describe('createConcepts', () => {
       expect(result).toEqual({
         statusCode: 500,
         body: JSON.stringify({
-          message: 'Error loading RDF XML into RDF4J',
+          message: 'Error loading RDF XML into RDFDB',
           error: 'Network error',
           conceptsAttempted: 1
         }),
@@ -173,7 +173,7 @@ describe('createConcepts', () => {
 
       expect(result).toEqual({
         statusCode: 500,
-        body: expect.stringContaining('Error loading RDF XML into RDF4J'),
+        body: expect.stringContaining('Error loading RDF XML into RDFDB'),
         headers: {
           ...mockDefaultHeaders,
           'Content-Type': 'application/json'

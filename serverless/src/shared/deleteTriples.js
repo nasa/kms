@@ -8,6 +8,7 @@ export const deleteTriples = async (conceptIRI) => {
   try {
     // First, select all triples
     const selectResponse = await sparqlRequest({
+      type: 'query',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       method: 'POST',
@@ -23,9 +24,9 @@ export const deleteTriples = async (conceptIRI) => {
 
     // Then, delete the triples
     const deleteResponse = await sparqlRequest({
+      type: 'update',
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
-      path: '/statements',
       method: 'POST',
       body: getDeleteTriplesForConceptQuery(conceptIRI)
     })

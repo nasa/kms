@@ -1,13 +1,34 @@
-import { describe } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi
+} from 'vitest'
+
+import { getApplicationConfig } from '@/shared/getConfig'
 
 import { status } from '../handler'
+
+// Mock the getApplicationConfig function
+vi.mock('@/shared/getConfig', () => ({
+  getApplicationConfig: vi.fn()
+}))
 
 const originalConsoleLog = console.log
 const originalConsoleError = console.error
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.RDF4J_SERVICE_URL = 'http://localhost:8080'
+  process.env.RDFDB_BASE_URL = 'http://localhost:8080'
+
+  // Mock the getApplicationConfig function
+  getApplicationConfig.mockReturnValue({
+    defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' },
+    sparqlHealthCheckPath: '/healthcheck-endpoint'
+  })
 })
 
 describe('status', () => {
@@ -36,7 +57,7 @@ describe('status', () => {
         expect(result.headers['Content-Type']).toBe('text/plain')
         expect(result.body).toBe('Database connection healthy')
         expect(global.fetch).toHaveBeenCalledWith(
-          'http://localhost:8080/rdf4j-server/protocol'
+          'http://localhost:8080/healthcheck-endpoint'
         )
       })
     })
@@ -51,7 +72,7 @@ describe('status', () => {
         const result = await status()
 
         expect(result.statusCode).toBe(500)
-        expect(JSON.parse(result.body)).toEqual({ error: 'Failed to fetch RDF4J status' })
+        expect(JSON.parse(result.body)).toEqual({ error: 'Failed to fetch RDFDB status' })
       })
     })
 
@@ -62,7 +83,7 @@ describe('status', () => {
         const result = await status()
 
         expect(result.statusCode).toBe(500)
-        expect(JSON.parse(result.body)).toEqual({ error: 'Failed to fetch RDF4J status' })
+        expect(JSON.parse(result.body)).toEqual({ error: 'Failed to fetch RDFDB status' })
       })
     })
   })

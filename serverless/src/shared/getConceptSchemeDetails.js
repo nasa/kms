@@ -12,6 +12,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const getConceptSchemeDetails = async (schemeName = null) => {
   try {
     const response = await sparqlRequest({
+      type: 'query',
       method: 'POST',
       body: getConceptSchemeDetailsQuery(schemeName),
       contentType: 'application/sparql-query',

@@ -108,6 +108,7 @@ export const getSkosConcept = async ({
 
   try {
     const response = await sparqlRequest({
+      type: 'query',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       method: 'POST',

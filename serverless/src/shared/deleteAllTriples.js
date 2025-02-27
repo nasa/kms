@@ -10,7 +10,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @throws Will throw an error if the DELETE operation fails.
  */
 export const deleteAllTriples = async () => sparqlRequest({
-  path: '/statements',
+  type: 'update',
   method: 'POST',
   contentType: 'application/sparql-update',
   body: getDeleteAllTriplesQuery()

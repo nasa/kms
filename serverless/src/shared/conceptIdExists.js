@@ -24,6 +24,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const conceptIdExists = async (conceptIRI) => {
   const checkResponse = await sparqlRequest({
+    type: 'query',
     contentType: 'application/sparql-query',
     accept: 'application/sparql-results+json',
     method: 'POST',

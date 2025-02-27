@@ -42,9 +42,9 @@ describe('createConcept', () => {
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
       expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI)
       expect(sparqlRequest).toHaveBeenCalledWith({
+        type: 'data',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'POST',
         body: mockRdfXml
       })
@@ -123,6 +123,7 @@ describe('createConcept', () => {
     test('should handle sparqlRequest failure', async () => {
       conceptIdExists.mockResolvedValue(false)
       sparqlRequest.mockResolvedValue({
+        type: 'data',
         ok: false,
         status: 500,
         text: async () => 'Internal Server Error'

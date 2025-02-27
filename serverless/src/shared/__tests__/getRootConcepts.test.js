@@ -47,6 +47,7 @@ describe('getRootConcepts', () => {
       const result = await getRootConcepts()
 
       expect(sparqlRequest).toHaveBeenCalledWith({
+        type: 'query',
         method: 'POST',
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',

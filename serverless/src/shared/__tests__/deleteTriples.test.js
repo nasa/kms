@@ -9,7 +9,6 @@ import {
 import { deleteTriples } from '../deleteTriples'
 import { sparqlRequest } from '../sparqlRequest'
 
-// Mock the sparqlRequest function
 vi.mock('../sparqlRequest')
 
 describe('deleteTriples', () => {
@@ -54,9 +53,9 @@ describe('deleteTriples', () => {
       }))
 
       expect(sparqlRequest).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        type: 'update',
         contentType: 'application/sparql-update',
         accept: 'application/sparql-results+json',
-        path: '/statements',
         method: 'POST',
         body: expect.stringContaining('DELETE')
       }))

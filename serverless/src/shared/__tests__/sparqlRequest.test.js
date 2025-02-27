@@ -7,7 +7,12 @@ import {
   vi
 } from 'vitest'
 
+import { getApplicationConfig } from '../getConfig'
 import { sparqlRequest } from '../sparqlRequest'
+
+vi.mock('../getConfig', () => ({
+  getApplicationConfig: vi.fn()
+}))
 
 global.fetch = vi.fn()
 
@@ -15,19 +20,27 @@ describe('sparqlRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    process.env.RDF4J_SERVICE_URL = 'http://test-server.com'
-    process.env.RDF4J_USER_NAME = 'testuser'
-    process.env.RDF4J_PASSWORD = 'testpass'
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    process.env.RDFDB_BASE_URL = 'http://test-server.com'
+    process.env.RDFDB_USER_NAME = 'testuser'
+    process.env.RDFDB_PASSWORD = 'testpass'
+
+    getApplicationConfig.mockReturnValue({
+      sparqlQueryEndpoint: 'http://test-server.com/query-endpoint',
+      sparqlUpdateEndpoint: 'http://test-server.com/update-endpoint/statements',
+      sparqlDataEndpoint: 'http://test-server.com/data-endpoint'
+    })
   })
 
   afterEach(() => {
-    delete process.env.RDF4J_SERVICE_URL
-    delete process.env.RDF4J_USER_NAME
-    delete process.env.RDF4J_PASSWORD
+    delete process.env.RDFDB_BASE_URL
+    delete process.env.RDFDB_USER_NAME
+    delete process.env.RDFDB_PASSWORD
   })
 
-  describe('when successful', () => {
-    test('should make a request with correct URL and headers', async () => {
+  describe('when querying', () => {
+    test('should make a query request with correct URL and headers', async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({})
@@ -35,6 +48,7 @@ describe('sparqlRequest', () => {
       global.fetch.mockResolvedValue(mockResponse)
 
       await sparqlRequest({
+        type: 'query',
         method: 'POST',
         body: 'SELECT * WHERE { ?s ?p ?o }',
         contentType: 'application/sparql-query',
@@ -42,7 +56,7 @@ describe('sparqlRequest', () => {
       })
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://test-server.com/rdf4j-server/repositories/kms',
+        'http://test-server.com/query-endpoint',
         {
           method: 'POST',
           headers: {
@@ -62,20 +76,27 @@ describe('sparqlRequest', () => {
       }
       global.fetch.mockResolvedValue(mockResponse)
 
-      await sparqlRequest({ method: 'GET' })
+      await sparqlRequest({
+        type: 'query',
+        method: 'GET'
+      })
 
       expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Content-Type': 'application/rdf+xml',
-            Accept: 'application/rdf+xml'
-          })
-        })
+        'http://test-server.com/query-endpoint',
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': undefined,
+            Accept: undefined,
+            Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
+          }
+        }
       )
     })
+  })
 
-    test('should append path to the endpoint URL if provided', async () => {
+  describe('when updating triples', () => {
+    test('should make an update request with correct URL and headers', async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({})
@@ -83,29 +104,82 @@ describe('sparqlRequest', () => {
       global.fetch.mockResolvedValue(mockResponse)
 
       await sparqlRequest({
-        method: 'GET',
-        path: '/custom-path'
+        type: 'update',
+        method: 'POST',
+        body: 'INSERT DATA { <http://example/book1> <http://example.org/ns#title> "A new book" }',
+        contentType: 'application/sparql-update',
+        accept: 'application/json'
       })
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://test-server.com/rdf4j-server/repositories/kms/custom-path',
-        expect.any(Object)
+        'http://test-server.com/update-endpoint/statements',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/sparql-update',
+            Accept: 'application/json',
+            Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
+          },
+          body: 'INSERT DATA { <http://example/book1> <http://example.org/ns#title> "A new book" }'
+        }
       )
     })
 
-    test('should use default endpoint URL if RDF4J_SERVICE_URL is not set', async () => {
-      delete process.env.RDF4J_SERVICE_URL
+    test('should use default content type and accept headers if not provided', async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({})
       }
       global.fetch.mockResolvedValue(mockResponse)
 
-      await sparqlRequest({ method: 'GET' })
+      await sparqlRequest({
+        type: 'update',
+        method: 'POST',
+        body: 'DELETE WHERE { ?s ?p ?o }'
+      })
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8080/rdf4j-server/repositories/kms',
-        expect.any(Object)
+        'http://test-server.com/update-endpoint/statements',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': undefined,
+            Accept: undefined,
+            Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
+          },
+          body: 'DELETE WHERE { ?s ?p ?o }'
+        }
+      )
+    })
+  })
+
+  describe('when loading rdf/xml', () => {
+    test('should make a data request with correct URL and headers', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      await sparqlRequest({
+        type: 'data',
+        method: 'POST',
+        body: '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="http://example/book1"><ns:title xmlns:ns="http://example.org/ns#">A new book</ns:title></rdf:Description></rdf:RDF>',
+        contentType: 'application/rdf+xml',
+        accept: 'application/json'
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://test-server.com/data-endpoint',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/rdf+xml',
+            Accept: 'application/json',
+            Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
+          },
+          body: '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="http://example/book1"><ns:title xmlns:ns="http://example.org/ns#">A new book</ns:title></rdf:Description></rdf:RDF>'
+        }
       )
     })
   })
@@ -114,7 +188,47 @@ describe('sparqlRequest', () => {
     test('should throw an error if fetch fails', async () => {
       global.fetch.mockRejectedValue(new Error('Network error'))
 
-      await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Network error')
+      await expect(sparqlRequest({
+        type: 'query',
+        method: 'GET',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json'
+      })).rejects.toThrow('Network error')
+    })
+
+    test('should throw an error for invalid type', async () => {
+      await expect(sparqlRequest({
+        type: 'invalid',
+        method: 'GET',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json'
+      })).rejects.toThrow('Invalid sparql query type')
+    })
+  })
+
+  describe('when authenticating', () => {
+    test('should use correct authentication header', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      await sparqlRequest({
+        type: 'query',
+        method: 'GET',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json'
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
+          })
+        })
+      )
     })
   })
 })

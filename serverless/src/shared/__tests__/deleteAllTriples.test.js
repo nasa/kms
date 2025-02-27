@@ -41,7 +41,7 @@ describe('deleteAllTriples', () => {
 
       expect(sparqlRequest).toHaveBeenCalledWith(
         expect.objectContaining({
-          path: '/statements',
+          type: 'update',
           method: 'POST',
           contentType: 'application/sparql-update',
           body: expect.any(String)

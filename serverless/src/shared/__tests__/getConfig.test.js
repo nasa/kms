@@ -7,6 +7,7 @@ describe('getConfig', () => {
   beforeEach(() => {
     vi.resetModules()
     process.env = { ...originalEnv }
+    process.env.RDFDB_BASE_URL = 'http://test-rdfdb-service'
   })
 
   afterAll(() => {
@@ -22,22 +23,42 @@ describe('getConfig', () => {
         expect(applicationConfig).toMatchObject(staticConfig.application)
       })
 
-      test('includes dynamically generated sparqlEndpoint', () => {
-        process.env.RDF4J_SERVICE_URL = 'http://test-rdf4j-service'
-
+      test('includes dynamically generated sparqlQueryEndpoint', () => {
         const applicationConfig = getApplicationConfig()
 
-        expect(applicationConfig.sparqlEndpoint).toBe('http://test-rdf4j-service/rdf4j-server/repositories/kms')
+        expect(applicationConfig.sparqlQueryEndpoint).toBe(`${process.env.RDFDB_BASE_URL}${staticConfig.application.sparqlServicePath}${staticConfig.application.sparqlQueryPath}`)
       })
 
-      test('updates sparqlEndpoint when RDF4J_SERVICE_URL changes', () => {
-        process.env.RDF4J_SERVICE_URL = 'http://test-rdf4j-service-1'
-        const config1 = getApplicationConfig()
-        expect(config1.sparqlEndpoint).toBe('http://test-rdf4j-service-1/rdf4j-server/repositories/kms')
+      test('includes dynamically generated sparqlUpdateEndpoint', () => {
+        const applicationConfig = getApplicationConfig()
 
-        process.env.RDF4J_SERVICE_URL = 'http://test-rdf4j-service-2'
-        const config2 = getApplicationConfig()
-        expect(config2.sparqlEndpoint).toBe('http://test-rdf4j-service-2/rdf4j-server/repositories/kms')
+        expect(applicationConfig.sparqlUpdateEndpoint).toBe(`${process.env.RDFDB_BASE_URL}${staticConfig.application.sparqlServicePath}${staticConfig.application.sparqlUpdatePath}`)
+      })
+
+      test('includes dynamically generated sparqlHealthCheckEndpoint', () => {
+        const applicationConfig = getApplicationConfig()
+
+        expect(applicationConfig.sparqlHealthCheckEndpoint).toBe(`${process.env.RDFDB_BASE_URL}${staticConfig.application.sparqlHealthCheckPath}`)
+      })
+
+      test('includes dynamically generated sparqlBaseUrl', () => {
+        const applicationConfig = getApplicationConfig()
+
+        expect(applicationConfig.sparqlBaseUrl).toBe(`${process.env.RDFDB_BASE_URL}`)
+      })
+
+      test('updates endpoints when RDFDB_BASE_URL changes', () => {
+        process.env.RDFDB_BASE_URL = 'http://test-rdfdb-service-2'
+        const config = getApplicationConfig()
+        expect(config.sparqlQueryEndpoint).toBe(`http://test-rdfdb-service-2${staticConfig.application.sparqlServicePath}${staticConfig.application.sparqlQueryPath}`)
+        expect(config.sparqlUpdateEndpoint).toBe(`http://test-rdfdb-service-2${staticConfig.application.sparqlServicePath}${staticConfig.application.sparqlUpdatePath}`)
+        expect(config.sparqlHealthCheckEndpoint).toBe(`http://test-rdfdb-service-2${staticConfig.application.sparqlHealthCheckPath}`)
+        expect(config.sparqlBaseUrl).toBe('http://test-rdfdb-service-2')
+      })
+
+      test('getConfig returns staticConfig', () => {
+        const config = getApplicationConfig()
+        expect(config).toMatchObject(staticConfig.application)
       })
     })
   })

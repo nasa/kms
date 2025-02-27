@@ -21,9 +21,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const rollback = async (deletedTriples) => {
   try {
     const rollbackResponse = await sparqlRequest({
+      type: 'query',
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
-      path: '/statements',
       method: 'POST',
       body: getInsertTriplesQuery(deletedTriples)
     })

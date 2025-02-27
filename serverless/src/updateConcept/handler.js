@@ -71,9 +71,9 @@ export const updateConcept = async (event) => {
     // Try to insert the new data
     try {
       const insertResponse = await sparqlRequest({
+        type: 'data',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'POST',
         body: rdfXml
       })

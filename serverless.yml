@@ -20,9 +20,9 @@ provider:
       - ${env:SUBNET_ID_B, 'subnetIdB'}
       - ${env:SUBNET_ID_C, 'subnetIdC'}
   environment:
-    RDF4J_SERVICE_URL: ${env:RDF4J_SERVICE_URL, cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, 'http://localhost:8080'} 
-    RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
-    RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
+    RDFDB_BASE_URL: ${env:RDFDB_BASE_URL, cf:rdf4jLoadBalancerStack.RDFDBServiceUrl, 'http://localhost:8080'} 
+    RDFDB_USER_NAME: ${env:RDFDB_USER_NAME, 'rdf4j'}
+    RDFDB_PASSWORD: ${env:RDFDB_PASSWORD, 'rdf4j'}
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
     skipPolicySetup: true

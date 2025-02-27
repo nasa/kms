@@ -10,9 +10,13 @@
     "preview": "vite preview",
     "test": "vitest",
     "offline": "serverless offline start",
-    "rdf4j:build": "docker build -t rdf4j:latest ./infrastructure/rdfdb/cdk/docker",
-    "rdf4j:start": "docker run -d -p 8080:8080 -e RDF4J_USER_NAME=$RDF4J_USER_NAME -e RDF4J_PASSWORD=$RDF4J_PASSWORD -e JAVA_OPTS=\"-Xms1g -Xmx8g\" -v logs:/usr/local/tomcat/logs rdf4j:latest",
-    "rdf4j:setup": "node setup/setupRdf4j.js"
+    "rdf4j:build": "docker build -t rdf4j:latest ./infrastructure/rdfdb/rdf4j/cdk/docker",
+    "rdf4j:start": "docker run -d -p 8080:8080 -e RDF4J_USER_NAME=$RDFDB_USER_NAME -e RDF4J_PASSWORD=$RDFDB_PASSWORD -e JAVA_OPTS=\"-Xms1g -Xmx8g\" -v logs:/usr/local/tomcat/logs rdf4j:latest",
+    "rdf4j:setup": "node setup/setupRdf4j.js",
+    "jena:build": "docker build -t jena:latest ./infrastructure/rdfdb/jena/cdk/docker",
+    "jena:start": "docker run -p 3030:3030 -e ADMIN_PASSWORD=jena jena",
+    "jena:setup": "node setup/setupJena.js"
+
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.1.0",

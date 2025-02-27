@@ -49,7 +49,6 @@ describe('rollback', () => {
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         contentType: 'application/sparql-update',
         accept: 'application/sparql-results+json',
-        path: '/statements',
         method: 'POST',
         body: expect.stringContaining('INSERT DATA')
       }))
