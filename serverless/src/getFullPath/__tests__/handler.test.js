@@ -63,7 +63,7 @@ describe('getFullPath', () => {
     })
   })
 
-  describe('XML structure', () => {
+  describe('when building the xml structure', () => {
     test('should include correct XML namespaces and attributes', async () => {
       buildFullPath.mockResolvedValue('TEST|PATH')
 

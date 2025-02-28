@@ -91,7 +91,7 @@ async function loadConcepts(filePath, batchSize = 1000) {
 
     console.log('Success: ', await response.text())
 
-    // Add a delay of 100 ms between each batch
+    // Add a delay of 500 ms between each batch
     await delay(500)
   }
 }

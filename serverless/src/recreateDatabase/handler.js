@@ -78,7 +78,7 @@ export const recreateDatabase = async () => {
             config:rep.type "openrdf:SailRepository" ;
             config:sail.impl [
               config:sail.type "openrdf:NativeStore" ;
-              config:native.forceSync: true ;
+              config:native.forceSync true ;
               config:sail.memory "false" ;
               config:sail.reindex "true" ;
               config:sail.writeThrough "true" ;
