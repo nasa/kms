@@ -70,7 +70,6 @@ const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
 
     // Extract scheme information
     const schemeResource = skosConcept['skos:inScheme']['@rdf:resource']
-    console.log("🚀 ~ toLegacyJSON ~ schemeResource:", schemeResource)
     const schemeShortName = schemeResource.split('/').pop()
     const schemeLongName = conceptSchemeMap.get(schemeShortName)
 
