@@ -58,16 +58,16 @@ describe('createCsvForScheme', () => {
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockHeaders, mockPaths)
     })
 
-    test('should sort paths correctly when they have different lengths', async () => {
+    test('should sort paths correctly when shorter arrays come first', async () => {
       const scheme = 'testScheme'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2', 'Header3']
       const mockPaths = [
-        ['B', '2', '3'],
+        ['A', '1', '3'],
         ['A', '1'],
-        ['A', '2', '3'],
-        ['B', '1']
+        ['A', '1', '2'],
+        ['A', '1', '1']
       ]
       const mockCsvContent = 'csv,content'
 
@@ -82,9 +82,9 @@ describe('createCsvForScheme', () => {
       // Check if createCsv was called with correctly sorted paths
       const expectedSortedPaths = [
         ['A', '1'],
-        ['A', '2', '3'],
-        ['B', '1'],
-        ['B', '2', '3']
+        ['A', '1', '1'],
+        ['A', '1', '2'],
+        ['A', '1', '3']
       ]
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockHeaders, expectedSortedPaths)
     })
