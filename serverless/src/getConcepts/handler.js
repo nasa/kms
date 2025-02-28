@@ -1,6 +1,7 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
+import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -33,9 +34,30 @@ import { toSkosJson } from '@/shared/toSkosJson'
  */
 export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-
+  const { queryStringParameters = {} } = event
+  const { format = '' } = queryStringParameters
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000' } = event?.queryStringParameters || {}
+
+  if (format === 'csv') {
+    if (!conceptScheme) {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
+      }
+    }
+
+    if (pattern) {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      }
+    }
+
+    return createCsvForScheme(conceptScheme)
+  }
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
