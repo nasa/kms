@@ -36,7 +36,7 @@ describe('getConcepts', () => {
   })
 
   describe('when format is CSV', () => {
-    test('calls createCsvForScheme when format is csv and scheme is provided', async () => {
+    test('calls createCsvForScheme when format is csv and conceptScheme is provided', async () => {
       const mockCsvResponse = {
         statusCode: 200,
         body: 'csv data',
@@ -46,8 +46,10 @@ describe('getConcepts', () => {
 
       const event = {
         queryStringParameters: {
-          format: 'csv',
-          scheme: 'testScheme'
+          format: 'csv'
+        },
+        pathParameters: {
+          conceptScheme: 'testScheme'
         }
       }
 
@@ -57,7 +59,7 @@ describe('getConcepts', () => {
       expect(result).toEqual(mockCsvResponse)
     })
 
-    test('returns 400 when format is csv but scheme is not provided', async () => {
+    test('returns 400 when format is csv but conceptScheme is not provided', async () => {
       const event = {
         queryStringParameters: {
           format: 'csv'
@@ -76,10 +78,31 @@ describe('getConcepts', () => {
     test('returns 400 when format is csv and pattern is provided', async () => {
       const event = {
         queryStringParameters: {
-          format: 'csv',
-          scheme: 'testScheme'
+          format: 'csv'
         },
         pathParameters: {
+          conceptScheme: 'testScheme',
+          pattern: 'testPattern'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      })
+    })
+
+    // New test
+    test('returns 400 when format is csv and both conceptScheme and pattern are provided', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'csv'
+        },
+        pathParameters: {
+          conceptScheme: 'testScheme',
           pattern: 'testPattern'
         }
       }
