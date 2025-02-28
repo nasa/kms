@@ -6,55 +6,53 @@ import {
   vi
 } from 'vitest'
 
-import getConceptSchemes from '@/getConceptSchemes/handler'
-import { getSkosConcept } from '@/shared/getSkosConcept'
-
 import toLegacyJSON from '../toLegacyJSON'
 
-// Mock the imported functions
-vi.mock('@/getConceptSchemes/handler')
-vi.mock('@/shared/getSkosConcept')
-
 describe('toLegacyJSON', () => {
+  let mockSkosConcept; let mockConceptSchemeMap; let
+    mockPrefLabelMap
+
   beforeEach(() => {
-    // Clear all mocks before each test
     vi.clearAllMocks()
-  })
 
-  getSkosConcept.mockResolvedValue({
-    '@rdf:about': 'testUUID',
-    'skos:prefLabel': { _text: 'Test Concept' },
-    'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
-    'dcterms:modified': '2023-01-01',
-    'skos:definition': { _text: 'This is a test concept definition' },
-    'gcmd:reference': { '@gcmd:text': 'https://example.com/reference' },
-    'gcmd:altLabel': [
-      {
-        '@gcmd:text': 'Alternative Label 1',
-        '@gcmd:category': 'primary'
+    mockSkosConcept = {
+      '@rdf:about': 'testUUID',
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
+      'dcterms:modified': '2023-01-01',
+      'skos:definition': { _text: 'This is a test concept definition' },
+      'gcmd:reference': { '@gcmd:text': 'https://example.com/reference' },
+      'gcmd:altLabel': [
+        {
+          '@gcmd:text': 'Alternative Label 1',
+          '@gcmd:category': 'primary'
+        },
+        { '@gcmd:text': 'Alternative Label 2' }
+      ],
+      'gcmd:resource': {
+        '@gcmd:type': 'image',
+        '@gcmd:url': 'https://example.com/image.jpg'
       },
-      { '@gcmd:text': 'Alternative Label 2' }
-    ],
-    'gcmd:resource': {
-      '@gcmd:type': 'image',
-      '@gcmd:url': 'https://example.com/image.jpg'
-    },
-    'gcmd:type': 'hasInstrument'
-  })
+      'gcmd:type': 'hasInstrument'
+    }
 
-  getConceptSchemes.mockResolvedValue({
-    body: `<schemes>
-      <scheme name="testScheme" longName="Test Scheme"/>
-      <scheme name="testScheme 2" longName="Test Scheme 2"/>
-    </schemes>`
+    mockConceptSchemeMap = new Map([
+      ['testScheme', 'Test Scheme']
+    ])
+
+    mockPrefLabelMap = new Map([
+      ['testUUID', 'Test Concept'],
+      ['broaderUUID', 'Broader Concept'],
+      ['narrowerUUID1', 'Narrower Concept 1'],
+      ['narrowerUUID2', 'Narrower Concept 2'],
+      ['relatedUUID1', 'Related Concept 1'],
+      ['relatedUUID2', 'Related Concept 2']
+    ])
   })
 
   describe('when given a basic skos concept', () => {
-    test('returns legacy JSON', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = await getSkosConcept({ conceptIRI })
-
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
+    test('should return legacy JSON', async () => {
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
       expect(result).toEqual({
         termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
@@ -72,51 +70,34 @@ describe('toLegacyJSON', () => {
         broader: [],
         narrower: [],
         related: [],
-        definitions: [
-          {
-            text: 'This is a test concept definition',
-            reference: 'https://example.com/reference'
-          }
-        ],
+        definitions: [{
+          text: 'This is a test concept definition',
+          reference: 'https://example.com/reference'
+        }],
         altLabels: [
           {
             category: 'primary',
             text: 'Alternative Label 1'
           },
-          {
-            text: 'Alternative Label 2'
-          }
+          { text: 'Alternative Label 2' }
         ],
-        resources: [
-          {
-            type: 'image',
-            url: 'https://example.com/image.jpg'
-          }
-        ]
+        resources: [{
+          type: 'image',
+          url: 'https://example.com/image.jpg'
+        }]
       })
     })
   })
 
   describe('when provided with broader data', () => {
-    test('returns correct broader information', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        ...await getSkosConcept({ conceptIRI }),
-        'skos:broader': { '@rdf:resource': 'broaderUUID' }
-      }
+    test('should return correct broader information', async () => {
+      mockSkosConcept['skos:broader'] = { '@rdf:resource': 'broaderUUID' }
 
-      getSkosConcept.mockResolvedValueOnce({
-        '@rdf:about': 'broaderUUID',
-        'skos:prefLabel': { _text: 'Broader Concept' },
-        'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' }
-      })
-
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
       expect(result.broader).toEqual([{
         uuid: 'broaderUUID',
         prefLabel: 'Broader Concept',
-        isLeaf: false,
         scheme: {
           shortName: 'testScheme',
           longName: 'Test Scheme'
@@ -126,36 +107,18 @@ describe('toLegacyJSON', () => {
   })
 
   describe('when provided with narrower data', () => {
-    test('returns correct narrower information', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        ...await getSkosConcept({ conceptIRI }),
-        'skos:narrower': [
-          { '@rdf:resource': 'narrowerUUID1' },
-          { '@rdf:resource': 'narrowerUUID2' }
-        ]
-      }
+    test('should return correct narrower information', async () => {
+      mockSkosConcept['skos:narrower'] = [
+        { '@rdf:resource': 'narrowerUUID1' },
+        { '@rdf:resource': 'narrowerUUID2' }
+      ]
 
-      // Mock responses for narrower concepts
-      getSkosConcept
-        .mockResolvedValueOnce({
-          '@rdf:about': 'narrowerUUID1',
-          'skos:prefLabel': { _text: 'Narrower Concept 1' },
-          'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' }
-        })
-        .mockResolvedValueOnce({
-          '@rdf:about': 'narrowerUUID2',
-          'skos:prefLabel': { _text: 'Narrower Concept 2' },
-          'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' }
-        })
-
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
       expect(result.narrower).toEqual([
         {
           uuid: 'narrowerUUID1',
           prefLabel: 'Narrower Concept 1',
-          isLeaf: true,
           scheme: {
             shortName: 'testScheme',
             longName: 'Test Scheme'
@@ -164,7 +127,6 @@ describe('toLegacyJSON', () => {
         {
           uuid: 'narrowerUUID2',
           prefLabel: 'Narrower Concept 2',
-          isLeaf: true,
           scheme: {
             shortName: 'testScheme',
             longName: 'Test Scheme'
@@ -175,38 +137,18 @@ describe('toLegacyJSON', () => {
   })
 
   describe('when provided with related data', () => {
-    test('returns correct related information', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        ...await getSkosConcept({ conceptIRI }),
-        'skos:related': [
-          { '@rdf:resource': 'relatedUUID1' },
-          { '@rdf:resource': 'relatedUUID2' }
-        ]
-      }
+    test('should return correct related information', async () => {
+      mockSkosConcept['skos:related'] = [
+        { '@rdf:resource': 'relatedUUID1' },
+        { '@rdf:resource': 'relatedUUID2' }
+      ]
 
-      // Mock responses for related concepts
-      getSkosConcept
-        .mockResolvedValueOnce({
-          '@rdf:about': 'relatedUUID1',
-          'skos:prefLabel': { _text: 'Related Concept 1' },
-          'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
-          'gcmd:type': 'hasInstrument'
-        })
-        .mockResolvedValueOnce({
-          '@rdf:about': 'relatedUUID2',
-          'skos:prefLabel': { _text: 'Related Concept 2' },
-          'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
-          'gcmd:type': 'onPlatform'
-        })
-
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
           prefLabel: 'Related Concept 1',
-          isLeaf: true, // Assuming no narrower concepts
           scheme: {
             shortName: 'testScheme',
             longName: 'Test Scheme'
@@ -216,34 +158,29 @@ describe('toLegacyJSON', () => {
         {
           uuid: 'relatedUUID2',
           prefLabel: 'Related Concept 2',
-          isLeaf: true,
           scheme: {
             shortName: 'testScheme',
             longName: 'Test Scheme'
           },
-          type: 'on_platform'
+          type: 'has_instrument'
         }
       ])
     })
   })
 
   describe('when provided with a definition and no reference', () => {
-    test('returns correctly formatted definition', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        ...await getSkosConcept({ conceptIRI }),
-        'gcmd:reference': {
-          '@gcmd:text': '',
-          '@xml:lang': 'en'
-        },
-        'skos:definition': {
-          _text: 'Definition Text',
-          '@xml:lang': 'en'
-        }
+    test('should return correctly formatted definition', async () => {
+      mockSkosConcept['gcmd:reference'] = {
+        '@gcmd:text': '',
+        '@xml:lang': 'en'
       }
 
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
-      console.log('🚀 ~ test ~ result:', result)
+      mockSkosConcept['skos:definition'] = {
+        _text: 'Definition Text',
+        '@xml:lang': 'en'
+      }
+
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
       expect(result.definitions).toEqual([
         {
@@ -254,22 +191,21 @@ describe('toLegacyJSON', () => {
     })
   })
 
+  describe('when provided with no definition', () => {
+    test('should return correctly formatted definition', async () => {
+      delete mockSkosConcept['skos:definition']
+      delete mockSkosConcept['gcmd:reference']
+
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
+
+      expect(result.definitions).toEqual([])
+    })
+  })
+
   describe('when provided altLabel information', () => {
-    test('returns multiple altLables when multiple altLabels are provided', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = await getSkosConcept({ conceptIRI })
+    test('should return multiple altLabels when multiple altLabels are provided', async () => {
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
-      // Mock getConceptSchemes to return a valid response
-      getConceptSchemes.mockResolvedValue({
-        body: `<schemes>
-          <scheme name="testScheme" longName="Test Scheme"/>
-          <scheme name="testScheme2" longName="Test Scheme 2"/>
-        </schemes>`
-      })
-
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
-
-      // Check that altLabels is an empty array
       expect(result.altLabels).toEqual([
         {
           text: 'Alternative Label 1',
@@ -281,78 +217,84 @@ describe('toLegacyJSON', () => {
       ])
     })
 
-    test('returns a single altLabel when only one is provided', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        '@rdf:about': 'testUUID',
-        'skos:prefLabel': { _text: 'Test Concept' },
-        'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
-        'gcmd:altLabel': {
-          '@gcmd:text': 'Alternative Label 1',
-          '@gcmd:category': 'primary'
-        }
+    test('should return a single altLabel when only one is provided', async () => {
+      mockSkosConcept['gcmd:altLabel'] = {
+        '@gcmd:text': 'Alternative Label 1',
+        '@gcmd:category': 'primary'
       }
 
-      // Mock getConceptSchemes to return a valid response
-      getConceptSchemes.mockResolvedValue({
-        body: `<schemes>
-          <scheme name="testScheme" longName="Test Scheme"/>
-          <scheme name="testScheme2" longName="Test Scheme 2"/>
-        </schemes>`
-      })
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
-
-      // Check that altLabels is an empty array
       expect(result.altLabels).toEqual([{
         text: 'Alternative Label 1',
         category: 'primary'
       }])
     })
 
-    test('returns empty altLabels if no altLabels are provided', async () => {
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        '@rdf:about': 'testUUID',
-        'skos:prefLabel': { _text: 'Test Concept' },
-        'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
-        'dcterms:modified': '2023-01-01'
-        // Note: gcmd:altLabel is intentionally omitted
-      }
+    test('should return empty altLabels if no altLabels are provided', async () => {
+      delete mockSkosConcept['gcmd:altLabel']
 
-      // Mock getConceptSchemes to return a valid response
-      getConceptSchemes.mockResolvedValue({
-        body: `<schemes>
-          <scheme name="testScheme" longName="Test Scheme"/>
-          <scheme name="testScheme2" longName="Test Scheme 2"/>
-        </schemes>`
-      })
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
 
-      const result = await toLegacyJSON(conceptIRI, skosConcept)
-
-      // Check that altLabels is an empty array
       expect(result.altLabels).toEqual([])
     })
   })
 
   describe('when there is an error converting to JSON', () => {
-    test('return appropriate error', async () => {
+    test('should throw an appropriate error', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      // Mock an error in getConceptSchemes
-      getConceptSchemes.mockRejectedValueOnce(new Error('Failed to fetch concept schemes'))
 
-      const conceptIRI = 'http://example.com/concept/testUUID'
-      const skosConcept = {
-        '@rdf:about': 'testUUID',
-        'skos:prefLabel': { _text: 'Test Concept' },
-        'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' }
+      // Cause an error by providing invalid data
+      const invalidSkosConcept = {
+        ...mockSkosConcept,
+        'skos:inScheme': {} // Remove the @rdf:resource property to cause an error
       }
 
-      // Use async/await with expect().rejects to test for thrown errors
-      await expect(toLegacyJSON(conceptIRI, skosConcept)).rejects.toThrow('Failed to convert concept to JSON: Failed to fetch concept schemes')
+      await expect(toLegacyJSON(invalidSkosConcept, mockConceptSchemeMap, mockPrefLabelMap))
+        .rejects.toThrow('Failed to convert concept to JSON')
 
-      // Verify that the error was logged
-      expect(console.error).toHaveBeenCalledWith('Error converting concept to JSON: Failed to fetch concept schemes')
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error converting concept to JSON'))
+    })
+  })
+
+  describe('when the concept has no narrower concepts', () => {
+    test('should set isLeaf to true', async () => {
+      delete mockSkosConcept['skos:narrower']
+
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
+
+      expect(result.isLeaf).toBe(true)
+    })
+  })
+
+  describe('when the concept has narrower concepts', () => {
+    test('should set isLeaf to false', async () => {
+      mockSkosConcept['skos:narrower'] = [{ '@rdf:resource': 'narrowerUUID1' }]
+
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
+
+      expect(result.isLeaf).toBe(false)
+    })
+  })
+
+  describe('when the concept has a resource', () => {
+    test('should include the resource in the output', async () => {
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
+
+      expect(result.resources).toEqual([{
+        type: 'image',
+        url: 'https://example.com/image.jpg'
+      }])
+    })
+  })
+
+  describe('when the concept has no resource', () => {
+    test('should return an empty array for resources', async () => {
+      delete mockSkosConcept['gcmd:resource']
+
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
+
+      expect(result.resources).toEqual([])
     })
   })
 })

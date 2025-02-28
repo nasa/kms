@@ -1,18 +1,46 @@
-import { XMLParser } from 'fast-xml-parser'
-
-import getConceptSchemes from '@/getConceptSchemes/handler'
-import { getSkosConcept } from '@/shared/getSkosConcept'
-
-// Helper function to retrieve parsed information in concept_schemes xml
-function findMatchingLongName(schemeShortName, parsedData) {
-  const schemes = parsedData.schemes.scheme
-
-  const matchingScheme = schemes.find(
-    (scheme) => scheme['@name'] === schemeShortName
-  )
-
-  return matchingScheme['@longName']
-}
+/**
+ * Converts a SKOS concept to a legacy JSON format.
+ *
+ * This function takes a SKOS concept and associated metadata, and transforms it into a legacy JSON structure.
+ * It processes various aspects of the concept including its basic metadata, hierarchical relationships (broader and narrower),
+ * related concepts, definitions, alternative labels, and associated resources.
+ *
+ * @async
+ * @function toLegacyJSON
+ * @param {Object} skosConcept - The SKOS concept object to be transformed.
+ * @param {Map<string, string>} conceptSchemeMap - A map of concept scheme short names to their long names.
+ * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels.
+ * @returns {Promise<Object>} A promise that resolves to the transformed legacy JSON object.
+ * @throws {Error} If there's an error during the conversion process.
+ *
+ * @property {string} termsOfUse - The URL to the terms of use document.
+ * @property {string} keywordVersion - The version of the keyword set.
+ * @property {string} schemeVersion - The version of the concept scheme.
+ * @property {string} viewer - The URL to view the concept in the GCMD Keyword Viewer.
+ * @property {string} lastModifiedDate - The date when the concept was last modified.
+ * @property {string} uuid - The unique identifier of the concept.
+ * @property {string} prefLabel - The preferred label of the concept.
+ * @property {boolean} isLeaf - Indicates whether the concept is a leaf node in the hierarchy.
+ * @property {Object} scheme - Information about the concept's scheme.
+ * @property {Array<Object>} broader - An array of broader concepts.
+ * @property {Array<Object>} narrower - An array of narrower concepts.
+ * @property {Array<Object>} related - An array of related concepts.
+ * @property {Array<Object>} definitions - An array of concept definitions.
+ * @property {Array<Object>} altLabels - An array of alternative labels for the concept.
+ * @property {Array<Object>} resources - An array of associated resources.
+ *
+ * @example
+ * try {
+ *   const skosConcept = { ... }; // SKOS concept object
+ *   const conceptSchemeMap = new Map([['scheme1', 'Scheme One'], ...]);
+ *   const prefLabelMap = new Map([['http://example.com/concept/1', 'Concept One'], ...]);
+ *
+ *   const legacyJSON = await toLegacyJSON(skosConcept, conceptSchemeMap, prefLabelMap);
+ *   console.log('Transformed legacy JSON:', legacyJSON);
+ * } catch (error) {
+ *   console.error('Error converting to legacy JSON:', error);
+ * }
+ */
 
 // Helper function to determine if there are multiple altLabels and assist in translating the different types
 function processAltLabels(altLabels) {
@@ -35,36 +63,15 @@ function processAltLabels(altLabels) {
   })
 }
 
-const toLegacyJSON = async (conceptIRI, skosConcept) => {
+const toLegacyJSON = async (skosConcept, conceptSchemeMap, prefLabelMap) => {
   try {
     // Extract the UUID from the @rdf:about field
     const uuid = skosConcept['@rdf:about']
 
-    // Creating variables for calls to fetchMatchingSchemes
-    const conceptSchemes = await getConceptSchemes()
-    const xmlConceptSchemes = conceptSchemes.body
-
-    const parser = new XMLParser({
-      ignoreAttributes: false,
-      attributeNamePrefix: '@'
-    })
-
-    const parsedConceptSchemes = parser.parse(xmlConceptSchemes)
-
     // Extract scheme information
     const schemeResource = skosConcept['skos:inScheme']['@rdf:resource']
     const schemeShortName = schemeResource.split('/').pop()
-    const schemeLongName = findMatchingLongName(schemeShortName, parsedConceptSchemes)
-
-    // Extract additional data for broader
-    const baseURI = conceptIRI.substring(0, conceptIRI.lastIndexOf('/') + 1)
-    let broaderSkosConcept
-    let broaderConceptIRI
-
-    if (skosConcept['skos:broader']) {
-      broaderConceptIRI = baseURI + skosConcept['skos:broader']['@rdf:resource']
-      broaderSkosConcept = await getSkosConcept({ conceptIRI: broaderConceptIRI })
-    }
+    const schemeLongName = conceptSchemeMap.get(schemeShortName)
 
     // Transform the data
     const transformedData = {
@@ -82,47 +89,29 @@ const toLegacyJSON = async (conceptIRI, skosConcept) => {
         longName: schemeLongName
       },
       broader: skosConcept['skos:broader'] ? [{
-        uuid: broaderSkosConcept['@rdf:about'],
-        // eslint-disable-next-line no-underscore-dangle
-        prefLabel: broaderSkosConcept['skos:prefLabel']._text,
-        isLeaf: false, // CHECK WITH TEAM. WHY FALSE?
+        uuid: skosConcept['skos:broader']['@rdf:resource'],
+        prefLabel: prefLabelMap.get(skosConcept['skos:broader']['@rdf:resource']),
         scheme: {
           shortName: schemeShortName,
           longName: schemeLongName
         }
       }] : [],
-      narrower: await Promise.all((skosConcept['skos:narrower'] || []).map(async (narrow) => {
-        // Extracting addition information for each narrower in array
-        const narrowerConceptIRI = baseURI + narrow['@rdf:resource']
-        const narrowerSkosConcept = await getSkosConcept({ conceptIRI: narrowerConceptIRI })
-
-        return {
-          uuid: narrowerSkosConcept['@rdf:about'],
-          // eslint-disable-next-line no-underscore-dangle
-          prefLabel: narrowerSkosConcept['skos:prefLabel']._text,
-          isLeaf: !narrowerSkosConcept['skos:narrower'],
-          scheme: {
-            shortName: schemeShortName,
-            longName: schemeLongName
-          }
+      narrower: (skosConcept['skos:narrower'] || []).map((narrow) => ({
+        uuid: narrow['@rdf:resource'],
+        prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
+        scheme: {
+          shortName: schemeShortName,
+          longName: schemeLongName
         }
       })),
-      related: await Promise.all((skosConcept['skos:related'] || []).map(async (relation) => {
-        // Extracting addition information for each narrower in array
-        const relatedConceptIRI = baseURI + relation['@rdf:resource']
-        const relatedSkosConcept = await getSkosConcept({ conceptIRI: relatedConceptIRI })
-
-        return {
-          uuid: relatedSkosConcept['@rdf:about'],
-          // eslint-disable-next-line no-underscore-dangle
-          prefLabel: relatedSkosConcept['skos:prefLabel']._text,
-          isLeaf: !relatedSkosConcept['skos:narrower'],
-          scheme: {
-            shortName: schemeShortName,
-            longName: schemeLongName
-          },
-          type: relatedSkosConcept['gcmd:type'].replace(/([A-Z])/g, '_$1').toLowerCase()
-        }
+      related: (skosConcept['skos:related'] || []).map((relation) => ({
+        uuid: relation['@rdf:resource'],
+        prefLabel: prefLabelMap.get(relation['@rdf:resource']),
+        scheme: {
+          shortName: schemeShortName,
+          longName: schemeLongName
+        },
+        type: skosConcept['gcmd:type'].replace(/([A-Z])/g, '_$1').toLowerCase()
       })),
       definitions: skosConcept['skos:definition'] ? [{
         // eslint-disable-next-line no-underscore-dangle
