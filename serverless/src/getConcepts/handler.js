@@ -34,12 +34,11 @@ import { toSkosJson } from '@/shared/toSkosJson'
  */
 export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { queryStringParameters = {} } = event
-  const { format = '' } = queryStringParameters
+  const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000' } = event?.queryStringParameters || {}
 
-  if (format === 'csv') {
+  if (queryStringParameters?.format === 'csv') {
     if (!conceptScheme) {
       return {
         headers: defaultResponseHeaders,
