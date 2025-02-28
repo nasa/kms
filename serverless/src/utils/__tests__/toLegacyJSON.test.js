@@ -7,7 +7,7 @@ import {
 } from 'vitest'
 
 import getConceptSchemes from '@/getConceptSchemes/handler'
-import {getSkosConcept} from '@/shared/getSkosConcept'
+import { getSkosConcept } from '@/shared/getSkosConcept'
 
 import toLegacyJSON from '../toLegacyJSON'
 
