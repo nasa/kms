@@ -63,13 +63,14 @@ function processAltLabels(altLabels) {
   })
 }
 
-const toLegacyJSON = async (skosConcept, conceptSchemeMap, prefLabelMap) => {
+const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
   try {
     // Extract the UUID from the @rdf:about field
     const uuid = skosConcept['@rdf:about']
 
     // Extract scheme information
     const schemeResource = skosConcept['skos:inScheme']['@rdf:resource']
+    console.log("🚀 ~ toLegacyJSON ~ schemeResource:", schemeResource)
     const schemeShortName = schemeResource.split('/').pop()
     const schemeLongName = conceptSchemeMap.get(schemeShortName)
 

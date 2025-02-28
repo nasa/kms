@@ -241,7 +241,7 @@ describe('toLegacyJSON', () => {
   })
 
   describe('when there is an error converting to JSON', () => {
-    test('should throw an appropriate error', async () => {
+    test('should throw an appropriate error', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
 
       // Cause an error by providing invalid data
@@ -250,8 +250,8 @@ describe('toLegacyJSON', () => {
         'skos:inScheme': {} // Remove the @rdf:resource property to cause an error
       }
 
-      await expect(toLegacyJSON(invalidSkosConcept, mockConceptSchemeMap, mockPrefLabelMap))
-        .rejects.toThrow('Failed to convert concept to JSON')
+      expect(() => toLegacyJSON(invalidSkosConcept, mockConceptSchemeMap, mockPrefLabelMap))
+        .toThrow('Failed to convert concept to JSON')
 
       expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Error converting concept to JSON'))
     })
