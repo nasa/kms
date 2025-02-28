@@ -1,8 +1,10 @@
 import { createCsv } from './createCsv'
+import { generateCsvHeaders } from './generateCsvHeaders'
 import { getApplicationConfig } from './getConfig'
 import { getCsvHeaders } from './getCsvHeaders'
 import { getCsvMetadata } from './getCsvMetadata'
 import { getCsvPaths } from './getCsvPaths'
+import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
 
 /**
  * Creates a CSV file for a specified scheme.
@@ -36,11 +38,17 @@ export const createCsvForScheme = async (scheme) => {
     // Get CSV output metadata
     const csvMetadata = await getCsvMetadata(scheme)
     // Get CSV headers
-    const csvHeaders = await getCsvHeaders(scheme)
+    let csvHeaders = await getCsvHeaders(scheme)
     // Calculate CSV header count
     const csvHeadersCount = csvHeaders.length
     // Get CSV row data
     const paths = await getCsvPaths(scheme, csvHeadersCount)
+    // If no headers were retrieved, generate them based on the maximum number of columns in the paths
+    if (csvHeaders.length === 0) {
+      const maxColumns = getMaxLengthOfSubArray(paths)
+      csvHeaders = generateCsvHeaders(scheme, maxColumns)
+    }
+
     // Sort output
     paths.sort((line1, line2) => {
       // eslint-disable-next-line no-plusplus
