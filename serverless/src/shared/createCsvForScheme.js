@@ -41,6 +41,20 @@ export const createCsvForScheme = async (scheme) => {
     const csvHeadersCount = csvHeaders.length
     // Get CSV row data
     const paths = await getCsvPaths(scheme, csvHeadersCount)
+    // Sort output
+    paths.sort((line1, line2) => {
+      // eslint-disable-next-line no-plusplus
+      for (let i = 0; i < Math.min(line1.length, line2.length); i++) {
+        if (line1[i] !== line2[i]) {
+          return line1[i].localeCompare(line2[i])
+        }
+      }
+
+      // If all elements up to the length of the shorter array are equal,
+      // sort by array length (shorter arrays come first)
+      return line1.length - line2.length
+    })
+
     // Set CSV response header
     const responseHeaders = {
       ...defaultResponseHeaders,

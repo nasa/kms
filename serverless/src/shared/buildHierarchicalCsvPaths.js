@@ -87,7 +87,7 @@ export const buildHierarchicalCsvPaths = async (params) => {
     n,
     map,
     path = [],
-    paths = []
+    paths
   } = params
 
   const { narrowerPrefLabel, uri } = n

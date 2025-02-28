@@ -12,8 +12,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * // Example output:
  * // {
- * //   'http://example.com/provider1': ['BusinessObject1', 'BusinessObject2'],
- * //   'http://example.com/provider2': ['BusinessObject3']
+ * //   'http://example.com/provider1': ['URL1', 'URL2'],
+ * //   'http://example.com/provider2': ['URL3']
  * // }
  *
  * @example
