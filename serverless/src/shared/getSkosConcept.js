@@ -121,7 +121,7 @@ export const getSkosConcept = async ({
     const json = await response.json()
 
     if (json.results.bindings.length === 0) {
-      throw new Error('No results found for concept query.')
+      return null
     }
 
     let fetchedConceptIRI = conceptIRI

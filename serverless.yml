@@ -87,3 +87,6 @@ custom:
   esbuild:
     bundle: true
     minify: ${self:custom.minifyBuild.${self:provider.stage}}
+    packager: 'npm'
+    external:
+      - '@aws-sdk/client-s3'
