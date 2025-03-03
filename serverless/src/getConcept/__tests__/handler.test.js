@@ -7,14 +7,19 @@ import {
 } from 'vitest'
 
 import { getConcept } from '@/getConcept/handler'
+import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import toLegacyJSON from '@/shared/toLegacyJSON'
 
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getSkosConcept')
-vi.mock('@/shared/getConceptScheme')
 vi.mock('@/shared/getGcmdMetadata')
+vi.mock('@/shared/createConceptSchemeMap')
+vi.mock('@/shared/createPrefLabelMap')
+vi.mock('@/shared/toLegacyJSON')
 
 describe('getConcept', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -24,6 +29,9 @@ describe('getConcept', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    createConceptSchemeMap.mockResolvedValue(new Map())
+    createPrefLabelMap.mockResolvedValue(new Map())
+    toLegacyJSON.mockResolvedValue({})
   })
 
   const mockSuccessfulResponse = (mockSkosConcept) => {
@@ -44,7 +52,7 @@ describe('getConcept', () => {
 
         const result = await getConcept(mockEvent)
 
-        expect(result.headers['Content-Type']).toBe('application/xml; charset=utf-8')
+        expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
         expect(result.body).toContain('<rdf:RDF')
         expect(result.body).toContain('<skos:Concept')
         expect(result.body).toContain('<gcmd:keywordVersion>1.0</gcmd:keywordVersion>')
@@ -127,6 +135,47 @@ describe('getConcept', () => {
       })
     })
 
+    describe('format handling', () => {
+      test('returns RDF format by default', async () => {
+        const mockEvent = { pathParameters: { conceptId: '123' } }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': 'Test Concept'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        const result = await getConcept(mockEvent)
+
+        expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
+        expect(result.body).toContain('<rdf:RDF')
+      })
+
+      test('returns JSON format when specified', async () => {
+        const mockEvent = {
+          pathParameters: { conceptId: '123' },
+          queryStringParameters: { format: 'json' }
+        }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': 'Test Concept'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+        toLegacyJSON.mockResolvedValue({
+          id: '123',
+          label: 'Test Concept'
+        })
+
+        const result = await getConcept(mockEvent)
+
+        expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
+        expect(() => JSON.parse(result.body)).not.toThrow()
+        expect(JSON.parse(result.body)).toEqual({
+          id: '123',
+          label: 'Test Concept'
+        })
+      })
+    })
+
     describe('decode function', () => {
       test('should decode URI encoded strings', async () => {
         const mockEvent = { pathParameters: { shortName: 'Test%20Concept%2BWith%2BSpaces' } }
@@ -202,6 +251,30 @@ describe('getConcept', () => {
         })
       })
     })
+
+    describe('related concepts handling', () => {
+      test('should handle broader, narrower, and related concepts', async () => {
+        const mockEvent = { pathParameters: { conceptId: '123' } }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': 'Test Concept',
+          'skos:broader': { '@rdf:resource': 'broader1' },
+          'skos:narrower': [{ '@rdf:resource': 'narrower1' }, { '@rdf:resource': 'narrower2' }],
+          'skos:related': [{ '@rdf:resource': 'related1' }]
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        await getConcept(mockEvent)
+
+        expect(createPrefLabelMap).toHaveBeenCalledWith([
+          { conceptIRI: 'https://gcmd.earthdata.nasa.gov/kms/concept/123' },
+          { conceptIRI: 'broader1' },
+          { conceptIRI: 'narrower1' },
+          { conceptIRI: 'narrower2' },
+          { conceptIRI: 'related1' }
+        ])
+      })
+    })
   })
 
   describe('when unsuccessful', () => {
@@ -216,6 +289,16 @@ describe('getConcept', () => {
       expect(JSON.parse(result.body)).toEqual({
         error: 'Error: Test error'
       })
+    })
+
+    test('should log the error', async () => {
+      const mockEvent = { pathParameters: { conceptId: '123' } }
+      const testError = new Error('Test error')
+      getSkosConcept.mockRejectedValue(testError)
+
+      await getConcept(mockEvent)
+
+      expect(console.error).toHaveBeenCalledWith(`Error retrieving concept, error=${testError.toString()}`)
     })
   })
 })
