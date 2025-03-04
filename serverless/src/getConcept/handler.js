@@ -80,16 +80,8 @@ export const getConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
 
-    // Prepare data for different formats
-    const concepts = [
-      { conceptIRI },
-      ...(concept['skos:broader'] ? [{ conceptIRI: concept['skos:broader']['@rdf:resource'] }] : []),
-      ...(concept['skos:narrower'] || []).map((narrow) => ({ conceptIRI: narrow['@rdf:resource'] })),
-      ...(concept['skos:related'] || []).map((related) => ({ conceptIRI: related['@rdf:resource'] }))
-    ]
-
     const conceptSchemeMap = await createConceptSchemeMap()
-    const prefLabelMap = await createPrefLabelMap(concepts)
+    const prefLabelMap = await createPrefLabelMap()
 
     let responseBody
     let contentType

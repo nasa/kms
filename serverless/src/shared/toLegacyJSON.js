@@ -43,7 +43,7 @@
  */
 
 // Helper function to determine if there are multiple altLabels and assist in translating the different types
-function processAltLabels(altLabels) {
+const processAltLabels = (altLabels) => {
   if (!altLabels) {
     return []
   }

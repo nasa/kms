@@ -86,8 +86,9 @@ export const getConcepts = async (event) => {
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
 
+    // Grabbing all information for JSON response
     const [prefLabelMap, shortNameMap, schemeMap, definitionsMap] = await Promise.all([
-      createPrefLabelMap(conceptURIs.map((uri) => ({ conceptIRI: uri }))),
+      createPrefLabelMap(),
       createShortNameMap(),
       createConceptSchemeMap(),
       createDefinitionsMap()

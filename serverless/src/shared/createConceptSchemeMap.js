@@ -30,23 +30,19 @@ import getConceptSchemes from '@/getConceptSchemes/handler'
  * }
  */
 
-function createConceptSchemeMap() {
-  return getConceptSchemes()
-    .then((conceptSchemes) => {
-      const xmlConceptSchemes = conceptSchemes.body
-      const parser = new XMLParser({
-        ignoreAttributes: false,
-        attributeNamePrefix: '@'
-      })
-      const parsedConceptSchemes = parser.parse(xmlConceptSchemes)
-
-      return new Map(
-        parsedConceptSchemes.schemes.scheme.map((scheme) => [
-          scheme['@name'],
-          scheme['@longName']
-        ])
-      )
+export const createConceptSchemeMap = () => getConceptSchemes()
+  .then((conceptSchemes) => {
+    const xmlConceptSchemes = conceptSchemes.body
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@'
     })
-}
+    const parsedConceptSchemes = parser.parse(xmlConceptSchemes)
 
-export { createConceptSchemeMap }
+    return new Map(
+      parsedConceptSchemes.schemes.scheme.map((scheme) => [
+        scheme['@name'],
+        scheme['@longName']
+      ])
+    )
+  })

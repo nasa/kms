@@ -251,30 +251,6 @@ describe('getConcept', () => {
         })
       })
     })
-
-    describe('related concepts handling', () => {
-      test('should handle broader, narrower, and related concepts', async () => {
-        const mockEvent = { pathParameters: { conceptId: '123' } }
-        const mockSkosConcept = {
-          '@rdf:about': '123',
-          'skos:prefLabel': 'Test Concept',
-          'skos:broader': { '@rdf:resource': 'broader1' },
-          'skos:narrower': [{ '@rdf:resource': 'narrower1' }, { '@rdf:resource': 'narrower2' }],
-          'skos:related': [{ '@rdf:resource': 'related1' }]
-        }
-        mockSuccessfulResponse(mockSkosConcept)
-
-        await getConcept(mockEvent)
-
-        expect(createPrefLabelMap).toHaveBeenCalledWith([
-          { conceptIRI: 'https://gcmd.earthdata.nasa.gov/kms/concept/123' },
-          { conceptIRI: 'broader1' },
-          { conceptIRI: 'narrower1' },
-          { conceptIRI: 'narrower2' },
-          { conceptIRI: 'related1' }
-        ])
-      })
-    })
   })
 
   describe('when unsuccessful', () => {

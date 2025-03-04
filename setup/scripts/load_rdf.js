@@ -11,9 +11,7 @@ const { XMLParser, XMLBuilder } = require('fast-xml-parser')
  * @param {number} ms - The number of milliseconds to delay.
  * @returns {Promise} A promise that resolves after the specified delay.
  */
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Loads SKOS concepts from an RDF/XML file into a SPARQL endpoint in batches.
@@ -22,7 +20,7 @@ function delay(ms) {
  * @param {string} filePath - The path to the RDF/XML file containing the concepts.
  * @param {number} [batchSize=100] - The number of concepts to send in each batch.
  */
-async function loadConcepts(filePath, batchSize = 100) {
+const loadConcepts = async (filePath, batchSize = 100) => {
   // Read the XML file
   const xmlData = fs.readFileSync(filePath, 'utf8')
 
