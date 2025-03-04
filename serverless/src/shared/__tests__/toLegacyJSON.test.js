@@ -107,7 +107,7 @@ describe('toLegacyJSON', () => {
   })
 
   describe('when provided with narrower data', () => {
-    test('should return correct narrower information', async () => {
+    test('should return correct narrower information for multiple narrowers', async () => {
       mockSkosConcept['skos:narrower'] = [
         { '@rdf:resource': 'narrowerUUID1' },
         { '@rdf:resource': 'narrowerUUID2' }
@@ -127,6 +127,23 @@ describe('toLegacyJSON', () => {
         {
           uuid: 'narrowerUUID2',
           prefLabel: 'Narrower Concept 2',
+          scheme: {
+            shortName: 'testScheme',
+            longName: 'Test Scheme'
+          }
+        }
+      ])
+    })
+
+    test('should return correct narrower information for a single narrower concept', async () => {
+      mockSkosConcept['skos:narrower'] = { '@rdf:resource': 'narrowerUUID1' }
+
+      const result = await toLegacyJSON(mockSkosConcept, mockConceptSchemeMap, mockPrefLabelMap)
+
+      expect(result.narrower).toEqual([
+        {
+          uuid: 'narrowerUUID1',
+          prefLabel: 'Narrower Concept 1',
           scheme: {
             shortName: 'testScheme',
             longName: 'Test Scheme'
