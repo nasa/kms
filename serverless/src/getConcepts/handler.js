@@ -1,9 +1,8 @@
+/* eslint-disable no-underscore-dangle */
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import { createDefinitionsMap } from '@/shared/createDefinitionsMap'
-import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { createShortNameMap } from '@/shared/createShortNameMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
@@ -86,88 +85,84 @@ export const getConcepts = async (event) => {
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
 
-    // Grabbing all information for JSON response
-    const [prefLabelMap, shortNameMap, schemeMap, definitionsMap] = await Promise.all([
-      createPrefLabelMap(),
-      createShortNameMap(),
-      createConceptSchemeMap(),
-      createDefinitionsMap()
-    ])
-
     let responseBody
     let contentType
 
-    switch (format.toLowerCase()) {
-      case 'json': {
-        const jsonResponse = {
-          hits: totalConcepts,
-          page_num: pageNum,
-          page_size: pageSize,
-          termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
-          keywordVersion: '20.8',
-          viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
-          concepts: conceptURIs.map((uri) => {
-            const uuid = uri.split('/').pop()
-            const shortName = shortNameMap.get(uuid)
-            const { text, reference } = definitionsMap.get(uuid) || {}
-
-            return {
-              uuid,
-              prefLabel: prefLabelMap.get(uuid),
-              scheme: {
-                shortName,
-                longName: schemeMap.get(shortName)
-              },
-              definitions: [{
-                text,
-                reference
-              }].filter((def) => def.text || def.reference)
-            }
-          })
-        }
-        responseBody = JSON.stringify(jsonResponse)
-        contentType = 'application/json'
-        break
-      }
-
-      case 'xml': {
-        // TODO in KMS-535
-        break
-      }
-
-      case 'rdf':
-      default: {
-        const builder = new XMLBuilder({
-          format: true,
-          ignoreAttributes: false,
-          indentBy: '  ',
-          attributeNamePrefix: '@',
-          suppressEmptyNode: true,
-          textNodeName: '_text'
-        })
-
-        const concepts = conceptURIs.map((uri) => {
+    if (format.toLowerCase() === 'json') {
+      // Grabbing all information for JSON response
+      const [shortNameMap, schemeMap] = await Promise.all([
+        createShortNameMap(),
+        createConceptSchemeMap()
+      ])
+      const jsonResponse = {
+        hits: totalConcepts,
+        page_num: pageNum,
+        page_size: pageSize,
+        termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
+        keywordVersion: '20.8',
+        viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
+        concepts: conceptURIs.map((uri) => {
           const ntriples = [...nodes[uri]]
+          const concept = toSkosJson(uri, ntriples, bNodeMap)
+          const uuid = concept['@rdf:about']
+          const shortName = shortNameMap.get(uuid)
 
-          return toSkosJson(uri, ntriples, bNodeMap)
-        })
+          return {
+            uuid,
+            prefLabel: concept['skos:prefLabel']._text,
+            scheme: {
+              shortName,
+              longName: schemeMap.get(shortName)
+            },
+            definitions: (() => {
+              const definition = concept['skos:definition']
+              const reference = concept['gcmd:reference']
 
-        const rdfJson = {
-          'rdf:RDF': {
-            ...namespaces,
-            'gcmd:gcmd': await getGcmdMetadata({
-              pageNum,
-              pageSize,
-              gcmdHits: totalConcepts
-            }),
-            'skos:Concept': concepts
+              if (!definition && !reference) return undefined
+
+              return [{
+                text: definition && definition._text ? definition._text : undefined,
+                reference: reference && reference['@gcmd:text'] ? reference['@gcmd:text'] : undefined
+              }]
+            })()
           }
-        }
-
-        responseBody = builder.build(rdfJson)
-        contentType = 'application/rdf+xml'
-        break
+        })
       }
+      responseBody = JSON.stringify(jsonResponse)
+      contentType = 'application/json'
+    } else if (format.toLowerCase() === 'xml') {
+      // TODO in KMS-535
+    } else {
+      // Default case (including 'rdf')
+      const builder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true,
+        textNodeName: '_text'
+      })
+
+      const concepts = conceptURIs.map((uri) => {
+        const ntriples = [...nodes[uri]]
+
+        return toSkosJson(uri, ntriples, bNodeMap)
+      })
+
+      const rdfJson = {
+        'rdf:RDF': {
+          ...namespaces,
+          'gcmd:gcmd': await getGcmdMetadata({
+            pageNum,
+            pageSize,
+            gcmdHits: totalConcepts
+          }),
+          'skos:Concept': concepts
+        }
+      }
+
+      responseBody = builder.build(rdfJson)
+      contentType = 'application/rdf+xml'
     }
 
     return {

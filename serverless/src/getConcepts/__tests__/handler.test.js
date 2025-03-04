@@ -8,8 +8,6 @@ import {
 
 import { getConcepts } from '@/getConcepts/handler'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import { createDefinitionsMap } from '@/shared/createDefinitionsMap'
-import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { createShortNameMap } from '@/shared/createShortNameMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
@@ -25,10 +23,8 @@ vi.mock('@/shared/processTriples')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
-vi.mock('@/shared/createPrefLabelMap')
 vi.mock('@/shared/createShortNameMap')
 vi.mock('@/shared/createConceptSchemeMap')
-vi.mock('@/shared/createDefinitionsMap')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -39,10 +35,8 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-    createPrefLabelMap.mockResolvedValue(new Map())
     createShortNameMap.mockResolvedValue(new Map())
     createConceptSchemeMap.mockResolvedValue(new Map())
-    createDefinitionsMap.mockResolvedValue(new Map())
   })
 
   describe('when successful', () => {
@@ -603,10 +597,12 @@ describe('getConcepts', () => {
         conceptURIs: ['http://example.com/concept1', 'http://example.com/concept2']
       })
 
-      createPrefLabelMap.mockResolvedValue(new Map([
-        ['concept1', 'Concept 1'],
-        ['concept2', 'Concept 2']
-      ]))
+      toSkosJson.mockImplementation((uri) => ({
+        '@rdf:about': uri.split('/').pop(),
+        'skos:prefLabel': { _text: `Preflabel ${uri.split('/').pop()}` },
+        'skos:definition': { _text: `Definition for ${uri.split('/').pop()}` },
+        'gcmd:reference': { '@gcmd:text': `Reference for ${uri.split('/').pop()}` }
+      }))
 
       createShortNameMap.mockResolvedValue(new Map([
         ['concept1', 'SN1'],
@@ -616,17 +612,6 @@ describe('getConcepts', () => {
       createConceptSchemeMap.mockResolvedValue(new Map([
         ['SN1', 'Long Name 1'],
         ['SN2', 'Long Name 2']
-      ]))
-
-      createDefinitionsMap.mockResolvedValue(new Map([
-        ['concept1', {
-          text: 'Definition 1',
-          reference: 'Ref 1'
-        }],
-        ['concept2', {
-          text: 'Definition 2',
-          reference: 'Ref 2'
-        }]
       ]))
 
       const event = {
@@ -647,14 +632,14 @@ describe('getConcepts', () => {
       expect(body.concepts).toHaveLength(2)
       expect(body.concepts[0]).toEqual({
         uuid: 'concept1',
-        prefLabel: 'Concept 1',
+        prefLabel: 'Preflabel concept1',
         scheme: {
           shortName: 'SN1',
           longName: 'Long Name 1'
         },
         definitions: [{
-          text: 'Definition 1',
-          reference: 'Ref 1'
+          text: 'Definition for concept1',
+          reference: 'Reference for concept1'
         }]
       })
     })

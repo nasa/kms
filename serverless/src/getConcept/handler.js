@@ -80,42 +80,36 @@ export const getConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
 
-    const conceptSchemeMap = await createConceptSchemeMap()
-    const prefLabelMap = await createPrefLabelMap()
-
     let responseBody
     let contentType
 
     // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
-    switch (format.toLowerCase()) {
-      case 'json':
-        responseBody = JSON.stringify(await toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
-        contentType = 'application/json'
-        break
-      case 'xml':
-        // TODO in KMS-535
-        break
-      case 'rdf':
-      default: {
-        const builder = new XMLBuilder({
-          format: true,
-          ignoreAttributes: false,
-          indentBy: '  ',
-          attributeNamePrefix: '@',
-          suppressEmptyNode: true,
-          textNodeName: '_text'
-        })
-        const rdfJson = {
-          'rdf:RDF': {
-            ...namespaces,
-            'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
-            'skos:Concept': [concept]
-          }
+    if (format.toLowerCase() === 'json') {
+      const conceptSchemeMap = await createConceptSchemeMap()
+      const prefLabelMap = await createPrefLabelMap()
+      responseBody = JSON.stringify(await toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
+      contentType = 'application/json'
+    } else if (format.toLowerCase() === 'xml') {
+      // TODO in KMS-535
+    } else {
+      // Default case (including 'rdf')
+      const builder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true,
+        textNodeName: '_text'
+      })
+      const rdfJson = {
+        'rdf:RDF': {
+          ...namespaces,
+          'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
+          'skos:Concept': [concept]
         }
-        responseBody = await builder.build(rdfJson)
-        contentType = 'application/rdf+xml'
-        break
       }
+      responseBody = await builder.build(rdfJson)
+      contentType = 'application/rdf+xml'
     }
 
     return {
