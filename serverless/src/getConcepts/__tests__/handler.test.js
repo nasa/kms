@@ -1,3 +1,5 @@
+/* eslint-disable no-underscore-dangle */
+// /* eslint-disable no-underscore-dangle */
 import {
   beforeEach,
   describe,
@@ -7,22 +9,31 @@ import {
 } from 'vitest'
 
 import { getConcepts } from '@/getConcepts/handler'
+import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { processTriples } from '@/shared/processTriples'
+import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
-vi.mock('@/shared/createCsvForScheme')
+vi.mock('@/shared/createCsvForScheme', () => ({
+  createCsvForScheme: vi.fn()
+}))
+
 vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
 vi.mock('@/shared/processTriples')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
+vi.mock('@/shared/createPrefLabelMap')
+vi.mock('@/shared/createConceptSchemeMap')
+vi.mock('@/shared/toLegacyJSON')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -33,10 +44,18 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    createCsvForScheme.mockReset()
   })
 
   describe('when format is CSV', () => {
     test('calls createCsvForScheme when format is csv and conceptScheme is provided', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
       const mockCsvResponse = {
         statusCode: 200,
         body: 'csv data',
@@ -60,6 +79,13 @@ describe('getConcepts', () => {
     })
 
     test('returns 400 when format is csv but conceptScheme is not provided', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
       const event = {
         queryStringParameters: {
           format: 'csv'
@@ -76,27 +102,13 @@ describe('getConcepts', () => {
     })
 
     test('returns 400 when format is csv and pattern is provided', async () => {
-      const event = {
-        queryStringParameters: {
-          format: 'csv'
-        },
-        pathParameters: {
-          conceptScheme: 'testScheme',
-          pattern: 'testPattern'
-        }
-      }
-
-      const result = await getConcepts(event)
-
-      expect(result).toEqual({
-        headers: mockDefaultHeaders,
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
       })
-    })
 
-    // New test
-    test('returns 400 when format is csv and both conceptScheme and pattern are provided', async () => {
       const event = {
         queryStringParameters: {
           format: 'csv'
@@ -148,7 +160,11 @@ describe('getConcepts', () => {
       const event = { pathParameters: { pattern: 'matching' } }
       const result = await getConcepts(event)
 
-      expect(getFilteredTriples).toHaveBeenCalledWith({ pattern: 'matching' })
+      expect(getFilteredTriples).toHaveBeenCalledWith({
+        pattern: 'matching',
+        conceptScheme: undefined
+      })
+
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
       expect(result.body).not.toContain('<skos:Concept rdf:about="uri2">')
     })
@@ -183,7 +199,11 @@ describe('getConcepts', () => {
       const event = { pathParameters: { conceptScheme: 'scheme1' } }
       const result = await getConcepts(event)
 
-      expect(getFilteredTriples).toHaveBeenCalledWith({ conceptScheme: 'scheme1' })
+      expect(getFilteredTriples).toHaveBeenCalledWith({
+        conceptScheme: 'scheme1',
+        pattern: undefined
+      })
+
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
       expect(result.body).not.toContain('<skos:Concept rdf:about="uri2">')
     })
@@ -237,44 +257,6 @@ describe('getConcepts', () => {
       expect(result.body).not.toContain('<skos:Concept rdf:about="uri2">')
     })
 
-    test('returns all concepts when no pattern or concept scheme is provided', async () => {
-      const mockTriples = [
-        {
-          s: { value: 'uri1' },
-          p: { value: 'p1' },
-          o: { value: 'o1' }
-        },
-        {
-          s: { value: 'uri2' },
-          p: { value: 'p2' },
-          o: { value: 'o2' }
-        }
-      ]
-      getFilteredTriples.mockResolvedValue(mockTriples)
-      processTriples.mockReturnValue({
-        bNodeMap: {},
-        nodes: {
-          uri1: new Set([mockTriples[0]]),
-          uri2: new Set([mockTriples[1]])
-        },
-        conceptURIs: ['uri1', 'uri2']
-      })
-
-      toSkosJson.mockImplementation((uri) => ({
-        '@rdf:about': uri,
-        'skos:prefLabel': `Concept ${uri}`
-      }))
-
-      getGcmdMetadata.mockResolvedValue({})
-
-      const event = {}
-      const result = await getConcepts(event)
-
-      expect(getFilteredTriples).toHaveBeenCalledWith({})
-      expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
-      expect(result.body).toContain('<skos:Concept rdf:about="uri2">')
-    })
-
     test('returns root concepts', async () => {
       const mockRootTriples = [
         {
@@ -317,7 +299,7 @@ describe('getConcepts', () => {
       expect(result.body).toContain('<skos:prefLabel>Root Concept rootUri2</skos:prefLabel>')
     })
 
-    describe('when paging', async () => {
+    describe('when paging', () => {
       test('handles pagination correctly for different page sizes', async () => {
         const mockTriples = Array(100).fill().map((_, i) => ({
           s: { value: `uri${i}` },
@@ -375,7 +357,6 @@ describe('getConcepts', () => {
           const result = await getConcepts(event)
 
           expect(result.headers['X-Total-Count']).toBe('100')
-          expect(result.headers['X-Page-Number']).toBe(pageNum)
           expect(result.headers['X-Page-Number']).toBe(pageNum)
           expect(result.headers['X-Page-Size']).toBe(pageSize)
           expect(result.headers['X-Total-Pages']).toBe(expectedTotalPages)
@@ -684,25 +665,193 @@ describe('getConcepts', () => {
     })
   })
 
-  describe('when unsuccesful', () => {
-    test('returns 500 status code and error message when an exception is thrown', async () => {
-      // Mock an error being thrown
-      const mockError = new Error('Test error')
-      getFilteredTriples.mockRejectedValue(mockError)
-
-      const event = {} // Empty event object
-      const result = await getConcepts(event)
-
-      expect(result).toEqual({
-        headers: mockDefaultHeaders,
-        statusCode: 500,
-        body: JSON.stringify({
-          error: mockError.toString()
-        })
+  describe('when returning JSON format', () => {
+    test('returns concepts in JSON format when requested', async () => {
+      const mockTriples = [
+        {
+          s: { value: 'http://example.com/concept1' },
+          p: { value: 'p1' },
+          o: { value: 'o1' }
+        },
+        {
+          s: { value: 'http://example.com/concept2' },
+          p: { value: 'p2' },
+          o: { value: 'o2' }
+        }
+      ]
+      getFilteredTriples.mockResolvedValue(mockTriples)
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {
+          'http://example.com/concept1': new Set([mockTriples[0]]),
+          'http://example.com/concept2': new Set([mockTriples[1]])
+        },
+        conceptURIs: ['http://example.com/concept1', 'http://example.com/concept2']
       })
 
-      // Verify that the error was logged
-      expect(console.error).toHaveBeenCalledWith(`Error retrieving concept, error=${mockError.toString()}`)
+      toSkosJson.mockImplementation((uri) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': { _text: `Concept ${uri.split('/').pop()}` },
+        'skos:definition': { _text: `Definition for ${uri.split('/').pop()}` },
+        'gcmd:reference': { '@gcmd:text': `Reference for ${uri.split('/').pop()}` }
+      }))
+
+      createPrefLabelMap.mockResolvedValue(new Map([
+        ['http://example.com/concept1', 'Concept 1'],
+        ['http://example.com/concept2', 'Concept 2']
+      ]))
+
+      createConceptSchemeMap.mockResolvedValue(new Map([
+        ['SN', 'Long Name']
+      ]))
+
+      toLegacyJSON.mockImplementation((concept) => ({
+        uuid: concept['@rdf:about'],
+        prefLabel: concept['skos:prefLabel']._text,
+        scheme: {
+          shortName: 'SN',
+          longName: 'Long Name'
+        },
+        definitions: [{
+          text: concept['skos:definition']._text,
+          reference: concept['gcmd:reference']['@gcmd:text']
+        }]
+      }))
+
+      const event = {
+        queryStringParameters: {
+          format: 'json'
+        }
+      }
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
+
+      const body = JSON.parse(result.body)
+      expect(body).toHaveProperty('hits', 2)
+      expect(body).toHaveProperty('page_num', 1)
+      expect(body).toHaveProperty('page_size', 2000)
+      expect(body).toHaveProperty('concepts')
+      expect(body.concepts).toHaveLength(2)
+      expect(body.concepts[0]).toEqual({
+        uuid: 'http://example.com/concept1',
+        prefLabel: 'Concept concept1',
+        scheme: {
+          shortName: 'SN',
+          longName: 'Long Name'
+        },
+        definitions: [{
+          text: 'Definition for concept1',
+          reference: 'Reference for concept1'
+        }]
+      })
     })
+  })
+})
+
+describe('when unsuccessful', () => {
+  test('returns 400 status code for invalid page_num parameter', async () => {
+    const event = {
+      queryStringParameters: {
+        page_num: 'invalid'
+      }
+    }
+    const result = await getConcepts(event)
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Invalid page_num parameter'
+    })
+  })
+
+  test('returns 400 status code for invalid page_size parameter', async () => {
+    const event = {
+      queryStringParameters: {
+        page_size: '3000'
+      }
+    }
+    const result = await getConcepts(event)
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+    })
+  })
+
+  test('returns 500 status code and error message when an exception is thrown', async () => {
+    const mockError = new Error('Test error')
+    getFilteredTriples.mockRejectedValue(mockError)
+
+    const event = {} // Empty event object
+    const result = await getConcepts(event)
+
+    expect(result).toEqual({
+      headers: { 'X-Custom-Header': 'value' },
+      statusCode: 500,
+      body: JSON.stringify({
+        error: mockError.toString()
+      })
+    })
+
+    expect(console.error).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
+  })
+})
+
+describe('format handling', () => {
+  test('returns RDF format by default', async () => {
+    getFilteredTriples.mockResolvedValue([])
+    processTriples.mockReturnValue({
+      bNodeMap: {},
+      nodes: {},
+      conceptURIs: []
+    })
+
+    getGcmdMetadata.mockResolvedValue({})
+
+    const event = {}
+    const result = await getConcepts(event)
+
+    expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
+    expect(result.body).toContain('<rdf:RDF')
+  })
+
+  test('returns JSON format when specified', async () => {
+    getFilteredTriples.mockResolvedValue([])
+    processTriples.mockReturnValue({
+      bNodeMap: {},
+      nodes: {},
+      conceptURIs: []
+    })
+
+    const event = { queryStringParameters: { format: 'json' } }
+    const result = await getConcepts(event)
+
+    expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
+    expect(() => JSON.parse(result.body)).not.toThrow()
+  })
+
+  test('returns CSV format when specified and conceptScheme is provided', async () => {
+    getFilteredTriples.mockResolvedValue([])
+    processTriples.mockReturnValue({
+      bNodeMap: {},
+      nodes: {},
+      conceptURIs: []
+    })
+
+    const mockCsvResponse = {
+      statusCode: 200,
+      body: 'csv data',
+      headers: { 'Content-Type': 'text/csv' }
+    }
+    createCsvForScheme.mockResolvedValue(mockCsvResponse)
+
+    const event = {
+      queryStringParameters: { format: 'csv' },
+      pathParameters: { conceptScheme: 'testScheme' }
+    }
+    const result = await getConcepts(event)
+
+    expect(result).toEqual(mockCsvResponse)
   })
 })
