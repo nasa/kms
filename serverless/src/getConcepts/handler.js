@@ -3,12 +3,13 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import { createShortNameMap } from '@/shared/createShortNameMap'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { processTriples } from '@/shared/processTriples'
+import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 /**
@@ -90,9 +91,9 @@ export const getConcepts = async (event) => {
 
     if (format.toLowerCase() === 'json') {
       // Grabbing all information for JSON response
-      const [shortNameMap, schemeMap] = await Promise.all([
-        createShortNameMap(),
-        createConceptSchemeMap()
+      const [schemeMap, prefLabelMap] = await Promise.all([
+        createConceptSchemeMap(),
+        createPrefLabelMap()
       ])
       const jsonResponse = {
         hits: totalConcepts,
@@ -104,27 +105,16 @@ export const getConcepts = async (event) => {
         concepts: conceptURIs.map((uri) => {
           const ntriples = [...nodes[uri]]
           const concept = toSkosJson(uri, ntriples, bNodeMap)
-          const uuid = concept['@rdf:about']
-          const shortName = shortNameMap.get(uuid)
+          const legacyJSON = toLegacyJSON(concept, schemeMap, prefLabelMap)
 
           return {
-            uuid,
-            prefLabel: concept['skos:prefLabel']._text,
+            uuid: legacyJSON.uuid,
+            prefLabel: legacyJSON.prefLabel,
             scheme: {
-              shortName,
-              longName: schemeMap.get(shortName)
+              shortName: legacyJSON.scheme.shortName,
+              longName: legacyJSON.scheme.longName
             },
-            definitions: (() => {
-              const definition = concept['skos:definition']
-              const reference = concept['gcmd:reference']
-
-              if (!definition && !reference) return undefined
-
-              return [{
-                text: definition && definition._text ? definition._text : undefined,
-                reference: reference && reference['@gcmd:text'] ? reference['@gcmd:text'] : undefined
-              }]
-            })()
+            definitions: legacyJSON.definitions
           }
         })
       }

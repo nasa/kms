@@ -87,7 +87,7 @@ export const getConcept = async (event) => {
     if (format.toLowerCase() === 'json') {
       const conceptSchemeMap = await createConceptSchemeMap()
       const prefLabelMap = await createPrefLabelMap()
-      responseBody = JSON.stringify(await toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
+      responseBody = JSON.stringify(toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
       contentType = 'application/json'
     } else if (format.toLowerCase() === 'xml') {
       // TODO in KMS-535

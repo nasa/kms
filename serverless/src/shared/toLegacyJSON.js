@@ -96,14 +96,21 @@ const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
           longName: schemeLongName
         }
       }] : [],
-      narrower: (skosConcept['skos:narrower'] || []).map((narrow) => ({
-        uuid: narrow['@rdf:resource'],
-        prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
-        scheme: {
-          shortName: schemeShortName,
-          longName: schemeLongName
-        }
-      })),
+      narrower: (() => {
+        const narrower = skosConcept['skos:narrower']
+        if (!narrower) return []
+
+        const narrowerArray = Array.isArray(narrower) ? narrower : [narrower]
+
+        return narrowerArray.map((narrow) => ({
+          uuid: narrow['@rdf:resource'],
+          prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
+          scheme: {
+            shortName: schemeShortName,
+            longName: schemeLongName
+          }
+        }))
+      })(),
       related: (skosConcept['skos:related'] || []).map((relation) => ({
         uuid: relation['@rdf:resource'],
         prefLabel: prefLabelMap.get(relation['@rdf:resource']),

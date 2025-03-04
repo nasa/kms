@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 import {
   beforeEach,
   describe,
@@ -8,12 +9,13 @@ import {
 
 import { getConcepts } from '@/getConcepts/handler'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import { createShortNameMap } from '@/shared/createShortNameMap'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { processTriples } from '@/shared/processTriples'
+import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
@@ -23,8 +25,9 @@ vi.mock('@/shared/processTriples')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
-vi.mock('@/shared/createShortNameMap')
+vi.mock('@/shared/createPrefLabelMap')
 vi.mock('@/shared/createConceptSchemeMap')
+vi.mock('@/shared/toLegacyJSON')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -35,8 +38,20 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-    createShortNameMap.mockResolvedValue(new Map())
+    createPrefLabelMap.mockResolvedValue(new Map())
     createConceptSchemeMap.mockResolvedValue(new Map())
+    toLegacyJSON.mockImplementation((concept) => ({
+      uuid: concept['@rdf:about'],
+      prefLabel: concept['skos:prefLabel']._text,
+      scheme: {
+        shortName: 'SN',
+        longName: 'Long Name'
+      },
+      definitions: [{
+        text: concept['skos:definition']?._text,
+        reference: concept['gcmd:reference']?.['@gcmd:text']
+      }]
+    }))
   })
 
   describe('when successful', () => {
@@ -573,7 +588,9 @@ describe('getConcepts', () => {
         })
       })
     })
+  })
 
+  describe('when returning JSON format', () => {
     test('returns concepts in JSON format when requested', async () => {
       const mockTriples = [
         {
@@ -598,20 +615,19 @@ describe('getConcepts', () => {
       })
 
       toSkosJson.mockImplementation((uri) => ({
-        '@rdf:about': uri.split('/').pop(),
-        'skos:prefLabel': { _text: `Preflabel ${uri.split('/').pop()}` },
+        '@rdf:about': uri,
+        'skos:prefLabel': { _text: `Concept ${uri.split('/').pop()}` },
         'skos:definition': { _text: `Definition for ${uri.split('/').pop()}` },
         'gcmd:reference': { '@gcmd:text': `Reference for ${uri.split('/').pop()}` }
       }))
 
-      createShortNameMap.mockResolvedValue(new Map([
-        ['concept1', 'SN1'],
-        ['concept2', 'SN2']
+      createPrefLabelMap.mockResolvedValue(new Map([
+        ['http://example.com/concept1', 'Concept 1'],
+        ['http://example.com/concept2', 'Concept 2']
       ]))
 
       createConceptSchemeMap.mockResolvedValue(new Map([
-        ['SN1', 'Long Name 1'],
-        ['SN2', 'Long Name 2']
+        ['SN', 'Long Name']
       ]))
 
       const event = {
@@ -631,11 +647,11 @@ describe('getConcepts', () => {
       expect(body).toHaveProperty('concepts')
       expect(body.concepts).toHaveLength(2)
       expect(body.concepts[0]).toEqual({
-        uuid: 'concept1',
-        prefLabel: 'Preflabel concept1',
+        uuid: 'http://example.com/concept1',
+        prefLabel: 'Concept concept1',
         scheme: {
-          shortName: 'SN1',
-          longName: 'Long Name 1'
+          shortName: 'SN',
+          longName: 'Long Name'
         },
         definitions: [{
           text: 'Definition for concept1',

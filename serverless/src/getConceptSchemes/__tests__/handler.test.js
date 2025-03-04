@@ -19,6 +19,9 @@ describe('getConceptSchemes', () => {
   beforeEach(() => {
     vi.resetAllMocks()
 
+    // Mock console.error
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
     // Mock the getApplicationConfig function
     getConfigModule.getApplicationConfig.mockReturnValue({
       defaultResponseHeaders: {

@@ -157,10 +157,10 @@ describe('getConcept', () => {
         }
         const mockSkosConcept = {
           '@rdf:about': '123',
-          'skos:prefLabel': 'Test Concept'
+          'skos:prefLabel': { _text: 'Test Concept' }
         }
         mockSuccessfulResponse(mockSkosConcept)
-        toLegacyJSON.mockResolvedValue({
+        toLegacyJSON.mockReturnValue({
           id: '123',
           label: 'Test Concept'
         })
@@ -169,7 +169,8 @@ describe('getConcept', () => {
 
         expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
         expect(() => JSON.parse(result.body)).not.toThrow()
-        expect(JSON.parse(result.body)).toEqual({
+        const parsedBody = JSON.parse(result.body)
+        expect(parsedBody).toEqual({
           id: '123',
           label: 'Test Concept'
         })
