@@ -49,6 +49,19 @@ Resources:
                 - events.amazonaws.com
             Action: sts:AssumeRole
       Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - arn:aws:s3:::kms-rdf-backup
+                  - arn:aws:s3:::kms-rdf-backup/*      
         - PolicyName: KMSLambdaBase
           PolicyDocument:
             Version: '2012-10-17'

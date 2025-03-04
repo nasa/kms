@@ -18,6 +18,7 @@ vi.mock('@/shared/getConceptSchemeDetails', () => ({
 describe('getConceptSchemes', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
 
     // Mock console.error
     vi.spyOn(console, 'error').mockImplementation(() => {})

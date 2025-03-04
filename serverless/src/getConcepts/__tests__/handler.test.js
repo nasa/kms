@@ -10,6 +10,7 @@ import {
 import { getConcepts } from '@/getConcepts/handler'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
+import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -19,6 +20,7 @@ import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
+vi.mock('@/shared/createCsvForScheme')
 vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
 vi.mock('@/shared/processTriples')
@@ -38,20 +40,88 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-    createPrefLabelMap.mockResolvedValue(new Map())
-    createConceptSchemeMap.mockResolvedValue(new Map())
-    toLegacyJSON.mockImplementation((concept) => ({
-      uuid: concept['@rdf:about'],
-      prefLabel: concept['skos:prefLabel']._text,
-      scheme: {
-        shortName: 'SN',
-        longName: 'Long Name'
-      },
-      definitions: [{
-        text: concept['skos:definition']?._text,
-        reference: concept['gcmd:reference']?.['@gcmd:text']
-      }]
-    }))
+  })
+
+  describe('when format is CSV', () => {
+    test('calls createCsvForScheme when format is csv and conceptScheme is provided', async () => {
+      const mockCsvResponse = {
+        statusCode: 200,
+        body: 'csv data',
+        headers: { 'Content-Type': 'text/csv' }
+      }
+      createCsvForScheme.mockResolvedValue(mockCsvResponse)
+
+      const event = {
+        queryStringParameters: {
+          format: 'csv'
+        },
+        pathParameters: {
+          conceptScheme: 'testScheme'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme')
+      expect(result).toEqual(mockCsvResponse)
+    })
+
+    test('returns 400 when format is csv but conceptScheme is not provided', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'csv'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
+      })
+    })
+
+    test('returns 400 when format is csv and pattern is provided', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'csv'
+        },
+        pathParameters: {
+          conceptScheme: 'testScheme',
+          pattern: 'testPattern'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      })
+    })
+
+    // New test
+    test('returns 400 when format is csv and both conceptScheme and pattern are provided', async () => {
+      const event = {
+        queryStringParameters: {
+          format: 'csv'
+        },
+        pathParameters: {
+          conceptScheme: 'testScheme',
+          pattern: 'testPattern'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      })
+    })
   })
 
   describe('when successful', () => {

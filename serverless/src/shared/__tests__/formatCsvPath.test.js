@@ -1,0 +1,87 @@
+import { formatCsvPath } from '../formatCsvPath'
+
+describe('formatPath', () => {
+  describe('when successful', () => {
+    describe('platforms, instruments, projects schemes', () => {
+      const schemes = ['platforms', 'instruments', 'projects']
+
+      schemes.forEach((scheme) => {
+        describe(`for ${scheme}`, () => {
+          test('should return the path as is when path length equals maxLevel', () => {
+            const result = formatCsvPath(scheme, 5, ['a', 'b', 'c'], false)
+            expect(result).toEqual(['a', 'b', 'c'])
+          })
+
+          test('should pad the path with spaces when path length is less than maxLevel and not a leaf', () => {
+            const result = formatCsvPath(scheme, 6, ['a', 'b'], false)
+            expect(result).toEqual(['a', 'b', ' ', ' '])
+          })
+
+          test('should insert a space at maxLevel - 2 when path length is less than maxLevel and is a leaf', () => {
+            const result = formatCsvPath(scheme, 6, ['a', 'b', 'c'], true)
+            expect(result).toEqual(['a', 'b', ' ', 'c'])
+          })
+        })
+      })
+    })
+
+    describe('sciencekeywords, chronounits, locations, discipline, rucontenttype, measurementname schemes', () => {
+      const schemes = ['sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', 'measurementname']
+
+      schemes.forEach((scheme) => {
+        describe(`for ${scheme}`, () => {
+          test('should return the path as is when path length equals maxLevel', () => {
+            const result = formatCsvPath(scheme, 4, ['a', 'b', 'c'], false)
+            expect(result).toEqual(['a', 'b', 'c'])
+          })
+
+          test('should pad the path with spaces when path length is less than maxLevel', () => {
+            const result = formatCsvPath(scheme, 5, ['a', 'b'], false)
+            expect(result).toEqual(['a', 'b', ' ', ' '])
+          })
+        })
+      })
+    })
+
+    describe('providers scheme', () => {
+      test('should return the path as is when path length equals maxLevel', () => {
+        const result = formatCsvPath('providers', 5, ['a', 'b'], false)
+        expect(result).toEqual(['a', 'b'])
+      })
+
+      test('should pad the path with spaces when path length is less than maxLevel and not a leaf', () => {
+        const result = formatCsvPath('providers', 6, ['a', 'b'], false)
+        expect(result).toEqual(['a', 'b', ' '])
+      })
+
+      test('should insert spaces before the last element when path length is less than maxLevel and is a leaf', () => {
+        const result = formatCsvPath('providers', 6, ['a', 'b'], true)
+        expect(result).toEqual(['a', ' ', 'b'])
+      })
+    })
+
+    describe('edge cases', () => {
+      test('should return the original path for platforms scheme when path length equals maxLevel', () => {
+        const result = formatCsvPath('platforms', 4, ['a', 'b', 'c', 'd'], true)
+        expect(result).toEqual(['a', 'b', 'c', 'd'])
+      })
+
+      test('should return the original path for sciencekeywords scheme when path length shorter than maxLevel', () => {
+        const result = formatCsvPath('sciencekeywords', 4, ['a', 'b'], false)
+        expect(result).toEqual(['a', 'b', ' '])
+      })
+
+      test('should return the original path for providers scheme when path length equals maxLevel', () => {
+        const result = formatCsvPath('providers', 8, ['a', 'b'], true)
+        expect(result).toEqual(['a', ' ', ' ', ' ', 'b'])
+      })
+    })
+  })
+
+  describe('when unsuccessful', () => {
+    test('should return the path as is for unknown schemes', () => {
+      const result = formatCsvPath('unknown', 5, ['a', 'b', 'c'], false)
+      expect(result).toEqual(['a', 'b', 'c'])
+    })
+  })
+})
