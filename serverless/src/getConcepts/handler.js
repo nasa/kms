@@ -3,8 +3,8 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -38,29 +38,8 @@ import { toSkosJson } from '@/shared/toSkosJson'
  */
 export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
-
-  if (queryStringParameters?.format === 'csv') {
-    if (!conceptScheme) {
-      return {
-        headers: defaultResponseHeaders,
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
-      }
-    }
-
-    if (pattern) {
-      return {
-        headers: defaultResponseHeaders,
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
-      }
-    }
-
-    return createCsvForScheme(conceptScheme)
-  }
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
@@ -141,6 +120,24 @@ export const getConcepts = async (event) => {
       }
       responseBody = JSON.stringify(jsonResponse)
       contentType = 'application/json'
+    } else if (format.toLowerCase() === 'csv') {
+      if (!conceptScheme) {
+        return {
+          headers: defaultResponseHeaders,
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
+        }
+      }
+
+      if (pattern) {
+        return {
+          headers: defaultResponseHeaders,
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+        }
+      }
+
+      return createCsvForScheme(conceptScheme)
     } else if (format.toLowerCase() === 'xml') {
       // TODO in KMS-535
     } else {

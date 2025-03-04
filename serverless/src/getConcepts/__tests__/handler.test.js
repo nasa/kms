@@ -1,4 +1,5 @@
 /* eslint-disable no-underscore-dangle */
+// /* eslint-disable no-underscore-dangle */
 import {
   beforeEach,
   describe,
@@ -9,8 +10,8 @@ import {
 
 import { getConcepts } from '@/getConcepts/handler'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -20,7 +21,10 @@ import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
-vi.mock('@/shared/createCsvForScheme')
+vi.mock('@/shared/createCsvForScheme', () => ({
+  createCsvForScheme: vi.fn()
+}))
+
 vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
 vi.mock('@/shared/processTriples')
@@ -40,10 +44,18 @@ describe('getConcepts', () => {
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    createCsvForScheme.mockReset()
   })
 
   describe('when format is CSV', () => {
     test('calls createCsvForScheme when format is csv and conceptScheme is provided', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
       const mockCsvResponse = {
         statusCode: 200,
         body: 'csv data',
@@ -67,6 +79,13 @@ describe('getConcepts', () => {
     })
 
     test('returns 400 when format is csv but conceptScheme is not provided', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
       const event = {
         queryStringParameters: {
           format: 'csv'
@@ -83,27 +102,13 @@ describe('getConcepts', () => {
     })
 
     test('returns 400 when format is csv and pattern is provided', async () => {
-      const event = {
-        queryStringParameters: {
-          format: 'csv'
-        },
-        pathParameters: {
-          conceptScheme: 'testScheme',
-          pattern: 'testPattern'
-        }
-      }
-
-      const result = await getConcepts(event)
-
-      expect(result).toEqual({
-        headers: mockDefaultHeaders,
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
       })
-    })
 
-    // New test
-    test('returns 400 when format is csv and both conceptScheme and pattern are provided', async () => {
       const event = {
         queryStringParameters: {
           format: 'csv'
@@ -700,6 +705,19 @@ describe('getConcepts', () => {
         ['SN', 'Long Name']
       ]))
 
+      toLegacyJSON.mockImplementation((concept) => ({
+        uuid: concept['@rdf:about'],
+        prefLabel: concept['skos:prefLabel']._text,
+        scheme: {
+          shortName: 'SN',
+          longName: 'Long Name'
+        },
+        definitions: [{
+          text: concept['skos:definition']._text,
+          reference: concept['gcmd:reference']['@gcmd:text']
+        }]
+      }))
+
       const event = {
         queryStringParameters: {
           format: 'json'
@@ -730,88 +748,110 @@ describe('getConcepts', () => {
       })
     })
   })
+})
 
-  describe('when unsuccessful', () => {
-    test('returns 400 status code for invalid page_num parameter', async () => {
-      const event = {
-        queryStringParameters: {
-          page_num: 'invalid'
-        }
+describe('when unsuccessful', () => {
+  test('returns 400 status code for invalid page_num parameter', async () => {
+    const event = {
+      queryStringParameters: {
+        page_num: 'invalid'
       }
-      const result = await getConcepts(event)
+    }
+    const result = await getConcepts(event)
 
-      expect(result.statusCode).toBe(400)
-      expect(JSON.parse(result.body)).toEqual({
-        error: 'Invalid page_num parameter'
-      })
-    })
-
-    test('returns 400 status code for invalid page_size parameter', async () => {
-      const event = {
-        queryStringParameters: {
-          page_size: '3000'
-        }
-      }
-      const result = await getConcepts(event)
-
-      expect(result.statusCode).toBe(400)
-      expect(JSON.parse(result.body)).toEqual({
-        error: 'Invalid page_size parameter. Must be between 1 and 2000.'
-      })
-    })
-
-    test('returns 500 status code and error message when an exception is thrown', async () => {
-      // Mock an error being thrown
-      const mockError = new Error('Test error')
-      getFilteredTriples.mockRejectedValue(mockError)
-
-      const event = {} // Empty event object
-      const result = await getConcepts(event)
-
-      expect(result).toEqual({
-        headers: mockDefaultHeaders,
-        statusCode: 500,
-        body: JSON.stringify({
-          error: mockError.toString()
-        })
-      })
-
-      // Verify that the error was logged
-      expect(console.error).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Invalid page_num parameter'
     })
   })
 
-  describe('format handling', () => {
-    test('returns RDF format by default', async () => {
-      getFilteredTriples.mockResolvedValue([])
-      processTriples.mockReturnValue({
-        bNodeMap: {},
-        nodes: {},
-        conceptURIs: []
+  test('returns 400 status code for invalid page_size parameter', async () => {
+    const event = {
+      queryStringParameters: {
+        page_size: '3000'
+      }
+    }
+    const result = await getConcepts(event)
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+    })
+  })
+
+  test('returns 500 status code and error message when an exception is thrown', async () => {
+    const mockError = new Error('Test error')
+    getFilteredTriples.mockRejectedValue(mockError)
+
+    const event = {} // Empty event object
+    const result = await getConcepts(event)
+
+    expect(result).toEqual({
+      headers: { 'X-Custom-Header': 'value' },
+      statusCode: 500,
+      body: JSON.stringify({
+        error: mockError.toString()
       })
-
-      getGcmdMetadata.mockResolvedValue({})
-
-      const event = {}
-      const result = await getConcepts(event)
-
-      expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
-      expect(result.body).toContain('<rdf:RDF')
     })
 
-    test('returns JSON format when specified', async () => {
-      getFilteredTriples.mockResolvedValue([])
-      processTriples.mockReturnValue({
-        bNodeMap: {},
-        nodes: {},
-        conceptURIs: []
-      })
+    expect(console.error).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
+  })
+})
 
-      const event = { queryStringParameters: { format: 'json' } }
-      const result = await getConcepts(event)
-
-      expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
-      expect(() => JSON.parse(result.body)).not.toThrow()
+describe('format handling', () => {
+  test('returns RDF format by default', async () => {
+    getFilteredTriples.mockResolvedValue([])
+    processTriples.mockReturnValue({
+      bNodeMap: {},
+      nodes: {},
+      conceptURIs: []
     })
+
+    getGcmdMetadata.mockResolvedValue({})
+
+    const event = {}
+    const result = await getConcepts(event)
+
+    expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
+    expect(result.body).toContain('<rdf:RDF')
+  })
+
+  test('returns JSON format when specified', async () => {
+    getFilteredTriples.mockResolvedValue([])
+    processTriples.mockReturnValue({
+      bNodeMap: {},
+      nodes: {},
+      conceptURIs: []
+    })
+
+    const event = { queryStringParameters: { format: 'json' } }
+    const result = await getConcepts(event)
+
+    expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
+    expect(() => JSON.parse(result.body)).not.toThrow()
+  })
+
+  test('returns CSV format when specified and conceptScheme is provided', async () => {
+    getFilteredTriples.mockResolvedValue([])
+    processTriples.mockReturnValue({
+      bNodeMap: {},
+      nodes: {},
+      conceptURIs: []
+    })
+
+    const mockCsvResponse = {
+      statusCode: 200,
+      body: 'csv data',
+      headers: { 'Content-Type': 'text/csv' }
+    }
+    createCsvForScheme.mockResolvedValue(mockCsvResponse)
+
+    const event = {
+      queryStringParameters: { format: 'csv' },
+      pathParameters: { conceptScheme: 'testScheme' }
+    }
+    const result = await getConcepts(event)
+
+    expect(result).toEqual(mockCsvResponse)
   })
 })
