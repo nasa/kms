@@ -11,9 +11,7 @@ const { XMLParser, XMLBuilder } = require('fast-xml-parser')
  * @param {number} ms - The number of milliseconds to delay.
  * @returns {Promise} A promise that resolves after the specified delay.
  */
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Loads SKOS concepts from an RDF/XML file into a SPARQL endpoint in batches.

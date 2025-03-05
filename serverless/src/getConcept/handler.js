@@ -1,9 +1,12 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
+import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import toLegacyJSON from '@/shared/toLegacyJSON'
 
 /**
  * Retrieves a SKOS Concept and returns it as RDF/XML.
@@ -59,7 +62,7 @@ export const getConcept = async (event) => {
   const { pathParameters } = event
   const { conceptId, shortName, altLabel } = pathParameters
   const { queryStringParameters } = event
-  const { scheme } = queryStringParameters || {}
+  const { scheme, format = 'rdf' } = queryStringParameters || {}
 
   try {
     const decode = (str) => {
@@ -67,15 +70,6 @@ export const getConcept = async (event) => {
 
       return decodeURIComponent(str.replace(/\+/g, ' '))
     }
-
-    const builder = new XMLBuilder({
-      format: true,
-      ignoreAttributes: false,
-      indentBy: '  ',
-      attributeNamePrefix: '@',
-      suppressEmptyNode: true,
-      textNodeName: '_text'
-    })
 
     const concept = await getSkosConcept({
       conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
@@ -99,22 +93,45 @@ export const getConcept = async (event) => {
     }
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
-    const rdfJson = {
-      'rdf:RDF': {
-        ...namespaces,
-        'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
-        'skos:Concept': [concept]
 
+    let responseBody
+    let contentType
+
+    // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
+    if (format.toLowerCase() === 'json') {
+      const conceptSchemeMap = await createConceptSchemeMap()
+      const prefLabelMap = await createPrefLabelMap()
+      responseBody = JSON.stringify(toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
+      contentType = 'application/json'
+    } else if (format.toLowerCase() === 'xml') {
+      // TODO in KMS-535
+    } else {
+      // Default case (including 'rdf')
+      const builder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true,
+        textNodeName: '_text'
+      })
+      const rdfJson = {
+        'rdf:RDF': {
+          ...namespaces,
+          'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
+          'skos:Concept': [concept]
+        }
       }
+      responseBody = await builder.build(rdfJson)
+      contentType = 'application/rdf+xml'
     }
 
-    const xml = await builder.build(rdfJson)
-
     return {
-      body: xml,
+      statusCode: 200,
+      body: responseBody,
       headers: {
         ...defaultResponseHeaders,
-        'Content-Type': 'application/xml; charset=utf-8'
+        'Content-Type': `${contentType}; charset=utf-8`
       }
     }
   } catch (error) {
