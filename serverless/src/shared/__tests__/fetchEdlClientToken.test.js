@@ -6,7 +6,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.spyOn(getConfig, 'getEdlConfig').mockImplementation(() => ({
     host: 'https://localtest.urs.earthdata.nasa.gov',
-    uid: 'mmt_test'
+    uid: 'kms_test'
   }))
 
   process.env.EDL_PASSWORD = 'test'
