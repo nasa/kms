@@ -27,3 +27,4 @@ const applicationConfig = {
  *                                     Uses the RDF4J_SERVICE_URL environment variable.
  */
 export const getApplicationConfig = () => applicationConfig
+export const getEdlConfig = () => getConfig().edl
