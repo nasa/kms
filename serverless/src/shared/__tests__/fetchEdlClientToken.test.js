@@ -28,7 +28,7 @@ describe('Retrieving EDL Client Token', () => {
     expect(fetch).toHaveBeenCalledWith('https://localtest.urs.earthdata.nasa.gov/oauth/token', {
       body: 'grant_type=client_credentials',
       headers: {
-        Authorization: 'Basic bW10X3Rlc3Q6dGVzdA==',
+        Authorization: 'Basic a21zX3Rlc3Q6dGVzdA=',
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
       },
       method: 'POST'
