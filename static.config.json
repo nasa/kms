@@ -7,5 +7,9 @@
       "Access-Control-Allow-Headers": "*",
       "Access-Control-Allow-Credentials": true
     }
+  },
+  "edl": {
+    "host": "https://sit.urs.earthdata.nasa.gov",
+    "uid": "mmt_test"
   }
 }
