@@ -14,7 +14,7 @@ import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
-import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
+import { sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
 
 import { getKeywordsTree } from '../handler'
@@ -47,6 +47,167 @@ vi.mock('@/shared/sortKeywordSchemes', () => ({
 
 describe('getKeywordsTree', () => {
   describe('When successful', () => {
+    test('should handle "all" concept scheme with Other Keywords correctly', async () => {
+      vi.mocked(getNarrowersMap).mockResolvedValue({})
+      vi.mocked(getRootConceptsForAllSchemes).mockResolvedValue([
+        {
+          prefLabel: { value: 'Science Keywords' },
+          subject: { value: 'uri1' }
+        },
+        {
+          prefLabel: { value: 'Other Keyword' },
+          subject: { value: 'uri2' }
+        }
+      ])
+
+      vi.mocked(buildKeywordsTree).mockImplementation((node) => {
+        if (node.prefLabel === 'Science Keywords') {
+          return {
+            title: 'Science Keywords',
+            children: [
+              {
+                title: 'Earth Science',
+                children: []
+              },
+              {
+                title: 'Biological Classification',
+                children: []
+              }
+            ]
+          }
+        }
+
+        return {
+          title: node.prefLabel,
+          children: []
+        }
+      })
+
+      vi.mocked(getConceptSchemeDetails).mockResolvedValue([
+        {
+          notation: 'sciencekeywords',
+          prefLabel: 'Science Keywords'
+        },
+        {
+          notation: 'other',
+          prefLabel: 'Other'
+        }
+      ])
+
+      vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
+      vi.mocked(sortKeywordNodes).mockImplementation((arr) => arr)
+      vi.mocked(sortKeywordSchemes).mockImplementation((a, b) => {
+        const sequence = ['Earth Science', 'Other Keywords']
+
+        return sequence.indexOf(a.title) - sequence.indexOf(b.title)
+      })
+
+      vi.mocked(toTitleCase).mockImplementation((str) => str)
+
+      const event = {
+        pathParameters: { conceptScheme: 'all' },
+        queryStringParameters: {}
+      }
+
+      const result = await getKeywordsTree(event)
+
+      expect(result.statusCode).toBe(200)
+      const parsedBody = JSON.parse(result.body)
+
+      expect(parsedBody.tree.treeData).toHaveLength(1)
+      expect(parsedBody.tree.treeData[0].title).toBe('Keywords')
+
+      const { children } = parsedBody.tree.treeData[0]
+      expect(children).toHaveLength(2) // Earth Science and Other Keywords
+
+      expect(children[0].title).toBe('Earth Science')
+      expect(children[1].title).toBe('Other Keywords')
+
+      expect(children[1].children).toHaveLength(2) // Biological Classification and Other Keyword
+      expect(children[1].children[0].title).toBe('Biological Classification')
+      expect(children[1].children[1].title).toBe('Other Keyword')
+    })
+
+    test('should handle missing queryStringParameters', async () => {
+      vi.mocked(getNarrowersMap).mockResolvedValue({})
+      vi.mocked(getRootConceptForScheme).mockResolvedValue({
+        prefLabel: { value: 'Earth Science' },
+        subject: { value: 'uri1' }
+      })
+
+      vi.mocked(buildKeywordsTree).mockResolvedValue({
+        title: 'Earth Science',
+        children: [{
+          title: 'Atmosphere',
+          children: []
+        }]
+      })
+
+      vi.mocked(filterScienceKeywordsTree).mockImplementation((tree) => tree)
+
+      vi.mocked(getConceptSchemeDetails).mockResolvedValue([
+        {
+          notation: 'sciencekeywords',
+          prefLabel: 'Science Keywords'
+        }
+      ])
+
+      vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
+
+      const event = {
+        pathParameters: { conceptScheme: 'Earth Science' }
+        // QueryStringParameters is intentionally omitted
+      }
+
+      const result = await getKeywordsTree(event)
+
+      expect(result.statusCode).toBe(200)
+      const parsedBody = JSON.parse(result.body)
+      expect(parsedBody).toHaveProperty('versions')
+      expect(parsedBody).toHaveProperty('tree')
+      expect(parsedBody.tree.scheme).toBe('Earth Science')
+      expect(parsedBody.tree.treeData).toHaveLength(1)
+      expect(parsedBody.tree.treeData[0].title).toBe('Keywords')
+      expect(parsedBody.tree.treeData[0].children).toHaveLength(1)
+      expect(parsedBody.tree.treeData[0].children[0].title).toBe('Earth Science')
+
+      // Verify that filterKeywordTree was not called (since there's no filter)
+      expect(filterKeywordTree).not.toHaveBeenCalled()
+    })
+
+    test('should handle missing pathParameters', async () => {
+      vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
+
+      // Create an event object without pathParameters
+      const event = {
+        queryStringParameters: {} // This is optional and can be omitted
+      }
+
+      const result = await getKeywordsTree(event)
+
+      expect(result.statusCode).toBe(400)
+      const parsedBody = JSON.parse(result.body)
+      expect(parsedBody).toHaveProperty('error')
+      expect(parsedBody.error).toBe('Missing required parameters')
+    })
+
+    test('should handle missing conceptScheme in pathParameters', async () => {
+      vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
+
+      // Create an event object with empty pathParameters
+      const event = {
+        pathParameters: {},
+        queryStringParameters: {} // This is optional and can be omitted
+      }
+
+      const result = await getKeywordsTree(event)
+
+      expect(result.statusCode).toBe(400)
+      const parsedBody = JSON.parse(result.body)
+      expect(parsedBody).toHaveProperty('error')
+      expect(parsedBody.error).toBe('Missing conceptScheme parameter')
+    })
+
     test('should handle "all" concept scheme correctly', async () => {
       vi.mocked(getNarrowersMap).mockResolvedValue({})
       vi.mocked(getRootConceptsForAllSchemes).mockResolvedValue([
@@ -342,6 +503,75 @@ describe('getKeywordsTree', () => {
 
       // Verify that getNarrowersMap was called with undefined
       expect(getNarrowersMap).toHaveBeenCalledWith(undefined)
+    })
+
+    test('should apply toTitleCase to direct descendants of Science Keywords and handle Other Keywords', async () => {
+      vi.mocked(getNarrowersMap).mockResolvedValue({})
+      vi.mocked(getRootConceptsForAllSchemes).mockResolvedValue([
+        {
+          prefLabel: { value: 'Science Keywords' },
+          subject: { value: 'uri1' }
+        }
+      ])
+
+      vi.mocked(buildKeywordsTree).mockResolvedValue({
+        title: 'Science Keywords',
+        children: [
+          {
+            title: 'EARTH SCIENCE',
+            children: []
+          },
+          {
+            title: 'BIOLOGICAL CLASSIFICATION',
+            children: []
+          },
+          {
+            title: 'GEOGRAPHIC REGION',
+            children: []
+          }
+        ]
+      })
+
+      vi.mocked(getConceptSchemeDetails).mockResolvedValue([
+        {
+          notation: 'sciencekeywords',
+          prefLabel: 'Science Keywords'
+        }
+      ])
+
+      vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
+      vi.mocked(sortKeywordNodes).mockImplementation((arr) => arr)
+      vi.mocked(sortKeywordSchemes).mockImplementation(() => 0)
+      vi.mocked(toTitleCase).mockImplementation((str) => str.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '))
+
+      const event = {
+        pathParameters: { conceptScheme: 'all' },
+        queryStringParameters: {}
+      }
+
+      const result = await getKeywordsTree(event)
+
+      expect(result.statusCode).toBe(200)
+      const parsedBody = JSON.parse(result.body)
+
+      const keywordChildren = parsedBody.tree.treeData[0].children
+
+      // Check that the Science Keywords node was removed
+      expect(keywordChildren.some((child) => child.title === 'Science Keywords')).toBe(false)
+
+      // Check that Earth Science is at the top level
+      expect(keywordChildren).toContainEqual(expect.objectContaining({ title: 'Earth Science' }))
+
+      // Check for the Other Keywords category
+      const otherKeywords = keywordChildren.find((child) => child.title === 'Other Keywords')
+      expect(otherKeywords).toBeDefined()
+      expect(otherKeywords.children).toContainEqual(expect.objectContaining({ title: 'Biological Classification' }))
+      expect(otherKeywords.children).toContainEqual(expect.objectContaining({ title: 'Geographic Region' }))
+
+      // Verify that toTitleCase was called for each child
+      expect(toTitleCase).toHaveBeenCalledWith('EARTH SCIENCE')
+      expect(toTitleCase).toHaveBeenCalledWith('BIOLOGICAL CLASSIFICATION')
+      expect(toTitleCase).toHaveBeenCalledWith('GEOGRAPHIC REGION')
     })
   })
 

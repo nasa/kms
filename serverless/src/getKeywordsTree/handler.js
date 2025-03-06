@@ -53,10 +53,35 @@ import { toTitleCase } from '@/shared/toTitleCase'
 export const getKeywordsTree = async (event) => {
   // Extract configuration and parameters
   const { defaultResponseHeaders } = getApplicationConfig()
-  const queryStringParameters = event?.queryStringParameters || {}
+
+  // Check if pathParameters exists
+  if (!event.pathParameters) {
+    console.error('Missing pathParameters')
+
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 400,
+      body: JSON.stringify({
+        error: 'Missing required parameters'
+      })
+    }
+  }
+
+  const queryStringParameters = event.queryStringParameters || {}
   const { filter } = queryStringParameters
-  const pathParameters = event?.pathParameters || {}
-  const { conceptScheme } = pathParameters
+  const { conceptScheme } = event.pathParameters
+
+  if (!conceptScheme) {
+    console.error('Missing conceptScheme parameter')
+
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 400,
+      body: JSON.stringify({
+        error: 'Missing conceptScheme parameter'
+      })
+    }
+  }
 
   try {
     let keywordTree = []
