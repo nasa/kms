@@ -36,7 +36,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 
 export const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event || {} // Use empty object as fallback
+  const { body: rdfXml, queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   try {
     if (!rdfXml) {
@@ -50,7 +51,7 @@ export const updateConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
-    const exists = await conceptIdExists(conceptIRI)
+    const exists = await conceptIdExists(conceptIRI, version)
     if (!exists) {
       return {
         statusCode: 404,
@@ -60,7 +61,7 @@ export const updateConcept = async (event) => {
     }
 
     // Delete existing triples and get the deleted data
-    const { deletedTriples, deleteResponse } = await deleteTriples(conceptIRI)
+    const { deletedTriples, deleteResponse } = await deleteTriples(conceptIRI, version)
 
     if (!deleteResponse.ok) {
       throw new Error(`HTTP error! delete status: ${deleteResponse.status}`)
@@ -75,7 +76,8 @@ export const updateConcept = async (event) => {
         accept: 'application/rdf+xml',
         path: '/statements',
         method: 'POST',
-        body: rdfXml
+        body: rdfXml,
+        version
       })
 
       if (!insertResponse.ok) {
@@ -93,7 +95,7 @@ export const updateConcept = async (event) => {
       console.error('Error inserting new data, rolling back:', insertError)
 
       // Rollback: reinsert the deleted triples
-      await rollback(deletedTriples)
+      await rollback(deletedTriples, version)
 
       return {
         statusCode: 500,

@@ -19,13 +19,14 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Error:', error.message);
  * }
  */
-export const getConceptSchemeOfConcept = async (conceptUri) => {
+export const getConceptSchemeOfConcept = async (conceptUri, version) => {
   try {
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptSchemeOfConceptQuery(conceptUri)
+      body: getConceptSchemeOfConceptQuery(conceptUri),
+      version
     })
 
     if (!response.ok) {

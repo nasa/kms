@@ -27,11 +27,13 @@ describe('createCsvForScheme', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     vi.resetAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   describe('when successful', () => {
     test('should create a CSV for a given scheme successfully', async () => {
       const scheme = 'testScheme'
+      const version = 'draft'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2']
@@ -44,7 +46,7 @@ describe('createCsvForScheme', () => {
       getCsvPaths.mockResolvedValue(mockPaths)
       createCsv.mockResolvedValue(mockCsvContent)
 
-      const result = await createCsvForScheme(scheme)
+      const result = await createCsvForScheme(scheme, version)
 
       expect(result).toEqual({
         statusCode: 200,
@@ -56,9 +58,9 @@ describe('createCsvForScheme', () => {
         }
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme)
-      expect(getCsvHeaders).toHaveBeenCalledWith(scheme)
-      expect(getCsvPaths).toHaveBeenCalledWith(scheme, mockHeaders.length)
+      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvPaths).toHaveBeenCalledWith(scheme, mockHeaders.length, version)
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockHeaders, mockPaths)
     })
 
@@ -95,6 +97,7 @@ describe('createCsvForScheme', () => {
 
     test('should generate headers if none are retrieved', async () => {
       const scheme = 'testScheme'
+      const version = 'draft'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockPaths = [['A', '1', '2'], ['B', '2', '3']]
@@ -109,7 +112,7 @@ describe('createCsvForScheme', () => {
       generateCsvHeaders.mockReturnValue(mockGeneratedHeaders)
       createCsv.mockResolvedValue(mockCsvContent)
 
-      const result = await createCsvForScheme(scheme)
+      const result = await createCsvForScheme(scheme, version)
 
       expect(result).toEqual({
         statusCode: 200,
@@ -121,9 +124,9 @@ describe('createCsvForScheme', () => {
         }
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme)
-      expect(getCsvHeaders).toHaveBeenCalledWith(scheme)
-      expect(getCsvPaths).toHaveBeenCalledWith(scheme, 0) // Called with 0 since initial headers were empty
+      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvPaths).toHaveBeenCalledWith(scheme, 0, version) // Called with 0 since initial headers were empty
       expect(getMaxLengthOfSubArray).toHaveBeenCalledWith(mockPaths)
       expect(generateCsvHeaders).toHaveBeenCalledWith(scheme, 3)
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockGeneratedHeaders, mockPaths)
@@ -133,13 +136,14 @@ describe('createCsvForScheme', () => {
   describe('when unsuccessful', () => {
     test('should handle errors and return a 500 status code', async () => {
       const scheme = 'testScheme'
+      const version = 'draft'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Test error')
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
       getCsvMetadata.mockRejectedValue(mockError)
 
-      const result = await createCsvForScheme(scheme)
+      const result = await createCsvForScheme(scheme, version)
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
@@ -149,11 +153,12 @@ describe('createCsvForScheme', () => {
         })
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme)
+      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
     })
 
     test('should handle errors from getCsvHeaders and return a 500 status code', async () => {
       const scheme = 'testScheme'
+      const version = 'draft'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Headers error')
 
@@ -161,7 +166,7 @@ describe('createCsvForScheme', () => {
       getCsvMetadata.mockResolvedValue({})
       getCsvHeaders.mockRejectedValue(mockError)
 
-      const result = await createCsvForScheme(scheme)
+      const result = await createCsvForScheme(scheme, version)
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
@@ -171,12 +176,13 @@ describe('createCsvForScheme', () => {
         })
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme)
-      expect(getCsvHeaders).toHaveBeenCalledWith(scheme)
+      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
     })
 
     test('should handle errors from getCsvPaths and return a 500 status code', async () => {
       const scheme = 'testScheme'
+      const version = 'version'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Paths error')
 
@@ -185,7 +191,7 @@ describe('createCsvForScheme', () => {
       getCsvHeaders.mockResolvedValue(['Header1', 'Header2'])
       getCsvPaths.mockRejectedValue(mockError)
 
-      const result = await createCsvForScheme(scheme)
+      const result = await createCsvForScheme(scheme, version)
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
@@ -195,9 +201,9 @@ describe('createCsvForScheme', () => {
         })
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme)
-      expect(getCsvHeaders).toHaveBeenCalledWith(scheme)
-      expect(getCsvPaths).toHaveBeenCalledWith(scheme, 2)
+      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
+      expect(getCsvPaths).toHaveBeenCalledWith(scheme, 2, version)
     })
   })
 })

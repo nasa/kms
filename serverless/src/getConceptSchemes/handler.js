@@ -17,11 +17,13 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *   - statusCode: HTTP status code (only present in case of an error).
  * @throws Will throw an error if there's a problem fetching or processing the concept schemes.
  */
-export const getConceptSchemes = async () => {
+export const getConceptSchemes = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  const { queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   try {
-    const conceptSchemes = await getConceptSchemeDetails()
+    const conceptSchemes = await getConceptSchemeDetails({ version })
 
     const schemes = {
       schemes: {

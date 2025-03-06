@@ -27,14 +27,15 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Failed to fetch organization long names:', error);
  * }
  */
-export const getLongNamesMap = async (scheme) => {
+export const getLongNamesMap = async (scheme, version) => {
   try {
     // Make a SPARQL request to fetch long names
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getLongNamesQuery(scheme)
+      body: getLongNamesQuery(scheme),
+      version
     })
 
     // Check if the response is successful

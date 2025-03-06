@@ -108,7 +108,11 @@ const loadRDFXMLToRDF4J = async (filePath) => {
     const xmlData = await fs.readFile(filePath, 'utf8')
     console.log(`Read ${xmlData.length} bytes from file`)
 
-    const response = await fetch(rdf4jUrl, {
+    const graphUri = 'https://gcmd.earthdata.nasa.gov/kms/version/draft'
+    const url = new URL(rdf4jUrl)
+    url.searchParams.append('context', `<${graphUri}>`)
+
+    const response = await fetch(url, {
       method: 'POST',
       body: xmlData,
       headers: {

@@ -9,13 +9,14 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @returns {Promise<Array>} A promise that resolves to an array of triple objects for root concepts.
  * @throws {Error} If there's an error during the SPARQL request or processing of the response.
  */
-export const getRootConcepts = async () => {
+export const getRootConcepts = async (version) => {
   try {
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getRootConceptsQuery()
+      body: getRootConceptsQuery(),
+      version
     })
 
     if (!response.ok) {

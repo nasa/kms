@@ -37,14 +37,18 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Failed to fetch CSV headers:', error);
  * }
  */
-export const getCsvHeaders = async (scheme) => {
+export const getCsvHeaders = async (scheme, version) => {
   try {
     // Make a SPARQL request to fetch concept scheme details
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptSchemeDetailsQuery(scheme)
+      body: getConceptSchemeDetailsQuery({
+        scheme,
+        version
+      }),
+      version
     })
 
     // Check if the response is successful

@@ -24,7 +24,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @see {@link https://www.w3.org/2004/02/skos/|SKOS Specification}
  * @see {@link https://cmr.sit.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords|GCMD Science Keywords}
  */
-export const buildFullPath = async (conceptId) => {
+export const buildFullPath = async (conceptId, version) => {
   const baseUri = 'https://gcmd.earthdata.nasa.gov/kms/concept/'
 
   const fetchConceptInfo = async (uri) => {
@@ -32,7 +32,8 @@ export const buildFullPath = async (conceptId) => {
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptPrefLabelAndBroaderIdQuery(uri)
+      body: getConceptPrefLabelAndBroaderIdQuery(uri),
+      version
     })
 
     if (!response.ok) {

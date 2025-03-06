@@ -133,6 +133,24 @@ describe('getConcept', () => {
           scheme: 'Test Scheme'
         }))
       })
+
+      describe('when concept is not found', () => {
+        test('returns 404 status code', async () => {
+          const mockEvent = {
+            pathParameters: { conceptId: 'nonexistent' },
+            queryStringParameters: {}
+          }
+          getSkosConcept.mockResolvedValue(null)
+
+          const result = await getConcept(mockEvent)
+
+          expect(result.statusCode).toBe(404)
+          expect(result.headers['Content-Type']).toBe('application/json')
+          expect(JSON.parse(result.body)).toEqual({
+            error: 'Concept not found'
+          })
+        })
+      })
     })
 
     describe('format handling', () => {
@@ -248,7 +266,8 @@ describe('getConcept', () => {
           conceptIRI: null,
           shortName: 'Short Name',
           altLabel: 'Alt+Label',
-          scheme: 'Test Scheme'
+          scheme: 'Test Scheme',
+          version: 'draft'
         })
       })
     })

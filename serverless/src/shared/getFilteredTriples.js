@@ -32,7 +32,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @see sparqlRequest - Used to make the SPARQL query request.
  */
 
-export const getFilteredTriples = async ({ conceptScheme, pattern }) => {
+export const getFilteredTriples = async ({ conceptScheme, pattern, version }) => {
   try {
     const response = await sparqlRequest({
       method: 'POST',
@@ -41,7 +41,8 @@ export const getFilteredTriples = async ({ conceptScheme, pattern }) => {
       body: getTriplesForConceptSchemeOrPatternQuery({
         conceptScheme,
         pattern
-      })
+      }),
+      version
     })
 
     if (!response.ok) {

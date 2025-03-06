@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 /**
  * Utility module for making SPARQL requests to an RDF4J server.
  *
@@ -35,7 +36,8 @@ export const sparqlRequest = async ({
   method,
   body,
   contentType = 'application/rdf+xml',
-  accept = 'application/rdf+xml'
+  accept = 'application/rdf+xml',
+  version = 'draft'
 }) => {
   /**
     * Constructs the SPARQL endpoint URL using environment variables.
@@ -64,16 +66,59 @@ export const sparqlRequest = async ({
     return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
   }
 
+  function addFromClause(query, graphUri) {
+    // Check if the query already contains a FROM clause
+    if (/FROM\s*</i.test(query)) {
+      console.warn('Query already contains a FROM clause. Skipping automatic graph insertion.')
+
+      return query
+    }
+
+    // Replace "WHERE {" with "FROM <graphUri> WHERE {"
+    return query.replace(
+      /WHERE\s*{/i,
+      `FROM <${graphUri}> WHERE {`
+    )
+  }
+
+  function addWithClause(update, graphUri) {
+    // Check if the update already contains a WITH clause
+    if (/WITH\s*</i.test(update)) {
+      console.warn('Update already contains a WITH clause. Skipping automatic graph insertion.')
+
+      return update
+    }
+
+    // Insert WITH clause at the beginning of the update
+    return `WITH <${graphUri}>\n${update}`
+  }
+
   const endpoint = getSparqlEndpoint()
   const authHeader = getAuthHeader()
+  const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
 
-  return fetch(`${endpoint}${path}`, {
+  const endpointUrl = new URL(`${endpoint}${path}`)
+
+  const headers = {
+    'Content-Type': contentType,
+    Accept: accept,
+    Authorization: authHeader
+  }
+
+  // Modify SPARQL queries to include FROM clause
+  if (contentType === 'application/sparql-query') {
+    body = addFromClause(body, graphUri)
+  } else if (contentType === 'application/sparql-update') {
+    // Modify SPARQL updates to include WITH clause
+    body = addWithClause(body, graphUri)
+  } else if (path.includes('/statements')) {
+    // For statements (insertions/deletions), use the context parameter
+    endpointUrl.searchParams.append('context', `<${graphUri}>`)
+  }
+
+  return fetch(endpointUrl.toString(), {
     method,
-    headers: {
-      'Content-Type': contentType,
-      Accept: accept,
-      Authorization: authHeader
-    },
+    headers,
     body
   })
 }

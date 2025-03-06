@@ -173,9 +173,6 @@ describe('buildHierarchicalCsvPaths', () => {
     // Verify that getNarrowers was called
     expect(getNarrowers).toHaveBeenCalledWith('http://example.com/root', map)
 
-    // Log the calls to formatCsvPath for debugging
-    console.log('formatCsvPath calls:', formatCsvPath.mock.calls)
-
     // Verify that formatCsvPath was not called with the root node's path
     expect(formatCsvPath).not.toHaveBeenCalledWith(
       scheme,

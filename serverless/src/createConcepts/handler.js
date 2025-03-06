@@ -47,7 +47,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const createConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event
+  const { body: rdfXml, queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   if (!rdfXml || typeof rdfXml !== 'string') {
     return {
@@ -80,7 +81,8 @@ export const createConcepts = async (event) => {
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: rdfXml
+      body: rdfXml,
+      version
     })
 
     if (!response.ok) {

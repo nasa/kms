@@ -27,6 +27,125 @@ describe('sparqlRequest', () => {
   })
 
   describe('when successful', () => {
+    describe('when version is specified', () => {
+      test('should add WITH clause for SPARQL update', async () => {
+        const mockResponse = {
+          ok: true,
+          json: () => Promise.resolve({})
+        }
+        global.fetch.mockResolvedValue(mockResponse)
+
+        await sparqlRequest({
+          method: 'POST',
+          body: 'INSERT DATA { <http://example.org/s> <http://example.org/p> <http://example.org/o> }',
+          contentType: 'application/sparql-update',
+          version: '1.0'
+        })
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            body: expect.stringContaining('WITH <https://gcmd.earthdata.nasa.gov/kms/version/1.0>')
+          })
+        )
+      })
+
+      test('should add FROM clause for SPARQL query', async () => {
+        const mockResponse = {
+          ok: true,
+          json: () => Promise.resolve({})
+        }
+        global.fetch.mockResolvedValue(mockResponse)
+
+        await sparqlRequest({
+          method: 'POST',
+          body: 'SELECT * WHERE { ?s ?p ?o }',
+          contentType: 'application/sparql-query',
+          version: '2.0'
+        })
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            body: expect.stringContaining('FROM <https://gcmd.earthdata.nasa.gov/kms/version/2.0>')
+          })
+        )
+      })
+
+      test('should not add FROM clause if query already contains one', async () => {
+        const mockResponse = {
+          ok: true,
+          json: () => Promise.resolve({})
+        }
+        global.fetch.mockResolvedValue(mockResponse)
+
+        const existingQuery = 'SELECT * FROM <http://example.org/graph> WHERE { ?s ?p ?o }'
+        await sparqlRequest({
+          method: 'POST',
+          body: existingQuery,
+          contentType: 'application/sparql-query',
+          version: '2.0'
+        })
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            body: existingQuery // The query should remain unchanged
+          })
+        )
+      })
+
+      test('should not add WITH clause if update already contains one', async () => {
+        const mockResponse = {
+          ok: true,
+          json: () => Promise.resolve({})
+        }
+        global.fetch.mockResolvedValue(mockResponse)
+
+        const existingUpdate = 'WITH <http://example.org/graph> INSERT DATA { <http://example.org/s> <http://example.org/p> <http://example.org/o> }'
+        await sparqlRequest({
+          method: 'POST',
+          body: existingUpdate,
+          contentType: 'application/sparql-update',
+          version: '1.0'
+        })
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.objectContaining({
+            body: existingUpdate // The update should remain unchanged
+          })
+        )
+      })
+
+      test('should use context parameter for RDF/XML data', async () => {
+        const mockResponse = {
+          ok: true,
+          json: () => Promise.resolve({})
+        }
+        global.fetch.mockResolvedValue(mockResponse)
+
+        await sparqlRequest({
+          method: 'POST',
+          path: '/statements',
+          body: '<rdf:RDF>...</rdf:RDF>',
+          contentType: 'application/rdf+xml',
+          version: '3.0'
+        })
+
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/statements?context=%3Chttps%3A%2F%2Fgcmd.earthdata.nasa.gov%2Fkms%2Fversion%2F3.0%3E'),
+          expect.objectContaining({
+            method: 'POST',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/rdf+xml'
+            }),
+            body: '<rdf:RDF>...</rdf:RDF>'
+          })
+        )
+      })
+    })
+
     test('should make a request with correct URL and headers', async () => {
       const mockResponse = {
         ok: true,
@@ -50,7 +169,7 @@ describe('sparqlRequest', () => {
             Accept: 'application/sparql-results+json',
             Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
           },
-          body: 'SELECT * WHERE { ?s ?p ?o }'
+          body: 'SELECT * FROM <https://gcmd.earthdata.nasa.gov/kms/version/draft> WHERE { ?s ?p ?o }'
         }
       )
     })

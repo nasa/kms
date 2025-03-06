@@ -44,7 +44,8 @@ describe('createConcepts', () => {
         accept: 'application/rdf+xml',
         path: '/statements',
         method: 'POST',
-        body: mockRdfXml
+        body: mockRdfXml,
+        version: 'draft'
       })
 
       expect(result).toEqual({

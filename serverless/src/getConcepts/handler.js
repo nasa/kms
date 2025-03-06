@@ -38,8 +38,10 @@ import { toSkosJson } from '@/shared/toSkosJson'
  */
 export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
+  const version = queryStringParameters?.version || 'draft'
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
@@ -68,11 +70,12 @@ export const getConcepts = async (event) => {
   try {
     let triples
     if (event?.path === '/concepts/root') {
-      triples = await getRootConcepts()
+      triples = await getRootConcepts(version)
     } else {
       triples = await getFilteredTriples({
         conceptScheme,
-        pattern
+        pattern,
+        version
       })
     }
 
@@ -92,8 +95,8 @@ export const getConcepts = async (event) => {
     if (format.toLowerCase() === 'json') {
       // Grabbing all information for JSON response
       const [schemeMap, prefLabelMap] = await Promise.all([
-        createConceptSchemeMap(),
-        createPrefLabelMap()
+        createConceptSchemeMap(version),
+        createPrefLabelMap(version)
       ])
       const jsonResponse = {
         hits: totalConcepts,
@@ -137,7 +140,7 @@ export const getConcepts = async (event) => {
         }
       }
 
-      return createCsvForScheme(conceptScheme)
+      return createCsvForScheme(conceptScheme, version)
     } else if (format.toLowerCase() === 'xml') {
       // TODO in KMS-535
     } else {
@@ -163,7 +166,8 @@ export const getConcepts = async (event) => {
           'gcmd:gcmd': await getGcmdMetadata({
             pageNum,
             pageSize,
-            gcmdHits: totalConcepts
+            gcmdHits: totalConcepts,
+            version
           }),
           'skos:Concept': concepts
         }

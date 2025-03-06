@@ -31,7 +31,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Error generating metadata:', error);
  * }
  */
-export const getCsvMetadata = async (scheme) => {
+export const getCsvMetadata = async (scheme, version) => {
   let updateDate = 'N/A'
   try {
     // Make a SPARQL request to fetch concept scheme details
@@ -39,7 +39,11 @@ export const getCsvMetadata = async (scheme) => {
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptSchemeDetailsQuery(scheme)
+      body: getConceptSchemeDetailsQuery({
+        scheme,
+        version
+      }),
+      version
     })
 
     // Check if the response is successful

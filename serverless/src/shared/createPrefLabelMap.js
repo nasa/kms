@@ -1,3 +1,7 @@
+import {
+  getConceptIdAndPrefLabelQuery
+} from '@/shared/operations/queries/getConceptIdAndPrefLabelQuery'
+
 import { sparqlRequest } from './sparqlRequest'
 
 /**
@@ -8,22 +12,14 @@ import { sparqlRequest } from './sparqlRequest'
  * @returns {Promise<Map<string, string>>} A promise that resolves to a Map where keys are SKOS concept identifiers and values are their preferred labels.
  * @throws Will throw an error if the SPARQL request or parsing fails.
  */
-export const createPrefLabelMap = async () => {
-  const query = `
-    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-    SELECT ?concept ?prefLabel
-    WHERE {
-      ?concept a skos:Concept ;
-               skos:prefLabel ?prefLabel .
-    }
-  `
-
+export const createPrefLabelMap = async (version) => {
   try {
     const response = await sparqlRequest({
       method: 'POST',
-      body: query,
+      body: getConceptIdAndPrefLabelQuery(),
       contentType: 'application/sparql-query',
-      accept: 'application/sparql-results+json'
+      accept: 'application/sparql-results+json',
+      version
     })
 
     if (!response.ok) {

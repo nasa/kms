@@ -31,9 +31,9 @@ import { getRootConcept } from '@/shared/getRootConcept'
  * //   ['Root', 'Subject3']
  * // ]
  */
-export const getCsvPaths = async (scheme, csvHeadersCount) => {
+export const getCsvPaths = async (scheme, csvHeadersCount, version) => {
   // Get the root concept for the scheme
-  const root = await getRootConcept(scheme)
+  const root = await getRootConcept(scheme, version)
 
   // Create a node object with root concept information
   const node = {
@@ -43,14 +43,14 @@ export const getCsvPaths = async (scheme, csvHeadersCount) => {
   }
 
   // Get maps for narrowers and long names
-  const narrowersMap = await getNarrowersMap(scheme)
-  const longNamesMap = await getLongNamesMap(scheme)
+  const narrowersMap = await getNarrowersMap(scheme, version)
+  const longNamesMap = await getLongNamesMap(scheme, version)
 
   // Initialize providerUrlsMap
   let providerUrlsMap = []
   // If the scheme is 'providers', get the provider URLs map
   if (scheme === 'providers') {
-    providerUrlsMap = await getProviderUrlsMap(scheme)
+    providerUrlsMap = await getProviderUrlsMap(scheme, version)
   }
 
   // Initialize an array to store keywords

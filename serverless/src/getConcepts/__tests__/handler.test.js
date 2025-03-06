@@ -74,7 +74,7 @@ describe('getConcepts', () => {
 
       const result = await getConcepts(event)
 
-      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme')
+      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme', 'draft')
       expect(result).toEqual(mockCsvResponse)
     })
 
@@ -162,7 +162,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         pattern: 'matching',
-        conceptScheme: undefined
+        conceptScheme: undefined,
+        version: 'draft'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -201,7 +202,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
-        pattern: undefined
+        pattern: undefined,
+        version: 'draft'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -250,7 +252,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
-        pattern: 'matching'
+        pattern: 'matching',
+        version: 'draft'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -375,7 +378,8 @@ describe('getConcepts', () => {
           expect(getGcmdMetadata).toHaveBeenCalledWith({
             pageNum: parseInt(pageNum, 10),
             pageSize: parseInt(pageSize, 10),
-            gcmdHits: 100
+            gcmdHits: 100,
+            version: 'draft'
           })
         }
       })
@@ -417,7 +421,8 @@ describe('getConcepts', () => {
         expect(getGcmdMetadata).toHaveBeenCalledWith({
           pageNum: 4,
           pageSize: 30,
-          gcmdHits: 95
+          gcmdHits: 95,
+          version: 'draft'
         })
       })
 
@@ -453,7 +458,8 @@ describe('getConcepts', () => {
         expect(getGcmdMetadata).toHaveBeenCalledWith({
           pageNum: 1,
           pageSize: 2000,
-          gcmdHits: 2500
+          gcmdHits: 2500,
+          version: 'draft'
         })
       })
 
@@ -659,7 +665,8 @@ describe('getConcepts', () => {
         expect(getGcmdMetadata).toHaveBeenCalledWith({
           pageNum: 3,
           pageSize: 25,
-          gcmdHits: 50
+          gcmdHits: 50,
+          version: 'draft'
         })
       })
     })

@@ -34,14 +34,15 @@ import { sparqlRequest } from './sparqlRequest'
  *   // Expected output: "No root concept found for scheme: non_existent_scheme"
  * }
  */
-export const getRootConcept = async (scheme) => {
+export const getRootConcept = async (scheme, version) => {
   try {
     // Make a SPARQL request to get the root concept
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getRootConceptQuery(scheme)
+      body: getRootConceptQuery(scheme),
+      version
     })
 
     // Check if the response is successful

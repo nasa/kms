@@ -17,7 +17,7 @@ import { getConceptSchemeOfConcept } from '@/shared/getConceptSchemeOfConcept'
  * });
  */
 export const getGcmdMetadata = async ({
-  conceptIRI = null, gcmdHits = null, pageNum = 1, pageSize = 2000
+  conceptIRI = null, gcmdHits = null, pageNum = 1, pageSize = 2000, version
 }) => {
   const baseMetadata = {}
   if (gcmdHits !== null) {
@@ -43,7 +43,7 @@ export const getGcmdMetadata = async ({
   }
 
   if (conceptIRI) {
-    const conceptScheme = await getConceptSchemeOfConcept(conceptIRI)
+    const conceptScheme = await getConceptSchemeOfConcept(conceptIRI, version)
     const schemeId = conceptScheme.split('/').pop()
     const iriIdentifier = conceptIRI.split('/').pop()
 

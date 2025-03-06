@@ -51,6 +51,8 @@ export const getFullPath = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
   const { conceptId } = pathParameters
+  const { queryStringParameters } = event
+  const version = queryStringParameters?.version || 'draft'
 
   try {
     const builder = new XMLBuilder({
@@ -68,7 +70,7 @@ export const getFullPath = async (event) => {
           '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
           '@xmlns:xs': 'http://www.w3.org/2001/XMLSchema',
           '@xsi:type': 'xs:string',
-          _text: await buildFullPath(conceptId)
+          _text: await buildFullPath(conceptId, version)
         }
       }
     }

@@ -4,14 +4,15 @@ import {
 } from '@/shared/operations/updates/getDeleteTriplesForConceptQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
-export const deleteTriples = async (conceptIRI) => {
+export const deleteTriples = async (conceptIRI, version) => {
   try {
     // First, select all triples
     const selectResponse = await sparqlRequest({
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       method: 'POST',
-      body: getTriplesForConceptQuery(conceptIRI)
+      body: getTriplesForConceptQuery(conceptIRI),
+      version
     })
 
     if (!selectResponse.ok) {
@@ -27,7 +28,8 @@ export const deleteTriples = async (conceptIRI) => {
       accept: 'application/sparql-results+json',
       path: '/statements',
       method: 'POST',
-      body: getDeleteTriplesForConceptQuery(conceptIRI)
+      body: getDeleteTriplesForConceptQuery(conceptIRI),
+      version
     })
 
     if (!deleteResponse.ok) {

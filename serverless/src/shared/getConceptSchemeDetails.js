@@ -9,14 +9,17 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} [schemeName] - The name of the concept scheme (e.g., "ChainedOperations"). If not provided, returns all concept schemes.
  * @returns {Promise<Object|Array<Object>>} A promise that resolves to an object (for a single scheme) or an array of objects (for all schemes) containing the scheme details
  */
-export const getConceptSchemeDetails = async (schemeName = null) => {
+export const getConceptSchemeDetails = async ({
+  schemeName = null, version
+}) => {
   try {
     const query = getConceptSchemeDetailsQuery(schemeName)
     const response = await sparqlRequest({
       method: 'POST',
       body: query,
       contentType: 'application/sparql-query',
-      accept: 'application/sparql-results+json'
+      accept: 'application/sparql-results+json',
+      version
     })
 
     if (!response.ok) {

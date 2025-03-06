@@ -63,6 +63,7 @@ export const getConcept = async (event) => {
   const { conceptId, shortName, altLabel } = pathParameters
   const { queryStringParameters } = event
   const { scheme, format = 'rdf' } = queryStringParameters || {}
+  const version = queryStringParameters?.version || 'draft'
 
   try {
     const decode = (str) => {
@@ -75,7 +76,8 @@ export const getConcept = async (event) => {
       conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
       shortName: shortName ? decode(shortName) : null,
       altLabel: altLabel ? decode(altLabel) : null,
-      scheme: scheme ? decode(scheme) : null
+      scheme: scheme ? decode(scheme) : null,
+      version
     })
 
     // Check if concept is null and return 404 if so
@@ -100,7 +102,7 @@ export const getConcept = async (event) => {
     // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
     if (format.toLowerCase() === 'json') {
       const conceptSchemeMap = await createConceptSchemeMap()
-      const prefLabelMap = await createPrefLabelMap()
+      const prefLabelMap = await createPrefLabelMap(version)
       responseBody = JSON.stringify(toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
       contentType = 'application/json'
     } else if (format.toLowerCase() === 'xml') {
@@ -118,7 +120,10 @@ export const getConcept = async (event) => {
       const rdfJson = {
         'rdf:RDF': {
           ...namespaces,
-          'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
+          'gcmd:gcmd': await getGcmdMetadata({
+            conceptIRI,
+            version
+          }),
           'skos:Concept': [concept]
         }
       }

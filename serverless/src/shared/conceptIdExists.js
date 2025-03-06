@@ -22,12 +22,13 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Error checking concept existence:', error);
  * }
  */
-export const conceptIdExists = async (conceptIRI) => {
+export const conceptIdExists = async (conceptIRI, version) => {
   const checkResponse = await sparqlRequest({
     contentType: 'application/sparql-query',
     accept: 'application/sparql-results+json',
     method: 'POST',
-    body: getConceptIdExistsQuery(conceptIRI)
+    body: getConceptIdExistsQuery(conceptIRI),
+    version
   })
 
   if (!checkResponse.ok) {

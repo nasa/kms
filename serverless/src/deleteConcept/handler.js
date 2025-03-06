@@ -31,14 +31,15 @@ import { getApplicationConfig } from '@/shared/getConfig'
  */
 export const deleteConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { pathParameters } = event
+  const { pathParameters, queryStringParameters } = event
   const { conceptId } = pathParameters
+  const version = queryStringParameters?.version || 'draft'
 
   // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
   try {
-    const { deleteResponse: response } = await deleteTriples(conceptIRI)
+    const { deleteResponse: response } = await deleteTriples(conceptIRI, version)
 
     if (!response.ok) {
       const responseText = await response.text()

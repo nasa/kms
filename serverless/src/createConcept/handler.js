@@ -33,7 +33,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const createConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event || {} // Use empty object as fallback
+  const { body: rdfXml, queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   try {
     if (!rdfXml) {
@@ -47,7 +48,7 @@ export const createConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
-    const exists = await conceptIdExists(conceptIRI)
+    const exists = await conceptIdExists(conceptIRI, version)
     if (exists) {
       return {
         statusCode: 409,
@@ -61,7 +62,8 @@ export const createConcept = async (event) => {
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: rdfXml
+      body: rdfXml,
+      version
     })
 
     if (!response.ok) {

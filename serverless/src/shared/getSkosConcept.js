@@ -86,7 +86,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @see getTriplesForAltLabelQuery - For the SPARQL query used when retrieving by altLabel.
  */
 export const getSkosConcept = async ({
-  conceptIRI, shortName, altLabel, scheme
+  conceptIRI, shortName, altLabel, scheme, version
 }) => {
   let sparqlQuery
 
@@ -111,7 +111,8 @@ export const getSkosConcept = async ({
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       method: 'POST',
-      body: sparqlQuery
+      body: sparqlQuery,
+      version
     })
 
     if (!response.ok) {

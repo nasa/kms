@@ -18,14 +18,15 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * successful (i.e., non-OK response), it throws an error. Any error during the process
  * is logged and re-thrown for handling by the caller.
  */
-export const rollback = async (deletedTriples) => {
+export const rollback = async (deletedTriples, version) => {
   try {
     const rollbackResponse = await sparqlRequest({
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
       path: '/statements',
       method: 'POST',
-      body: getInsertTriplesQuery(deletedTriples)
+      body: getInsertTriplesQuery(deletedTriples),
+      version
     })
 
     if (!rollbackResponse.ok) {
