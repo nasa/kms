@@ -71,6 +71,14 @@ getConceptSchemes:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept_schemes
+getKeywordsTree:
+  handler: serverless/src/getKeywordsTree/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /tree/concept_scheme/{conceptScheme}
 createConcept:
   handler: serverless/src/createConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
