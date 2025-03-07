@@ -8,14 +8,14 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @returns {Promise<Object>} A map of subject values to their associated long name
  *
  * @example
- * // Fetch long names for the 'person' scheme
- * const longNamesMap = await getLongNamesMap('person');
+ * // Fetch long names for the 'platforms' scheme
+ * const longNamesMap = await getLongNamesMap('platforms');
  *
  * // Example output:
  * // {
- * //   'http://example.com/person/1': 'John Doe',
- * //   'http://example.com/person/2': 'Jane Smith',
- * //   'http://example.com/person/3': 'Bob Johnson'
+ * //   'https://gcmd.earthdata.nasa.gov/kms/concept/d77685bd-aa94-4717-bd97-632699d999b5': 'Dassault HU-25A Guardian',
+ * //   'https://gcmd.earthdata.nasa.gov/kms/concept/ba1d0da3-7f0b-4390-833f-67708525f1a3': 'Long EZ Aircraft',
+ * //   'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54': 'NSF/NCAR Gulfstream GV Aircraft'
  * // }
  *
  * @example
