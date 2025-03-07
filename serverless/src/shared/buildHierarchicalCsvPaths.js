@@ -122,7 +122,7 @@ export const buildHierarchicalCsvPaths = async (params) => {
 
     // Add long name if required by the scheme
     if (isCsvLongNameFlag(scheme)) {
-      path.push(longNameArray ? longNameArray[0] : ' ')
+      path.push(longNameArray || ' ')
     }
 
     // Add provider URL if required by the scheme

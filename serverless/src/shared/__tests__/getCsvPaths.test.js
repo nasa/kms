@@ -9,7 +9,7 @@ import { buildHierarchicalCsvPaths } from '@/shared/buildHierarchicalCsvPaths'
 import { getLongNamesMap } from '@/shared/getLongNamesMap'
 import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getProviderUrlsMap } from '@/shared/getProviderUrlsMap'
-import { getRootConcept } from '@/shared/getRootConcept'
+import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 
 import { getCsvPaths } from '../getCsvPaths'
 
@@ -17,7 +17,7 @@ import { getCsvPaths } from '../getCsvPaths'
 vi.mock('@/shared/getLongNamesMap')
 vi.mock('@/shared/getNarrowersMap')
 vi.mock('@/shared/getProviderUrlsMap')
-vi.mock('@/shared/getRootConcept')
+vi.mock('@/shared/getRootConceptForScheme')
 vi.mock('@/shared/buildHierarchicalCsvPaths')
 
 describe('getCsvPaths', () => {
@@ -28,7 +28,7 @@ describe('getCsvPaths', () => {
   describe('when successful', () => {
     test('should return reversed keywords array', async () => {
       // Mock the imported functions
-      getRootConcept.mockResolvedValue({
+      getRootConceptForScheme.mockResolvedValue({
         prefLabel: { value: 'Root' },
         subject: { value: 'http://example.com/root' }
       })
@@ -44,7 +44,7 @@ describe('getCsvPaths', () => {
       const result = await getCsvPaths('testScheme', 3)
 
       expect(result).toEqual(['Keyword3', 'Keyword2', 'Keyword1'])
-      expect(getRootConcept).toHaveBeenCalledWith('testScheme')
+      expect(getRootConceptForScheme).toHaveBeenCalledWith('testScheme')
       expect(getNarrowersMap).toHaveBeenCalledWith('testScheme')
       expect(getLongNamesMap).toHaveBeenCalledWith('testScheme')
       expect(getProviderUrlsMap).not.toHaveBeenCalled()
@@ -52,7 +52,7 @@ describe('getCsvPaths', () => {
     })
 
     test('should call getProviderUrlsMap when scheme is "providers"', async () => {
-      getRootConcept.mockResolvedValue({
+      getRootConceptForScheme.mockResolvedValue({
         prefLabel: { value: 'Root' },
         subject: { value: 'http://example.com/root' }
       })
@@ -70,7 +70,7 @@ describe('getCsvPaths', () => {
 
   describe('when unsuccessful', () => {
     test('should handle errors gracefully', async () => {
-      getRootConcept.mockRejectedValue(new Error('Root concept error'))
+      getRootConceptForScheme.mockRejectedValue(new Error('Root concept error'))
 
       await expect(getCsvPaths('testScheme', 3)).rejects.toThrow('Root concept error')
     })

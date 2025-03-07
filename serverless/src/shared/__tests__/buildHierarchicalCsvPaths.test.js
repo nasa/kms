@@ -24,8 +24,8 @@ describe('buildHierarchicalCsvPaths', () => {
       'http://example.com/2': ['http://provider.com/2']
     }
     const longNamesMap = {
-      'http://example.com/1': ['Long Name 1'],
-      'http://example.com/2': ['Long Name 2']
+      'http://example.com/1': 'Long Name 1',
+      'http://example.com/2': 'Long Name 2'
     }
     const scheme = 'testScheme'
     const rootNode = {
