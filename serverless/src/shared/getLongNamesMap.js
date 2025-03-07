@@ -5,7 +5,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 /**
  * Fetches long names for a given scheme and returns them as a map
  * @param {string} scheme - The scheme to fetch long names for
- * @returns {Promise<Object>} A map of subject values to their associated long names
+ * @returns {Promise<Object>} A map of subject values to their associated long name
  *
  * @example
  * // Fetch long names for the 'person' scheme
@@ -13,9 +13,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * // Example output:
  * // {
- * //   'http://example.com/person/1': ['John Doe', 'Johnny'],
- * //   'http://example.com/person/2': ['Jane Smith', 'Janie'],
- * //   'http://example.com/person/3': ['Bob Johnson']
+ * //   'http://example.com/person/1': 'John Doe',
+ * //   'http://example.com/person/2': 'Jane Smith',
+ * //   'http://example.com/person/3': 'Bob Johnson'
  * // }
  *
  * @example
@@ -53,15 +53,7 @@ export const getLongNamesMap = async (scheme) => {
 
     // Iterate through each triple in the results
     triples.forEach((triple) => {
-      // If the subject doesn't exist in the map, initialize it with an empty array
-      if (!map[triple.subject.value]) {
-        map[triple.subject.value] = []
-      }
-
-      // If the 'bo' value is not 'primary', add it to the array for this subject
-      if (triple.bo.value !== 'primary') {
-        map[triple.subject.value].push(triple.bo.value)
-      }
+      map[triple.subject.value] = triple.longName.value
     })
 
     // Return the completed map
