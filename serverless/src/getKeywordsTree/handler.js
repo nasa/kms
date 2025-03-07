@@ -245,7 +245,7 @@ export const getKeywordsTree = async (event) => {
     // Return successful response with tree data
     return {
       statusCode: 200,
-      body: JSON.stringify(treeData),
+      body: JSON.stringify(treeData, null, 2),
       headers: defaultResponseHeaders
     }
   } catch (error) {
