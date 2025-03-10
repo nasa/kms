@@ -1,3 +1,4 @@
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { toKeywordJson } from '@/shared/toKeywordJson'
@@ -53,7 +54,8 @@ const getKeyword = async (event) => {
 
   console.log('concept=', concept)
 
-  const result = toKeywordJson(concept)
+  const prefLabelMap = await createPrefLabelMap()
+  const result = toKeywordJson(concept, prefLabelMap)
 
   try {
     return {
