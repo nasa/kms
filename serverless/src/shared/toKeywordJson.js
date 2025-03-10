@@ -1,3 +1,5 @@
+import { buildFullPath } from './buildFullPath'
+
 const getAltLabels = (altLabels) => {
   if (!altLabels) {
     return []
@@ -47,7 +49,7 @@ const getRelated = (skosConcept, prefLabelMap) => {
   }))
 }
 
-export const toKeywordJson = (skosConcept, prefLabelMap) => {
+export const toKeywordJson = async (skosConcept, prefLabelMap) => {
   const allAltLabels = getAltLabels(skosConcept['gcmd:altLabel'])
   // Filter altLabels with category='primary'
   const primaryAltLabels = allAltLabels.filter((label) => label.category === 'primary')
@@ -57,7 +59,7 @@ export const toKeywordJson = (skosConcept, prefLabelMap) => {
       id: 99999,
       // eslint-disable-next-line no-underscore-dangle
       prefLabel: skosConcept['skos:prefLabel']._text,
-      longName: primaryAltLabels?.[0].text ?? '',
+      longName: primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : '',
       altLabels: allAltLabels,
       root: !skosConcept['skos:broader'],
       broader: skosConcept['skos:broader'] ? {
@@ -76,7 +78,7 @@ export const toKeywordJson = (skosConcept, prefLabelMap) => {
       version: '20.6',
       numberOfCollections: 'todo',
       uuid: skosConcept['@rdf:about'],
-      fullPath: 'todo',
+      fullPath: await buildFullPath(skosConcept['@rdf:about']),
       changeNotes: 'todo'
     }
 
