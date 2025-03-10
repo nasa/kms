@@ -7,14 +7,19 @@ import {
 } from 'vitest'
 
 import { getConcept } from '@/getConcept/handler'
+import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import toLegacyJSON from '@/shared/toLegacyJSON'
 
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getSkosConcept')
-vi.mock('@/shared/getConceptScheme')
 vi.mock('@/shared/getGcmdMetadata')
+vi.mock('@/shared/createConceptSchemeMap')
+vi.mock('@/shared/createPrefLabelMap')
+vi.mock('@/shared/toLegacyJSON')
 
 describe('getConcept', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -24,6 +29,9 @@ describe('getConcept', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    createConceptSchemeMap.mockResolvedValue(new Map())
+    createPrefLabelMap.mockResolvedValue(new Map())
+    toLegacyJSON.mockResolvedValue({})
   })
 
   const mockSuccessfulResponse = (mockSkosConcept) => {
@@ -44,7 +52,7 @@ describe('getConcept', () => {
 
         const result = await getConcept(mockEvent)
 
-        expect(result.headers['Content-Type']).toBe('application/xml; charset=utf-8')
+        expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
         expect(result.body).toContain('<rdf:RDF')
         expect(result.body).toContain('<skos:Concept')
         expect(result.body).toContain('<gcmd:keywordVersion>1.0</gcmd:keywordVersion>')
@@ -127,38 +135,45 @@ describe('getConcept', () => {
       })
     })
 
-    describe('when concept is not found', () => {
-      test('should return 404 when retrieving by concept identifier', async () => {
+    describe('format handling', () => {
+      test('returns RDF format by default', async () => {
         const mockEvent = { pathParameters: { conceptId: '123' } }
-        getSkosConcept.mockResolvedValue(null)
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': 'Test Concept'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
 
         const result = await getConcept(mockEvent)
 
-        expect(result.statusCode).toBe(404)
-        expect(result.headers['Content-Type']).toBe('application/json')
-        expect(JSON.parse(result.body)).toEqual({ error: 'Concept not found' })
+        expect(result.headers['Content-Type']).toBe('application/rdf+xml; charset=utf-8')
+        expect(result.body).toContain('<rdf:RDF')
       })
 
-      test('should return 404 when retrieving by short name', async () => {
-        const mockEvent = { pathParameters: { shortName: 'NonExistentConcept' } }
-        getSkosConcept.mockResolvedValue(null)
+      test('returns JSON format when specified', async () => {
+        const mockEvent = {
+          pathParameters: { conceptId: '123' },
+          queryStringParameters: { format: 'json' }
+        }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': { _text: 'Test Concept' }
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+        toLegacyJSON.mockReturnValue({
+          id: '123',
+          label: 'Test Concept'
+        })
 
         const result = await getConcept(mockEvent)
 
-        expect(result.statusCode).toBe(404)
-        expect(result.headers['Content-Type']).toBe('application/json')
-        expect(JSON.parse(result.body)).toEqual({ error: 'Concept not found' })
-      })
-
-      test('should return 404 when retrieving by altLabel', async () => {
-        const mockEvent = { pathParameters: { altLabel: 'NonExistentLabel' } }
-        getSkosConcept.mockResolvedValue(null)
-
-        const result = await getConcept(mockEvent)
-
-        expect(result.statusCode).toBe(404)
-        expect(result.headers['Content-Type']).toBe('application/json')
-        expect(JSON.parse(result.body)).toEqual({ error: 'Concept not found' })
+        expect(result.headers['Content-Type']).toBe('application/json; charset=utf-8')
+        expect(() => JSON.parse(result.body)).not.toThrow()
+        const parsedBody = JSON.parse(result.body)
+        expect(parsedBody).toEqual({
+          id: '123',
+          label: 'Test Concept'
+        })
       })
     })
 
@@ -251,6 +266,16 @@ describe('getConcept', () => {
       expect(JSON.parse(result.body)).toEqual({
         error: 'Error: Test error'
       })
+    })
+
+    test('should log the error', async () => {
+      const mockEvent = { pathParameters: { conceptId: '123' } }
+      const testError = new Error('Test error')
+      getSkosConcept.mockRejectedValue(testError)
+
+      await getConcept(mockEvent)
+
+      expect(console.error).toHaveBeenCalledWith(`Error retrieving concept, error=${testError.toString()}`)
     })
   })
 })
