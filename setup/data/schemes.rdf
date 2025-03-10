@@ -5,6 +5,12 @@
          xmlns:dcterms="http://purl.org/dc/terms/"
          xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#">
 
+  <gcmd:Version rdf:about="https://gcmd.earthdata.nasa.gov/kms/version_metadata">
+    <gcmd:versionType>draft</gcmd:versionType>
+    <dcterms:modified>2025-03-06</dcterms:modified>
+    <dcterms:created>2025-03-06</dcterms:created>
+  </gcmd:Version>
+
   <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations">
     <skos:prefLabel xml:lang="en">Chained Operations</skos:prefLabel>
     <skos:notation>ChainedOperations</skos:notation>

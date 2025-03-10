@@ -62,15 +62,6 @@ getConcept:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept/alt_label/{altLabel}        
-
-getConceptSchemes:
-  handler: serverless/src/getConceptSchemes/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '30'}
-  events:
-    - http:
-        method: get
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: /concept_schemes
 createConcept:
   handler: serverless/src/createConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -105,7 +96,7 @@ deleteConcept:
         path: concept/{conceptId}
 recreateDatabase:
   handler: serverless/src/recreateDatabase/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '900'}
+  timeout: 900
   events:
     - http:
         method: delete
@@ -113,7 +104,7 @@ recreateDatabase:
         path: recreateDatabase
 exportRdfToS3:
   handler: serverless/src/exportRdfToS3/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '900'}
+  timeout: 900
   events:
     - http:
         method: post
@@ -128,4 +119,30 @@ getFullPath:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept_fullpaths/concept_uuid/{conceptId}
+getConceptSchemes:
+  handler: serverless/src/getConceptSchemes/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_schemes
+getConceptVersions:
+  handler: serverless/src/getConceptVersions/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_versions/version_type/{versionType}
+publish:
+  handler: serverless/src/publish/handler.default
+  timeout: 900
+  events:
+    - http:
+        method: post
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /publish
+
+
 

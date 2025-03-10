@@ -37,7 +37,7 @@ export const sparqlRequest = async ({
   body,
   contentType = 'application/rdf+xml',
   accept = 'application/rdf+xml',
-  version = 'draft'
+  version
 }) => {
   /**
     * Constructs the SPARQL endpoint URL using environment variables.
@@ -89,14 +89,17 @@ export const sparqlRequest = async ({
       return update
     }
 
-    // Insert WITH clause at the beginning of the update
-    return `WITH <${graphUri}>\n${update}`
+    // Split the update into prefixes and the rest
+    const parts = update.split(/(?=DELETE|INSERT|WHERE)/i)
+    const prefixes = parts.filter((part) => part.trim().startsWith('PREFIX'))
+    const rest = parts.filter((part) => !part.trim().startsWith('PREFIX'))
+
+    // Insert WITH clause after the prefixes
+    return `${prefixes.join('\n')}\nWITH <${graphUri}>\n${rest.join('\n')}`
   }
 
   const endpoint = getSparqlEndpoint()
   const authHeader = getAuthHeader()
-  const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
-
   const endpointUrl = new URL(`${endpoint}${path}`)
 
   const headers = {
@@ -105,16 +108,22 @@ export const sparqlRequest = async ({
     Authorization: authHeader
   }
 
-  // Modify SPARQL queries to include FROM clause
-  if (contentType === 'application/sparql-query') {
-    body = addFromClause(body, graphUri)
-  } else if (contentType === 'application/sparql-update') {
+  if (version) {
+    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
+
+    // Modify SPARQL queries to include FROM clause
+    if (contentType === 'application/sparql-query') {
+      body = addFromClause(body, graphUri)
+    } else if (contentType === 'application/sparql-update') {
     // Modify SPARQL updates to include WITH clause
-    body = addWithClause(body, graphUri)
-  } else if (path.includes('/statements')) {
+      body = addWithClause(body, graphUri)
+    } else if (path.includes('/statements')) {
     // For statements (insertions/deletions), use the context parameter
-    endpointUrl.searchParams.append('context', `<${graphUri}>`)
+      endpointUrl.searchParams.append('context', `<${graphUri}>`)
+    }
   }
+
+  console.log('body=', body)
 
   return fetch(endpointUrl.toString(), {
     method,
