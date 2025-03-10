@@ -17,6 +17,10 @@ vi.mock('../isCsvLongNameFlag')
 vi.mock('../isCsvProviderUrlFlag')
 
 describe('buildHierarchicalCsvPaths', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
   test('should traverse the graph and return paths', async () => {
     const csvHeadersCount = 3
     const providerUrlsMap = {
@@ -172,9 +176,6 @@ describe('buildHierarchicalCsvPaths', () => {
 
     // Verify that getNarrowers was called
     expect(getNarrowers).toHaveBeenCalledWith('http://example.com/root', map)
-
-    // Log the calls to formatCsvPath for debugging
-    console.log('formatCsvPath calls:', formatCsvPath.mock.calls)
 
     // Verify that formatCsvPath was not called with the root node's path
     expect(formatCsvPath).not.toHaveBeenCalledWith(

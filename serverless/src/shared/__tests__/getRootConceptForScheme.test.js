@@ -27,6 +27,7 @@ describe('getRootConcept', () => {
 
   beforeEach(() => {
     getRootConceptsBySchemeQuery.mockReturnValue(mockQuery)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {

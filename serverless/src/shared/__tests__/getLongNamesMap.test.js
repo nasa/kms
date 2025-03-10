@@ -17,6 +17,7 @@ describe('getLongNamesMap', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   test('should return a map of subject values to long names', async () => {

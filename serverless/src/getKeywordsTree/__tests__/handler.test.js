@@ -46,6 +46,10 @@ vi.mock('@/shared/sortKeywordSchemes', () => ({
 }))
 
 describe('getKeywordsTree', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
   describe('When successful', () => {
     test('should handle "all" concept scheme with Other Keywords correctly', async () => {
       vi.mocked(getNarrowersMap).mockResolvedValue({})

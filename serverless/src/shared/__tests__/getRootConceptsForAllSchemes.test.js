@@ -19,6 +19,7 @@ describe('getRootConceptsForAllSchemes', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
