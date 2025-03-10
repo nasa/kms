@@ -4,7 +4,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -20,7 +19,7 @@ describe('getLongNamesMap', () => {
     vi.clearAllMocks()
   })
 
-  it('should return a map of subject values to long names', async () => {
+  test('should return a map of subject values to long names', async () => {
     // Mock the response from sparqlRequest
     const mockResponse = {
       ok: true,
@@ -28,12 +27,12 @@ describe('getLongNamesMap', () => {
         results: {
           bindings: [
             {
-              subject: { value: 'http://example.com/person/1' },
-              longName: { value: 'John Doe' }
+              subject: { value: 'https://gcmd.earthdata.nasa.gov/kms/concept/d77685bd-aa94-4717-bd97-632699d999b5' },
+              longName: { value: 'Dassault HU-25A Guardian' }
             },
             {
-              subject: { value: 'http://example.com/person/2' },
-              longName: { value: 'Jane Smith' }
+              subject: { value: 'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54' },
+              longName: { value: 'NSF/NCAR Gulfstream GV Aircraft' }
             }
           ]
         }
@@ -45,8 +44,8 @@ describe('getLongNamesMap', () => {
     const result = await getLongNamesMap('person')
 
     expect(result).toEqual({
-      'http://example.com/person/1': 'John Doe',
-      'http://example.com/person/2': 'Jane Smith'
+      'https://gcmd.earthdata.nasa.gov/kms/concept/d77685bd-aa94-4717-bd97-632699d999b5': 'Dassault HU-25A Guardian',
+      'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54': 'NSF/NCAR Gulfstream GV Aircraft'
     })
 
     expect(sparqlRequest).toHaveBeenCalledWith({
@@ -57,7 +56,7 @@ describe('getLongNamesMap', () => {
     })
   })
 
-  it('should throw an error when the response is not ok', async () => {
+  test('should throw an error when the response is not ok', async () => {
     const mockResponse = {
       ok: false,
       status: 500
@@ -68,7 +67,7 @@ describe('getLongNamesMap', () => {
     await expect(getLongNamesMap('person')).rejects.toThrow('HTTP error! status: 500')
   })
 
-  it('should handle and re-throw errors from sparqlRequest', async () => {
+  test('should handle and re-throw errors from sparqlRequest', async () => {
     const mockError = new Error('Network error')
     sparqlRequest.mockRejectedValue(mockError)
 

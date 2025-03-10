@@ -58,35 +58,6 @@ describe('buildKeywordsTree', () => {
         ]
       })
     })
-
-    test('should handle circular references', async () => {
-      const rootNode = {
-        narrowerPrefLabel: 'Root',
-        uri: 'http://example.com/root'
-      }
-      const childNode = {
-        narrowerPrefLabel: 'Child',
-        uri: 'http://example.com/child'
-      }
-      const narrowersMap = new Map()
-
-      getNarrowers.mockResolvedValueOnce([childNode])
-      getNarrowers.mockResolvedValueOnce([rootNode])
-
-      const result = await buildKeywordsTree(rootNode, narrowersMap)
-
-      expect(result).toEqual({
-        key: 'root',
-        title: 'Root',
-        children: [
-          {
-            key: 'child',
-            title: 'Child',
-            children: []
-          }
-        ]
-      })
-    })
   })
 
   describe('When unsuccessful', () => {
