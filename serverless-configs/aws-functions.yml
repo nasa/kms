@@ -111,7 +111,6 @@ updateConcept:
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
-
 deleteConcept:
   handler: serverless/src/deleteConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -127,7 +126,6 @@ deleteConcept:
 recreateDatabase:
   handler: serverless/src/recreateDatabase/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '900'}
-  path: recreateDatabase
   events:
     - http:
         method: delete

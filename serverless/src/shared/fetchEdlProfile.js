@@ -7,7 +7,11 @@ import fetchEdlClientToken from './fetchEdlClientToken'
  * @param {Object} headers Lambda event headers
  */
 const fetchEdlProfile = async (launchpadToken) => {
-  if (launchpadToken === 'ABC-1') {
+  const {
+    IS_OFFLINE
+  } = process.env
+
+  if (IS_OFFLINE && launchpadToken === 'ABC-1') {
     return {
       auid: 'admin',
       name: 'Admin User',

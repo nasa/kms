@@ -74,6 +74,7 @@ describe('fetchEdlProfile', () => {
 
   describe('when the token is ABC-1', () => {
     test('returns the users profile', async () => {
+      process.env.IS_OFFLINE = true
       const profile = await fetchEdlProfile('ABC-1')
 
       expect(profile).toEqual({
@@ -83,6 +84,7 @@ describe('fetchEdlProfile', () => {
       })
 
       expect(fetch).toHaveBeenCalledTimes(0)
+      process.env.IS_OFFLINE = false
     })
   })
 
