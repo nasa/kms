@@ -14,6 +14,10 @@ vi.mock('../sparqlRequest', () => ({
 }))
 
 describe('getNarrowersMap', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
