@@ -124,22 +124,19 @@ deleteConcept:
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
-deleteAll:
-  handler: serverless/src/deleteAll/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '30'}
 recreateDatabase:
   handler: serverless/src/recreateDatabase/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '900'}
+  path: recreateDatabase
   events:
     - http:
         method: delete
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: deleteAll
+        path: recreateDatabase
         authorizer:
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
-        path: recreateDatabase
 exportRdfToS3:
   handler: serverless/src/exportRdfToS3/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '900'}
