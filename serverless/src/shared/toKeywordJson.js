@@ -67,18 +67,6 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
       longName: primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : '',
       altLabels: allAltLabels,
       root: !skosConcept['skos:broader'],
-      broader: skosConcept['skos:broader'] ? {
-        prefLabel: prefLabelMap.get(skosConcept['skos:broader']['@rdf:resource']),
-        uuid: skosConcept['skos:broader']['@rdf:resource']
-      } : {},
-      narrowers: skosConcept['skos:narrower'] ? getNarrowers(skosConcept, prefLabelMap) : [],
-      related: skosConcept['skos:related'] ? getRelated(skosConcept, prefLabelMap) : [],
-      // http://localhost:4001/dev/keyword/d3a21a28-538b-4292-9570-5fd3da9ce4d2
-      // eslint-disable-next-line no-underscore-dangle
-      definition: skosConcept['skos:definition'] ? skosConcept['skos:definition']._text : '',
-      reference: skosConcept['gcmd:reference'] && skosConcept['gcmd:reference']['@gcmd:text']
-        ? skosConcept['gcmd:reference']['@gcmd:text']
-        : '',
       scheme,
       version: '20.6',
       numberOfCollections: await getNumberOfCmrCollections({
@@ -88,6 +76,17 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
       }),
       uuid,
       fullPath: await buildFullPath(uuid),
+      // eslint-disable-next-line no-underscore-dangle
+      definition: skosConcept['skos:definition'] ? skosConcept['skos:definition']._text : '',
+      reference: skosConcept['gcmd:reference'] && skosConcept['gcmd:reference']['@gcmd:text']
+        ? skosConcept['gcmd:reference']['@gcmd:text']
+        : '',
+      broader: skosConcept['skos:broader'] ? {
+        prefLabel: prefLabelMap.get(skosConcept['skos:broader']['@rdf:resource']),
+        uuid: skosConcept['skos:broader']['@rdf:resource']
+      } : {},
+      narrowers: skosConcept['skos:narrower'] ? getNarrowers(skosConcept, prefLabelMap) : [],
+      related: skosConcept['skos:related'] ? getRelated(skosConcept, prefLabelMap) : [],
       changeNotes: 'todo'
     }
 
