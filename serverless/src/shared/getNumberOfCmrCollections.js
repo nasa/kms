@@ -1,12 +1,12 @@
 import { cmrRequest } from './cmrRequest'
 
-const postRequest = async (jsonQuery) => {
+const doRequest = async (method, query) => {
   const response = await cmrRequest({
-    path: '/search/collections',
-    method: 'POST',
+    path: method === 'POST' ? '/search/collections' : '/search/collections?'.concat(query),
+    method,
     contentType: 'application/json',
     accept: 'application/json',
-    body: JSON.stringify(jsonQuery)
+    body: method === 'POST' ? JSON.stringify(query) : null
   })
 
   // Check if the response is successful
@@ -55,7 +55,7 @@ export const getNumberOfCmrCollections = async ({
       }
     }
     try {
-      const numberOfCollections = await postRequest(jsonQuery)
+      const numberOfCollections = await doRequest('POST', jsonQuery)
 
       return numberOfCollections
     } catch (error) {
@@ -70,7 +70,7 @@ export const getNumberOfCmrCollections = async ({
       }
     }
     try {
-      const numberOfCollections = await postRequest(jsonQuery)
+      const numberOfCollections = await doRequest('POST', jsonQuery)
 
       return numberOfCollections
     } catch (error) {
@@ -78,7 +78,16 @@ export const getNumberOfCmrCollections = async ({
 
       return -1
     }
-  } else if (['DataFormat', 'GranuleDataFormat'].includes(cmrScheme)) {
+  } else {
     const queryString = `${cmrScheme}=${prefLabel}`
+    try {
+      const numberOfCollections = await doRequest('GET', queryString)
+
+      return numberOfCollections
+    } catch (error) {
+      console.error('Error in getNumberOfCmrCollections:', error)
+
+      return -1
+    }
   }
 }
