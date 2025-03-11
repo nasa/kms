@@ -1,5 +1,3 @@
-// Serverless/src/shared/operations/queries/__tests__/getRootConceptsBySchemeQuery.test.js
-
 import {
   describe,
   expect,

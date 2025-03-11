@@ -1,5 +1,3 @@
-// Filename: toTitleCase.js
-
 /**
  * Converts a string to title case.
  *

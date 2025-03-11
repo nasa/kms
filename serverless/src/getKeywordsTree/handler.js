@@ -172,8 +172,9 @@ export const getKeywordsTree = async (event) => {
     // Apply filter if provided
     if (filter) {
       if (isAllSchemes) {
-        // eslint-disable-next-line max-len
-        keywordTree = keywordTree.map((tree) => filterKeywordTree(tree, filter)).filter((tree) => tree !== null)
+        keywordTree = keywordTree
+          .map((tree) => filterKeywordTree(tree, filter))
+          .filter((tree) => tree !== null)
       } else {
         keywordTree = filterKeywordTree(keywordTree, filter)
       }
@@ -215,8 +216,10 @@ export const getKeywordsTree = async (event) => {
     })
 
     // Sort processedSchemes using the existing sortKeywordSchemes function
-    // eslint-disable-next-line max-len
-    const sortedProcessedSchemes = processedSchemes.sort((a, b) => sortKeywordSchemes({ title: a.longName }, { title: b.longName }))
+    const sortedProcessedSchemes = processedSchemes.sort((a, b) => sortKeywordSchemes(
+      { title: a.longName },
+      { title: b.longName }
+    ))
 
     // Wrap the tree in the expected format
     const treeData = {

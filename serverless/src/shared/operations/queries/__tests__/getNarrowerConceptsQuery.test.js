@@ -1,15 +1,9 @@
-// GetNarrowerConceptsQuery.test.js
-
-import {
-  describe,
-  expect,
-  it
-} from 'vitest'
+import { describe, expect } from 'vitest'
 
 import { getNarrowerConceptsQuery } from '../getNarrowerConceptsQuery'
 
 describe('getNarrowerConceptsQuery', () => {
-  it('should return the correct query without a scheme', () => {
+  test('should return the correct query without a scheme', () => {
     const result = getNarrowerConceptsQuery()
     expect(result).toEqual(`
   PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
@@ -23,7 +17,7 @@ describe('getNarrowerConceptsQuery', () => {
 `)
   })
 
-  it('should return the correct query with a scheme', () => {
+  test('should return the correct query with a scheme', () => {
     const scheme = 'test_scheme'
     const result = getNarrowerConceptsQuery(scheme)
     expect(result).toEqual(`

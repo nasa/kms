@@ -1,5 +1,3 @@
-// Serverless/src/shared/getLongNamesMap.test.js
-
 import {
   beforeEach,
   describe,
