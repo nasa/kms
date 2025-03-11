@@ -1,11 +1,7 @@
-// GetRootConcepts.js
-
-// Import the query function for getting all root concepts
 import {
   getRootConceptsBySchemeQuery
 } from '@/shared/operations/queries/getRootConceptsBySchemeQuery'
 
-// Import the function for making SPARQL requests
 import { sparqlRequest } from './sparqlRequest'
 
 /**

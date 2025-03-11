@@ -44,9 +44,10 @@ import { toTitleCase } from './toTitleCase'
  */
 export const filterScienceKeywordsTree = (data, titleToKeep) => {
   if (data.children && data.children.length > 0) {
-    // eslint-disable-next-line max-len
-    const foundChild = data.children.find((child) => child.title.toLowerCase() === titleToKeep.toLowerCase())
-
+    // eslint-disable-next-line arrow-body-style
+    const foundChild = data.children.find((child) => {
+      return child.title.toLowerCase() === titleToKeep.toLowerCase()
+    })
     if (foundChild) {
       return {
         ...foundChild,

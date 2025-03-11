@@ -1,5 +1,3 @@
-// Filename: toTitleCase.test.js
-
 import {
   describe,
   expect,

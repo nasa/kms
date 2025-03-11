@@ -10,36 +10,40 @@ import { getNarrowers } from './getNarrowers'
  *
  * @example
  * const rootNode = {
- *   narrowerPrefLabel: 'Animals',
- *   uri: 'http://example.com/keywords/animals'
+ *   narrowerPrefLabel: 'Science Keywords',
+ *   uri: 'https://gcmd.earthdata.nasa.gov/kms/concept/e9f67a66-e9fc-435c-b720-ae32a2c3d8f7'
  * };
  *
  * const narrowersMap = {
- *   'http://example.com/keywords/animals': [
- *     { narrowerPrefLabel: 'Mammals', uri: 'http://example.com/keywords/mammals' },
- *     { narrowerPrefLabel: 'Birds', uri: 'http://example.com/keywords/birds' }
+ *   'https://gcmd.earthdata.nasa.gov/kms/concept/e9f67a66-e9fc-435c-b720-ae32a2c3d8f7': [
+ *     { narrowerPrefLabel: 'EARTH SCIENCE SERVICES', uri: 'https://gcmd.earthdata.nasa.gov/kms/concept/894f9116-ae3c-40b6-981d-5113de961710' },
+ *     { narrowerPrefLabel: 'EARTH SCIENCE', uri: 'https://gcmd.earthdata.nasa.gov/kms/concept/e9f67a66-e9fc-435c-b720-ae32a2c3d8f5' }
  *   ],
- *   'http://example.com/keywords/mammals': [
- *     { narrowerPrefLabel: 'Dogs', uri: 'http://example.com/keywords/dogs' },
- *     { narrowerPrefLabel: 'Cats', uri: 'http://example.com/keywords/cats' }
+ *   'https://gcmd.earthdata.nasa.gov/kms/concept/e9f67a66-e9fc-435c-b720-ae32a2c3d8f5': [
+ *     { narrowerPrefLabel: 'ATMOSPHERE', uri: 'https://gcmd.earthdata.nasa.gov/kms/concept/c47f6052-634e-40ef-a5ac-13f69f6f4c2a' },
+ *     { narrowerPrefLabel: 'OCEANS', uri: 'https://gcmd.earthdata.nasa.gov/kms/concept/91697b7d-8f2b-4954-850e-61d5f61c867d' }
  *   ]
  * };
  *
  * const tree = await buildKeywordsTree(rootNode, narrowersMap);
  * // Returns:
  * // {
- * //   key: 'animals',
- * //   title: 'Animals',
+ * //   key: 'science-keywords',
+ * //   title: 'Science Keywords',
  * //   children: [
  * //     {
- * //       key: 'mammals',
- * //       title: 'Mammals',
- * //       children: [
- * //         { key: 'dogs', title: 'Dogs', children: [] },
- * //         { key: 'cats', title: 'Cats', children: [] }
- * //       ]
+ * //       key: 'earth-science-services',
+ * //       title: 'EARTH SCIENCE SERVICES',
+ * //       children: []
  * //     },
- * //     { key: 'birds', title: 'Birds', children: [] }
+ * //     {
+ * //       key: 'earth-science',
+ * //       title: 'EARTH SCIENCE',
+ * //       children: [
+ * //         { key: 'atmosphere', title: 'ATMOSPHERE', children: [] },
+ * //         { key: 'oceans', title: 'OCEANS', children: [] }
+ * //       ]
+ * //     }
  * //   ]
  * // }
  */

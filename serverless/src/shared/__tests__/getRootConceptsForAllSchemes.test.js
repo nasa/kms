@@ -1,5 +1,3 @@
-// GetRootConceptsForAllSchemes.test.js
-
 import {
   afterEach,
   beforeEach,
