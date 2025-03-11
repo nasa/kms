@@ -6,12 +6,18 @@ export const cmrRequest = async ({
   accept = 'application/xml'
 }) => {
   const getCmrEndpoint = () => {
-    const baseUrl = process.env.CMR_SERVICE_URL
+    // Const baseUrl = process.env.CMR_SERVICE_URL
+    const baseUrl = 'https://cmr.earthdata.nasa.gov'
 
     return `${baseUrl}`
   }
 
   const endpoint = getCmrEndpoint()
+
+  console.log('endpoint=', endpoint)
+  console.log('path=', path)
+  console.log('method=', method)
+  console.log('body=', body)
 
   return fetch(`${endpoint}${path}`, {
     method,

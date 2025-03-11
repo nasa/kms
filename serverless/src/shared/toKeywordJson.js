@@ -1,4 +1,5 @@
 import { buildFullPath } from './buildFullPath'
+import { getNumberOfCmrCollections } from './getNumberOfCmrCollections'
 
 const getAltLabels = (altLabels) => {
   if (!altLabels) {
@@ -53,12 +54,16 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
   const allAltLabels = getAltLabels(skosConcept['gcmd:altLabel'])
   // Filter altLabels with category='primary'
   const primaryAltLabels = allAltLabels.filter((label) => label.category === 'primary')
+  const scheme = skosConcept['skos:inScheme']['@rdf:resource'].split('/').pop()
+  const uuid = skosConcept['@rdf:about']
+  // eslint-disable-next-line no-underscore-dangle
+  const prefLabel = skosConcept['skos:prefLabel']._text
   try {
   // Transform the data
     const transformedData = {
       id: 99999,
       // eslint-disable-next-line no-underscore-dangle
-      prefLabel: skosConcept['skos:prefLabel']._text,
+      prefLabel,
       longName: primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : '',
       altLabels: allAltLabels,
       root: !skosConcept['skos:broader'],
@@ -74,11 +79,15 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
       reference: skosConcept['gcmd:reference'] && skosConcept['gcmd:reference']['@gcmd:text']
         ? skosConcept['gcmd:reference']['@gcmd:text']
         : '',
-      scheme: skosConcept['skos:inScheme']['@rdf:resource'].split('/').pop(),
+      scheme,
       version: '20.6',
-      numberOfCollections: 'todo',
-      uuid: skosConcept['@rdf:about'],
-      fullPath: await buildFullPath(skosConcept['@rdf:about']),
+      numberOfCollections: await getNumberOfCmrCollections({
+        scheme,
+        conceptId: uuid,
+        prefLabel
+      }),
+      uuid,
+      fullPath: await buildFullPath(uuid),
       changeNotes: 'todo'
     }
 
