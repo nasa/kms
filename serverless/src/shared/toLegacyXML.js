@@ -1,3 +1,5 @@
+import createChangeNote from './createChangeNote'
+
 // Helper function to retrieve parsed information in concept_schemes xml
 function findMatchingConceptScheme(schemeShortName, conceptSchemes) {
   const matchingScheme = conceptSchemes.find(
@@ -22,37 +24,6 @@ function processAltLabels(altLabels) {
     '@category': label['@gcmd:category'],
     '#text': label['@gcmd:text']
   }))
-}
-
-// Helper function to parse through changeNotes to find appropriate fields
-function processChangeNote(note) {
-  const lines = note.split('\n').map((line) => line.trim())
-  const changeNote = {
-    changeNoteItems: {
-      changeNoteItem: []
-    }
-  }
-  let currentChangeNoteItem = null
-
-  lines.forEach((line) => {
-    if (line.startsWith('date:')) changeNote['@date'] = line.split(':')[1].trim()
-    else if (line.startsWith('userId:')) changeNote['@userId'] = line.split(':')[1].trim()
-    else if (line.startsWith('userNote:')) changeNote['@userNote'] = line.split(':')[1].trim() || ''
-    else if (line === 'ChangeNoteItem #1') {
-      currentChangeNoteItem = {}
-    } else if (currentChangeNoteItem) {
-      if (line.startsWith('systemNote:')) currentChangeNoteItem['@systemNote'] = line.split(':')[1].trim()
-      else if (line.startsWith('newValue:')) currentChangeNoteItem['@newValue'] = line.split(':')[1].trim()
-      else if (line.startsWith('entity:')) currentChangeNoteItem['@entity'] = line.split(':')[1].trim()
-      else if (line.startsWith('operation:')) {
-        currentChangeNoteItem['@operation'] = line.split(':')[1].trim()
-        changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
-        currentChangeNoteItem = null
-      }
-    }
-  })
-
-  return changeNote
 }
 
 /**
@@ -110,7 +81,7 @@ const toLegacyXML = (
       }),
       ...(concept['skos:definition'] ? {
         definition: {
-          '@reference': concept['gcmd:reference'] ? concept['gcmd:reference']['@gcmd:text'] || '' : '',
+          '@reference': concept['gcmd:reference'] ? concept['gcmd:reference']['@gcmd:text'] : '',
           // eslint-disable-next-line no-underscore-dangle
           '#text': concept['skos:definition']._text
         }
@@ -132,15 +103,15 @@ const toLegacyXML = (
           ? concept['skos:narrower']
           : [concept['skos:narrower']]
 
-        const conceptBriefs = narrowerArray.map((narrower) => ({
-          conceptBrief: {
-            '@conceptScheme': schemeShortName,
-            '@prefLabel': prefLabelMap.get(narrower['@rdf:resource']),
-            '@uuid': narrower['@rdf:resource']
-          }
+        const conceptBrief = narrowerArray.map((narrower) => ({
+          '@conceptScheme': schemeShortName,
+          '@prefLabel': prefLabelMap.get(narrower['@rdf:resource']),
+          '@uuid': narrower['@rdf:resource']
         }))
 
-        return conceptBriefs.length === 1 ? conceptBriefs[0] : conceptBriefs
+        return {
+          conceptBrief
+        }
       })(),
       conceptScheme: {
         '@csvHeaders': csvHeaders.join(','),
@@ -161,7 +132,7 @@ const toLegacyXML = (
               '@type': 'has_instrument',
               '@generatedBy': 'server',
               '@conceptScheme': 'instruments',
-              '@prefLabel': prefLabelMap.get(instrument['@rdf:resource']) || '',
+              '@prefLabel': prefLabelMap.get(instrument['@rdf:resource']),
               '@uuid': instrument['@rdf:resource']
             })
           })
@@ -173,7 +144,7 @@ const toLegacyXML = (
             '@type': 'is_on_platform',
             '@generatedBy': 'server',
             '@conceptScheme': 'platforms',
-            '@prefLabel': prefLabelMap.get(concept['gcmd:isOnPlatform']['@rdf:resource']) || '',
+            '@prefLabel': prefLabelMap.get(concept['gcmd:isOnPlatform']['@rdf:resource']),
             '@uuid': concept['gcmd:isOnPlatform']['@rdf:resource']
           })
         }
@@ -192,8 +163,8 @@ const toLegacyXML = (
       ...(concept['skos:changeNote'] ? {
         changeNotes: {
           changeNote: Array.isArray(concept['skos:changeNote'])
-            ? concept['skos:changeNote'].map(processChangeNote)
-            : processChangeNote(concept['skos:changeNote'])
+            ? concept['skos:changeNote'].map(createChangeNote)
+            : createChangeNote(concept['skos:changeNote'])
         }
       } : {}),
       ...(concept['dcterms:modified'] && {

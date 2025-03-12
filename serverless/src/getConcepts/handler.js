@@ -3,9 +3,11 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { createShortNameMap } from '@/shared/createShortNameMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -87,7 +89,7 @@ export const getConcepts = async (event) => {
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
     const prefLabelMap = await createPrefLabelMap()
-    const shortNameMap = await createShortNameMap()
+    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
 
     let responseBody
     let contentType
@@ -105,7 +107,12 @@ export const getConcepts = async (event) => {
         concepts: conceptURIs.map((uri) => {
           const ntriples = [...nodes[uri]]
           const concept = toSkosJson(uri, ntriples, bNodeMap)
-          const legacyJSON = toLegacyJSON(concept, conceptSchemeMap, prefLabelMap, shortNameMap)
+          const legacyJSON = toLegacyJSON(
+            concept,
+            conceptSchemeMap,
+            conceptToConceptSchemeShortNameMap,
+            prefLabelMap
+          )
 
           return {
             uuid: legacyJSON.uuid,
@@ -159,7 +166,7 @@ export const getConcepts = async (event) => {
           viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
           conceptBrief: conceptURIs.map((uri) => {
             const concept = toSkosJson(uri, [...nodes[uri]], bNodeMap)
-            const schemeShortName = shortNameMap.get(concept['@rdf:about'])
+            const schemeShortName = conceptToConceptSchemeShortNameMap.get(concept['@rdf:about'])
 
             return {
               '@conceptScheme': schemeShortName,

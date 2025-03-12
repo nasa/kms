@@ -8,9 +8,11 @@ import {
 
 import { getConcepts } from '@/getConcepts/handler'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { createShortNameMap } from '@/shared/createShortNameMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -29,7 +31,7 @@ vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
 vi.mock('@/shared/createPrefLabelMap')
 vi.mock('@/shared/createConceptSchemeMap')
-vi.mock('@/shared/createShortNameMap')
+vi.mock('@/shared/createConceptToConceptSchemeShortNameMap')
 vi.mock('@/shared/toLegacyJSON')
 
 describe('getConcepts', () => {
@@ -42,7 +44,7 @@ describe('getConcepts', () => {
     createCsvForScheme.mockReset()
     createPrefLabelMap.mockResolvedValue(new Map())
     createConceptSchemeMap.mockResolvedValue(new Map())
-    createShortNameMap.mockResolvedValue(new Map())
+    createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map())
     toLegacyJSON.mockReturnValue({})
   })
 
@@ -424,7 +426,7 @@ describe('getConcepts', () => {
         ['SN', 'Long Name']
       ]))
 
-      createShortNameMap.mockResolvedValue(new Map([
+      createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map([
         ['http://example.com/concept1', 'SN'],
         ['http://example.com/concept2', 'SN']
       ]))
@@ -504,7 +506,7 @@ describe('getConcepts', () => {
         'skos:prefLabel': { _text: `Concept ${uri.split('/').pop()}` }
       }))
 
-      createShortNameMap.mockResolvedValue(new Map([
+      createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map([
         ['http://example.com/concept1', 'SN1'],
         ['http://example.com/concept2', 'SN2']
       ]))

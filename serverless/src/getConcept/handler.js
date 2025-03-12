@@ -2,8 +2,10 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { createShortNameMap } from '@/shared/createShortNameMap'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
@@ -105,12 +107,12 @@ export const getConcept = async (event) => {
     // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
     if (format.toLowerCase() === 'json') {
       const conceptSchemeMap = await createConceptSchemeMap()
-      const shortNameMap = await createShortNameMap()
+      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
       responseBody = JSON.stringify(toLegacyJSON(
         concept,
         conceptSchemeMap,
-        prefLabelMap,
-        shortNameMap
+        conceptToConceptSchemeShortNameMap,
+        prefLabelMap
       ), null, 2)
 
       contentType = 'application/json'

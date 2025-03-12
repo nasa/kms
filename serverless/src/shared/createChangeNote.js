@@ -35,23 +35,25 @@ const createChangeNote = (note) => {
     if (line.startsWith('Date:')) changeNote['@date'] = line.split(':')[1].trim()
     else if (line.startsWith('User Id:')) changeNote['@userId'] = line.split(':')[1].trim()
     else if (line.startsWith('User Note:')) changeNote['@userNote'] = line.split(':')[1].trim() || ''
-    else if (line === 'Change Note Item #1') {
+    else if (line.startsWith('Change Note Item #')) {
+      if (currentChangeNoteItem) {
+        changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
+      }
+
       currentChangeNoteItem = {}
     } else if (currentChangeNoteItem) {
-      if (line.startsWith('System Note:')) currentChangeNoteItem['@systemNote'] = line.split(':')[1].trim()
-      else if (line.startsWith('New Value:')) currentChangeNoteItem['@newValue'] = line.split(':')[1].trim()
-      else if (line.startsWith('Old Value:')) currentChangeNoteItem['@oldValue'] = line.split(':')[1].trim()
-      else if (line.startsWith('Entity:')) currentChangeNoteItem['@entity'] = line.split(':')[1].trim()
-      else if (line.startsWith('Operation:')) currentChangeNoteItem['@operation'] = line.split(':')[1].trim()
-      else if (line.startsWith('Field:')) {
-        currentChangeNoteItem['@field'] = line.split(':')[1].trim()
-        changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
-        currentChangeNoteItem = null
-      }
+      const [key, ...valueParts] = line.split(':')
+      const value = valueParts.join(':').trim()
+      if (key === 'System Note') currentChangeNoteItem['@systemNote'] = value
+      else if (key === 'New Value') currentChangeNoteItem['@newValue'] = value
+      else if (key === 'Old Value') currentChangeNoteItem['@oldValue'] = value
+      else if (key === 'Entity') currentChangeNoteItem['@entity'] = value
+      else if (key === 'Operation') currentChangeNoteItem['@operation'] = value
+      else if (key === 'Field') currentChangeNoteItem['@field'] = value
     }
   })
 
-  // In case the last ChangeNoteItem doesn't have a 'field' property
+  // Add the last ChangeNoteItem if it exists
   if (currentChangeNoteItem) {
     changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
   }

@@ -8,8 +8,10 @@ import {
 
 import { getConcept } from '@/getConcept/handler'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { createShortNameMap } from '@/shared/createShortNameMap'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
@@ -23,7 +25,7 @@ vi.mock('@/shared/getSkosConcept')
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/createConceptSchemeMap')
 vi.mock('@/shared/createPrefLabelMap')
-vi.mock('@/shared/createShortNameMap')
+vi.mock('@/shared/createConceptToConceptSchemeShortNameMap')
 vi.mock('@/shared/getCsvHeaders')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/toLegacyJSON')
@@ -38,7 +40,7 @@ describe('getConcept', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
     createConceptSchemeMap.mockResolvedValue(new Map())
     createPrefLabelMap.mockResolvedValue(new Map())
-    createShortNameMap.mockResolvedValue(new Map())
+    createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map())
     getCsvHeaders.mockResolvedValue([])
     getConceptSchemeDetails.mockResolvedValue({})
     toLegacyJSON.mockReturnValue({})

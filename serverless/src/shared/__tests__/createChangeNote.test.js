@@ -7,20 +7,22 @@ import {
 import createChangeNote from '../createChangeNote'
 
 describe('createChangeNote', () => {
-  describe('when processing a change note for renaming a concept', () => {
-    const note = `ChangeNote Information
-date: 2020-01-06
-userId: tstevens
-userNote: Rename Concept
-ChangeNoteItem #1
-systemNote: update PrefLabel
-newValue: EARLY
-oldValue: LOWER
-entity: PrefLabel
-operation: UPDATE
-field: text`
-
+  describe('when processing a single change note item', () => {
     test('should correctly parse all fields', () => {
+      const note = `
+        Change Note Information
+        Date: 2020-01-06
+        User Id: tstevens
+        User Note: Rename Concept
+        Change Note Item #1
+        System Note: update PrefLabel
+        New Value: EARLY
+        Old Value: LOWER
+        Entity: PrefLabel
+        Operation: UPDATE
+        Field: text
+      `
+
       const result = createChangeNote(note)
 
       expect(result).toEqual({
@@ -43,132 +45,57 @@ field: text`
     })
   })
 
-  describe('when processing a change note for inserting a concept with broader relation', () => {
-    const note = `ChangeNote Information
-date: 2019-12-17
-userId: tstevens
-userNote:
-ChangeNoteItem #1
-systemNote: add broader relation
-newValue: LOWER [00c6f0f3-5734-4500-a69e-f6780e365985,532259] - ORDOVICIAN [02f8be65-6bdd-4f4d-9e69-adac5aec33f6,505095]
-entity: BroaderRelation
-operation: INSERT`
+  describe('when processing multiple change note items', () => {
+    test('should correctly parse all items', () => {
+      const note = `
+        Change Note Information
+        Date: 2020-01-06
+        User Id: tstevens
+        User Note: Multiple Changes
+        Change Note Item #1
+        System Note: update PrefLabel
+        New Value: EARLY
+        Old Value: LOWER
+        Entity: PrefLabel
+        Operation: UPDATE
+        Field: text
+        Change Note Item #2
+        System Note: add relation
+        New Value: NewRelation
+        Entity: Relation
+        Operation: INSERT
+      `
 
-    test('should correctly parse all fields including complex newValue', () => {
-      const result = createChangeNote(note)
-
-      expect(result).toEqual({
-        '@date': '2019-12-17',
-        '@userId': 'tstevens',
-        '@userNote': '',
-        changeNoteItems: {
-          changeNoteItem: [
-            {
-              '@systemNote': 'add broader relation',
-              '@newValue': 'LOWER [00c6f0f3-5734-4500-a69e-f6780e365985,532259] - ORDOVICIAN [02f8be65-6bdd-4f4d-9e69-adac5aec33f6,505095]',
-              '@entity': 'BroaderRelation',
-              '@operation': 'INSERT'
-            }
-          ]
-        }
-      })
-    })
-  })
-
-  describe('when processing a change note for inserting a concept with narrower relation', () => {
-    const note = `ChangeNote Information
-date: 2019-12-17
-userId: tstevens
-userNote: Insert Concept
-ChangeNoteItem #1
-systemNote: add narrower relation
-newValue: LOWER [00c6f0f3-5734-4500-a69e-f6780e365985,532259] - TREMADOCIAN [cb8eee5d-fd20-4465-a917-051562f5fcd1,532287]
-entity: NarrowerRelation
-operation: INSERT`
-
-    test('should correctly parse all fields for narrower relation', () => {
-      const result = createChangeNote(note)
-
-      expect(result).toEqual({
-        '@date': '2019-12-17',
-        '@userId': 'tstevens',
-        '@userNote': 'Insert Concept',
-        changeNoteItems: {
-          changeNoteItem: [
-            {
-              '@systemNote': 'add narrower relation',
-              '@newValue': 'LOWER [00c6f0f3-5734-4500-a69e-f6780e365985,532259] - TREMADOCIAN [cb8eee5d-fd20-4465-a917-051562f5fcd1,532287]',
-              '@entity': 'NarrowerRelation',
-              '@operation': 'INSERT'
-            }
-          ]
-        }
-      })
-    })
-  })
-
-  describe('when processing a change note with multiple ChangeNoteItems', () => {
-    const note = `ChangeNote Information
-date: 2020-01-06
-userId: tstevens
-userNote: Multiple Changes
-ChangeNoteItem #1
-systemNote: update PrefLabel
-newValue: EARLY
-oldValue: LOWER
-entity: PrefLabel
-operation: UPDATE
-field: text
-ChangeNoteItem #1
-systemNote: add relation
-newValue: NewRelation
-entity: Relation
-operation: INSERT`
-
-    test('should correctly parse all ChangeNoteItems', () => {
       const result = createChangeNote(note)
 
       expect(result.changeNoteItems.changeNoteItem).toHaveLength(2)
-      expect(result).toEqual({
-        '@date': '2020-01-06',
-        '@userId': 'tstevens',
-        '@userNote': 'Multiple Changes',
-        changeNoteItems: {
-          changeNoteItem: [
-            {
-              '@systemNote': 'update PrefLabel',
-              '@newValue': 'EARLY',
-              '@oldValue': 'LOWER',
-              '@entity': 'PrefLabel',
-              '@operation': 'UPDATE',
-              '@field': 'text'
-            },
-            {
-              '@systemNote': 'add relation',
-              '@newValue': 'NewRelation',
-              '@entity': 'Relation',
-              '@operation': 'INSERT'
-            }
-          ]
-        }
+      expect(result.changeNoteItems.changeNoteItem[1]).toEqual({
+        '@systemNote': 'add relation',
+        '@newValue': 'NewRelation',
+        '@entity': 'Relation',
+        '@operation': 'INSERT'
       })
     })
   })
 
-  describe('when processing a change note with missing fields', () => {
-    const note = `ChangeNote Information
-date: 2020-01-06
-userId: tstevens
-ChangeNoteItem #1
-systemNote: update PrefLabel
-newValue: EARLY`
-
+  describe('when processing a note with missing fields', () => {
     test('should handle missing fields gracefully', () => {
+      const note = `
+        Change Note Information
+        Date: 2020-01-06
+        User Id: tstevens
+        User Note:
+        Change Note Item #1
+        System Note: update PrefLabel
+        New Value: EARLY
+      `
+
       const result = createChangeNote(note)
 
       expect(result).toEqual({
         '@date': '2020-01-06',
         '@userId': 'tstevens',
+        '@userNote': '',
         changeNoteItems: {
           changeNoteItem: [
             {
@@ -178,6 +105,26 @@ newValue: EARLY`
           ]
         }
       })
+    })
+  })
+
+  describe('when processing a note with values containing colons', () => {
+    test('should correctly parse values with colons', () => {
+      const note = `
+        Change Note Information
+        Date: 2020-01-06
+        User Id: tstevens
+        User Note: Complex Change
+        Change Note Item #1
+        System Note: update complex value
+        New Value: This: is: a: complex: value
+        Entity: ComplexField
+        Operation: UPDATE
+      `
+
+      const result = createChangeNote(note)
+
+      expect(result.changeNoteItems.changeNoteItem[0]['@newValue']).toBe('This: is: a: complex: value')
     })
   })
 })

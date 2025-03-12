@@ -6,13 +6,15 @@ import {
   vi
 } from 'vitest'
 
-import { createShortNameMap } from '../createShortNameMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '../createConceptToConceptSchemeShortNameMap'
 import { sparqlRequest } from '../sparqlRequest'
 
 // Mock the sparqlRequest module
 vi.mock('../sparqlRequest')
 
-describe('createShortNameMap', () => {
+describe('createConceptToConceptSchemeShortNameMap', () => {
   beforeEach(() => {
     vi.resetAllMocks()
   })
@@ -39,7 +41,7 @@ describe('createShortNameMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await createShortNameMap()
+      const result = await createConceptToConceptSchemeShortNameMap()
 
       expect(result).toBeInstanceOf(Map)
       expect(result.size).toBe(2)
@@ -68,7 +70,7 @@ describe('createShortNameMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await createShortNameMap()
+      const result = await createConceptToConceptSchemeShortNameMap()
 
       expect(result.size).toBe(2)
       expect(result.get('123')).toBe('scheme1')
@@ -85,7 +87,7 @@ describe('createShortNameMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
-      await expect(createShortNameMap()).rejects.toThrow('HTTP error! status: 500')
+      await expect(createConceptToConceptSchemeShortNameMap()).rejects.toThrow('HTTP error! status: 500')
     })
   })
 
@@ -100,7 +102,7 @@ describe('createShortNameMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
-      await expect(createShortNameMap()).rejects.toThrow()
+      await expect(createConceptToConceptSchemeShortNameMap()).rejects.toThrow()
     })
   })
 
@@ -117,7 +119,7 @@ describe('createShortNameMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await createShortNameMap()
+      const result = await createConceptToConceptSchemeShortNameMap()
 
       expect(result).toBeInstanceOf(Map)
       expect(result.size).toBe(0)

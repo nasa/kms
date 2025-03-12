@@ -48,36 +48,37 @@ const toRDF = async (jsonURL, xmlURL) => {
 
     // Helper function to provide information for <skos:changeNote> based on what the xml data looks like
     // It also adds attributes for easier parsing
-    const createChangeNote = (date, userId, userNote, changeNoteItems) => {
-      let changeNoteText = 'ChangeNote Information\n \n'
-      changeNoteText += `date: ${date}\n`
-      changeNoteText += `userId: ${userId}\n`
-      changeNoteText += `userNote: ${userNote}\n`
+    const createChangeNoteforToRDF = (date, userId, userNote, changeNoteItems) => {
+      let changeNoteText = 'Change Note Information\n \n'
+      changeNoteText += `Date: ${date}\n`
+      changeNoteText += `User Id: ${userId}\n`
+      changeNoteText += `User Note: ${userNote}\n`
 
-      // If (changeNoteItems) {
-      const changeNoteItem = Array.isArray(changeNoteItems.changeNoteItem)
-        ? changeNoteItems.changeNoteItem
-        : [changeNoteItems.changeNoteItem]
+      if (changeNoteItems) {
+        const changeNoteItem = Array.isArray(changeNoteItems.changeNoteItem)
+          ? changeNoteItems.changeNoteItem
+          : [changeNoteItems.changeNoteItem]
 
-      changeNoteItem.forEach((item, index) => {
-        if (index >= 0) changeNoteText += `\n ChangeNoteItem #${index + 1}\n \n`
-        const {
-          '@_systemNote': systemNote,
-          '@_newValue': newValue,
-          '@_oldValue': oldValue,
-          '@_entity': entity,
-          '@_operation': operation,
-          '@_field': field
-        } = item
-        const decodedNewValue = decodeHtmlEntities(newValue || '').trim()
-        const decodedOldValue = decodeHtmlEntities(oldValue || '').trim()
-        changeNoteText += `systemNote: ${systemNote}\n`
-        changeNoteText += `newValue: ${decodedNewValue}\n`
-        if (oldValue) changeNoteText += `oldValue: ${decodedOldValue}\n`
-        changeNoteText += `entity: ${entity}\n`
-        changeNoteText += `operation: ${operation}\n`
-        if (field) changeNoteText += `field: ${field}\n`
-      })
+        changeNoteItem.forEach((item, index) => {
+          if (index >= 0) changeNoteText += `\n Change Note Item #${index + 1}\n \n`
+          const {
+            '@_systemNote': systemNote,
+            '@_newValue': newValue,
+            '@_oldValue': oldValue,
+            '@_entity': entity,
+            '@_operation': operation,
+            '@_field': field
+          } = item
+          const decodedNewValue = decodeHtmlEntities(newValue || '').trim()
+          const decodedOldValue = decodeHtmlEntities(oldValue || '').trim()
+          changeNoteText += `System Note: ${systemNote}\n`
+          changeNoteText += `New Value: ${decodedNewValue}\n`
+          if (oldValue) changeNoteText += `Old Value: ${decodedOldValue}\n`
+          changeNoteText += `Entity: ${entity}\n`
+          changeNoteText += `Operation: ${operation}\n`
+          if (field) changeNoteText += `Field: ${field}\n`
+        })
+      }
 
       return changeNoteText.trim()
     }
@@ -174,11 +175,11 @@ const toRDF = async (jsonURL, xmlURL) => {
 
     if (Array.isArray(changeNote)) {
       concept['skos:changeNote'] = changeNote.map((note) => ({
-        '#text': `\n${createChangeNote(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)}`
+        '#text': `\n${createChangeNoteforToRDF(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)}`
       }))
     } else if (changeNote) {
       concept['skos:changeNote'] = {
-        '#text': `\n${createChangeNote(
+        '#text': `\n${createChangeNoteforToRDF(
           changeNote['@_date'],
           changeNote['@_userId'],
           changeNote['@_userNote'],
@@ -217,18 +218,3 @@ const toRDF = async (jsonURL, xmlURL) => {
 }
 
 module.exports = toRDF
-
-// Uncomment to test the function
-// const main = async () => {
-//   try {
-//     const testUUID = '2ce20983-98b2-40b9-bb0e-a08074fb93b3'
-//     const jsonFileURL = `https://gcmd.earthdata.nasa.gov/kms/concept/${testUUID}?format=json`
-//     const xmlFileURL = `https://gcmd.earthdata.nasa.gov/kms/concept/${testUUID}?format=xml`
-//     const rdfString = await toRDF(jsonFileURL, xmlFileURL)
-//     console.log('🚀 ~ main ~ rdfString:', rdfString)
-//   } catch (error) {
-//     console.error('Error in main:', error)
-//   }
-// }
-
-// main()
