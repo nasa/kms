@@ -63,15 +63,16 @@ const processAltLabels = (altLabels) => {
   })
 }
 
-const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
+const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap, shortNameMap) => {
   try {
     // Extract the UUID from the @rdf:about field
     const uuid = skosConcept['@rdf:about']
 
     // Extract scheme information
-    const schemeResource = skosConcept['skos:inScheme']['@rdf:resource']
-    const schemeShortName = schemeResource.split('/').pop()
+    const schemeShortName = shortNameMap.get(uuid)
     const schemeLongName = conceptSchemeMap.get(schemeShortName)
+    const broaderShortName = skosConcept['skos:broader'] ? shortNameMap.get(skosConcept['skos:broader']['@rdf:resource']) : null
+    const broaderLongName = conceptSchemeMap.get(broaderShortName)
 
     // Transform the data
     const transformedData = {
@@ -92,8 +93,8 @@ const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
         uuid: skosConcept['skos:broader']['@rdf:resource'],
         prefLabel: prefLabelMap.get(skosConcept['skos:broader']['@rdf:resource']),
         scheme: {
-          shortName: schemeShortName,
-          longName: schemeLongName
+          shortName: broaderShortName,
+          longName: broaderLongName
         }
       }] : [],
       narrower: (() => {
@@ -102,24 +103,60 @@ const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
 
         const narrowerArray = Array.isArray(narrower) ? narrower : [narrower]
 
-        return narrowerArray.map((narrow) => ({
-          uuid: narrow['@rdf:resource'],
-          prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
-          scheme: {
-            shortName: schemeShortName,
-            longName: schemeLongName
+        return narrowerArray.map((narrow) => {
+          const narrowerShortName = shortNameMap.get(narrow['@rdf:resource'])
+          const narrowerLongName = conceptSchemeMap.get(narrowerShortName)
+
+          return {
+            uuid: narrow['@rdf:resource'],
+            prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
+            scheme: {
+              shortName: narrowerShortName,
+              longName: narrowerLongName
+            }
           }
-        }))
+        })
       })(),
-      related: (skosConcept['skos:related'] || []).map((relation) => ({
-        uuid: relation['@rdf:resource'],
-        prefLabel: prefLabelMap.get(relation['@rdf:resource']),
-        scheme: {
-          shortName: schemeShortName,
-          longName: schemeLongName
-        },
-        type: skosConcept['gcmd:type'].replace(/([A-Z])/g, '_$1').toLowerCase()
-      })),
+      related: (() => {
+        const relations = []
+
+        // Helper function to process a single relation
+        const processRelation = (relation, type) => {
+          const relationUuid = relation['@rdf:resource']
+          const relatedShortName = shortNameMap.get(relationUuid)
+          const relatedLongName = conceptSchemeMap.get(relatedShortName)
+
+          return {
+            uuid: relationUuid,
+            prefLabel: prefLabelMap.get(uuid),
+            scheme: {
+              shortName: relatedShortName,
+              longName: relatedLongName
+            },
+            type
+          }
+        }
+
+        // Handle gcmd:hasInstrument
+        if (skosConcept['gcmd:hasInstrument']) {
+          const instruments = Array.isArray(skosConcept['gcmd:hasInstrument'])
+            ? skosConcept['gcmd:hasInstrument']
+            : [skosConcept['gcmd:hasInstrument']]
+
+          instruments.forEach((instrument) => relations.push(processRelation(instrument, 'has_instrument')))
+        }
+
+        // Handle gcmd:isOnPlatform
+        if (skosConcept['gcmd:isOnPlatform']) {
+          const platforms = Array.isArray(skosConcept['gcmd:isOnPlatform'])
+            ? skosConcept['gcmd:isOnPlatform']
+            : [skosConcept['gcmd:isOnPlatform']]
+
+          platforms.forEach((platform) => relations.push(processRelation(platform, 'is_on_platform')))
+        }
+
+        return relations
+      })(),
       definitions: skosConcept['skos:definition'] ? [{
         // eslint-disable-next-line no-underscore-dangle
         text: skosConcept['skos:definition']._text,

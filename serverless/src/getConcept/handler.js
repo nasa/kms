@@ -3,10 +3,14 @@ import { XMLBuilder } from 'fast-xml-parser'
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
+import { createShortNameMap } from '@/shared/createShortNameMap'
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import toLegacyJSON from '@/shared/toLegacyJSON'
+import toLegacyXML from '@/shared/toLegacyXML'
 
 /**
  * Retrieves a SKOS Concept and returns it as RDF/XML.
@@ -93,6 +97,7 @@ export const getConcept = async (event) => {
     }
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
+    const prefLabelMap = await createPrefLabelMap()
 
     let responseBody
     let contentType
@@ -100,11 +105,36 @@ export const getConcept = async (event) => {
     // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
     if (format.toLowerCase() === 'json') {
       const conceptSchemeMap = await createConceptSchemeMap()
-      const prefLabelMap = await createPrefLabelMap()
-      responseBody = JSON.stringify(toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
+      const shortNameMap = await createShortNameMap()
+      responseBody = JSON.stringify(toLegacyJSON(
+        concept,
+        conceptSchemeMap,
+        prefLabelMap,
+        shortNameMap
+      ), null, 2)
+
       contentType = 'application/json'
     } else if (format.toLowerCase() === 'xml') {
-      // TODO in KMS-535
+      const xmlBuilder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true
+      })
+      const schemeResource = concept['skos:inScheme']['@rdf:resource']
+      const schemeShortName = schemeResource.split('/').pop()
+      const csvHeaders = await getCsvHeaders(schemeShortName)
+      const conceptSchemeDetails = await getConceptSchemeDetails()
+      const legacyXML = toLegacyXML(
+        concept,
+        conceptSchemeDetails,
+        csvHeaders,
+        prefLabelMap,
+        schemeShortName
+      )
+      responseBody = xmlBuilder.build(legacyXML)
+      contentType = 'application/xml'
     } else {
       // Default case (including 'rdf')
       const builder = new XMLBuilder({
@@ -123,7 +153,7 @@ export const getConcept = async (event) => {
         }
       }
       responseBody = await builder.build(rdfJson)
-      contentType = 'application/rdf+xml'
+      contentType = 'application/xml'
     }
 
     return {
