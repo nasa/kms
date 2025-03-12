@@ -6,86 +6,70 @@ import {
 } from 'vitest'
 
 import { getLongNamesMap } from '../getLongNamesMap'
-import * as sparqlRequestModule from '../sparqlRequest'
+import { sparqlRequest } from '../sparqlRequest'
+
+// Mock the sparqlRequest function
+vi.mock('../sparqlRequest')
 
 describe('getLongNamesMap', () => {
   beforeEach(() => {
+    // Clear all mocks before each test
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  describe('when successful', () => {
-    test('should return a correct map of long names', async () => {
-      vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          results: {
-            bindings: [
-              {
-                subject: { value: 'subject1' },
-                bo: { value: 'primary' }
-              },
-              {
-                subject: { value: 'subject1' },
-                bo: { value: 'longName1' }
-              },
-              {
-                subject: { value: 'subject2' },
-                bo: { value: 'longName2' }
-              },
-              {
-                subject: { value: 'subject2' },
-                bo: { value: 'longName3' }
-              }
-            ]
-          }
-        })
+  test('should return a map of subject values to long names', async () => {
+    // Mock the response from sparqlRequest
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [
+            {
+              subject: { value: 'https://gcmd.earthdata.nasa.gov/kms/concept/d77685bd-aa94-4717-bd97-632699d999b5' },
+              longName: { value: 'Dassault HU-25A Guardian' }
+            },
+            {
+              subject: { value: 'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54' },
+              longName: { value: 'NSF/NCAR Gulfstream GV Aircraft' }
+            }
+          ]
+        }
       })
+    }
 
-      const result = await getLongNamesMap('testScheme')
+    sparqlRequest.mockResolvedValue(mockResponse)
 
-      expect(result).toEqual({
-        subject1: ['longName1'],
-        subject2: ['longName2', 'longName3']
-      })
+    const result = await getLongNamesMap('person')
 
-      expect(sparqlRequestModule.sparqlRequest).toHaveBeenCalledWith({
-        method: 'POST',
-        contentType: 'application/sparql-query',
-        accept: 'application/sparql-results+json',
-        body: expect.any(String)
-      })
+    expect(result).toEqual({
+      'https://gcmd.earthdata.nasa.gov/kms/concept/d77685bd-aa94-4717-bd97-632699d999b5': 'Dassault HU-25A Guardian',
+      'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54': 'NSF/NCAR Gulfstream GV Aircraft'
     })
 
-    test('should handle empty response correctly', async () => {
-      vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          results: {
-            bindings: []
-          }
-        })
-      })
-
-      const result = await getLongNamesMap('testScheme')
-
-      expect(result).toEqual({})
+    expect(sparqlRequest).toHaveBeenCalledWith({
+      method: 'POST',
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
+      body: expect.any(String)
     })
   })
 
-  describe('when unsuccessful', () => {
-    test('should throw an error if the response is not ok', async () => {
-      vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockResolvedValue({
-        ok: false,
-        status: 400
-      })
+  test('should throw an error when the response is not ok', async () => {
+    const mockResponse = {
+      ok: false,
+      status: 500
+    }
 
-      await expect(getLongNamesMap('testScheme')).rejects.toThrow('HTTP error! status: 400')
-    })
+    sparqlRequest.mockResolvedValue(mockResponse)
 
-    test('should throw an error if sparqlRequest fails', async () => {
-      vi.spyOn(sparqlRequestModule, 'sparqlRequest').mockRejectedValue(new Error('Network error'))
+    await expect(getLongNamesMap('person')).rejects.toThrow('HTTP error! status: 500')
+  })
 
-      await expect(getLongNamesMap('testScheme')).rejects.toThrow('Network error')
-    })
+  test('should handle and re-throw errors from sparqlRequest', async () => {
+    const mockError = new Error('Network error')
+    sparqlRequest.mockRejectedValue(mockError)
+
+    await expect(getLongNamesMap('person')).rejects.toThrow('Network error')
   })
 })
