@@ -32,18 +32,18 @@ const createChangeNote = (note) => {
   let currentChangeNoteItem = null
 
   lines.forEach((line) => {
-    if (line.startsWith('date:')) changeNote['@date'] = line.split(':')[1].trim()
-    else if (line.startsWith('userId:')) changeNote['@userId'] = line.split(':')[1].trim()
-    else if (line.startsWith('userNote:')) changeNote['@userNote'] = line.split(':')[1].trim() || ''
-    else if (line === 'ChangeNoteItem #1') {
+    if (line.startsWith('Date:')) changeNote['@date'] = line.split(':')[1].trim()
+    else if (line.startsWith('User Id:')) changeNote['@userId'] = line.split(':')[1].trim()
+    else if (line.startsWith('User Note:')) changeNote['@userNote'] = line.split(':')[1].trim() || ''
+    else if (line === 'Change Note Item #1') {
       currentChangeNoteItem = {}
     } else if (currentChangeNoteItem) {
-      if (line.startsWith('systemNote:')) currentChangeNoteItem['@systemNote'] = line.split(':')[1].trim()
-      else if (line.startsWith('newValue:')) currentChangeNoteItem['@newValue'] = line.split(':')[1].trim()
-      else if (line.startsWith('oldValue:')) currentChangeNoteItem['@oldValue'] = line.split(':')[1].trim()
-      else if (line.startsWith('entity:')) currentChangeNoteItem['@entity'] = line.split(':')[1].trim()
-      else if (line.startsWith('operation:')) currentChangeNoteItem['@operation'] = line.split(':')[1].trim()
-      else if (line.startsWith('field:')) {
+      if (line.startsWith('System Note:')) currentChangeNoteItem['@systemNote'] = line.split(':')[1].trim()
+      else if (line.startsWith('New Value:')) currentChangeNoteItem['@newValue'] = line.split(':')[1].trim()
+      else if (line.startsWith('Old Value:')) currentChangeNoteItem['@oldValue'] = line.split(':')[1].trim()
+      else if (line.startsWith('Entity:')) currentChangeNoteItem['@entity'] = line.split(':')[1].trim()
+      else if (line.startsWith('Operation:')) currentChangeNoteItem['@operation'] = line.split(':')[1].trim()
+      else if (line.startsWith('Field:')) {
         currentChangeNoteItem['@field'] = line.split(':')[1].trim()
         changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
         currentChangeNoteItem = null
