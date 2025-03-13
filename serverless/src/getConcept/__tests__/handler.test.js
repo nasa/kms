@@ -17,6 +17,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import toLegacyJSON from '@/shared/toLegacyJSON'
 import toLegacyXML from '@/shared/toLegacyXML'
 
@@ -30,6 +31,7 @@ vi.mock('@/shared/getCsvHeaders')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/toLegacyXML')
+vi.mock('@/shared/getVersionMetadata')
 
 describe('getConcept', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -45,6 +47,14 @@ describe('getConcept', () => {
     getConceptSchemeDetails.mockResolvedValue({})
     toLegacyJSON.mockReturnValue({})
     toLegacyXML.mockReturnValue({})
+
+    vi.mocked(getVersionMetadata).mockResolvedValue({
+      version: 'published',
+      versionName: '20.8',
+      versionType: 'published',
+      created: '2023-01-01T00:00:00Z',
+      modified: '2023-01-01T00:00:00Z'
+    })
   })
 
   const mockSuccessfulResponse = (mockSkosConcept) => {

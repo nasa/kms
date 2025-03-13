@@ -17,6 +17,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { processTriples } from '@/shared/processTriples'
 import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -33,6 +34,7 @@ vi.mock('@/shared/createPrefLabelMap')
 vi.mock('@/shared/createConceptSchemeMap')
 vi.mock('@/shared/createConceptToConceptSchemeShortNameMap')
 vi.mock('@/shared/toLegacyJSON')
+vi.mock('@/shared/getVersionMetadata')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -46,6 +48,13 @@ describe('getConcepts', () => {
     createConceptSchemeMap.mockResolvedValue(new Map())
     createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map())
     toLegacyJSON.mockReturnValue({})
+    vi.mocked(getVersionMetadata).mockResolvedValue({
+      version: 'published',
+      versionName: '20.8',
+      versionType: 'published',
+      created: '2023-01-01T00:00:00Z',
+      modified: '2023-01-01T00:00:00Z'
+    })
   })
 
   describe('when format is CSV', () => {
@@ -383,7 +392,7 @@ describe('getConcepts', () => {
             pageNum: parseInt(pageNum, 10),
             pageSize: parseInt(pageSize, 10),
             gcmdHits: 100,
-            version: 'published'
+            version: '20.8'
           })
         }))
       })
