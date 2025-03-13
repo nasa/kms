@@ -1,3 +1,6 @@
+edlAuthorizer:
+    handler: serverless/src/edlAuthorizer/handler.default
+    timeout: ${env:LAMBDA_TIMEOUT, '30'}
 errorLogger:
   handler: serverless/src/errorLogger/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -62,6 +65,22 @@ getConcept:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept/alt_label/{altLabel}        
+getConceptSchemes:
+  handler: serverless/src/getConceptSchemes/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_schemes
+getKeywordsTree:
+  handler: serverless/src/getKeywordsTree/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /tree/concept_scheme/{conceptScheme}
 createConcept:
   handler: serverless/src/createConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -70,6 +89,11 @@ createConcept:
         method: post
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
+        
 createConcepts:
   handler: serverless/src/createConcepts/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -78,6 +102,10 @@ createConcepts:
         method: post
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concepts
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
 updateConcept:
   handler: serverless/src/updateConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -86,6 +114,10 @@ updateConcept:
         method: put
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
 deleteConcept:
   handler: serverless/src/deleteConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -94,6 +126,10 @@ deleteConcept:
         method: delete
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept/{conceptId}
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
 recreateDatabase:
   handler: serverless/src/recreateDatabase/handler.default
   timeout: 900
@@ -102,6 +138,10 @@ recreateDatabase:
         method: delete
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: recreateDatabase
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
 exportRdfToS3:
   handler: serverless/src/exportRdfToS3/handler.default
   timeout: 900
@@ -119,14 +159,6 @@ getFullPath:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept_fullpaths/concept_uuid/{conceptId}
-getConceptSchemes:
-  handler: serverless/src/getConceptSchemes/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '30'}
-  events:
-    - http:
-        method: get
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: /concept_schemes
 getConceptVersions:
   handler: serverless/src/getConceptVersions/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}

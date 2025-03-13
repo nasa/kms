@@ -5,36 +5,15 @@ set -x
 echo "Starting EBS mount script"
 
 # Install AWS CLI
-echo "Installing AWS CLI..."
-
-# Specify the version and its corresponding SHA256 hash
-AWS_CLI_VERSION="2.13.8"
-AWS_CLI_SHA256="8b3e3f8f57c8c3c3492fa3e3a436f1fa115cdc983fde3801bdc1c2feb3517531"
-
-# Download the specific version
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWS_CLI_VERSION}.zip" -o "awscliv2.zip"
-
-# Verify the integrity of the downloaded file
-COMPUTED_SHA256=$(sha256sum awscliv2.zip | cut -d' ' -f1)
-
-if [ "$COMPUTED_SHA256" != "$AWS_CLI_SHA256" ]; then
-    echo "SHA256 mismatch. Expected $AWS_CLI_SHA256, got $COMPUTED_SHA256"
-    exit 1
-fi
-
-echo "SHA256 verification passed"
-yum install -y unzip
-
-unzip awscliv2.zip
-./aws/install
-echo "AWS CLI installed successfully"
+yum install -y unzip aws-cli
 
 DEVICE="/dev/xvdf"
 MOUNT_POINT="/mnt/rdf4j-data"
 
 # Get instance ID and region
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
+INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id -s)
+REGION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region -s)
 
 echo "Instance ID: $INSTANCE_ID"
 echo "Region: $REGION"

@@ -3,7 +3,7 @@ import { buildHierarchicalCsvPaths } from '@/shared/buildHierarchicalCsvPaths'
 import { getLongNamesMap } from '@/shared/getLongNamesMap'
 import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getProviderUrlsMap } from '@/shared/getProviderUrlsMap'
-import { getRootConcept } from '@/shared/getRootConcept'
+import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 
 /**
  * Function to get CSV paths for a given scheme
@@ -33,7 +33,7 @@ import { getRootConcept } from '@/shared/getRootConcept'
  */
 export const getCsvPaths = async (scheme, csvHeadersCount, version) => {
   // Get the root concept for the scheme
-  const root = await getRootConcept(scheme, version)
+  const root = await getRootConceptForScheme(scheme, version)
 
   // Create a node object with root concept information
   const node = {

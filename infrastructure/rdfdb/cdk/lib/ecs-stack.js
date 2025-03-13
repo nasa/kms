@@ -134,7 +134,7 @@ const custom = require('aws-cdk-lib/custom-resources')
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
       instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
-      machineImage: ecs.EcsOptimizedImage.amazonLinux2(),
+      machineImage: ec2.MachineImage.fromSsmParameter('/ngap/amis/image_id_ecs_al2023_x86'),
       minCapacity: 1,
       maxCapacity: 1,
       vpc: this.vpc,
