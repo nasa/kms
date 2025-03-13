@@ -50,6 +50,51 @@ const getRelated = (skosConcept, prefLabelMap) => {
   }))
 }
 
+const createChangeNote = (note) => {
+  const lines = note.split('\n').map((line) => line.trim())
+  const changeNote = {
+    changeNoteItems: []
+  }
+  let currentChangeNoteItem = null
+
+  lines.forEach((line) => {
+    if (line.startsWith('Date:')) changeNote.date = line.split(':')[1].trim()
+    else if (line.startsWith('User Id:')) changeNote.userId = line.split(':')[1].trim()
+    else if (line.startsWith('User Note:')) changeNote.userNote = line.split(':')[1].trim() || ''
+    else if (line.startsWith('Change Note Item')) {
+      if (currentChangeNoteItem) {
+        changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
+      }
+
+      currentChangeNoteItem = {}
+    } else if (currentChangeNoteItem) {
+      const [key, ...valueParts] = line.split(':')
+      const value = valueParts.join(':').trim()
+      if (key === 'System Note') currentChangeNoteItem.systemNote = value
+      else if (key === 'Old Value') currentChangeNoteItem.oldValue = value
+      else if (key === 'New Value') currentChangeNoteItem.newValue = value
+      else if (key === 'Entity') currentChangeNoteItem.entity = value
+      else if (key === 'Operation') currentChangeNoteItem.operation = value
+      else if (key === 'Field') currentChangeNoteItem.field = value
+    }
+  })
+
+  // In case the last ChangeNoteItem doesn't have a 'field' property
+  if (currentChangeNoteItem) {
+    changeNote.changeNoteItems.push(currentChangeNoteItem)
+  }
+
+  return changeNote
+}
+
+const processChangeNotes = (changeNotes) => {
+  if (!changeNotes) return []
+
+  const changeNotesArray = Array.isArray(changeNotes) ? changeNotes : [changeNotes]
+
+  return changeNotesArray.map(createChangeNote)
+}
+
 export const toKeywordJson = async (skosConcept, prefLabelMap) => {
   const allAltLabels = getAltLabels(skosConcept['gcmd:altLabel'])
   // Filter altLabels with category='primary'
@@ -59,9 +104,8 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
   // eslint-disable-next-line no-underscore-dangle
   const prefLabel = skosConcept['skos:prefLabel']._text
   try {
-  // Transform the data
+    // Transform the data
     const transformedData = {
-      id: 99999,
       // eslint-disable-next-line no-underscore-dangle
       prefLabel,
       longName: primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : '',
@@ -87,7 +131,7 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
       } : {},
       narrowers: skosConcept['skos:narrower'] ? getNarrowers(skosConcept, prefLabelMap) : [],
       related: skosConcept['skos:related'] ? getRelated(skosConcept, prefLabelMap) : [],
-      changeNotes: 'todo'
+      changeNotes: processChangeNotes(skosConcept['skos:changeNote'])
     }
 
     return transformedData

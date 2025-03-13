@@ -52,8 +52,6 @@ const getKeyword = async (event) => {
     }
   }
 
-  console.log('concept=', concept)
-
   const prefLabelMap = await createPrefLabelMap()
   const result = await toKeywordJson(concept, prefLabelMap)
 
