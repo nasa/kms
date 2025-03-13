@@ -8,9 +8,18 @@ import { sparqlRequest } from './sparqlRequest'
  * Fetches all SKOS concept preferred labels and returns a map of identifiers to labels.
  *
  * @async
- * @function fetchSkosPrefLabels
+ * @function createPrefLabelMap
  * @returns {Promise<Map<string, string>>} A promise that resolves to a Map where keys are SKOS concept identifiers and values are their preferred labels.
  * @throws Will throw an error if the SPARQL request or parsing fails.
+ *
+ * @example
+ * try {
+ *   const prefLabelMap = await createPrefLabelMap();
+ *   console.log('Preferred label for concept 123:', prefLabelMap.get('123'));
+ *   console.log('Total number of concepts:', prefLabelMap.size);
+ * } catch (error) {
+ *   console.error('Failed to create preferred label map:', error);
+ * }
  */
 export const createPrefLabelMap = async (version) => {
   try {

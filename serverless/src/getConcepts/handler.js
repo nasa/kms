@@ -3,6 +3,9 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
@@ -88,16 +91,15 @@ export const getConcepts = async (event) => {
     const startIndex = (pageNum - 1) * pageSize
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
+    const prefLabelMap = await createPrefLabelMap()
+    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
 
     let responseBody
     let contentType
 
+    // Handle different formats based on queryStringParameter 'format'
     if (format.toLowerCase() === 'json') {
-      // Grabbing all information for JSON response
-      const [schemeMap, prefLabelMap] = await Promise.all([
-        createConceptSchemeMap(version),
-        createPrefLabelMap(version)
-      ])
+      const conceptSchemeMap = await createConceptSchemeMap()
       const jsonResponse = {
         hits: totalConcepts,
         page_num: pageNum,
@@ -108,7 +110,12 @@ export const getConcepts = async (event) => {
         concepts: conceptURIs.map((uri) => {
           const ntriples = [...nodes[uri]]
           const concept = toSkosJson(uri, ntriples, bNodeMap)
-          const legacyJSON = toLegacyJSON(concept, schemeMap, prefLabelMap)
+          const legacyJSON = toLegacyJSON(
+            concept,
+            conceptSchemeMap,
+            conceptToConceptSchemeShortNameMap,
+            prefLabelMap
+          )
 
           return {
             uuid: legacyJSON.uuid,
@@ -121,7 +128,7 @@ export const getConcepts = async (event) => {
           }
         })
       }
-      responseBody = JSON.stringify(jsonResponse)
+      responseBody = JSON.stringify(jsonResponse, null, 2)
       contentType = 'application/json'
     } else if (format.toLowerCase() === 'csv') {
       if (!conceptScheme) {
@@ -142,7 +149,39 @@ export const getConcepts = async (event) => {
 
       return createCsvForScheme(conceptScheme, version)
     } else if (format.toLowerCase() === 'xml') {
-      // TODO in KMS-535
+      const xmlBuilder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true
+      })
+
+      const xmlObj = {
+        concepts: {
+          '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+          '@xsi:noNamespaceSchemaLocation': 'https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd',
+          hits: totalConcepts,
+          page_num: pageNum,
+          page_size: pageSize,
+          termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
+          keywordVersion: '20.8',
+          viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
+          conceptBrief: conceptURIs.map((uri) => {
+            const concept = toSkosJson(uri, [...nodes[uri]], bNodeMap)
+            const schemeShortName = conceptToConceptSchemeShortNameMap.get(concept['@rdf:about'])
+
+            return {
+              '@conceptScheme': schemeShortName,
+              '@prefLabel': concept['skos:prefLabel']._text,
+              '@uuid': concept['@rdf:about']
+            }
+          })
+        }
+      }
+
+      responseBody = xmlBuilder.build(xmlObj)
+      contentType = 'application/xml'
     } else {
       // Default case (including 'rdf')
       const builder = new XMLBuilder({
