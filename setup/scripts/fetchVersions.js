@@ -18,6 +18,7 @@ const fetchVersions = async (versionType) => {
     const result = parser.parse(xmlContent)
 
     // Extract versions, ensuring we always work with an array
+    // eslint-disable-next-line max-len
     const versionsArray = Array.isArray(result.versions) ? result.versions[0].version : result.versions.version
     const versions = (Array.isArray(versionsArray) ? versionsArray : [versionsArray])
       .map((v) => (typeof v === 'string' ? v : v['#text']))
