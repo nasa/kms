@@ -22,7 +22,7 @@
  *     }
  *   }
  */
-const createChangeNote = (note) => {
+export const createChangeNote = (note) => {
   const lines = note.split('\n').map((line) => line.trim())
   const changeNote = {
     changeNoteItems: {
@@ -60,5 +60,3 @@ const createChangeNote = (note) => {
 
   return changeNote
 }
-
-module.exports = createChangeNote

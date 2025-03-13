@@ -1,4 +1,4 @@
-import createChangeNote from './createChangeNote'
+import { createChangeNote } from './createChangeNote'
 
 // Helper function to retrieve parsed information in concept_schemes xml
 function findMatchingConceptScheme(schemeShortName, conceptSchemes) {
