@@ -267,7 +267,7 @@ describe('getConcept', () => {
           shortName: 'Short Name',
           altLabel: 'Alt+Label',
           scheme: 'Test Scheme',
-          version: 'draft'
+          version: 'published'
         })
       })
     })

@@ -74,7 +74,7 @@ describe('getConcepts', () => {
 
       const result = await getConcepts(event)
 
-      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme', 'draft')
+      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme', 'published')
       expect(result).toEqual(mockCsvResponse)
     })
 
@@ -163,7 +163,7 @@ describe('getConcepts', () => {
       expect(getFilteredTriples).toHaveBeenCalledWith({
         pattern: 'matching',
         conceptScheme: undefined,
-        version: 'draft'
+        version: 'published'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -203,7 +203,7 @@ describe('getConcepts', () => {
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
         pattern: undefined,
-        version: 'draft'
+        version: 'published'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -253,7 +253,7 @@ describe('getConcepts', () => {
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
         pattern: 'matching',
-        version: 'draft'
+        version: 'published'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -379,7 +379,7 @@ describe('getConcepts', () => {
             pageNum: parseInt(pageNum, 10),
             pageSize: parseInt(pageSize, 10),
             gcmdHits: 100,
-            version: 'draft'
+            version: 'published'
           })
         }
       })
@@ -422,7 +422,7 @@ describe('getConcepts', () => {
           pageNum: 4,
           pageSize: 30,
           gcmdHits: 95,
-          version: 'draft'
+          version: 'published'
         })
       })
 
@@ -459,7 +459,7 @@ describe('getConcepts', () => {
           pageNum: 1,
           pageSize: 2000,
           gcmdHits: 2500,
-          version: 'draft'
+          version: 'published'
         })
       })
 
@@ -666,7 +666,7 @@ describe('getConcepts', () => {
           pageNum: 3,
           pageSize: 25,
           gcmdHits: 50,
-          version: 'draft'
+          version: 'published'
         })
       })
     })

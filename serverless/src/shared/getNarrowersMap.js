@@ -33,7 +33,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Error:', error);
  * }
  */
-export const getNarrowersMap = async ({ scheme, version }) => {
+export const getNarrowersMap = async (scheme, version) => {
   try {
     // Make a SPARQL request to fetch narrower concepts
     const response = await sparqlRequest({
