@@ -1,4 +1,5 @@
 import { buildFullPath } from './buildFullPath'
+import { cleanupJsonObject } from './cleanupJsonObject'
 import { getNumberOfCmrCollections } from './getNumberOfCmrCollections'
 
 const getAltLabels = (altLabels) => {
@@ -134,7 +135,7 @@ export const toKeywordJson = async (skosConcept, prefLabelMap) => {
       changeNotes: processChangeNotes(skosConcept['skos:changeNote'])
     }
 
-    return transformedData
+    return cleanupJsonObject(transformedData)
   } catch (error) {
     console.error(`Error converting concept to JSON: ${error.message}`)
     throw new Error(`Failed to convert concept to JSON: ${error.message}`)
