@@ -157,7 +157,8 @@ describe('sparqlRequest', () => {
         method: 'POST',
         body: 'SELECT * WHERE { ?s ?p ?o }',
         contentType: 'application/sparql-query',
-        accept: 'application/sparql-results+json'
+        accept: 'application/sparql-results+json',
+        version: 'draft'
       })
 
       expect(global.fetch).toHaveBeenCalledWith(

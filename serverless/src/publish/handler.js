@@ -1,58 +1,55 @@
-import { createVersionMetadata } from '@/shared/createVersionMetadata'
-import { deleteVersionMetadata } from '@/shared/deleteVersionMetadata'
-import { findPublishedVersion } from '@/shared/findPublishedVersion'
+import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import { sparqlRequest } from '@/shared/sparqlRequest'
+import { renameGraph } from '@/shared/renameGraph'
+import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { queryStringParameters } = event
   const { name } = queryStringParameters
 
+  // Check if name is provided
+  if (!name) {
+    return {
+      statusCode: 400,
+      headers: defaultResponseHeaders,
+      body: JSON.stringify({ message: 'Error: "name" parameter is required' })
+    }
+  }
+
   try {
-    // 1. Fetch RDF data from the 'draft' graph
-    const getDraftResponse = await sparqlRequest({
-      method: 'GET',
-      path: '/statements',
-      accept: 'application/rdf+xml',
-      version: 'draft'
-    })
+    // 1. Move published to past_published if it exists
+    const metadata = await getVersionMetadata('published')
+    if (metadata) {
+      const { versionName } = metadata
+      if (versionName) {
+        await renameGraph({
+          oldGraphName: 'published',
+          newGraphName: versionName
+        })
 
-    const draftRdfData = await getDraftResponse.text()
-
-    // 2. Find the currently published version and change its type to 'past_published'
-    const publishedGraph = await findPublishedVersion()
-    console.log('pg=', publishedGraph)
-
-    if (publishedGraph) {
-      const publishedVersion = publishedGraph.split('/').pop()
-      console.log('pv=', publishedVersion)
-      const publishedMetadata = await getVersionMetadata(publishedVersion)
-      await deleteVersionMetadata(publishedVersion)
-      console.log('pm=', publishedMetadata)
-      await createVersionMetadata({
-        version: publishedVersion,
-        versionType: 'past_published',
-        createdDate: publishedMetadata.created,
-        modifiedDate: publishedMetadata.modified
-      })
+        await updateVersionMetadata({
+          graphId: versionName,
+          versionType: 'past_published'
+        })
+      } else {
+        console.warn('No versionName found in published metadata, skipping rename and update')
+      }
+    } else {
+      console.log('No published version exists yet')
     }
 
-    // 3. Create a new graph with the specified name and set it as published
-    await sparqlRequest({
-      method: 'PUT',
-      path: '/statements',
-      accept: 'application/rdf+xml',
-      version: name,
-      body: draftRdfData
+    // 2. Copy draft to published.
+    await copyGraph({
+      sourceGraphName: 'draft',
+      targetGraphName: 'published'
     })
 
-    // 4. Now mark the new version we just created as published.
+    // 3. Updated published graphwith version info.
     const updateDate = new Date().toISOString()
-
-    await deleteVersionMetadata(name)
-    await createVersionMetadata({
+    await updateVersionMetadata({
+      graphId: 'published',
       version: name,
       versionType: 'published',
       createdDate: updateDate,

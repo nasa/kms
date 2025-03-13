@@ -123,8 +123,6 @@ export const sparqlRequest = async ({
     }
   }
 
-  console.log('body=', body)
-
   return fetch(endpointUrl.toString(), {
     method,
     headers,

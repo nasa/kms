@@ -63,7 +63,7 @@ export const getConcept = async (event) => {
   const { conceptId, shortName, altLabel } = pathParameters
   const { queryStringParameters } = event
   const { scheme, format = 'rdf' } = queryStringParameters || {}
-  const version = queryStringParameters?.version || 'draft'
+  const version = queryStringParameters?.version || 'published'
 
   try {
     const decode = (str) => {

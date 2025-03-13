@@ -1,9 +1,12 @@
+/* eslint-disable no-restricted-syntax */
 /* eslint-disable no-await-in-loop */
 /* eslint-disable no-promise-executor-return */
 
 const fs = require('fs')
 
 const { XMLParser, XMLBuilder } = require('fast-xml-parser')
+
+const { fetchVersions } = require('./fetchVersions')
 
 /**
  * Creates a delay of the specified milliseconds.
@@ -20,8 +23,13 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * @param {string} filePath - The path to the RDF/XML file containing the concepts.
  * @param {number} [batchSize=100] - The number of concepts to send in each batch.
  */
-async function loadConcepts(filePath, batchSize = 1000) {
+async function loadConcepts(versionType, version, batchSize = 1000) {
   // Read the XML file
+  let filePath = `../data/concepts_${version}.rdf`
+  if (versionType === 'published') {
+    filePath = '../data/concepts_published.rdf\''
+  }
+
   const xmlData = fs.readFileSync(filePath, 'utf8')
 
   // Configure the parser
@@ -94,8 +102,13 @@ async function loadConcepts(filePath, batchSize = 1000) {
   }
 }
 
-async function loadSchemes(filePath) {
+async function loadSchemes(versionType, version) {
   // Read the XML file
+  let filePath = `../data/schemes_${version}.rdf`
+  if (versionType === 'published') {
+    filePath = '../data/schemes_published.rdf'
+  }
+
   const xmlData = fs.readFileSync(filePath, 'utf8')
 
   const response = await fetch('https://cmr.sit.earthdata.nasa.gov/kms/concepts', {
@@ -114,14 +127,30 @@ async function loadSchemes(filePath) {
   console.log('Success: ', await response.text())
 }
 
-async function main() {
+const main = async () => {
   try {
-    await loadConcepts('../data/convertedConcepts.rdf')
-    console.log('All concepts loaded successfully')
-    await loadSchemes('../data/schemes.rdf')
-    console.log('All schemes loaded successfully')
+    const versionTypes = ['published', 'draft', 'past_published']
+    for (const versionType of versionTypes) {
+      let versions = await fetchVersions(versionType)
+      if (versionType === 'past_published') {
+        versions = versions.slice(0, 3)
+      }
+
+      // eslint-disable-next-line no-restricted-syntax
+      for (const version of versions) {
+        try {
+          await loadConcepts(versionType, version)
+          console.log('All concepts loaded successfully')
+          await loadSchemes(versionType, version)
+          console.log('All schemes loaded successfully')
+        } catch (error) {
+          console.error('Error loading concepts:', error)
+        }
+      }
+    }
   } catch (error) {
-    console.error('Error loading concepts:', error)
+    console.error('Conversion failed:', error)
+    process.exit(1)
   }
 }
 

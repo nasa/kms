@@ -52,7 +52,7 @@ export const getFullPath = async (event) => {
   const { pathParameters } = event
   const { conceptId } = pathParameters
   const { queryStringParameters } = event
-  const version = queryStringParameters?.version || 'draft'
+  const version = queryStringParameters?.version || 'published'
 
   try {
     const builder = new XMLBuilder({

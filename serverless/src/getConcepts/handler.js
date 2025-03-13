@@ -41,7 +41,7 @@ export const getConcepts = async (event) => {
   const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
-  const version = queryStringParameters?.version || 'draft'
+  const version = queryStringParameters?.version || 'published'
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)

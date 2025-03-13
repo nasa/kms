@@ -13,9 +13,10 @@ export const getVersionMetadata = async (version) => {
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
     PREFIX dcterms: <http://purl.org/dc/terms/>
 
-    SELECT ?versionType ?created ?modified
+    SELECT ?versionType ?versionName ?created ?modified
     WHERE {
       <${versionUri}> a gcmd:Version ;
+                      gcmd:versionName ?versionName ;
                       gcmd:versionType ?versionType ;
                       dcterms:created ?created ;
                       dcterms:modified ?modified .
@@ -46,6 +47,7 @@ export const getVersionMetadata = async (version) => {
 
     return {
       version,
+      versionName: metadata.versionName.value,
       versionType: metadata.versionType.value,
       created: metadata.created.value,
       modified: metadata.modified.value

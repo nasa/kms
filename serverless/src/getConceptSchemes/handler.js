@@ -20,7 +20,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 export const getConceptSchemes = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { queryStringParameters } = event || {}
-  const version = queryStringParameters?.version || 'draft'
+  const version = queryStringParameters?.version || 'published'
 
   try {
     const conceptSchemes = await getConceptSchemeDetails({ version })

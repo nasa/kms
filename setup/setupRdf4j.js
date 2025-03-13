@@ -103,12 +103,12 @@ const waitForRepository = async ({
  * @async
  * @param {string} filePath - Path to the RDF/XML file.
  */
-const loadRDFXMLToRDF4J = async (filePath) => {
+const loadRDFXMLToRDF4J = async (filePath, version) => {
   try {
     const xmlData = await fs.readFile(filePath, 'utf8')
     console.log(`Read ${xmlData.length} bytes from file`)
 
-    const graphUri = 'https://gcmd.earthdata.nasa.gov/kms/version/draft'
+    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
     const url = new URL(rdf4jUrl)
     url.searchParams.append('context', `<${graphUri}>`)
 
@@ -164,8 +164,10 @@ const main = async () => {
       return
     }
 
-    await loadRDFXMLToRDF4J('setup/data/convertedConcepts.rdf', rdf4jUrl)
-    await loadRDFXMLToRDF4J('setup/data/schemes.rdf', rdf4jUrl)
+    await loadRDFXMLToRDF4J('setup/data/concepts_published.rdf', 'published')
+    await loadRDFXMLToRDF4J('setup/data/schemes_published.rdf', 'published')
+    await loadRDFXMLToRDF4J('setup/data/concepts_draft.rdf', 'draft')
+    await loadRDFXMLToRDF4J('setup/data/schemes_draft.rdf', 'draft')
   } catch (error) {
     console.error('An error occurred:', error)
   }

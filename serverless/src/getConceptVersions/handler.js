@@ -11,20 +11,21 @@ export const getConceptVersions = async (event) => {
   try {
     // Updated SPARQL query to get graph names and creation dates
     const query = `
-      PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-      PREFIX dcterms: <http://purl.org/dc/terms/>
+    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
+    PREFIX dcterms: <http://purl.org/dc/terms/>
 
-      SELECT DISTINCT ?graph ?creationDate ?versionType
-      WHERE {
-        GRAPH ?graph {
-          ?version a gcmd:Version ;
-                   dcterms:created ?creationDate ;
-                   gcmd:versionType ?versionType ;
-        }
+    SELECT DISTINCT ?graph ?creationDate ?versionType ?versionName
+    WHERE {
+      GRAPH ?graph {
+        ?version a gcmd:Version ;
+                 dcterms:created ?creationDate ;
+                 gcmd:versionName ?versionName ;
+                 gcmd:versionType ?versionType .
+        ${versionType && versionType.toLowerCase() !== 'all' ? `FILTER(LCASE(?versionType) = LCASE("${versionType}"))` : ''}
       }
-      ORDER BY DESC(?graph)
-    `
-
+    }
+    ORDER BY DESC(?graph)
+  `
     const response = await sparqlRequest({
       method: 'POST',
       body: query,
@@ -42,21 +43,15 @@ export const getConceptVersions = async (event) => {
 
     const versions = graphData.map((data) => {
       console.log('data=', data)
-      const uri = data.graph.value
       const creationDate = data.creationDate.value
-      const vType = data.versionType?.value
-      const match = uri.match(/\/version\/(.+)$/)
-      if (match) {
-        const versionNumber = match[1]
+      const versionName = data.versionName.value
+      const vType = data.versionType.value
 
-        return {
-          '@_type': vType || 'PAST_PUBLISHED',
-          '@_creation_date': creationDate !== 'undefined' ? new Date(creationDate).toISOString().split('T')[0] : '',
-          '#text': versionNumber
-        }
+      return {
+        '@_type': vType,
+        '@_creation_date': creationDate !== 'undefined' ? new Date(creationDate).toISOString().split('T')[0] : '',
+        '#text': versionName
       }
-
-      return null
     }).filter(Boolean)
 
     const xmlObj = {
