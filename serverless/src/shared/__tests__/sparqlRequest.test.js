@@ -15,6 +15,7 @@ describe('sparqlRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
     process.env.RDF4J_SERVICE_URL = 'http://test-server.com'
     process.env.RDF4J_USER_NAME = 'testuser'
     process.env.RDF4J_PASSWORD = 'testpass'
