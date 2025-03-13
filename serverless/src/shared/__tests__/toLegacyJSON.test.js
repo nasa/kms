@@ -9,17 +9,17 @@ import {
 import toLegacyJSON from '../toLegacyJSON'
 
 describe('toLegacyJSON', () => {
-  let mockSkosConcept
+  let mockConcept
   let mockConceptSchemeMap
   let mockPrefLabelMap
-  let mockShortNameMap
+  let mockConceptToConceptSchemeShortNameMap
 
   beforeEach(() => {
     vi.clearAllMocks()
 
-    mockSkosConcept = {
+    mockConcept = {
       '@rdf:about': 'testUUID',
-      'skos:prefLabel': { _text: 'Test Concept' },
+      'skos:prefLabel': { _text: 'Test PrefLabel' },
       'skos:inScheme': { '@rdf:resource': 'https://example.com/testScheme' },
       'dcterms:modified': '2023-01-01',
       'skos:definition': { _text: 'This is a test concept definition' },
@@ -45,15 +45,15 @@ describe('toLegacyJSON', () => {
     ])
 
     mockPrefLabelMap = new Map([
-      ['testUUID', 'Test Concept'],
-      ['broaderUUID', 'Broader Concept'],
-      ['narrowerUUID1', 'Narrower Concept 1'],
-      ['narrowerUUID2', 'Narrower Concept 2'],
-      ['relatedUUID1', 'Related Concept 1'],
-      ['relatedUUID2', 'Related Concept 2']
+      ['testUUID', 'Test PrefLabel'],
+      ['broaderUUID', 'Broader PrefLabel'],
+      ['narrowerUUID1', 'Narrower PrefLabel 1'],
+      ['narrowerUUID2', 'Narrower PrefLabel 2'],
+      ['relatedUUID1', 'Related PrefLabel 1'],
+      ['relatedUUID2', 'Related PrefLabel 2']
     ])
 
-    mockShortNameMap = new Map([
+    mockConceptToConceptSchemeShortNameMap = new Map([
       ['testUUID', 'testScheme'],
       ['broaderUUID', 'testBroaderScheme'],
       ['narrowerUUID1', 'testNarrowerScheme'],
@@ -66,10 +66,10 @@ describe('toLegacyJSON', () => {
   describe('when given a basic skos concept', () => {
     test('should return legacy JSON', () => {
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result).toEqual({
@@ -79,7 +79,7 @@ describe('toLegacyJSON', () => {
         viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/testScheme/testUUID',
         lastModifiedDate: '2023-01-01',
         uuid: 'testUUID',
-        prefLabel: 'Test Concept',
+        prefLabel: 'Test PrefLabel',
         isLeaf: true,
         scheme: {
           shortName: 'testScheme',
@@ -109,18 +109,18 @@ describe('toLegacyJSON', () => {
 
   describe('when provided with broader data', () => {
     test('should return correct broader information', () => {
-      mockSkosConcept['skos:broader'] = { '@rdf:resource': 'broaderUUID' }
+      mockConcept['skos:broader'] = { '@rdf:resource': 'broaderUUID' }
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.broader).toEqual([{
         uuid: 'broaderUUID',
-        prefLabel: 'Broader Concept',
+        prefLabel: 'Broader PrefLabel',
         scheme: {
           shortName: 'testBroaderScheme',
           longName: 'Test Broader Scheme'
@@ -131,22 +131,22 @@ describe('toLegacyJSON', () => {
 
   describe('when provided with narrower data', () => {
     test('should return correct narrower information for multiple narrowers', () => {
-      mockSkosConcept['skos:narrower'] = [
+      mockConcept['skos:narrower'] = [
         { '@rdf:resource': 'narrowerUUID1' },
         { '@rdf:resource': 'narrowerUUID2' }
       ]
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.narrower).toEqual([
         {
           uuid: 'narrowerUUID1',
-          prefLabel: 'Narrower Concept 1',
+          prefLabel: 'Narrower PrefLabel 1',
           scheme: {
             shortName: 'testNarrowerScheme',
             longName: 'Test Narrower Scheme'
@@ -154,7 +154,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'narrowerUUID2',
-          prefLabel: 'Narrower Concept 2',
+          prefLabel: 'Narrower PrefLabel 2',
           scheme: {
             shortName: 'testNarrowerScheme',
             longName: 'Test Narrower Scheme'
@@ -164,19 +164,19 @@ describe('toLegacyJSON', () => {
     })
 
     test('should return correct narrower information for a single narrower concept', () => {
-      mockSkosConcept['skos:narrower'] = { '@rdf:resource': 'narrowerUUID1' }
+      mockConcept['skos:narrower'] = { '@rdf:resource': 'narrowerUUID1' }
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.narrower).toEqual([
         {
           uuid: 'narrowerUUID1',
-          prefLabel: 'Narrower Concept 1',
+          prefLabel: 'Narrower PrefLabel 1',
           scheme: {
             shortName: 'testNarrowerScheme',
             longName: 'Test Narrower Scheme'
@@ -188,22 +188,22 @@ describe('toLegacyJSON', () => {
 
   describe('when provided with related data', () => {
     test('should return correct related information for hasInstrument', () => {
-      mockSkosConcept['gcmd:hasInstrument'] = [
+      mockConcept['gcmd:hasInstrument'] = [
         { '@rdf:resource': 'relatedUUID1' },
         { '@rdf:resource': 'relatedUUID2' }
       ]
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
-          prefLabel: 'Test Concept',
+          prefLabel: 'Test PrefLabel',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -212,7 +212,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID2',
-          prefLabel: 'Test Concept',
+          prefLabel: 'Test PrefLabel',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -223,25 +223,25 @@ describe('toLegacyJSON', () => {
     })
 
     test('should return correct related information for isOnPlatform', () => {
-      mockSkosConcept['gcmd:isOnPlatform'] = [
+      mockConcept['gcmd:isOnPlatform'] = [
         { '@rdf:resource': 'relatedUUID1' },
         { '@rdf:resource': 'relatedUUID2' }
       ]
 
-      mockShortNameMap.set('relatedUUID1', 'testRelatedScheme')
-      mockShortNameMap.set('relatedUUID2', 'testRelatedScheme')
+      mockConceptToConceptSchemeShortNameMap.set('relatedUUID1', 'testRelatedScheme')
+      mockConceptToConceptSchemeShortNameMap.set('relatedUUID2', 'testRelatedScheme')
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
-          prefLabel: 'Test Concept',
+          prefLabel: 'Test PrefLabel',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -250,7 +250,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID2',
-          prefLabel: 'Test Concept',
+          prefLabel: 'Test PrefLabel',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -263,21 +263,21 @@ describe('toLegacyJSON', () => {
 
   describe('when provided with a definition and no reference', () => {
     test('should return correctly formatted definition', () => {
-      mockSkosConcept['gcmd:reference'] = {
+      mockConcept['gcmd:reference'] = {
         '@gcmd:text': '',
         '@xml:lang': 'en'
       }
 
-      mockSkosConcept['skos:definition'] = {
+      mockConcept['skos:definition'] = {
         _text: 'Definition Text',
         '@xml:lang': 'en'
       }
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.definitions).toEqual([
@@ -291,14 +291,14 @@ describe('toLegacyJSON', () => {
 
   describe('when provided with no definition', () => {
     test('should return empty definitions array', () => {
-      delete mockSkosConcept['skos:definition']
-      delete mockSkosConcept['gcmd:reference']
+      delete mockConcept['skos:definition']
+      delete mockConcept['gcmd:reference']
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.definitions).toEqual([])
@@ -308,10 +308,10 @@ describe('toLegacyJSON', () => {
   describe('when provided altLabel information', () => {
     test('should return multiple altLabels when multiple altLabels are provided', () => {
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.altLabels).toEqual([
@@ -326,16 +326,16 @@ describe('toLegacyJSON', () => {
     })
 
     test('should return a single altLabel when only one is provided', () => {
-      mockSkosConcept['gcmd:altLabel'] = {
+      mockConcept['gcmd:altLabel'] = {
         '@gcmd:text': 'Alternative Label 1',
         '@gcmd:category': 'primary'
       }
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.altLabels).toEqual([{
@@ -345,13 +345,13 @@ describe('toLegacyJSON', () => {
     })
 
     test('should return empty altLabels if no altLabels are provided', () => {
-      delete mockSkosConcept['gcmd:altLabel']
+      delete mockConcept['gcmd:altLabel']
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.altLabels).toEqual([])
@@ -370,8 +370,8 @@ describe('toLegacyJSON', () => {
       expect(() => toLegacyJSON(
         invalidSkosConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       ))
         .toThrow('Failed to convert concept to JSON')
 
@@ -381,13 +381,13 @@ describe('toLegacyJSON', () => {
 
   describe('when the concept has no narrower concepts', () => {
     test('should set isLeaf to true', () => {
-      delete mockSkosConcept['skos:narrower']
+      delete mockConcept['skos:narrower']
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.isLeaf).toBe(true)
@@ -396,13 +396,13 @@ describe('toLegacyJSON', () => {
 
   describe('when the concept has narrower concepts', () => {
     test('should set isLeaf to false', () => {
-      mockSkosConcept['skos:narrower'] = [{ '@rdf:resource': 'narrowerUUID1' }]
+      mockConcept['skos:narrower'] = [{ '@rdf:resource': 'narrowerUUID1' }]
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.isLeaf).toBe(false)
@@ -412,10 +412,10 @@ describe('toLegacyJSON', () => {
   describe('when the concept has a resource', () => {
     test('should include the resource in the output', () => {
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.resources).toEqual([{
@@ -427,13 +427,13 @@ describe('toLegacyJSON', () => {
 
   describe('when the concept has no resource', () => {
     test('should return an empty array for resources', () => {
-      delete mockSkosConcept['gcmd:resource']
+      delete mockConcept['gcmd:resource']
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.resources).toEqual([])
@@ -442,20 +442,20 @@ describe('toLegacyJSON', () => {
 
   describe('when the concept has both hasInstrument and isOnPlatform relations', () => {
     test('should include both types of relations in the related array', () => {
-      mockSkosConcept['gcmd:hasInstrument'] = { '@rdf:resource': 'relatedUUID1' }
-      mockSkosConcept['gcmd:isOnPlatform'] = { '@rdf:resource': 'relatedUUID2' }
+      mockConcept['gcmd:hasInstrument'] = { '@rdf:resource': 'relatedUUID1' }
+      mockConcept['gcmd:isOnPlatform'] = { '@rdf:resource': 'relatedUUID2' }
 
       const result = toLegacyJSON(
-        mockSkosConcept,
+        mockConcept,
         mockConceptSchemeMap,
-        mockPrefLabelMap,
-        mockShortNameMap
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
       )
 
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
-          prefLabel: 'Test Concept',
+          prefLabel: 'Test PrefLabel',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -464,7 +464,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID2',
-          prefLabel: 'Test Concept',
+          prefLabel: 'Test PrefLabel',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
