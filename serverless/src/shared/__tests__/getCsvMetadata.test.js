@@ -21,6 +21,7 @@ describe('getCsvMetadata', () => {
     vi.resetAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2023-06-15T12:00:00Z'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {

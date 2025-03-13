@@ -11,6 +11,7 @@ import * as sparqlRequestModule from '../sparqlRequest'
 describe('getProviderUrlsMap', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   describe('when successful', () => {

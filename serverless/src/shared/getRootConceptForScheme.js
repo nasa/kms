@@ -1,5 +1,7 @@
 // Import the query function for getting the root concept
-import { getRootConceptQuery } from '@/shared/operations/queries/getRootConceptQuery'
+import {
+  getRootConceptsBySchemeQuery
+} from '@/shared/operations/queries/getRootConceptsBySchemeQuery'
 
 // Import the function for making SPARQL requests
 import { sparqlRequest } from './sparqlRequest'
@@ -34,14 +36,14 @@ import { sparqlRequest } from './sparqlRequest'
  *   // Expected output: "No root concept found for scheme: non_existent_scheme"
  * }
  */
-export const getRootConcept = async (scheme) => {
+export const getRootConceptForScheme = async (scheme) => {
   try {
     // Make a SPARQL request to get the root concept
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getRootConceptQuery(scheme)
+      body: getRootConceptsBySchemeQuery(scheme)
     })
 
     // Check if the response is successful
