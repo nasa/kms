@@ -2,8 +2,8 @@
   <gcmd:Version rdf:about="https://gcmd.earthdata.nasa.gov/kms/version_metadata">
     <gcmd:versionName>draft</gcmd:versionName>
     <gcmd:versionType>draft</gcmd:versionType>
-    <dcterms:modified>2025-03-11</dcterms:modified>
-    <dcterms:created>2025-03-11</dcterms:created>
+    <dcterms:modified>2025-03-13</dcterms:modified>
+    <dcterms:created>2025-03-13</dcterms:created>
   </gcmd:Version>
   <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations">
     <skos:prefLabel xml:lang="en">Chained Operations</skos:prefLabel>
@@ -203,7 +203,7 @@
   <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/projects">
     <skos:prefLabel xml:lang="en">Projects</skos:prefLabel>
     <skos:notation>projects</skos:notation>
-    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-11</dcterms:modified>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-13</dcterms:modified>
     <gcmd:csvHeaders>Bucket,Short_Name,Long_Name,UUID</gcmd:csvHeaders>
   </skos:ConceptScheme>
   <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/providers">
