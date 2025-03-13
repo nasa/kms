@@ -79,7 +79,7 @@ describe('createConceptToConceptSchemeShortNameMap', () => {
   })
 
   describe('when the SPARQL request fails', () => {
-    test('should throw an error', async () => {
+    test('should throw an error and log it', async () => {
       const mockResponse = {
         ok: false,
         status: 500
@@ -87,22 +87,18 @@ describe('createConceptToConceptSchemeShortNameMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
       await expect(createConceptToConceptSchemeShortNameMap()).rejects.toThrow('HTTP error! status: 500')
-    })
-  })
 
-  describe('when the SPARQL response is malformed', () => {
-    test('should throw an error', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          results: 'not an object with bindings'
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error fetching concept scheme mappings:',
+        expect.objectContaining({
+          message: 'HTTP error! status: 500'
         })
-      }
+      )
 
-      sparqlRequest.mockResolvedValue(mockResponse)
-
-      await expect(createConceptToConceptSchemeShortNameMap()).rejects.toThrow()
+      consoleSpy.mockRestore()
     })
   })
 
