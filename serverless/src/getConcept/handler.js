@@ -129,7 +129,7 @@ export const getConcept = async (event) => {
       const schemeResource = concept['skos:inScheme']['@rdf:resource']
       const schemeShortName = schemeResource.split('/').pop()
       const csvHeaders = await getCsvHeaders(schemeShortName)
-      const conceptSchemeDetails = await getConceptSchemeDetails()
+      const conceptSchemeDetails = await getConceptSchemeDetails({ version })
       const legacyXML = toLegacyXML(
         concept,
         conceptSchemeDetails,

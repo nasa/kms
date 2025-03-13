@@ -8,6 +8,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -70,6 +71,7 @@ export const getKeywordsTree = async (event) => {
   const queryStringParameters = event.queryStringParameters || {}
   const { filter } = queryStringParameters
   const { conceptScheme } = event.pathParameters
+  const version = queryStringParameters?.version || 'published'
 
   if (!conceptScheme) {
     console.error('Missing conceptScheme parameter')
@@ -94,15 +96,15 @@ export const getKeywordsTree = async (event) => {
     }
 
     // Retrieve narrowers map
-    const narrowersMap = await getNarrowersMap(isAllSchemes ? undefined : derivedScheme)
+    const narrowersMap = await getNarrowersMap(isAllSchemes ? undefined : derivedScheme, version)
 
     // Retrieve root concepts
     let roots
     if (isAllSchemes) {
-      roots = await getRootConceptsForAllSchemes()
+      roots = await getRootConceptsForAllSchemes(version)
       roots = roots.filter((root) => root?.prefLabel?.value.toLowerCase() !== 'trash can')
     } else {
-      const root = await getRootConceptForScheme(derivedScheme)
+      const root = await getRootConceptForScheme(derivedScheme, version)
       roots = [root]
     }
 
@@ -181,7 +183,9 @@ export const getKeywordsTree = async (event) => {
     }
 
     // Retrieve concept scheme details and process them
-    const conceptSchemes = await getConceptSchemeDetails()
+    const conceptSchemes = await getConceptSchemeDetails({ version })
+    const versionInfo = await getVersionMetadata(version)
+
     let idCounter = 0 // Initialize a counter for generating unique IDs
 
     const processedSchemes = conceptSchemes.flatMap((scheme) => {
@@ -226,14 +230,14 @@ export const getKeywordsTree = async (event) => {
       versions: [
         {
           id: 999,
-          version: '20.8',
-          type: 'PUBLISHED',
+          version: versionInfo.versionName,
+          type: versionInfo.versionType.toUpperCase(),
           schemes: sortedProcessedSchemes
         }
       ],
       tree: {
         scheme: `${conceptScheme}`,
-        version: '20.8',
+        version: versionInfo.versionName,
         timestamp: format(Date.now(), 'yyyy-MM-dd HH:mm:ss'),
         treeData: [
           {

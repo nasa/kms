@@ -270,14 +270,14 @@ const main = async () => {
   try {
     const versionTypes = ['published', 'draft', 'past_published']
     for (const versionType of versionTypes) {
-      if (versionType === 'published') {
+      if (versionType === 'draft') {
         // eslint-disable-next-line no-continue
         continue
       }
 
       let versions = await fetchVersions(versionType)
       if (versionType === 'past_published') {
-        versions = versions.slice(0, 3)
+        versions = versions.slice(0, 0)
       }
 
       // eslint-disable-next-line no-restricted-syntax

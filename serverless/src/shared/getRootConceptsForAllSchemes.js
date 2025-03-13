@@ -33,14 +33,15 @@ import { sparqlRequest } from './sparqlRequest'
  *   console.error('Failed to fetch root concepts:', error);
  * }
  */
-export const getRootConceptsForAllSchemes = async () => {
+export const getRootConceptsForAllSchemes = async (version) => {
   try {
     // Make a SPARQL request to get all root concepts
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getRootConceptsBySchemeQuery()
+      body: getRootConceptsBySchemeQuery(),
+      version
     })
 
     // Check if the response is successful

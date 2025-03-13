@@ -213,7 +213,7 @@ export const getConcepts = async (event) => {
       }
 
       responseBody = builder.build(rdfJson)
-      contentType = 'application/rdf+xml'
+      contentType = 'application/xml'
     }
 
     return {
