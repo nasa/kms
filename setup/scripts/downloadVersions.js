@@ -266,19 +266,15 @@ const createRdfFile = async (version, versionType) => {
   }
 }
 
-const main = async () => {
+const main = async (downloadAll) => {
   try {
-    const versionTypes = ['published', 'draft', 'past_published']
-    for (const versionType of versionTypes) {
-      if (versionType === 'draft') {
-        // eslint-disable-next-line no-continue
-        continue
-      }
+    const versionTypes = ['published', 'draft']
+    if (downloadAll) {
+      versionTypes.push('past_published')
+    }
 
-      let versions = await fetchVersions(versionType)
-      if (versionType === 'past_published') {
-        versions = versions.slice(0, 0)
-      }
+    for (const versionType of versionTypes) {
+      const versions = await fetchVersions(versionType)
 
       // eslint-disable-next-line no-restricted-syntax
       for (const version of versions) {
@@ -293,4 +289,7 @@ const main = async () => {
   }
 }
 
-main()
+const args = process.argv.slice(2)
+const downloadAll = args.includes('-all')
+
+main(downloadAll)
