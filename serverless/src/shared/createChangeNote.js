@@ -61,4 +61,4 @@ const createChangeNote = (note) => {
   return changeNote
 }
 
-module.exports = createChangeNote
+export default createChangeNote
