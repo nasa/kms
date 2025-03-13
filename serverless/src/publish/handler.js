@@ -23,21 +23,15 @@ export const publish = async (event) => {
     const metadata = await getVersionMetadata('published')
     if (metadata) {
       const { versionName } = metadata
-      if (versionName) {
-        await renameGraph({
-          oldGraphName: 'published',
-          newGraphName: versionName
-        })
+      await renameGraph({
+        oldGraphName: 'published',
+        newGraphName: versionName
+      })
 
-        await updateVersionMetadata({
-          graphId: versionName,
-          versionType: 'past_published'
-        })
-      } else {
-        console.warn('No versionName found in published metadata, skipping rename and update')
-      }
-    } else {
-      console.log('No published version exists yet')
+      await updateVersionMetadata({
+        graphId: versionName,
+        versionType: 'past_published'
+      })
     }
 
     // 2. Copy draft to published.

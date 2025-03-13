@@ -65,8 +65,6 @@ export const updateVersionMetadata = async ({
       throw new Error(`Failed to update version metadata: ${response.status} ${response.statusText}\n${errorText}`)
     }
 
-    console.log('Updated version ', graphId, versionType)
-
     return response
   } catch (error) {
     console.error('Error updating version metadata:', error)

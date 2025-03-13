@@ -7,7 +7,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const getVersionMetadata = async (version) => {
   const versionUri = 'https://gcmd.earthdata.nasa.gov/kms/version_metadata'
-  console.log('Retrieving metadata for version:', versionUri)
 
   const query = `
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>

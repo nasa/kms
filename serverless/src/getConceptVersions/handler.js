@@ -6,7 +6,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const getConceptVersions = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
-  const { versionType } = pathParameters || {}
+  const { versionType } = pathParameters
 
   try {
     // Updated SPARQL query to get graph names and creation dates
@@ -39,17 +39,23 @@ export const getConceptVersions = async (event) => {
 
     const result = await response.json()
     const graphData = result.results.bindings
-    console.log('gd=', graphData)
 
     const versions = graphData.map((data) => {
-      console.log('data=', data)
       const creationDate = data.creationDate.value
       const versionName = data.versionName.value
       const vType = data.versionType.value
 
+      let formattedDate = ''
+      try {
+        const [formattedDatePart] = new Date(creationDate).toISOString().split('T')
+        formattedDate = formattedDatePart
+      } catch (error) {
+        console.warn(`Invalid date format: ${creationDate}`)
+      }
+
       return {
         '@_type': vType,
-        '@_creation_date': creationDate !== 'undefined' ? new Date(creationDate).toISOString().split('T')[0] : '',
+        '@_creation_date': formattedDate,
         '#text': versionName
       }
     }).filter(Boolean)
@@ -58,10 +64,9 @@ export const getConceptVersions = async (event) => {
       versions: {
         '@_xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
         '@_xsi:noNamespaceSchemaLocation': 'https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd',
-        version: versions
+        ...(versions.length > 0 ? { version: versions } : {})
       }
     }
-
     const builder = new XMLBuilder({
       format: true,
       ignoreAttributes: false,
