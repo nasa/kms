@@ -4,71 +4,20 @@ import { getNumberOfCmrCollections } from './getNumberOfCmrCollections'
 import toLegacyJSON from './toLegacyJSON'
 
 /**
- * Processes the related concepts of a SKOS concept and formats them.
+ * Processes alternative labels for a concept.
  *
- * @param {Object} skosConcept - The SKOS concept object containing related concepts.
- * @param {Map} prefLabelMap - A map of preferred labels keyed by concept UUID.
- * @returns {Array} An array of processed related concept objects.
- *
- * @example
- * const skosConcept = {
- *   'skos:related': [
- *     { '@rdf:resource': 'http://example.com/concept/1' },
- *     { '@rdf:resource': 'http://example.com/concept/2' }
- *   ],
- *   'gcmd:type': 'SomeRelationType'
- * };
- * const prefLabelMap = new Map([
- *   ['http://example.com/concept/1', 'Related Concept 1'],
- *   ['http://example.com/concept/2', 'Related Concept 2']
- * ]);
- * const relatedConcepts = processRelated(skosConcept, prefLabelMap);
- * console.log(relatedConcepts);
- * // Output:
- * // [
- * //   {
- * //     keyword: {
- * //       uuid: 'http://example.com/concept/1',
- * //       prefLabel: 'Related Concept 1'
- * //     },
- * //     relationshipType: 'some_relation_type'
- * //   },
- * //   {
- * //     keyword: {
- * //       uuid: 'http://example.com/concept/2',
- * //       prefLabel: 'Related Concept 2'
- * //     },
- * //     relationshipType: 'some_relation_type'
- * //   }
- * // ]
- */
-export const processRelated = (skosConcept, prefLabelMap) => (
-  (skosConcept['skos:related'] || []).map((relation) => ({
-    keyword: {
-      uuid: relation['@rdf:resource'],
-      prefLabel: prefLabelMap.get(relation['@rdf:resource'])
-    },
-    relationshipType: skosConcept['gcmd:type'].replace(/([A-Z])/g, '_$1').toLowerCase()
-  }))
-)
-
-/**
- * Processes and formats alt labels from a SKOS concept.
- *
- * @param {Array|Object} altLabels - The alt labels to process.
- * @returns {Array} An array of processed alt labels.
+ * @param {Array|Object} altLabels - The alternative labels to process.
+ * @returns {Array} An array of processed alternative labels.
  *
  * @example
  * const altLabels = [
- *   { '@gcmd:category': 'primary', '@gcmd:text': 'Example Alt Label', '@xml:lang': 'en' },
- *   { '@gcmd:text': 'Another Label', '@xml:lang': 'fr' }
+ *   { '@gcmd:category': 'primary', '@gcmd:text': 'Label 1', '@xml:lang': 'en' },
+ *   { '@gcmd:text': 'Label 2', '@xml:lang': 'fr' }
  * ];
- * const processedLabels = getAltLabels(altLabels);
- * console.log(processedLabels);
- * // Output:
- * // [
- * //   { category: 'primary', text: 'Example Alt Label', languageCode: 'en' },
- * //   { text: 'Another Label', languageCode: 'fr' }
+ * const result = getAltLabels(altLabels);
+ * // Result: [
+ * //   { category: 'primary', text: 'Label 1', languageCode: 'en' },
+ * //   { text: 'Label 2', languageCode: 'fr' }
  * // ]
  */
 export const getAltLabels = (altLabels) => {
@@ -96,39 +45,35 @@ export const getAltLabels = (altLabels) => {
 /**
  * Creates a change note object from a string.
  *
- * @param {string} note - The change note string.
+ * @param {string} note - The change note string to process.
  * @returns {Object} A structured change note object.
  *
  * @example
- * const noteString = `
- * Date: 2023-06-01
+ * const note = `
+ * Date: 2023-05-01
  * User Id: user123
- * User Note: Updated concept
- * Change Note Item
- * System Note: Modified prefLabel
- * Old Value: Old Label
- * New Value: New Label
- * Entity: Concept
- * Operation: Update
- * Field: prefLabel
+ * User Note: Updated definition
+ * Change Note Item #1
+ * System Note: Definition updated
+ * New Value: New definition text
+ * Old Value: Old definition text
+ * Entity: Definition
+ * Operation: UPDATE
+ * Field: definition
  * `;
- * const changeNote = createChangeNote(noteString);
- * console.log(changeNote);
- * // Output:
- * // {
- * //   date: '2023-06-01',
+ * const result = createChangeNote(note);
+ * // Result: {
+ * //   date: '2023-05-01',
  * //   userId: 'user123',
- * //   userNote: 'Updated concept',
- * //   changeNoteItems: [
- * //     {
- * //       systemNote: 'Modified prefLabel',
- * //       oldValue: 'Old Label',
- * //       newValue: 'New Label',
- * //       entity: 'Concept',
- * //       operation: 'Update',
- * //       field: 'prefLabel'
- * //     }
- * //   ]
+ * //   userNote: 'Updated definition',
+ * //   changeNoteItems: [{
+ * //     systemNote: 'Definition updated',
+ * //     newValue: 'New definition text',
+ * //     oldValue: 'Old definition text',
+ * //     entity: 'Definition',
+ * //     operation: 'UPDATE',
+ * //     field: 'definition'
+ * //   }]
  * // }
  */
 export const createChangeNote = (note) => {
@@ -142,24 +87,60 @@ export const createChangeNote = (note) => {
     if (line.startsWith('Date:')) changeNote.date = line.split(':')[1].trim()
     else if (line.startsWith('User Id:')) changeNote.userId = line.split(':')[1].trim()
     else if (line.startsWith('User Note:')) changeNote.userNote = line.split(':')[1].trim() || ''
-    else if (line.startsWith('Change Note Item')) {
+    else if (line.startsWith('Change Note Item #')) {
       if (currentChangeNoteItem) {
-        changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
+        changeNote.changeNoteItems.push(currentChangeNoteItem)
       }
 
       currentChangeNoteItem = {}
     } else if (currentChangeNoteItem) {
-      const [key, ...valueParts] = line.split(':')
-      const value = valueParts.join(':').trim()
-      if (key === 'System Note') currentChangeNoteItem.systemNote = value
-      else if (key === 'Old Value') currentChangeNoteItem.oldValue = value
-      else if (key === 'New Value') currentChangeNoteItem.newValue = value
-      else if (key === 'Entity') currentChangeNoteItem.entity = value
-      else if (key === 'Operation') currentChangeNoteItem.operation = value
-      else if (key === 'Field') currentChangeNoteItem.field = value
+      if (line.includes(':')) {
+        const [key, ...valueParts] = line.split(':')
+        const value = valueParts.join(':').trim()
+        switch (key.trim()) {
+          case 'System Note':
+            currentChangeNoteItem.systemNote = value
+            break
+          case 'New Value':
+            currentChangeNoteItem.newValue = currentChangeNoteItem.newValue
+              ? `${currentChangeNoteItem.newValue}\n${value}`
+              : value
+
+            break
+          case 'Old Value':
+            currentChangeNoteItem.oldValue = currentChangeNoteItem.oldValue
+              ? `${currentChangeNoteItem.oldValue}\n${value}`
+              : value
+
+            break
+          case 'Entity':
+            currentChangeNoteItem.entity = value
+            break
+          case 'Operation':
+            currentChangeNoteItem.operation = value
+            break
+          case 'Field':
+            currentChangeNoteItem.field = value
+            break
+          default:
+            // Handle any unexpected keys
+            console.warn(`Unexpected key in change note: ${key}`)
+            break
+        }
+      } else if (currentChangeNoteItem.newValue || currentChangeNoteItem.oldValue) {
+        // Append multi-line values
+        if (currentChangeNoteItem.newValue) {
+          currentChangeNoteItem.newValue += `\n${line}`
+        }
+
+        if (currentChangeNoteItem.oldValue) {
+          currentChangeNoteItem.oldValue += `\n${line}`
+        }
+      }
     }
   })
 
+  // Add the last ChangeNoteItem if it exists
   if (currentChangeNoteItem) {
     changeNote.changeNoteItems.push(currentChangeNoteItem)
   }
@@ -168,30 +149,20 @@ export const createChangeNote = (note) => {
 }
 
 /**
- * Processes all change notes for a SKOS concept.
+ * Processes an array of change notes.
  *
  * @param {Array|Object} changeNotes - The change notes to process.
- * @returns {Array} An array of processed change note objects.
+ * @returns {Array} An array of processed change notes.
  *
  * @example
  * const changeNotes = [
- *   'Date: 2023-06-01\nUser Id: user123\nChange Note Item\nOperation: Add\nField: prefLabel',
- *   'Date: 2023-06-02\nUser Id: user456\nChange Note Item\nOperation: Update\nField: definition'
+ *   'Date: 2023-05-01\nUser Id: user123\nChange Note Item #1\nSystem Note: Updated',
+ *   'Date: 2023-05-02\nUser Id: user456\nChange Note Item #1\nSystem Note: Created'
  * ];
- * const processedNotes = processChangeNotes(changeNotes);
- * console.log(processedNotes);
- * // Output:
- * // [
- * //   {
- * //     date: '2023-06-01',
- * //     userId: 'user123',
- * //     changeNoteItems: [{ operation: 'Add', field: 'prefLabel' }]
- * //   },
- * //   {
- * //     date: '2023-06-02',
- * //     userId: 'user456',
- * //     changeNoteItems: [{ operation: 'Update', field: 'definition' }]
- * //   }
+ * const result = processChangeNotes(changeNotes);
+ * // Result: [
+ * //   { date: '2023-05-01', userId: 'user123', changeNoteItems: [{ systemNote: 'Updated' }] },
+ * //   { date: '2023-05-02', userId: 'user456', changeNoteItems: [{ systemNote: 'Created' }] }
  * // ]
  */
 export const processChangeNotes = (changeNotes) => {
@@ -203,53 +174,93 @@ export const processChangeNotes = (changeNotes) => {
 }
 
 /**
- * Converts a SKOS concept to a JSON representation of a keyword.
+ * Processes relations for a concept.
  *
- * @param {Object} skosConcept - The SKOS concept object to convert.
- * @param {Map} conceptSchemeMap - A map of concept schemes.
- * @param {Map} prefLabelMap - A map of preferred labels.
- * @returns {Promise<Object>} A promise that resolves to the JSON representation of the keyword.
+ * @param {Object} concept - The concept object.
+ * @param {Map} prefLabelMap - A map of UUIDs to preferred labels.
+ * @returns {Array} An array of processed relations.
+ *
+ * @example
+ * const concept = {
+ *   'gcmd:hasInstrument': [{ '@rdf:resource': 'uuid1' }],
+ *   'gcmd:isOnPlatform': { '@rdf:resource': 'uuid2' }
+ * };
+ * const prefLabelMap = new Map([
+ *   ['uuid1', 'Instrument 1'],
+ *   ['uuid2', 'Platform 1']
+ * ]);
+ * const result = processRelations(concept, prefLabelMap);
+ * // Result: [
+ * //   { keyword: { uuid: 'uuid1', prefLabel: 'Instrument 1' }, relationshipType: 'has_instrument' },
+ * //   { keyword: { uuid: 'uuid2', prefLabel: 'Platform 1' }, relationshipType: 'is_on_platform' }
+ * // ]
+ */
+export const processRelations = (concept, prefLabelMap) => {
+  const relations = []
+
+  // Helper function to process a single relation
+  const processRelation = (relation, type) => ({
+    keyword: {
+      uuid: relation['@rdf:resource'],
+      prefLabel: prefLabelMap.get(relation['@rdf:resource'])
+    },
+    relationshipType: type
+  })
+
+  // Handle gcmd:hasInstrument
+  if (concept['gcmd:hasInstrument']) {
+    const instruments = Array.isArray(concept['gcmd:hasInstrument'])
+      ? concept['gcmd:hasInstrument']
+      : [concept['gcmd:hasInstrument']]
+    relations.push(...instruments.map((instrument) => processRelation(instrument, 'has_instrument')))
+  }
+
+  // Handle gcmd:isOnPlatform
+  if (concept['gcmd:isOnPlatform']) {
+    const platforms = Array.isArray(concept['gcmd:isOnPlatform'])
+      ? concept['gcmd:isOnPlatform']
+      : [concept['gcmd:isOnPlatform']]
+    relations.push(...platforms.map((platform) => processRelation(platform, 'is_on_platform')))
+  }
+
+  return relations
+}
+
+/**
+ * Converts a SKOS concept to a JSON representation.
+ *
+ * @param {Object} skosConcept - The SKOS concept to convert.
+ * @param {Object} conceptSchemeMap - A map of concept schemes.
+ * @param {Map} prefLabelMap - A map of UUIDs to preferred labels.
+ * @returns {Promise<Object>} A promise that resolves to the JSON representation of the concept.
  *
  * @example
  * const skosConcept = {
- *   '@rdf:about': 'http://example.com/concept/1',
- *   'skos:prefLabel': { '@xml:lang': 'en', '#text': 'Example Concept' },
- *   'gcmd:altLabel': [
- *     { '@gcmd:category': 'primary', '@gcmd:text': 'Example Alt Label', '@xml:lang': 'en' }
- *   ],
- *   'skos:inScheme': { '@rdf:resource': 'http://example.com/scheme/1' },
- *   'skos:definition': { '_text': 'This is an example concept' },
- *   'gcmd:reference': { '@gcmd:text': 'Example reference' },
- *   'skos:changeNote': 'Date: 2023-06-01\nUser Id: user123\nChange Note Item\nOperation: Add\nField: prefLabel'
+ *   '@rdf:about': 'uuid123',
+ *   'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/earth_science' },
+ *   'gcmd:altLabel': [{ '@gcmd:category': 'primary', '@gcmd:text': 'Earth Science', '@xml:lang': 'en' }],
+ *   'skos:definition': { '_text': 'The study of Earth and its systems.' },
+ *   'gcmd:reference': { '@gcmd:text': 'https://example.com/earth_science' },
+ *   'skos:changeNote': 'Date: 2023-05-01\nUser Id: user123\nChange Note Item #1\nSystem Note: Created'
  * };
- *
- * const conceptSchemeMap = new Map();
+ * const conceptSchemeMap = {};
  * const prefLabelMap = new Map();
  *
- * const keywordJson = await toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap);
- * console.log(keywordJson);
- * // Output:
- * // {
+ * const result = await toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap);
+ * // Result: {
+ * //   uuid: 'uuid123',
+ * //   scheme: 'earth_science',
  * //   root: true,
- * //   longName: 'Example Alt Label',
- * //   altLabels: [{ category: 'primary', text: 'Example Alt Label', languageCode: 'en' }],
- * //   scheme: '1',
- * //   fullPath: '/Example Concept',
- * //   numberOfCollections: 0,
- * //   definition: 'This is an example concept',
- * //   reference: 'Example reference',
- * //   definitions: [],
- * //   changeNotes: [{
- * //     date: '2023-06-01',
- * //     userId: 'user123',
- * //     changeNoteItems: [{ operation: 'Add', field: 'prefLabel' }]
- * //   }],
- * //   narrowers: [],
- * //   narrower: [],
- * //   related: []
+ * //   longName: 'Earth Science',
+ * //   altLabels: [{ category: 'primary', text: 'Earth Science', languageCode: 'en' }],
+ * //   definition: 'The study of Earth and its systems.',
+ * //   reference: 'https://example.com/earth_science',
+ * //   changeNotes: [{ date: '2023-05-01', userId: 'user123', changeNoteItems: [{ systemNote: 'Created' }] }],
+ * //   // ... other properties
  * // }
  */
 export const toKeywordJson = async (skosConcept, conceptSchemeMap, prefLabelMap) => {
+  console.log('RLT=', skosConcept['skos:related'])
   const allAltLabels = getAltLabels(skosConcept['gcmd:altLabel'])
   // Filter altLabels with category='primary'
   const primaryAltLabels = allAltLabels.filter((label) => label.category === 'primary')
@@ -259,35 +270,73 @@ export const toKeywordJson = async (skosConcept, conceptSchemeMap, prefLabelMap)
   const legacyJson = toLegacyJSON(skosConcept, conceptSchemeMap, prefLabelMap)
 
   try {
-    legacyJson.root = !skosConcept['skos:broader']
-    legacyJson.longName = primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : ''
-    legacyJson.altLabels = allAltLabels
-    legacyJson.scheme = scheme
-    legacyJson.fullPath = await buildFullPath(uuid)
+    legacyJson.narrowers = legacyJson.narrower
+    // Remove scheme from each narrower if the array exists and is not empty
+    if (legacyJson.narrowers && Array.isArray(legacyJson.narrowers)
+    && legacyJson.narrowers.length > 0) {
+      legacyJson.narrowers = legacyJson.narrowers.map((narrower) => {
+        if (narrower && typeof narrower === 'object') {
+          const { scheme: narrowerScheme, ...narrowerWithoutScheme } = narrower
 
-    legacyJson.numberOfCollections = await getNumberOfCmrCollections({
+          return narrowerWithoutScheme
+        }
+
+        return narrower
+      })
+    } else {
+      // If narrowers is null, undefined, or an empty array, set it to an empty array
+      legacyJson.narrowers = []
+    }
+
+    // Remove not used fields
+    const {
+      termsOfUse,
+      definitions,
+      narrower,
+      keywordVersion,
+      schemeVersion,
+      viewer,
+      isLeaf,
+      lastModifiedDate,
+      ...cleanedLegacyJson
+    } = legacyJson
+
+    cleanedLegacyJson.root = !skosConcept['skos:broader']
+    cleanedLegacyJson.longName = primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : ''
+    cleanedLegacyJson.altLabels = allAltLabels
+    cleanedLegacyJson.scheme = scheme
+    cleanedLegacyJson.fullPath = await buildFullPath(uuid)
+
+    cleanedLegacyJson.numberOfCollections = await getNumberOfCmrCollections({
       scheme,
-      uuid: legacyJson.uuid,
-      prefLabel: legacyJson.prefLabel
+      uuid: cleanedLegacyJson.uuid,
+      prefLabel: cleanedLegacyJson.prefLabel
     })
 
     // eslint-disable-next-line no-underscore-dangle
-    legacyJson.definition = skosConcept['skos:definition'] ? skosConcept['skos:definition']._text : ''
+    cleanedLegacyJson.definition = skosConcept['skos:definition'] ? skosConcept['skos:definition']._text : ''
 
-    legacyJson.reference = skosConcept['gcmd:reference'] && skosConcept['gcmd:reference']['@gcmd:text']
+    cleanedLegacyJson.reference = skosConcept['gcmd:reference'] && skosConcept['gcmd:reference']['@gcmd:text']
       ? skosConcept['gcmd:reference']['@gcmd:text']
       : ''
 
-    legacyJson.definitions = []
+    const unsortedChangeNotes = processChangeNotes(skosConcept['skos:changeNote'])
+    cleanedLegacyJson.changeNotes = unsortedChangeNotes.sort((a, b) => {
+      const dateA = new Date(a.date)
+      const dateB = new Date(b.date)
 
-    legacyJson.changeNotes = processChangeNotes(skosConcept['skos:changeNote'])
+      return dateB - dateA // For descending order (most recent first)
+    })
 
-    legacyJson.narrowers = legacyJson.narrower
-    legacyJson.narrower = []
+    cleanedLegacyJson.related = processRelations(skosConcept, prefLabelMap)
 
-    legacyJson.related = processRelated(skosConcept, prefLabelMap)
+    if (cleanedLegacyJson.broader[0]) {
+      cleanedLegacyJson.broader[0].scheme = {}
+      const broader = cleanedLegacyJson.broader[0]
+      cleanedLegacyJson.broader = broader
+    }
 
-    return cleanupJsonObject(legacyJson)
+    return cleanupJsonObject(cleanedLegacyJson)
   } catch (error) {
     console.error(`Error converting concept to JSON: ${error.message}`)
     throw new Error(`Failed to convert concept to JSON: ${error.message}`)
