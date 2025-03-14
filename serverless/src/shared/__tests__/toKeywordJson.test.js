@@ -1,7 +1,6 @@
 import {
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -21,15 +20,15 @@ vi.mock('../getNumberOfCmrCollections')
 vi.mock('../toLegacyJSON')
 
 describe('getAltLabels', () => {
-  it('should return an empty array if altLabels is undefined', () => {
+  test('should return an empty array if altLabels is undefined', () => {
     expect(getAltLabels(undefined)).toEqual([])
   })
 
-  it('should return an empty array if altLabels is null', () => {
+  test('should return an empty array if altLabels is null', () => {
     expect(getAltLabels(null)).toEqual([])
   })
 
-  it('should process a single altLabel object', () => {
+  test('should process a single altLabel object', () => {
     const altLabel = {
       '@gcmd:category': 'primary',
       '@gcmd:text': 'Label 1',
@@ -44,7 +43,7 @@ describe('getAltLabels', () => {
     ])
   })
 
-  it('should process an array of altLabel objects', () => {
+  test('should process an array of altLabel objects', () => {
     const altLabels = [
       {
         '@gcmd:category': 'primary',
@@ -69,7 +68,7 @@ describe('getAltLabels', () => {
     ])
   })
 
-  it('should handle altLabels without category', () => {
+  test('should handle altLabels without category', () => {
     const altLabel = {
       '@gcmd:text': 'Label 1',
       '@xml:lang': 'en'
@@ -82,7 +81,7 @@ describe('getAltLabels', () => {
     ])
   })
 
-  it('should handle altLabels without language code', () => {
+  test('should handle altLabels without language code', () => {
     const altLabel = {
       '@gcmd:category': 'primary',
       '@gcmd:text': 'Label 1'
@@ -98,7 +97,11 @@ describe('getAltLabels', () => {
 })
 
 describe('createChangeNote', () => {
-  it('should create a change note object from a valid string', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  test('should create a change note object from a valid string', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -131,7 +134,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should handle multiple change note items', () => {
+  test('should handle multiple change note items', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -177,7 +180,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should handle multi-line new and old values', () => {
+  test('should handle multi-line new and old values', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -212,7 +215,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should handle missing optional fields', () => {
+  test('should handle missing optional fields', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -237,7 +240,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should handle empty input', () => {
+  test('should handle empty input', () => {
     const noteString = ''
 
     const expectedResult = {
@@ -247,7 +250,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should handle input with only metadata and no change note items', () => {
+  test('should handle input with only metadata and no change note items', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -264,7 +267,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should ignore unexpected keys', () => {
+  test('should ignore unexpected keys', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -290,7 +293,7 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
-  it('should handle change notes without "Change Note Item" markers', () => {
+  test('should handle change notes without "Change Note Item" markers', () => {
     const noteString = `
       Date: 2023-05-01
       User Id: user123
@@ -312,15 +315,19 @@ describe('createChangeNote', () => {
 })
 
 describe('processChangeNotes', () => {
-  it('should return an empty array for null input', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  test('should return an empty array for null input', () => {
     expect(processChangeNotes(null)).toEqual([])
   })
 
-  it('should return an empty array for undefined input', () => {
+  test('should return an empty array for undefined input', () => {
     expect(processChangeNotes(undefined)).toEqual([])
   })
 
-  it('should process a single change note string', () => {
+  test('should process a single change note string', () => {
     const changeNote = `
       Date: 2023-05-01
       User Id: user123
@@ -352,7 +359,7 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should process an array of change note strings', () => {
+  test('should process an array of change note strings', () => {
     const changeNotes = [
       `
       Date: 2023-05-01
@@ -412,7 +419,7 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should handle a change note without Change Note Item marker', () => {
+  test('should handle a change note without Change Note Item marker', () => {
     const changeNote = `
       Date: 2023-05-03
       User Id: user789
@@ -431,7 +438,7 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should handle a change note with multiple Change Note Items', () => {
+  test('should handle a change note with multiple Change Note Items', () => {
     const changeNote = `
       Date: 2023-05-04
       User Id: user101
@@ -476,7 +483,7 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should handle a change note with multi-line values', () => {
+  test('should handle a change note with multi-line values', () => {
     const changeNote = `
       Date: 2023-05-05
       User Id: user202
@@ -510,12 +517,12 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should handle an empty change note string', () => {
+  test('should handle an empty change note string', () => {
     const result = processChangeNotes('')
     expect(result).toEqual([])
   })
 
-  it('should handle a change note with missing fields', () => {
+  test('should handle a change note with missing fields', () => {
     const changeNote = `
       Date: 2023-05-06
       User Id: user303
@@ -537,7 +544,7 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should handle an array with mixed valid and invalid change notes', () => {
+  test('should handle an array with mixed valid and invalid change notes', () => {
     const changeNotes = [
       `
     Date: 2023-05-07
@@ -597,7 +604,7 @@ describe('processChangeNotes', () => {
     })
   })
 
-  it('should handle a change note with unexpected keys', () => {
+  test('should handle a change note with unexpected keys', () => {
     const changeNote = `
     Date: 2023-05-09
     User Id: user606
@@ -788,20 +795,24 @@ describe('toKeywordJson', () => {
     })
   })
 
-  it('should convert a SKOS concept to JSON representation', async () => {
+  test('should convert a SKOS concept to JSON representation', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
       'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' },
-      'gcmd:altLabel': [{ '@gcmd:category': 'primary', '@gcmd:text': 'Test Concept', '@xml:lang': 'en' }],
-      'skos:definition': { '_text': 'This is a test concept.' },
+      'gcmd:altLabel': [{
+        '@gcmd:category': 'primary',
+        '@gcmd:text': 'Test Concept',
+        '@xml:lang': 'en'
+      }],
+      'skos:definition': { _text: 'This is a test concept.' },
       'gcmd:reference': { '@gcmd:text': 'https://example.com/test' },
       'skos:changeNote': 'Date: 2023-05-01\nUser Id: user123\nChange Note Item #1\nSystem Note: Created'
     }
     const conceptSchemeMap = {}
     const prefLabelMap = new Map()
-  
+
     const result = await toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap)
-  
+
     expect(result).toEqual({
       broader: {
         uuid: 'broader-uuid',
@@ -833,30 +844,31 @@ describe('toKeywordJson', () => {
         }
       ]
     })
-  
+
     // The 'uuid' from the input is not present in the output
     // If this is intentional, we can remove this check
     // If it should be included, we need to modify the toKeywordJson function
     // expect(result).toHaveProperty('uuid', 'test-uuid')
   })
-  
-  
 
-  it('should handle missing optional fields', async () => {
+  test('should handle missing optional fields', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
       'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' }
     }
     const conceptSchemeMap = {}
     const prefLabelMap = new Map()
-  
+
     // Mock the toLegacyJSON function to return a minimal object
     toLegacyJSON.mockReturnValue({
-      broader: [{ uuid: 'broader-uuid', prefLabel: 'Broader Concept' }]
+      broader: [{
+        uuid: 'broader-uuid',
+        prefLabel: 'Broader Concept'
+      }]
     })
-  
+
     const result = await toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap)
-  
+
     expect(result).toEqual({
       broader: {
         uuid: 'broader-uuid',
@@ -867,7 +879,7 @@ describe('toKeywordJson', () => {
       fullPath: 'mocked/full/path',
       numberOfCollections: 10
     })
-  
+
     // Check that optional fields are not present
     expect(result).not.toHaveProperty('altLabels')
     expect(result).not.toHaveProperty('longName')
@@ -875,10 +887,8 @@ describe('toKeywordJson', () => {
     expect(result).not.toHaveProperty('reference')
     expect(result).not.toHaveProperty('changeNotes')
   })
-  
-  
 
-  it('should process relations correctly', async () => {
+  test('should process relations correctly', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
       'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' },
@@ -886,12 +896,18 @@ describe('toKeywordJson', () => {
       'gcmd:isOnPlatform': { '@rdf:resource': 'platform-uuid' }
     }
     const conceptSchemeMap = {}
+    const conceptToConceptSchemeShortNameMap = {}
     const prefLabelMap = new Map([
       ['instrument-uuid', 'Test Instrument'],
       ['platform-uuid', 'Test Platform']
     ])
 
-    const result = await toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap)
+    const result = await toKeywordJson(
+      skosConcept,
+      conceptSchemeMap,
+      conceptToConceptSchemeShortNameMap,
+      prefLabelMap
+    )
 
     expect(result.related).toEqual([
       {
@@ -911,7 +927,7 @@ describe('toKeywordJson', () => {
     ])
   })
 
-  it('should handle multiple change notes and sort them', async () => {
+  test('should handle multiple change notes and sort them', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
       'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' },
@@ -939,7 +955,7 @@ describe('toKeywordJson', () => {
     ])
   })
 
-  it('should handle concepts with broader terms', async () => {
+  test('should handle concepts with broader terms', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
       'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' },
@@ -947,45 +963,99 @@ describe('toKeywordJson', () => {
     }
     const conceptSchemeMap = {}
     const prefLabelMap = new Map()
-  
+
     toLegacyJSON.mockReturnValue({
-      broader: [{ uuid: 'broader-uuid', prefLabel: 'Broader Concept' }]
+      broader: [{
+        uuid: 'broader-uuid',
+        prefLabel: 'Broader Concept'
+      }]
     })
-  
+
     const result = await toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap)
-  
+
     expect(result.root).toBe(false)
     expect(result.broader).toEqual({
       uuid: 'broader-uuid',
       prefLabel: 'Broader Concept'
     })
-  
+
     // Check other properties
     expect(result).toMatchObject({
       scheme: 'test_scheme',
       fullPath: 'mocked/full/path',
       numberOfCollections: 10
     })
-  
+
     // Check that the scheme property is not present in the broader object
     expect(result.broader).not.toHaveProperty('scheme')
   })
-  
 
-  it('should handle errors gracefully', async () => {
+  test('should handle errors gracefully', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
       'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' }
     }
     const conceptSchemeMap = {}
     const prefLabelMap = new Map()
-  
+
     toLegacyJSON.mockImplementation(() => {
       throw new Error('Legacy JSON conversion failed')
     })
-  
+
     await expect(toKeywordJson(skosConcept, conceptSchemeMap, prefLabelMap))
       .rejects.toThrow('Legacy JSON conversion failed')
   })
-  
+
+  describe('narrowers handling', () => {
+    test('should remove scheme from narrowers and handle non-object narrowers', async () => {
+      const skosConcept = {
+        '@rdf:about': 'test-uuid',
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' }
+      }
+      const conceptSchemeMap = {}
+      const prefLabelMap = new Map()
+
+      toLegacyJSON.mockReturnValue({
+        narrower: [
+          {
+            scheme: 'test_scheme',
+            uuid: 'narrower1',
+            prefLabel: 'Narrower 1'
+          },
+          'not an object',
+          {
+            scheme: 'test_scheme',
+            uuid: 'narrower2',
+            prefLabel: 'Narrower 2',
+            additionalProp: 'should remain'
+          },
+          null,
+          undefined
+        ],
+        broader: [{
+          uuid: 'broader-uuid',
+          prefLabel: 'Broader Concept'
+        }]
+      })
+
+      const result = await toKeywordJson(skosConcept, conceptSchemeMap, {}, prefLabelMap)
+
+      expect(result.narrowers).toEqual([
+        {
+          uuid: 'narrower1',
+          prefLabel: 'Narrower 1'
+        },
+        'not an object',
+        {
+          uuid: 'narrower2',
+          prefLabel: 'Narrower 2',
+          additionalProp: 'should remain'
+        }
+      ])
+
+      // Additional checks to ensure null and undefined are removed
+      expect(result.narrowers).not.toContain(null)
+      expect(result.narrowers).not.toContain(undefined)
+    })
+  })
 })

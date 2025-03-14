@@ -259,14 +259,24 @@ export const processRelations = (concept, prefLabelMap) => {
  * //   // ... other properties
  * // }
  */
-export const toKeywordJson = async (skosConcept, conceptSchemeMap, prefLabelMap) => {
+export const toKeywordJson = async (
+  skosConcept,
+  conceptSchemeMap,
+  conceptToConceptSchemeShortNameMap,
+  prefLabelMap
+) => {
   const allAltLabels = getAltLabels(skosConcept['gcmd:altLabel'])
   // Filter altLabels with category='primary'
   const primaryAltLabels = allAltLabels.filter((label) => label.category === 'primary')
   const scheme = skosConcept['skos:inScheme']['@rdf:resource'].split('/').pop()
   const uuid = skosConcept['@rdf:about']
   // First get the legacy json
-  const legacyJson = toLegacyJSON(skosConcept, conceptSchemeMap, prefLabelMap)
+  const legacyJson = toLegacyJSON(
+    skosConcept,
+    conceptSchemeMap,
+    conceptToConceptSchemeShortNameMap,
+    prefLabelMap
+  )
 
   try {
     legacyJson.narrowers = legacyJson.narrower
@@ -308,7 +318,7 @@ export const toKeywordJson = async (skosConcept, conceptSchemeMap, prefLabelMap)
 
     cleanedLegacyJson.numberOfCollections = await getNumberOfCmrCollections({
       scheme,
-      uuid: cleanedLegacyJson.uuid,
+      conceptId: cleanedLegacyJson.uuid,
       prefLabel: cleanedLegacyJson.prefLabel
     })
 

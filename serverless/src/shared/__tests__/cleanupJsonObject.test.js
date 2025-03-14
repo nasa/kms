@@ -3,7 +3,7 @@ import { describe, expect } from 'vitest'
 import { cleanupJsonObject } from '../cleanupJsonObject'
 
 describe('cleanupJsonObject', () => {
-  it('should return non-object values as is', () => {
+  test('should return non-object values as is', () => {
     expect(cleanupJsonObject('string')).toBe('string')
     expect(cleanupJsonObject(123)).toBe(123)
     expect(cleanupJsonObject(true)).toBe(true)
@@ -11,7 +11,7 @@ describe('cleanupJsonObject', () => {
     expect(cleanupJsonObject(undefined)).toBe(undefined)
   })
 
-  it('should remove empty strings from objects', () => {
+  test('should remove empty strings from objects', () => {
     const input = {
       a: 'hello',
       b: '',
@@ -24,7 +24,7 @@ describe('cleanupJsonObject', () => {
     expect(cleanupJsonObject(input)).toEqual(expected)
   })
 
-  it('should remove null values from objects', () => {
+  test('should remove null values from objects', () => {
     const input = {
       a: 'hello',
       b: null,
@@ -37,7 +37,7 @@ describe('cleanupJsonObject', () => {
     expect(cleanupJsonObject(input)).toEqual(expected)
   })
 
-  it('should clean up nested objects', () => {
+  test('should clean up nested objects', () => {
     const input = {
       a: 'hello',
       b: {
@@ -55,7 +55,7 @@ describe('cleanupJsonObject', () => {
     expect(cleanupJsonObject(input)).toEqual(expected)
   })
 
-  it('should remove empty objects', () => {
+  test('should remove empty objects', () => {
     const input = {
       a: 'hello',
       b: {},
@@ -68,7 +68,7 @@ describe('cleanupJsonObject', () => {
     expect(cleanupJsonObject(input)).toEqual(expected)
   })
 
-  it('should handle complex nested structures', () => {
+  test('should handle complex nested structures', () => {
     const input = {
       a: 'hello',
       b: [

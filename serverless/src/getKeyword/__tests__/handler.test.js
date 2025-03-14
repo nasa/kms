@@ -2,7 +2,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -22,6 +21,10 @@ vi.mock('@/shared/createPrefLabelMap', () => ({
   createPrefLabelMap: vi.fn()
 }))
 
+vi.mock('@/shared/createConceptToConceptSchemeShortNameMap', () => ({
+  createConceptToConceptSchemeShortNameMap: vi.fn()
+}))
+
 vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn(() => ({
     defaultResponseHeaders: { 'Content-Type': 'application/json' }
@@ -39,9 +42,10 @@ vi.mock('@/shared/toKeywordJson', () => ({
 describe('getKeyword', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
-  it('should return 404 if concept is null', async () => {
+  test('should return 404 if concept is null', async () => {
     const event = {
       pathParameters: { conceptId: 'nonexistent' }
     }
@@ -54,7 +58,7 @@ describe('getKeyword', () => {
     expect(JSON.parse(result.body)).toEqual({ error: 'Keyword not found' })
   })
 
-  it('should return 200 with keyword data if concept exists', async () => {
+  test('should return 200 with keyword data if concept exists', async () => {
     const event = {
       pathParameters: { conceptId: 'existingConcept' }
     }
@@ -73,7 +77,7 @@ describe('getKeyword', () => {
     expect(JSON.parse(result.body)).toEqual(mockKeywordJson)
   })
 
-  it('should return 500 if an error occurs', async () => {
+  test('should return 500 if an error occurs', async () => {
     const event = {
       pathParameters: { conceptId: 'errorConcept' }
     }
