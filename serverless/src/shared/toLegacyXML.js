@@ -46,6 +46,7 @@ const toLegacyXML = (
   schemeShortName
 ) => {
   // Helper function to retrieve parsed information in concept_schemes xml
+// Helper function to retrieve parsed information in concept_schemes xml
   function findMatchingConceptScheme(schemeShortNameArg, conceptSchemes) {
     const matchingScheme = conceptSchemes.find(
       (scheme) => scheme.notation.toLowerCase() === schemeShortNameArg.toLowerCase()
