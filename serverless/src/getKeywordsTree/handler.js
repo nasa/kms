@@ -24,7 +24,7 @@ import { toTitleCase } from '@/shared/toTitleCase'
  * @param {string} [event.queryStringParameters.version='published'] - The version of the keywords to retrieve (default is 'published').
  * @param {Object} event.pathParameters - Path parameters.
  * @param {string} event.pathParameters.conceptScheme - The concept scheme to retrieve keywords for.
- *
+ * @throws {Object} Returns a 400 error if conceptScheme is missing from pathParameters.
  * @returns {Promise<Object>} A promise that resolves to an object containing the status code, body, and headers.
  *
  * @example
@@ -75,10 +75,11 @@ export const getKeywordsTree = async (event) => {
 
   const queryStringParameters = event.queryStringParameters || {}
   const { filter } = queryStringParameters
-  const { conceptScheme } = event.pathParameters
+  const encodedConceptScheme = event.pathParameters.conceptScheme
+  const conceptScheme = decodeURIComponent(encodedConceptScheme)
   const version = queryStringParameters?.version || 'published'
 
-  if (!conceptScheme) {
+  if (!event.pathParameters || !event.pathParameters.conceptScheme) {
     console.error('Missing conceptScheme parameter')
 
     return {
@@ -92,11 +93,12 @@ export const getKeywordsTree = async (event) => {
 
   try {
     let keywordTree = []
-    const isAllSchemes = conceptScheme.toLowerCase() === 'all'
+    const lowerCaseConceptScheme = conceptScheme.toLowerCase()
+    const isAllSchemes = lowerCaseConceptScheme === 'all'
     let derivedScheme = conceptScheme
 
     // Handle special cases for Earth Science schemes
-    if (conceptScheme.toLowerCase() === 'earth science' || conceptScheme.toLowerCase() === 'earth science services') {
+    if (lowerCaseConceptScheme === 'earth science' || lowerCaseConceptScheme === 'earth science services') {
       derivedScheme = 'sciencekeywords'
     }
 
@@ -173,7 +175,7 @@ export const getKeywordsTree = async (event) => {
 
       keywordTree = sortedTree
     } else {
-      [keywordTree] = keywordTree
+      keywordTree = sortKeywordNodes(keywordTree)
     }
 
     // Apply filter if provided
@@ -183,7 +185,7 @@ export const getKeywordsTree = async (event) => {
           .map((tree) => filterKeywordTree(tree, filter))
           .filter((tree) => tree !== null)
       } else {
-        keywordTree = filterKeywordTree(keywordTree, filter)
+        keywordTree = filterKeywordTree(keywordTree[0], filter)
       }
     }
 
@@ -248,7 +250,7 @@ export const getKeywordsTree = async (event) => {
           {
             key: 'keywords-uuid',
             title: 'Keywords',
-            children: isAllSchemes ? keywordTree : [keywordTree]
+            children: keywordTree
           }
         ]
       }

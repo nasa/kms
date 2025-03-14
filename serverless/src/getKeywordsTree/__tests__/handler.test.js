@@ -409,9 +409,9 @@ describe('getKeywordsTree', () => {
       })
 
       vi.mocked(filterScienceKeywordsTree).mockImplementation((tree) => tree)
-      vi.mocked(filterKeywordTree).mockImplementation((tree, filter) => ({
+      vi.mocked(filterKeywordTree).mockImplementation((tree) => ({
         ...tree,
-        filtered: filter
+        filtered: true
       }))
 
       vi.mocked(getConceptSchemeDetails).mockResolvedValue([
@@ -435,12 +435,33 @@ describe('getKeywordsTree', () => {
 
       // Verify that filterKeywordTree was called with the correct arguments
       expect(filterKeywordTree).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Earth Science' }),
+        expect.objectContaining({
+          title: 'Earth Science',
+          children: expect.any(Array)
+        }),
         filterPattern
       )
 
+      // Check the structure and content of the response
+      expect(parsedBody).toHaveProperty('versions')
+      expect(parsedBody).toHaveProperty('tree')
+
+      expect(parsedBody.tree).toHaveProperty('scheme', 'Earth Science')
+      expect(parsedBody.tree).toHaveProperty('version', '20.8')
+      expect(parsedBody.tree).toHaveProperty('timestamp')
+      expect(parsedBody.tree).toHaveProperty('treeData')
+
+      expect(parsedBody.tree.treeData).toHaveLength(1)
+      expect(parsedBody.tree.treeData[0]).toHaveProperty('key', 'keywords-uuid')
+      expect(parsedBody.tree.treeData[0]).toHaveProperty('title', 'Keywords')
+      expect(parsedBody.tree.treeData[0]).toHaveProperty('children')
+
       // Check if the filtered property is present in the result
-      expect(parsedBody.tree.treeData[0].children[0]).toHaveProperty('filtered', filterPattern)
+      expect(parsedBody.tree.treeData[0].children).toHaveProperty('filtered', true)
+      expect(parsedBody.tree.treeData[0].children).toHaveProperty('title', 'Earth Science')
+      expect(parsedBody.tree.treeData[0].children).toHaveProperty('children')
+      expect(parsedBody.tree.treeData[0].children.children).toHaveLength(1)
+      expect(parsedBody.tree.treeData[0].children.children[0]).toHaveProperty('title', 'Atmosphere')
     })
 
     test('should handle "all" concept scheme with filter correctly', async () => {
