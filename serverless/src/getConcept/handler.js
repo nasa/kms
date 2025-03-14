@@ -11,8 +11,8 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
-import toLegacyJSON from '@/shared/toLegacyJSON'
-import toLegacyXML from '@/shared/toLegacyXML'
+import { toLegacyJSON } from '@/shared/toLegacyJSON'
+import { toLegacyXML } from '@/shared/toLegacyXML'
 
 /**
  * Retrieves a SKOS Concept and returns it in the specified format.

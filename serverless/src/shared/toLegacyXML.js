@@ -38,7 +38,7 @@ import { createChangeNote } from './createChangeNote'
  * of the concept scheme. The version consistency should be managed by the calling function when
  * retrieving the concept and creating the necessary data structures.
  */
-const toLegacyXML = (
+export const toLegacyXML = (
   concept,
   conceptSchemeDetails,
   csvHeaders,
@@ -194,5 +194,3 @@ const toLegacyXML = (
 
   return conceptObj
 }
-
-export default toLegacyXML

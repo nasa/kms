@@ -18,8 +18,8 @@ import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import toLegacyJSON from '@/shared/toLegacyJSON'
-import toLegacyXML from '@/shared/toLegacyXML'
+import { toLegacyJSON } from '@/shared/toLegacyJSON'
+import { toLegacyXML } from '@/shared/toLegacyXML'
 
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getSkosConcept')

@@ -49,33 +49,33 @@
  * be managed by the calling function when retrieving the concept and creating the necessary maps.
  */
 
-// Helper function to determine if there are multiple altLabels and assist in translating the different types
-const processAltLabels = (altLabels) => {
-  if (!altLabels) {
-    return []
-  }
-
-  const labelArray = Array.isArray(altLabels) ? altLabels : [altLabels]
-
-  return labelArray.map((label) => {
-    const processedLabel = {}
-
-    if (label['@gcmd:category']) {
-      processedLabel.category = label['@gcmd:category']
-    }
-
-    processedLabel.text = label['@gcmd:text']
-
-    return processedLabel
-  })
-}
-
-const toLegacyJSON = (
+export const toLegacyJSON = (
   concept,
   conceptSchemeMap,
   conceptToConceptSchemeShortNameMap,
   prefLabelMap
 ) => {
+  // Helper function to determine if there are multiple altLabels and assist in translating the different types
+  const processAltLabels = (altLabels) => {
+    if (!altLabels) {
+      return []
+    }
+
+    const labelArray = Array.isArray(altLabels) ? altLabels : [altLabels]
+
+    return labelArray.map((label) => {
+      const processedLabel = {}
+
+      if (label['@gcmd:category']) {
+        processedLabel.category = label['@gcmd:category']
+      }
+
+      processedLabel.text = label['@gcmd:text']
+
+      return processedLabel
+    })
+  }
+
   try {
     // Extract the UUID from the @rdf:about field
     const uuid = concept['@rdf:about']
