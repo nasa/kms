@@ -117,15 +117,16 @@ export const getConcepts = async (event) => {
     const startIndex = (pageNum - 1) * pageSize
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
-    const prefLabelMap = await createPrefLabelMap()
-    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
+    const prefLabelMap = await createPrefLabelMap(version)
+    // eslint-disable-next-line max-len
+    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
 
     let responseBody
     let contentType
 
     // Handle different formats based on queryStringParameter 'format'
     if (format.toLowerCase() === 'json') {
-      const conceptSchemeMap = await createConceptSchemeMap()
+      const conceptSchemeMap = await createConceptSchemeMap(event)
       const jsonResponse = {
         hits: totalConcepts,
         page_num: pageNum,
