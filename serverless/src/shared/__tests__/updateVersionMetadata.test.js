@@ -31,8 +31,8 @@ describe('updateVersionMetadata', () => {
         graphId: 'test-graph',
         version: '1.0',
         versionType: 'PUBLISHED',
-        createdDate: '2023-01-01T00:00:00Z',
-        modifiedDate: '2023-01-02T00:00:00Z'
+        createdDate: '2023-01-01',
+        modifiedDate: '2023-01-02'
       }
 
       const response = await updateVersionMetadata(params)
@@ -49,8 +49,8 @@ describe('updateVersionMetadata', () => {
       const sparqlCall = sparqlRequest.mock.calls[0][0]
       expect(sparqlCall.body).toContain('gcmd:versionName "1.0"')
       expect(sparqlCall.body).toContain('gcmd:versionType "PUBLISHED"')
-      expect(sparqlCall.body).toContain('dcterms:created "2023-01-01T00:00:00Z"^^xsd:dateTime')
-      expect(sparqlCall.body).toContain('dcterms:modified "2023-01-02T00:00:00Z"^^xsd:dateTime')
+      expect(sparqlCall.body).toContain('dcterms:created "2023-01-01"^^xsd:dateTime')
+      expect(sparqlCall.body).toContain('dcterms:modified "2023-01-02"^^xsd:dateTime')
     })
   })
 

@@ -95,7 +95,7 @@ export const getVersionMetadata = async (version) => {
 
     return {
       version,
-      versionName: metadata.versionName.value,
+      versionName: metadata.versionName.value.toString(),
       versionType: metadata.versionType.value,
       created: metadata.created.value,
       modified: metadata.modified.value

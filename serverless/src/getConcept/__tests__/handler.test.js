@@ -118,7 +118,7 @@ describe('getConcept', () => {
     })
 
     describe('when retrieving by short name with a scheme', () => {
-      test('should successfully with concept using short name and scheme', async () => {
+      test('should successfully retrieve concept using short name and scheme', async () => {
         const mockEvent = {
           pathParameters: { shortName: 'Test+Short+Name' },
           queryStringParameters: { scheme: 'Test%20Scheme' }

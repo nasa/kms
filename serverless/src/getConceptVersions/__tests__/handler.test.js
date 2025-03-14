@@ -39,13 +39,13 @@ describe('getConceptVersions', () => {
                 {
                   graph: { value: 'graph1' },
                   creationDate: { value: '2023-01-01' },
-                  versionType: { value: 'PUBLISHED' },
+                  versionType: { value: 'published' },
                   versionName: { value: '1.0' }
                 },
                 {
                   graph: { value: 'graph2' },
                   creationDate: { value: '2023-02-01' },
-                  versionType: { value: 'DRAFT' },
+                  versionType: { value: 'draft' },
                   versionName: { value: '1.1' }
                 }
               ]
@@ -62,8 +62,8 @@ describe('getConceptVersions', () => {
 
         // Check XML content
         expect(response.body).toContain('<versions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
-        expect(response.body).toContain('<version type="PUBLISHED" creation_date="2023-01-01">1.0</version>')
-        expect(response.body).toContain('<version type="DRAFT" creation_date="2023-02-01">1.1</version>')
+        expect(response.body).toContain('<version type="published" creation_date="2023-01-01">1.0</version>')
+        expect(response.body).toContain('<version type="draft" creation_date="2023-02-01">1.1</version>')
       })
     })
 
@@ -77,7 +77,7 @@ describe('getConceptVersions', () => {
                 {
                   graph: { value: 'graph1' },
                   creationDate: { value: '2023-01-01' },
-                  versionType: { value: 'PUBLISHED' },
+                  versionType: { value: 'published' },
                   versionName: { value: '1.0' }
                 }
               ]
@@ -85,12 +85,12 @@ describe('getConceptVersions', () => {
           })
         })
 
-        const event = { pathParameters: { versionType: 'PUBLISHED' } }
+        const event = { pathParameters: { versionType: 'published' } }
         const response = await getConceptVersions(event)
 
         expect(response.statusCode).toBe(200)
-        expect(response.body).toContain('<version type="PUBLISHED" creation_date="2023-01-01">1.0</version>')
-        expect(response.body).not.toContain('type="DRAFT"')
+        expect(response.body).toContain('<version type="published" creation_date="2023-01-01">1.0</version>')
+        expect(response.body).not.toContain('type="draft"')
       })
     })
 
@@ -129,7 +129,7 @@ describe('getConceptVersions', () => {
               {
                 graph: { value: 'graph1' },
                 creationDate: { value: 'invalid-date' },
-                versionType: { value: 'PUBLISHED' },
+                versionType: { value: 'published' },
                 versionName: { value: '1.0' }
               }
             ]
@@ -141,7 +141,7 @@ describe('getConceptVersions', () => {
       const response = await getConceptVersions(event)
 
       expect(response.statusCode).toBe(200)
-      expect(response.body).toContain('<version type="PUBLISHED" creation_date="">1.0</version>')
+      expect(response.body).toContain('<version type="published" creation_date="">1.0</version>')
     })
   })
 
