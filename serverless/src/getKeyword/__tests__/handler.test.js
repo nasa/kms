@@ -1,4 +1,3 @@
-// GetKeyword.test.js
 import {
   beforeEach,
   describe,
