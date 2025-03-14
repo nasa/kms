@@ -118,6 +118,7 @@ export const getConcepts = async (event) => {
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
     const prefLabelMap = await createPrefLabelMap(version)
+    // eslint-disable-next-line max-len
     const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
 
     let responseBody
