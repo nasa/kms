@@ -130,7 +130,7 @@ async function loadSchemes(versionType, version) {
 /**
  * Main function to load SKOS concepts and schemes into a SPARQL endpoint for all version types and versions.
  *
- * This function orchestrates the loading process for GCMD (Global Change Master Directory) 
+ * This function orchestrates the loading process for GCMD (Global Change Master Directory)
  * keyword concepts and schemes. It performs the following steps:
  * 1. Iterates through version types: 'published', 'draft', and 'past_published'.
  * 2. For each version type:
