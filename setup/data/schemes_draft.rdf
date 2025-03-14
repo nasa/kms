@@ -1,0 +1,239 @@
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#">
+  <gcmd:Version rdf:about="https://gcmd.earthdata.nasa.gov/kms/version_metadata">
+    <gcmd:versionName>draft</gcmd:versionName>
+    <gcmd:versionType>draft</gcmd:versionType>
+    <dcterms:modified>2025-03-13</dcterms:modified>
+    <dcterms:created>2025-03-13</dcterms:created>
+  </gcmd:Version>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations">
+    <skos:prefLabel xml:lang="en">Chained Operations</skos:prefLabel>
+    <skos:notation>ChainedOperations</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/CollectionDataType">
+    <skos:prefLabel xml:lang="en">Collection Data Type</skos:prefLabel>
+    <skos:notation>CollectionDataType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ContactType">
+    <skos:prefLabel xml:lang="en">Contact Type</skos:prefLabel>
+    <skos:notation>ContactType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/CoordinateSystem">
+    <skos:prefLabel xml:lang="en">Coordinate System</skos:prefLabel>
+    <skos:notation>CoordinateSystem</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/DataFormat">
+    <skos:prefLabel xml:lang="en">Data Format</skos:prefLabel>
+    <skos:notation>DataFormat</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Short_Name,Long_Name,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/DatasetLanguage">
+    <skos:prefLabel xml:lang="en">Dataset Language</skos:prefLabel>
+    <skos:notation>DatasetLanguage</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/DatasetProgress">
+    <skos:prefLabel xml:lang="en">Dataset Progress</skos:prefLabel>
+    <skos:notation>DatasetProgress</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/DistributionSizeUnit">
+    <skos:prefLabel xml:lang="en">Distribution Size Unit</skos:prefLabel>
+    <skos:notation>DistributionSizeUnit</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/DurationUnit">
+    <skos:prefLabel xml:lang="en">Duration Unit</skos:prefLabel>
+    <skos:notation>DurationUnit</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/GranuleSpatialRepresentation">
+    <skos:prefLabel xml:lang="en">Granule Spatial Representation</skos:prefLabel>
+    <skos:notation>GranuleSpatialRepresentation</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/MeasurementName">
+    <skos:prefLabel xml:lang="en">Measurement Name</skos:prefLabel>
+    <skos:notation>MeasurementName</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Context_Medium,Object,Quantity,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/MetadataAssociationType">
+    <skos:prefLabel xml:lang="en">Metadata Association Type</skos:prefLabel>
+    <skos:notation>MetadataAssociationType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/MetadataLanguage">
+    <skos:prefLabel xml:lang="en">Metadata Language</skos:prefLabel>
+    <skos:notation>MetadataLanguage</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/MimeType">
+    <skos:prefLabel xml:lang="en">Mime Type</skos:prefLabel>
+    <skos:notation>MimeType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/MultimediaFormat">
+    <skos:prefLabel xml:lang="en">Multimedia Format</skos:prefLabel>
+    <skos:notation>MultimediaFormat</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/Operations">
+    <skos:prefLabel xml:lang="en">Operations</skos:prefLabel>
+    <skos:notation>Operations</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/OrganizationPersonnelRole">
+    <skos:prefLabel xml:lang="en">Organization Personnel Role</skos:prefLabel>
+    <skos:notation>OrganizationPersonnelRole</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/OrganizationType">
+    <skos:prefLabel xml:lang="en">Organization Type</skos:prefLabel>
+    <skos:notation>OrganizationType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/PersistentIdentifier">
+    <skos:prefLabel xml:lang="en">Persistent Identifier</skos:prefLabel>
+    <skos:notation>PersistentIdentifier</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/PersonnelRole">
+    <skos:prefLabel xml:lang="en">Personnel Role</skos:prefLabel>
+    <skos:notation>PersonnelRole</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/PhoneType">
+    <skos:prefLabel xml:lang="en">Phone Type</skos:prefLabel>
+    <skos:notation>PhoneType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/PlatformType">
+    <skos:prefLabel xml:lang="en">Platform Type</skos:prefLabel>
+    <skos:notation>PlatformType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/Private">
+    <skos:prefLabel xml:lang="en">Private</skos:prefLabel>
+    <skos:notation>Private</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ProductFlag">
+    <skos:prefLabel xml:lang="en">Product Flag</skos:prefLabel>
+    <skos:notation>ProductFlag</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ProductLevelId">
+    <skos:prefLabel xml:lang="en">Product Level Id</skos:prefLabel>
+    <skos:notation>ProductLevelId</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ProjectionAuthority">
+    <skos:prefLabel xml:lang="en">Projection Authority</skos:prefLabel>
+    <skos:notation>ProjectionAuthority</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ProjectionDatumNames">
+    <skos:prefLabel xml:lang="en">Projection Datum Names</skos:prefLabel>
+    <skos:notation>ProjectionDatumNames</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ProjectionName">
+    <skos:prefLabel xml:lang="en">Projection Name</skos:prefLabel>
+    <skos:notation>ProjectionName</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/SpatialCoverageType">
+    <skos:prefLabel xml:lang="en">Spatial Coverage Type</skos:prefLabel>
+    <skos:notation>SpatialCoverageType</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/chronounits">
+    <skos:prefLabel xml:lang="en">Chronostratigraphic Units</skos:prefLabel>
+    <skos:notation>chronounits</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Eon,Era,Period,Epoch,Age,Sub-Age,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/discipline">
+    <skos:prefLabel xml:lang="en">Disciplines</skos:prefLabel>
+    <skos:notation>discipline</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Discipline_Name,Subdiscipline,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/horizontalresolutionrange">
+    <skos:prefLabel xml:lang="en">Horizontal Resolution Ranges</skos:prefLabel>
+    <skos:notation>horizontalresolutionrange</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Horizontal_Resolution_Range,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/idnnode">
+    <skos:prefLabel xml:lang="en">IDN Nodes</skos:prefLabel>
+    <skos:notation>idnnode</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Short_Name,Long_Name,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/instruments">
+    <skos:prefLabel xml:lang="en">Instruments</skos:prefLabel>
+    <skos:notation>instruments</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-07</dcterms:modified>
+    <gcmd:csvHeaders>Category,Class,Type,Subtype,Short_Name,Long_Name,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/isotopiccategory">
+    <skos:prefLabel xml:lang="en">ISO Topic Categories</skos:prefLabel>
+    <skos:notation>isotopiccategory</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>ISO_Topic_Category,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/locations">
+    <skos:prefLabel xml:lang="en">Locations</skos:prefLabel>
+    <skos:notation>locations</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Location_Category,Location_Type,Location_Subregion1,Location_Subregion2,Location_Subregion3,Location_Subregion4,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/platforms">
+    <skos:prefLabel xml:lang="en">Platforms</skos:prefLabel>
+    <skos:notation>platforms</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Basis,Category,Sub_Category,Short_Name,Long_Name,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/projects">
+    <skos:prefLabel xml:lang="en">Projects</skos:prefLabel>
+    <skos:notation>projects</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-13</dcterms:modified>
+    <gcmd:csvHeaders>Bucket,Short_Name,Long_Name,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/providers">
+    <skos:prefLabel xml:lang="en">Providers</skos:prefLabel>
+    <skos:notation>providers</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-10</dcterms:modified>
+    <gcmd:csvHeaders>Bucket_Level0,Bucket_Level1,Bucket_Level2,Bucket_Level3,Short_Name,Long_Name,Data_Center_URL,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/rucontenttype">
+    <skos:prefLabel xml:lang="en">Related URL Content Types</skos:prefLabel>
+    <skos:notation>rucontenttype</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>URLContentType,Type,Subtype,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords">
+    <skos:prefLabel xml:lang="en">Science Keywords</skos:prefLabel>
+    <skos:notation>sciencekeywords</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-10</dcterms:modified>
+    <gcmd:csvHeaders>Category,Topic,Term,Variable_Level_1,Variable_Level_2,Variable_Level_3,Detailed_Variable,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/temporalresolutionrange">
+    <skos:prefLabel xml:lang="en">Temporal Resolution Ranges</skos:prefLabel>
+    <skos:notation>temporalresolutionrange</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Temporal_Resolution_Range,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+  <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/verticalresolutionrange">
+    <skos:prefLabel xml:lang="en">Vertical Resolution Ranges</skos:prefLabel>
+    <skos:notation>verticalresolutionrange</skos:notation>
+    <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2025-03-03</dcterms:modified>
+    <gcmd:csvHeaders>Vertical_Resolution_Range,UUID</gcmd:csvHeaders>
+  </skos:ConceptScheme>
+</rdf:RDF>

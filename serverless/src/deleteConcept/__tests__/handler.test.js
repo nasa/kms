@@ -34,7 +34,7 @@ describe('deleteConcept', () => {
 
       const result = await deleteConcept(mockEvent)
 
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
       expect(result).toEqual({
         statusCode: 200,
         body: JSON.stringify({ message: 'Successfully deleted concept: 123' }),
@@ -47,7 +47,7 @@ describe('deleteConcept', () => {
 
       await deleteConcept(mockEvent)
 
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123')
+      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
     })
   })
 

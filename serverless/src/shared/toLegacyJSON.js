@@ -1,16 +1,17 @@
 /**
- * Converts a SKOS concept to a legacy JSON format.
+ * Converts a SKOS concept from a specific version to a legacy JSON format.
  *
- * This function takes a SKOS concept and associated metadata, and transforms it into a legacy JSON structure.
- * It processes various aspects of the concept including its basic metadata, hierarchical relationships (broader and narrower),
- * related concepts, definitions, alternative labels, and associated resources.
+ * This function takes a SKOS concept and associated metadata from a particular version of the concept scheme,
+ * and transforms it into a legacy JSON structure. It processes various aspects of the concept including its
+ * basic metadata, hierarchical relationships (broader and narrower), related concepts, definitions,
+ * alternative labels, and associated resources.
  *
- * @async
  * @function toLegacyJSON
- * @param {Object} skosConcept - The SKOS concept object to be transformed.
+ * @param {Object} concept - The SKOS concept object to be transformed, from a specific version of the concept scheme.
  * @param {Map<string, string>} conceptSchemeMap - A map of concept scheme short names to their long names.
+ * @param {Map<string, string>} conceptToConceptSchemeShortNameMap - A map of concept IRIs to their scheme short names.
  * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels.
- * @returns {Promise<Object>} A promise that resolves to the transformed legacy JSON object.
+ * @returns {Object} The transformed legacy JSON object.
  * @throws {Error} If there's an error during the conversion process.
  *
  * @property {string} termsOfUse - The URL to the terms of use document.
@@ -30,48 +31,60 @@
  * @property {Array<Object>} resources - An array of associated resources.
  *
  * @example
+ * // Convert a concept from the published version to legacy JSON
  * try {
- *   const skosConcept = { ... }; // SKOS concept object
+ *   const concept = { ... }; // SKOS concept object from the published version
  *   const conceptSchemeMap = new Map([['scheme1', 'Scheme One'], ...]);
+ *   const conceptToConceptSchemeShortNameMap = new Map([['http://example.com/concept/1', 'scheme1'], ...]);
  *   const prefLabelMap = new Map([['http://example.com/concept/1', 'Concept One'], ...]);
  *
- *   const legacyJSON = await toLegacyJSON(skosConcept, conceptSchemeMap, prefLabelMap);
+ *   const legacyJSON = toLegacyJSON(concept, conceptSchemeMap, conceptToConceptSchemeShortNameMap, prefLabelMap);
  *   console.log('Transformed legacy JSON:', legacyJSON);
  * } catch (error) {
  *   console.error('Error converting to legacy JSON:', error);
  * }
+ *
+ * @note While this function doesn't directly use a version parameter, it assumes that the input concept
+ * and associated maps are from a specific version of the concept scheme. The version information should
+ * be managed by the calling function when retrieving the concept and creating the necessary maps.
  */
 
-// Helper function to determine if there are multiple altLabels and assist in translating the different types
-const processAltLabels = (altLabels) => {
-  if (!altLabels) {
-    return []
-  }
-
-  const labelArray = Array.isArray(altLabels) ? altLabels : [altLabels]
-
-  return labelArray.map((label) => {
-    const processedLabel = {}
-
-    if (label['@gcmd:category']) {
-      processedLabel.category = label['@gcmd:category']
+export const toLegacyJSON = (
+  concept,
+  conceptSchemeMap,
+  conceptToConceptSchemeShortNameMap,
+  prefLabelMap
+) => {
+  // Helper function to determine if there are multiple altLabels and assist in translating the different types
+  const processAltLabels = (altLabels) => {
+    if (!altLabels) {
+      return []
     }
 
-    processedLabel.text = label['@gcmd:text']
+    const labelArray = Array.isArray(altLabels) ? altLabels : [altLabels]
 
-    return processedLabel
-  })
-}
+    return labelArray.map((label) => {
+      const processedLabel = {}
 
-const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
+      if (label['@gcmd:category']) {
+        processedLabel.category = label['@gcmd:category']
+      }
+
+      processedLabel.text = label['@gcmd:text']
+
+      return processedLabel
+    })
+  }
+
   try {
     // Extract the UUID from the @rdf:about field
-    const uuid = skosConcept['@rdf:about']
+    const uuid = concept['@rdf:about']
 
     // Extract scheme information
-    const schemeResource = skosConcept['skos:inScheme']['@rdf:resource']
-    const schemeShortName = schemeResource.split('/').pop()
+    const schemeShortName = conceptToConceptSchemeShortNameMap.get(uuid)
     const schemeLongName = conceptSchemeMap.get(schemeShortName)
+    const broaderShortName = concept['skos:broader'] ? conceptToConceptSchemeShortNameMap.get(concept['skos:broader']['@rdf:resource']) : null
+    const broaderLongName = conceptSchemeMap.get(broaderShortName)
 
     // Transform the data
     const transformedData = {
@@ -79,58 +92,94 @@ const toLegacyJSON = (skosConcept, conceptSchemeMap, prefLabelMap) => {
       keywordVersion: '20.6',
       schemeVersion: '2025-01-31 11:22:12', // Corrolates with the change of keywordVersion
       viewer: `https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/${schemeShortName}/${uuid}`,
-      lastModifiedDate: skosConcept['dcterms:modified'],
+      lastModifiedDate: concept['dcterms:modified'],
       uuid,
       // eslint-disable-next-line no-underscore-dangle
-      prefLabel: skosConcept['skos:prefLabel']._text,
-      isLeaf: !skosConcept['skos:narrower'],
+      prefLabel: concept['skos:prefLabel']._text,
+      isLeaf: !concept['skos:narrower'],
       scheme: {
         shortName: schemeShortName,
         longName: schemeLongName
       },
-      broader: skosConcept['skos:broader'] ? [{
-        uuid: skosConcept['skos:broader']['@rdf:resource'],
-        prefLabel: prefLabelMap.get(skosConcept['skos:broader']['@rdf:resource']),
+      broader: concept['skos:broader'] ? [{
+        uuid: concept['skos:broader']['@rdf:resource'],
+        prefLabel: prefLabelMap.get(concept['skos:broader']['@rdf:resource']),
         scheme: {
-          shortName: schemeShortName,
-          longName: schemeLongName
+          shortName: broaderShortName,
+          longName: broaderLongName
         }
       }] : [],
       narrower: (() => {
-        const narrower = skosConcept['skos:narrower']
+        const narrower = concept['skos:narrower']
         if (!narrower) return []
 
         const narrowerArray = Array.isArray(narrower) ? narrower : [narrower]
 
-        return narrowerArray.map((narrow) => ({
-          uuid: narrow['@rdf:resource'],
-          prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
-          scheme: {
-            shortName: schemeShortName,
-            longName: schemeLongName
+        return narrowerArray.map((narrow) => {
+          const narrowerShortName = conceptToConceptSchemeShortNameMap.get(narrow['@rdf:resource'])
+          const narrowerLongName = conceptSchemeMap.get(narrowerShortName)
+
+          return {
+            uuid: narrow['@rdf:resource'],
+            prefLabel: prefLabelMap.get(narrow['@rdf:resource']),
+            scheme: {
+              shortName: narrowerShortName,
+              longName: narrowerLongName
+            }
           }
-        }))
+        })
       })(),
-      related: (skosConcept['skos:related'] || []).map((relation) => ({
-        uuid: relation['@rdf:resource'],
-        prefLabel: prefLabelMap.get(relation['@rdf:resource']),
-        scheme: {
-          shortName: schemeShortName,
-          longName: schemeLongName
-        },
-        type: skosConcept['gcmd:type'].replace(/([A-Z])/g, '_$1').toLowerCase()
-      })),
-      definitions: skosConcept['skos:definition'] ? [{
+      related: (() => {
+        const relations = []
+
+        // Helper function to process a single relation
+        const processRelation = (relation, type) => {
+          const relationUuid = relation['@rdf:resource']
+          const relatedShortName = conceptToConceptSchemeShortNameMap.get(relationUuid)
+          const relatedLongName = conceptSchemeMap.get(relatedShortName)
+
+          return {
+            uuid: relationUuid,
+            prefLabel: prefLabelMap.get(uuid),
+            scheme: {
+              shortName: relatedShortName,
+              longName: relatedLongName
+            },
+            type
+          }
+        }
+
+        // Handle gcmd:hasInstrument
+        if (concept['gcmd:hasInstrument']) {
+          const instruments = Array.isArray(concept['gcmd:hasInstrument'])
+            ? concept['gcmd:hasInstrument']
+            : [concept['gcmd:hasInstrument']]
+
+          instruments.forEach((instrument) => relations.push(processRelation(instrument, 'has_instrument')))
+        }
+
+        // Handle gcmd:isOnPlatform
+        if (concept['gcmd:isOnPlatform']) {
+          const platforms = Array.isArray(concept['gcmd:isOnPlatform'])
+            ? concept['gcmd:isOnPlatform']
+            : [concept['gcmd:isOnPlatform']]
+
+          platforms.forEach((platform) => relations.push(processRelation(platform, 'is_on_platform')))
+        }
+
+        return relations
+      })(),
+      definitions: concept['skos:definition'] ? [{
         // eslint-disable-next-line no-underscore-dangle
-        text: skosConcept['skos:definition']._text,
-        reference: skosConcept['gcmd:reference'] && skosConcept['gcmd:reference']['@gcmd:text']
-          ? skosConcept['gcmd:reference']['@gcmd:text']
+        text: concept['skos:definition']._text,
+        reference: concept['gcmd:reference'] && concept['gcmd:reference']['@gcmd:text']
+          ? concept['gcmd:reference']['@gcmd:text']
           : ''
       }] : [],
-      altLabels: processAltLabels(skosConcept['gcmd:altLabel']),
-      resources: skosConcept['gcmd:resource'] ? [{
-        type: skosConcept['gcmd:resource']['@gcmd:type'],
-        url: skosConcept['gcmd:resource']['@gcmd:url']
+      altLabels: processAltLabels(concept['gcmd:altLabel']),
+      resources: concept['gcmd:resource'] ? [{
+        type: concept['gcmd:resource']['@gcmd:type'],
+        url: concept['gcmd:resource']['@gcmd:url']
       }] : []
     }
 

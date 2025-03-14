@@ -6,26 +6,46 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 /**
  * Retrieves the concept scheme URI for a given concept URI using a SPARQL query.
  *
+ * This function queries the SPARQL endpoint for a specific version of the concept scheme
+ * to find the scheme to which the given concept belongs.
+ *
+ * @async
+ * @function getConceptSchemeOfConcept
  * @param {string} conceptUri - The URI of the concept for which to find the scheme.
+ * @param {string} version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  * @returns {Promise<string>} A promise that resolves to the URI of the concept scheme.
- * @throws {Error} If no scheme is found or if there's an error in the SPARQL request.
+ * @throws {Error} If no scheme is found, if there's an error in the SPARQL request, or if the response is invalid.
  *
  * @example
- * // Usage
+ * // Retrieve the concept scheme for a concept in the published version
  * try {
- *   const schemeUri = await getConceptScheme('https://gcmd.earthdata.nasa.gov/kms/concept/1234');
+ *   const schemeUri = await getConceptSchemeOfConcept('https://gcmd.earthdata.nasa.gov/kms/concept/1234', 'published');
  *   console.log('Concept scheme:', schemeUri);
  * } catch (error) {
  *   console.error('Error:', error.message);
  * }
+ *
+ * @example
+ * // Retrieve the concept scheme for a concept in the draft version
+ * try {
+ *   const schemeUri = await getConceptSchemeOfConcept('https://gcmd.earthdata.nasa.gov/kms/concept/5678', 'draft');
+ *   console.log('Concept scheme:', schemeUri);
+ * } catch (error) {
+ *   console.error('Error:', error.message);
+ * }
+ *
+ * @see Related functions:
+ * {@link getConceptSchemeOfConceptQuery}
+ * {@link sparqlRequest}
  */
-export const getConceptSchemeOfConcept = async (conceptUri) => {
+export const getConceptSchemeOfConcept = async (conceptUri, version) => {
   try {
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptSchemeOfConceptQuery(conceptUri)
+      body: getConceptSchemeOfConceptQuery(conceptUri),
+      version
     })
 
     if (!response.ok) {

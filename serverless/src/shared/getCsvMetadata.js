@@ -5,14 +5,22 @@ import {
 } from '@/shared/operations/queries/getConceptSchemeDetailsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 /**
- * Generates metadata for CSV files
+ * Generates metadata for CSV files based on a specific scheme and version
+ * @async
+ * @function getCsvMetadata
  * @param {string} scheme - The scheme name for the XML representation URL
- * @returns {string[]} An array of metadata strings
+ * @param {string} version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number)
+ * @returns {Promise<string[]>} A promise that resolves to an array of metadata strings
+ * @throws {Error} If there's an HTTP error or if the SPARQL request fails
  *
  * @example
- * // Example usage:
- * const metadata = await getCsvMetadata('sciencekeywords');
- * console.log(metadata);
+ * // Example usage for published version:
+ * try {
+ *   const metadata = await getCsvMetadata('sciencekeywords', 'published');
+ *   console.log(metadata);
+ * } catch (error) {
+ *   console.error('Error generating metadata:', error);
+ * }
  *
  * // Example output:
  * // [
@@ -24,14 +32,27 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * // ]
  *
  * @example
- * // Error handling:
+ * // Example usage for draft version:
  * try {
- *   const metadata = await getCsvMetadata('invalidscheme');
+ *   const metadata = await getCsvMetadata('instruments', 'draft');
+ *   console.log(metadata);
  * } catch (error) {
  *   console.error('Error generating metadata:', error);
  * }
+ *
+ * @example
+ * // Error handling for an invalid scheme:
+ * try {
+ *   const metadata = await getCsvMetadata('invalidscheme', 'published');
+ * } catch (error) {
+ *   console.error('Error generating metadata:', error);
+ * }
+ *
+ * @see Related functions:
+ * {@link getConceptSchemeDetailsQuery}
+ * {@link sparqlRequest}
  */
-export const getCsvMetadata = async (scheme) => {
+export const getCsvMetadata = async (scheme, version) => {
   let updateDate = 'N/A'
   try {
     // Make a SPARQL request to fetch concept scheme details
@@ -39,7 +60,11 @@ export const getCsvMetadata = async (scheme) => {
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptSchemeDetailsQuery(scheme)
+      body: getConceptSchemeDetailsQuery({
+        scheme,
+        version
+      }),
+      version
     })
 
     // Check if the response is successful

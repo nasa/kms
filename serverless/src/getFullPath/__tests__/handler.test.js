@@ -46,7 +46,7 @@ describe('getFullPath', () => {
       const event = { pathParameters: { conceptId: 'test-concept-id' } }
       await getFullPath(event)
 
-      expect(buildFullPath).toHaveBeenCalledWith('test-concept-id')
+      expect(buildFullPath).toHaveBeenCalledWith('test-concept-id', 'published')
     })
   })
 

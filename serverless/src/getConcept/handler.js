@@ -2,20 +2,26 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
-import toLegacyJSON from '@/shared/toLegacyJSON'
+import { toLegacyJSON } from '@/shared/toLegacyJSON'
+import { toLegacyXML } from '@/shared/toLegacyXML'
 
 /**
- * Retrieves a SKOS Concept and returns it as RDF/XML.
+ * Retrieves a SKOS Concept and returns it in the specified format.
  *
  * This function fetches a SKOS concept from the RDF store using one of the following:
  * - Concept ID
  * - Short Name
  * - Alt Label
- * It then constructs an RDF/XML representation of the concept and returns it in the response.
+ * It then constructs a representation of the concept in the requested format and returns it in the response.
  *
  * @async
  * @function getConcept
@@ -26,24 +32,27 @@ import toLegacyJSON from '@/shared/toLegacyJSON'
  * @param {string} [event.pathParameters.altLabel] - The alt label of the concept to retrieve.
  * @param {Object} [event.queryStringParameters] - The query string parameters from the API Gateway event.
  * @param {string} [event.queryStringParameters.scheme] - The scheme to filter the concept search.
+ * @param {string} [event.queryStringParameters.format='rdf'] - The format of the response (rdf, json, or xml).
+ * @param {string} [event.queryStringParameters.version='published'] - The version of the concept to retrieve (default is 'published').
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
  * // Lambda event object for concept ID
  * const eventConceptId = {
- *   pathParameters: { conceptId: '123' }
+ *   pathParameters: { conceptId: '123' },
+ *   queryStringParameters: { version: 'published', format: 'rdf' }
  * };
  *
  * // Lambda event object for short name
  * const eventShortName = {
  *   pathParameters: { shortName: 'Earth Science' },
- *   queryStringParameters: { scheme: 'sciencekeywords' }
+ *   queryStringParameters: { scheme: 'sciencekeywords', version: 'draft', format: 'json' }
  * };
  *
  * // Lambda event object for alt label
  * const eventAltLabel = {
  *   pathParameters: { altLabel: 'ES' },
- *   queryStringParameters: { scheme: 'sciencekeywords' }
+ *   queryStringParameters: { scheme: 'sciencekeywords', version: 'published', format: 'xml' }
  * };
  *
  * const result = await getConcept(event);
@@ -51,7 +60,7 @@ import toLegacyJSON from '@/shared/toLegacyJSON'
  * // Output on success:
  * // {
  * //   statusCode: 200,
- * //   body: '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" ...>...</rdf:RDF>',
+ * //   body: '...', // Content depends on the requested format
  * //   headers: { ... }
  * // }
  *
@@ -63,6 +72,7 @@ export const getConcept = async (event) => {
   const { conceptId, shortName, altLabel } = pathParameters
   const { queryStringParameters } = event
   const { scheme, format = 'rdf' } = queryStringParameters || {}
+  const version = queryStringParameters?.version || 'published'
 
   try {
     const decode = (str) => {
@@ -75,7 +85,8 @@ export const getConcept = async (event) => {
       conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
       shortName: shortName ? decode(shortName) : null,
       altLabel: altLabel ? decode(altLabel) : null,
-      scheme: scheme ? decode(scheme) : null
+      scheme: scheme ? decode(scheme) : null,
+      version
     })
 
     // Check if concept is null and return 404 if so
@@ -93,6 +104,7 @@ export const getConcept = async (event) => {
     }
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
+    const prefLabelMap = await createPrefLabelMap()
 
     let responseBody
     let contentType
@@ -100,11 +112,36 @@ export const getConcept = async (event) => {
     // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
     if (format.toLowerCase() === 'json') {
       const conceptSchemeMap = await createConceptSchemeMap()
-      const prefLabelMap = await createPrefLabelMap()
-      responseBody = JSON.stringify(toLegacyJSON(concept, conceptSchemeMap, prefLabelMap))
+      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
+      responseBody = JSON.stringify(toLegacyJSON(
+        concept,
+        conceptSchemeMap,
+        conceptToConceptSchemeShortNameMap,
+        prefLabelMap
+      ), null, 2)
+
       contentType = 'application/json'
     } else if (format.toLowerCase() === 'xml') {
-      // TODO in KMS-535
+      const xmlBuilder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true
+      })
+      const schemeResource = concept['skos:inScheme']['@rdf:resource']
+      const schemeShortName = schemeResource.split('/').pop()
+      const csvHeaders = await getCsvHeaders(schemeShortName)
+      const conceptSchemeDetails = await getConceptSchemeDetails({ version })
+      const legacyXML = toLegacyXML(
+        concept,
+        conceptSchemeDetails,
+        csvHeaders,
+        prefLabelMap,
+        schemeShortName
+      )
+      responseBody = xmlBuilder.build(legacyXML)
+      contentType = 'application/xml'
     } else {
       // Default case (including 'rdf')
       const builder = new XMLBuilder({
@@ -118,12 +155,15 @@ export const getConcept = async (event) => {
       const rdfJson = {
         'rdf:RDF': {
           ...namespaces,
-          'gcmd:gcmd': await getGcmdMetadata({ conceptIRI }),
+          'gcmd:gcmd': await getGcmdMetadata({
+            conceptIRI,
+            version
+          }),
           'skos:Concept': [concept]
         }
       }
       responseBody = await builder.build(rdfJson)
-      contentType = 'application/rdf+xml'
+      contentType = 'application/xml'
     }
 
     return {

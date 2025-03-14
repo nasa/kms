@@ -40,13 +40,14 @@ describe('createConcept', () => {
       const result = await createConcept(mockEvent)
 
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-      expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI)
+      expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI, 'draft')
       expect(sparqlRequest).toHaveBeenCalledWith({
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
         path: '/statements',
         method: 'POST',
-        body: mockRdfXml
+        body: mockRdfXml,
+        version: 'draft'
       })
 
       expect(result).toEqual({

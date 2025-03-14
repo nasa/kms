@@ -56,6 +56,7 @@ dockerRun() {
         --env "VPC_ID=$bamboo_VPC_ID" \
         --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
         --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
+        --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
         $dockerTag "$@"
 }
 

@@ -96,7 +96,6 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
 
     // Insert spaces for leaf nodes if path is shorter than maxLevel
     if ((maxLevel > path.length) && isLeaf) {
-      console.log('MMMMMMMMMMM')
       while (maxLevel > path.length) {
         path.splice(path.length - 1, 0, ' ')
       }

@@ -260,7 +260,6 @@ export const processRelations = (concept, prefLabelMap) => {
  * // }
  */
 export const toKeywordJson = async (skosConcept, conceptSchemeMap, prefLabelMap) => {
-  console.log('RLT=', skosConcept['skos:related'])
   const allAltLabels = getAltLabels(skosConcept['gcmd:altLabel'])
   // Filter altLabels with category='primary'
   const primaryAltLabels = allAltLabels.filter((label) => label.category === 'primary')

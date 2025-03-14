@@ -40,7 +40,10 @@ describe('getConceptSchemeDetails', () => {
 
       sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await getConceptSchemeDetails('ChainedOperations')
+      const result = await getConceptSchemeDetails({
+        schemeName: 'ChainedOperations',
+        version: 'draft'
+      })
 
       expect(result).toEqual({
         uri: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/ChainedOperations',
@@ -85,7 +88,7 @@ describe('getConceptSchemeDetails', () => {
 
       sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await getConceptSchemeDetails()
+      const result = await getConceptSchemeDetails({ version: 'draft' })
 
       expect(result).toEqual([
         {
@@ -131,7 +134,10 @@ describe('getConceptSchemeDetails', () => {
 
       sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await getConceptSchemeDetails('TestScheme')
+      const result = await getConceptSchemeDetails({
+        schemeName: 'TestScheme',
+        version: 'draft'
+      })
 
       expect(result).toEqual({
         uri: 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/TestScheme',
@@ -154,7 +160,7 @@ describe('getConceptSchemeDetails', () => {
 
       sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-      const result = await getConceptSchemeDetails()
+      const result = await getConceptSchemeDetails({ version: 'draft' })
 
       expect(result).toBeNull()
     })
@@ -169,7 +175,7 @@ describe('getConceptSchemeDetails', () => {
 
       sparqlRequestModule.sparqlRequest.mockResolvedValue(mockResponse)
 
-      await expect(getConceptSchemeDetails()).rejects.toThrow('HTTP error! status: 500')
+      await expect(getConceptSchemeDetails({ version: 'draft' })).rejects.toThrow('HTTP error! status: 500')
     })
   })
 })

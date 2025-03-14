@@ -41,12 +41,12 @@ describe('getCsvPaths', () => {
         params.paths.push('Keyword1', 'Keyword2', 'Keyword3')
       })
 
-      const result = await getCsvPaths('testScheme', 3)
+      const result = await getCsvPaths('testScheme', 3, 'draft')
 
       expect(result).toEqual(['Keyword3', 'Keyword2', 'Keyword1'])
-      expect(getRootConceptForScheme).toHaveBeenCalledWith('testScheme')
-      expect(getNarrowersMap).toHaveBeenCalledWith('testScheme')
-      expect(getLongNamesMap).toHaveBeenCalledWith('testScheme')
+      expect(getRootConceptForScheme).toHaveBeenCalledWith('testScheme', 'draft')
+      expect(getNarrowersMap).toHaveBeenCalledWith('testScheme', 'draft')
+      expect(getLongNamesMap).toHaveBeenCalledWith('testScheme', 'draft')
       expect(getProviderUrlsMap).not.toHaveBeenCalled()
       expect(buildHierarchicalCsvPaths).toHaveBeenCalled()
     })
@@ -62,9 +62,9 @@ describe('getCsvPaths', () => {
       getProviderUrlsMap.mockResolvedValue({})
       buildHierarchicalCsvPaths.mockImplementation(() => {})
 
-      await getCsvPaths('providers', 3)
+      await getCsvPaths('providers', 3, 'draft')
 
-      expect(getProviderUrlsMap).toHaveBeenCalledWith('providers')
+      expect(getProviderUrlsMap).toHaveBeenCalledWith('providers', 'draft')
     })
   })
 
