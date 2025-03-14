@@ -6,14 +6,16 @@ import {
   vi
 } from 'vitest'
 
-import { getRootConceptQuery } from '@/shared/operations/queries/getRootConceptQuery'
+import {
+  getRootConceptsBySchemeQuery
+} from '@/shared/operations/queries/getRootConceptsBySchemeQuery'
 
-import { getRootConcept } from '../getRootConcept'
+import { getRootConceptForScheme } from '../getRootConceptForScheme'
 import { sparqlRequest } from '../sparqlRequest'
 
-// Mock the sparqlRequest and getRootConceptQuery functions
+// Mock the sparqlRequest and getRootConceptsBySchemeQuery functions
 vi.mock('../sparqlRequest')
-vi.mock('@/shared/operations/queries/getRootConceptQuery')
+vi.mock('@/shared/operations/queries/getRootConceptsBySchemeQuery')
 
 describe('getRootConcept', () => {
   const mockScheme = 'http://example.com/scheme'
@@ -24,7 +26,8 @@ describe('getRootConcept', () => {
   }
 
   beforeEach(() => {
-    getRootConceptQuery.mockReturnValue(mockQuery)
+    getRootConceptsBySchemeQuery.mockReturnValue(mockQuery)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -40,7 +43,7 @@ describe('getRootConcept', () => {
     mockResponse.json.mockResolvedValue(mockResult)
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    const result = await getRootConcept(mockScheme)
+    const result = await getRootConceptForScheme(mockScheme)
 
     expect(sparqlRequest).toHaveBeenCalledWith({
       method: 'POST',
@@ -49,7 +52,7 @@ describe('getRootConcept', () => {
       body: mockQuery
     })
 
-    expect(getRootConceptQuery).toHaveBeenCalledWith(mockScheme)
+    expect(getRootConceptsBySchemeQuery).toHaveBeenCalledWith(mockScheme)
     expect(result).toEqual({ concept: 'root concept' })
   })
 
@@ -58,7 +61,7 @@ describe('getRootConcept', () => {
     mockResponse.status = 500
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    await expect(getRootConcept(mockScheme)).rejects.toThrow('HTTP error! status: 500')
+    await expect(getRootConceptForScheme(mockScheme)).rejects.toThrow('HTTP error! status: 500')
   })
 
   test('should throw an error when no root concept is found', async () => {
@@ -71,13 +74,13 @@ describe('getRootConcept', () => {
     mockResponse.json.mockResolvedValue(mockResult)
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    await expect(getRootConcept(mockScheme)).rejects.toThrow(`No root concept found for scheme: ${mockScheme}`)
+    await expect(getRootConceptForScheme(mockScheme)).rejects.toThrow(`No root concept found for scheme: ${mockScheme}`)
   })
 
   test('should throw an error when sparqlRequest fails', async () => {
     const mockError = new Error('Network error')
     sparqlRequest.mockRejectedValue(mockError)
 
-    await expect(getRootConcept(mockScheme)).rejects.toThrow('Network error')
+    await expect(getRootConceptForScheme(mockScheme)).rejects.toThrow('Network error')
   })
 })

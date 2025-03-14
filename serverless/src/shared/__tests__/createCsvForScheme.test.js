@@ -27,6 +27,7 @@ describe('createCsvForScheme', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     vi.resetAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   describe('when successful', () => {

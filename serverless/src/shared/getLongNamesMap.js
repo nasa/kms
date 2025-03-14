@@ -5,17 +5,17 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 /**
  * Fetches long names for a given scheme and returns them as a map
  * @param {string} scheme - The scheme to fetch long names for
- * @returns {Promise<Object>} A map of subject values to their associated long names
+ * @returns {Promise<Object>} A map of subject values to their associated long name
  *
  * @example
- * // Fetch long names for the 'person' scheme
- * const longNamesMap = await getLongNamesMap('person');
+ * // Fetch long names for the 'platforms' scheme
+ * const longNamesMap = await getLongNamesMap('platforms');
  *
  * // Example output:
  * // {
- * //   'http://example.com/person/1': ['John Doe', 'Johnny'],
- * //   'http://example.com/person/2': ['Jane Smith', 'Janie'],
- * //   'http://example.com/person/3': ['Bob Johnson']
+ * //   'https://gcmd.earthdata.nasa.gov/kms/concept/d77685bd-aa94-4717-bd97-632699d999b5': 'Dassault HU-25A Guardian',
+ * //   'https://gcmd.earthdata.nasa.gov/kms/concept/ba1d0da3-7f0b-4390-833f-67708525f1a3': 'Long EZ Aircraft',
+ * //   'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54': 'NSF/NCAR Gulfstream GV Aircraft'
  * // }
  *
  * @example
@@ -53,15 +53,7 @@ export const getLongNamesMap = async (scheme) => {
 
     // Iterate through each triple in the results
     triples.forEach((triple) => {
-      // If the subject doesn't exist in the map, initialize it with an empty array
-      if (!map[triple.subject.value]) {
-        map[triple.subject.value] = []
-      }
-
-      // If the 'bo' value is not 'primary', add it to the array for this subject
-      if (triple.bo.value !== 'primary') {
-        map[triple.subject.value].push(triple.bo.value)
-      }
+      map[triple.subject.value] = triple.longName.value
     })
 
     // Return the completed map

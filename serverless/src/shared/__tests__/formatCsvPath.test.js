@@ -1,6 +1,12 @@
 import { formatCsvPath } from '../formatCsvPath'
 
 describe('formatPath', () => {
+  beforeEach(() => {
+    // Reset all mocks before each test
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
   describe('when successful', () => {
     describe('platforms, instruments, projects schemes', () => {
       const schemes = ['platforms', 'instruments', 'projects']

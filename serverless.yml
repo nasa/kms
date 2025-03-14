@@ -23,7 +23,8 @@ provider:
     RDF4J_SERVICE_URL: ${env:RDF4J_SERVICE_URL, cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, 'http://localhost:8080'}
     RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
     RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
-    CMR_BASE_URL: ${env:CMR_BASE_URL}
+    CMR_BASE_URL: ${env:CMR_BASE_URL, 'https://cmr.earthdata.nasa.gov'}
+    EDL_PASSWORD: ${env:EDL_PASSWORD, ''}
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
     skipPolicySetup: true

@@ -1,0 +1,60 @@
+import { getEdlConfig } from '@/shared/getConfig'
+
+import fetchEdlClientToken from './fetchEdlClientToken'
+
+/**
+ * Returns the user's EDL profile based on the launchpad token provided
+ * @param {Object} headers Lambda event headers
+ */
+const fetchEdlProfile = async (launchpadToken) => {
+  const {
+    IS_OFFLINE
+  } = process.env
+
+  if (IS_OFFLINE && launchpadToken === 'ABC-1') {
+    return {
+      auid: 'admin',
+      name: 'Admin User',
+      uid: 'admin'
+    }
+  }
+
+  const { host } = getEdlConfig()
+
+  const clientToken = await fetchEdlClientToken()
+
+  return fetch(`${host}/api/nams/edl_user`, {
+    body: `token=${launchpadToken}`,
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${clientToken}`,
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+    }
+  })
+    .then((response) => response.json())
+    .then((profile) => {
+      const {
+        first_name: firstName,
+        last_name: lastName
+      } = profile
+
+      let name = [firstName, lastName].filter(Boolean).join(' ')
+
+      if (name.trim().length === 0) {
+        name = profile.uid
+      }
+
+      return {
+        auid: profile.nams_auid,
+        name,
+        uid: profile.uid
+      }
+    })
+    .catch((error) => {
+      console.log('fetchEdlProfile Error: ', error)
+
+      return undefined
+    })
+}
+
+export default fetchEdlProfile
