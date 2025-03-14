@@ -4,7 +4,7 @@ import {
   test
 } from 'vitest'
 
-import createChangeNote from '../createChangeNote'
+import { createChangeNote } from '../createChangeNote'
 
 describe('createChangeNote', () => {
   describe('when processing a single change note item', () => {
