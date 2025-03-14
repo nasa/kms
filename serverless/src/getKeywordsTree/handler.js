@@ -8,47 +8,53 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
 
 /**
- * Retrieves and processes a keywords tree based on the provided concept scheme.
+ * Retrieves and processes a keywords tree based on the provided concept scheme and version.
  *
+ * @async
+ * @function getKeywordsTree
  * @param {Object} event - The event object containing query and path parameters.
  * @param {Object} event.queryStringParameters - Query string parameters.
  * @param {string} [event.queryStringParameters.filter] - Optional filter string to apply to the tree.
+ * @param {string} [event.queryStringParameters.version='published'] - The version of the keywords to retrieve (default is 'published').
  * @param {Object} event.pathParameters - Path parameters.
  * @param {string} event.pathParameters.conceptScheme - The concept scheme to retrieve keywords for.
  * @throws {Object} Returns a 400 error if conceptScheme is missing from pathParameters.
- * @returns {Object} An object containing the status code, body, and headers.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the status code, body, and headers.
  *
  * @example
- * // Request for all schemes
+ * // Request for all schemes with a specific version
  * const event = {
  *   pathParameters: { conceptScheme: 'all' },
- *   queryStringParameters: { filter: 'atmosphere' }
+ *   queryStringParameters: { filter: 'atmosphere', version: 'draft' }
  * };
  * const result = await getKeywordsTree(event);
- * // Result will contain a tree of all keyword schemes, filtered by 'atmosphere'
+ * // Result will contain a tree of all keyword schemes from the draft version, filtered by 'atmosphere'
  *
  * @example
- * // Request for Earth Science scheme
+ * // Request for Earth Science scheme with default (published) version
  * const event = {
  *   pathParameters: { conceptScheme: 'earth science' },
  *   queryStringParameters: {}
  * };
  * const result = await getKeywordsTree(event);
- * // Result will contain the Earth Science keywords tree
+ * // Result will contain the published Earth Science keywords tree
  *
  * @example
- * // Request for a specific scheme
+ * // Request for a specific scheme with a specific version
  * const event = {
  *   pathParameters: { conceptScheme: 'instruments' },
- *   queryStringParameters: {}
+ *   queryStringParameters: { version: '9.1.5' }
  * };
  * const result = await getKeywordsTree(event);
- * // Result will contain the Instruments keywords tree
+ * // Result will contain the Instruments keywords tree from version 9.1.5
+ *
+ * @throws Will throw an error if there's a problem retrieving or processing the keywords.
  */
 export const getKeywordsTree = async (event) => {
   // Extract configuration and parameters
@@ -71,6 +77,7 @@ export const getKeywordsTree = async (event) => {
   const { filter } = queryStringParameters
   const encodedConceptScheme = event.pathParameters.conceptScheme
   const conceptScheme = decodeURIComponent(encodedConceptScheme)
+  const version = queryStringParameters?.version || 'published'
 
   if (!event.pathParameters || !event.pathParameters.conceptScheme) {
     console.error('Missing conceptScheme parameter')
@@ -96,15 +103,15 @@ export const getKeywordsTree = async (event) => {
     }
 
     // Retrieve narrowers map
-    const narrowersMap = await getNarrowersMap(isAllSchemes ? undefined : derivedScheme)
+    const narrowersMap = await getNarrowersMap(isAllSchemes ? undefined : derivedScheme, version)
 
     // Retrieve root concepts
     let roots
     if (isAllSchemes) {
-      roots = await getRootConceptsForAllSchemes()
+      roots = await getRootConceptsForAllSchemes(version)
       roots = roots.filter((root) => root?.prefLabel?.value.toLowerCase() !== 'trash can')
     } else {
-      const root = await getRootConceptForScheme(derivedScheme)
+      const root = await getRootConceptForScheme(derivedScheme, version)
       roots = [root]
     }
 
@@ -183,7 +190,9 @@ export const getKeywordsTree = async (event) => {
     }
 
     // Retrieve concept scheme details and process them
-    const conceptSchemes = await getConceptSchemeDetails()
+    const conceptSchemes = await getConceptSchemeDetails({ version })
+    const versionInfo = await getVersionMetadata(version)
+
     let idCounter = 0 // Initialize a counter for generating unique IDs
 
     const processedSchemes = conceptSchemes.flatMap((scheme) => {
@@ -228,14 +237,14 @@ export const getKeywordsTree = async (event) => {
       versions: [
         {
           id: 999,
-          version: '20.8',
-          type: 'PUBLISHED',
+          version: versionInfo.versionName,
+          type: versionInfo.versionType.toUpperCase(),
           schemes: sortedProcessedSchemes
         }
       ],
       tree: {
         scheme: `${conceptScheme}`,
-        version: '20.8',
+        version: versionInfo.versionName,
         timestamp: format(Date.now(), 'yyyy-MM-dd HH:mm:ss'),
         treeData: [
           {

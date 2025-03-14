@@ -1,6 +1,6 @@
 /**
  * @file getNarrowersMap.js
- * @description This module provides functionality to fetch and organize narrower concepts from a SPARQL endpoint.
+ * @description This module provides functionality to fetch and organize narrower concepts from a SPARQL endpoint for a specific version.
  */
 
 // Import necessary functions and modules
@@ -8,17 +8,20 @@ import { getNarrowerConceptsQuery } from '@/shared/operations/queries/getNarrowe
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Fetches narrower concepts for a given scheme and organizes them into a map.
+ * Fetches narrower concepts for a given scheme and version, organizing them into a map.
  *
- * @param {string} scheme - The scheme URI for which to fetch narrower concepts.
+ * @async
+ * @function getNarrowersMap
+ * @param {string} [scheme] - The scheme URI for which to fetch narrower concepts. If not provided, fetches for all schemes.
+ * @param {string} version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  * @returns {Promise<Object>} A promise that resolves to a map of narrower concepts.
  * @throws {Error} If there's an error during the SPARQL request or data processing.
  *
  * @example
- * // Fetch narrower concepts for a specific scheme
+ * // Fetch narrower concepts for a specific scheme in the published version
  * const scheme = 'http://example.com/scheme/123';
  * try {
- *   const narrowersMap = await getNarrowersMap(scheme);
+ *   const narrowersMap = await getNarrowersMap(scheme, 'published');
  *   console.log(narrowersMap);
  *   // Output: {
  *   //   'http://example.com/concept/1': [
@@ -32,15 +35,29 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * } catch (error) {
  *   console.error('Error:', error);
  * }
+ *
+ * @example
+ * // Fetch narrower concepts for all schemes in the draft version
+ * try {
+ *   const narrowersMap = await getNarrowersMap(null, 'draft');
+ *   console.log(narrowersMap);
+ * } catch (error) {
+ *   console.error('Error:', error);
+ * }
+ *
+ * @see Related functions:
+ * {@link getNarrowerConceptsQuery}
+ * {@link sparqlRequest}
  */
-export const getNarrowersMap = async (scheme = null) => {
+export const getNarrowersMap = async (scheme, version) => {
   try {
     // Make a SPARQL request to fetch narrower concepts
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getNarrowerConceptsQuery(scheme)
+      body: getNarrowerConceptsQuery(scheme),
+      version
     })
 
     // Check if the response is successful

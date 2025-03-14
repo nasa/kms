@@ -5,15 +5,18 @@ import {
 import { sparqlRequest } from './sparqlRequest'
 
 /**
- * Fetches all root concepts across all schemes.
+ * Fetches all root concepts across all schemes for a specific version.
  *
+ * @async
+ * @function getRootConceptsForAllSchemes
+ * @param {string} version - The version of the concept schemes to query (e.g., 'published', 'draft', or a specific version number).
  * @returns {Promise<Array<Object>>} A promise that resolves to an array of root concept objects.
  * @throws {Error} If there's an HTTP error, no root concepts are found, or any other error occurs.
  *
  * @example
- * // Fetch all root concepts
+ * // Fetch all root concepts from the published version
  * try {
- *   const rootConcepts = await getRootConcepts();
+ *   const rootConcepts = await getRootConceptsForAllSchemes('published');
  *   console.log(rootConcepts);
  *   // Example output:
  *   // [
@@ -32,15 +35,38 @@ import { sparqlRequest } from './sparqlRequest'
  * } catch (error) {
  *   console.error('Failed to fetch root concepts:', error);
  * }
+ *
+ * @example
+ * // Fetch all root concepts from the draft version
+ * try {
+ *   const draftRootConcepts = await getRootConceptsForAllSchemes('draft');
+ *   console.log(draftRootConcepts);
+ * } catch (error) {
+ *   console.error('Failed to fetch draft root concepts:', error);
+ * }
+ *
+ * @example
+ * // Fetch all root concepts from a specific version
+ * try {
+ *   const versionRootConcepts = await getRootConceptsForAllSchemes('9.1.5');
+ *   console.log(versionRootConcepts);
+ * } catch (error) {
+ *   console.error('Failed to fetch root concepts for version 9.1.5:', error);
+ * }
+ *
+ * @see Related functions:
+ * {@link getRootConceptsBySchemeQuery}
+ * {@link sparqlRequest}
  */
-export const getRootConceptsForAllSchemes = async () => {
+export const getRootConceptsForAllSchemes = async (version) => {
   try {
     // Make a SPARQL request to get all root concepts
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getRootConceptsBySchemeQuery()
+      body: getRootConceptsBySchemeQuery(),
+      version
     })
 
     // Check if the response is successful

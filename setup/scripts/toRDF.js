@@ -1,39 +1,12 @@
 const { XMLParser, XMLBuilder } = require('fast-xml-parser')
 
-const maxRetries = 10
-const retryDelay = 5000
-
-// eslint-disable-next-line no-promise-executor-return
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// Continues to fetch if previous attempts do not succeed
-const fetchWithRetry = async (url, retries = 0) => {
-  try {
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return response
-  } catch (error) {
-    if (retries < maxRetries) {
-      console.log(`Fetch failed. Retrying in ${retryDelay / 1000} seconds... (Attempt ${retries + 1}/${maxRetries})`)
-      await delay(retryDelay)
-
-      return fetchWithRetry(url, retries + 1)
-    }
-
-    throw error
-  }
-}
-
 // Synthesizes information from jsonURL and xmlURL into one RDF skos:concept
 const toRDF = async (jsonURL, xmlURL) => {
   try {
-    const jsonResponse = await fetchWithRetry(jsonURL)
+    const jsonResponse = await fetch(jsonURL)
     const json = await jsonResponse.json()
 
-    const xmlResponse = await fetchWithRetry(xmlURL)
+    const xmlResponse = await fetch(xmlURL)
     const xmlText = await xmlResponse.text()
 
     const parser = new XMLParser({
@@ -47,20 +20,40 @@ const toRDF = async (jsonURL, xmlURL) => {
     const decodeHtmlEntities = (text) => text.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
 
     // Helper function to provide information for <skos:changeNote> based on what the xml data looks like
-    const createChangeNote = (date, userId, userNote, changeNoteItems) => {
-      let changeNoteText = `${date} [${userId}] ${userNote}`
+    // It also adds attributes for easier parsing
+    const createChangeNoteforToRDF = (date, userId, userNote, changeNoteItems) => {
+      let changeNoteText = 'Change Note Information\n \n'
+      changeNoteText += `Date: ${date}\n`
+      changeNoteText += `User Id: ${userId}\n`
+      changeNoteText += `User Note: ${userNote}\n`
+
       if (changeNoteItems) {
         const changeNoteItem = Array.isArray(changeNoteItems.changeNoteItem)
           ? changeNoteItems.changeNoteItem
           : [changeNoteItems.changeNoteItem]
-        changeNoteItem.forEach((item) => {
-          const { '@_systemNote': systemNote, '@_newValue': newValue } = item
+
+        changeNoteItem.forEach((item, index) => {
+          if (index >= 0) changeNoteText += `\n Change Note Item #${index + 1}\n \n`
+          const {
+            '@_systemNote': systemNote,
+            '@_newValue': newValue,
+            '@_oldValue': oldValue,
+            '@_entity': entity,
+            '@_operation': operation,
+            '@_field': field
+          } = item
           const decodedNewValue = decodeHtmlEntities(newValue || '').trim()
-          changeNoteText += `\n${systemNote} (${decodedNewValue})`
+          const decodedOldValue = decodeHtmlEntities(oldValue || '').trim()
+          changeNoteText += `System Note: ${systemNote}\n`
+          changeNoteText += `New Value: ${decodedNewValue}\n`
+          if (oldValue) changeNoteText += `Old Value: ${decodedOldValue}\n`
+          changeNoteText += `Entity: ${entity}\n`
+          changeNoteText += `Operation: ${operation}\n`
+          if (field) changeNoteText += `Field: ${field}\n`
         })
       }
 
-      return changeNoteText
+      return changeNoteText.trim()
     }
 
     const concept = {
@@ -97,10 +90,19 @@ const toRDF = async (jsonURL, xmlURL) => {
       '#text': def.text.replace(/\n/g, '')
     }))
 
-    concept['gcmd:reference'] = json.definitions.map((def) => ({
-      '@_gcmd:text': def.reference,
-      '@_xml:lang': 'en'
-    }))
+    // If the gcmd:text for reference is "", don't print out reference. There is only ever on definition so no need to map
+    if (json.definitions
+      && Array.isArray(json.definitions)
+      && json.definitions.length > 0
+      && json.definitions[0].reference
+      && json.definitions[0].reference.trim() !== '') {
+      concept['gcmd:reference'] = {
+        '@_gcmd:text': json.definitions[0].reference,
+        '@_xml:lang': 'en'
+      }
+    } else {
+      delete concept['gcmd:reference']
+    }
 
     concept['gcmd:resource'] = json.resources.map((resource) => ({
       '@_gcmd:type': resource.type,
@@ -115,21 +117,47 @@ const toRDF = async (jsonURL, xmlURL) => {
       '@_rdf:resource': narrow.uuid
     }))
 
-    concept['skos:related'] = json.related.map((rel) => ({
-      '@_gcmd:type': rel.type === 'has_instrument' ? 'hasInstrument' : 'onPlatform',
-      '@_rdf:resource': rel.uuid
-    }))
+    concept['gcmd:hasInstrument'] = []
+    concept['gcmd:isOnPlatform'] = []
+
+    json.related.forEach((rel) => {
+      const { scheme } = rel
+      const { shortName } = scheme
+      if (shortName === 'instruments') {
+        concept['gcmd:hasInstrument'].push({
+          '@_rdf:resource': rel.uuid
+        })
+      } else {
+        concept['gcmd:isOnPlatform'].push({
+          '@_rdf:resource': rel.uuid
+        })
+      }
+    })
+
+    // Remove empty arrays
+    if (concept['gcmd:hasInstrument'].length === 0) {
+      delete concept['gcmd:hasInstrument']
+    }
+
+    if (concept['gcmd:isOnPlatform'].length === 0) {
+      delete concept['gcmd:isOnPlatform']
+    }
 
     const { changeNotes } = xml.concept
     const changeNote = changeNotes?.changeNote
 
     if (Array.isArray(changeNote)) {
       concept['skos:changeNote'] = changeNote.map((note) => ({
-        '#text': createChangeNote(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)
+        '#text': `\n${createChangeNoteforToRDF(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)}`
       }))
     } else if (changeNote) {
       concept['skos:changeNote'] = {
-        '#text': createChangeNote(changeNote['@_date'], changeNote['@_userId'], changeNote['@_userNote'], changeNote.changeNoteItems)
+        '#text': `\n${createChangeNoteforToRDF(
+          changeNote['@_date'],
+          changeNote['@_userId'],
+          changeNote['@_userNote'],
+          changeNote.changeNoteItems
+        )}`
       }
     }
 
@@ -142,7 +170,15 @@ const toRDF = async (jsonURL, xmlURL) => {
     const builder = new XMLBuilder({
       ignoreAttributes: false,
       format: true,
-      indentBy: '  '
+      suppressEmptyNode: true,
+      indentBy: ' ',
+      tagValueProcessor: (tagName, tagValue) => {
+        if (tagValue === null) {
+          return ''
+        }
+
+        return tagValue
+      }
     })
 
     const rdfString = builder.build(rdfObject)
@@ -154,18 +190,4 @@ const toRDF = async (jsonURL, xmlURL) => {
   }
 }
 
-module.exports = toRDF
-
-// Uncomment to test the function
-// const main = async () => {
-//   try {
-//     const jsonFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/017ac312-b650-4800-992f-5167708b4d31?format=json'
-//     const xmlFileURL = 'https://gcmd.earthdata.nasa.gov/kms/concept/017ac312-b650-4800-992f-5167708b4d31?format=xml'
-//     const rdfString = await toRDF(jsonFileURL, xmlFileURL)
-//     console.log('🚀 ~ main ~ rdfString:', rdfString)
-//   } catch (error) {
-//     console.error('Error in main:', error)
-//   }
-// }
-
-// main()
+module.exports = { toRDF }

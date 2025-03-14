@@ -3,6 +3,9 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
+import {
+  createConceptToConceptSchemeShortNameMap
+} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
@@ -10,36 +13,64 @@ import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { processTriples } from '@/shared/processTriples'
-import toLegacyJSON from '@/shared/toLegacyJSON'
+import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 /**
- * Retrieves multiple SKOS Concepts and returns them as RDF/XML.
+ * Retrieves multiple SKOS Concepts and returns them in the specified format.
  *
- * This function fetches all SKOS concepts from the RDF store,
- * processes them, and constructs an RDF/XML representation of the concepts.
- * It limits the output to 2000 concepts to manage response size.  Paging
- * is not supported yet.
- *
+ * This function fetches SKOS concepts from the RDF store based on the provided parameters,
+ * processes them, and constructs a representation of the concepts in the requested format.
+ * It supports pagination and various output formats.
  *
  * @async
  * @function getConcepts
+ * @param {Object} event - The Lambda event object.
+ * @param {Object} [event.pathParameters] - The path parameters from the API Gateway event.
+ * @param {string} [event.pathParameters.conceptScheme] - The concept scheme to filter by.
+ * @param {string} [event.pathParameters.pattern] - The pattern to filter concepts by.
+ * @param {Object} [event.queryStringParameters] - The query string parameters from the API Gateway event.
+ * @param {string} [event.queryStringParameters.page_num='1'] - The page number for pagination.
+ * @param {string} [event.queryStringParameters.page_size='2000'] - The page size for pagination (max 2000).
+ * @param {string} [event.queryStringParameters.format='rdf'] - The output format (rdf, json, xml, or csv).
+ * @param {string} [event.queryStringParameters.version='published'] - The version of the concepts to retrieve.
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
- * const result = await getConcepts();
+ * // Lambda event object for retrieving concepts
+ * const event = {
+ *   pathParameters: { conceptScheme: 'sciencekeywords' },
+ *   queryStringParameters: {
+ *     page_num: '1',
+ *     page_size: '100',
+ *     format: 'json',
+ *     version: 'published'
+ *   }
+ * };
+ *
+ * const result = await getConcepts(event);
  * console.log(result);
  * // Output on success:
  * // {
  * //   statusCode: 200,
- * //   body: '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" ...>...</rdf:RDF>',
- * //   headers: { ... }
+ * //   body: '...', // Content depends on the requested format
+ * //   headers: {
+ * //     'Content-Type': 'application/json; charset=utf-8',
+ * //     'X-Total-Count': '1000',
+ * //     'X-Page-Number': '1',
+ * //     'X-Page-Size': '100',
+ * //     'X-Total-Pages': '10'
+ * //   }
  * // }
+ *
+ * @throws {Error} If there's an error retrieving or processing the concepts.
  */
 export const getConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
+  const version = queryStringParameters?.version || 'published'
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
@@ -68,11 +99,12 @@ export const getConcepts = async (event) => {
   try {
     let triples
     if (event?.path === '/concepts/root') {
-      triples = await getRootConcepts()
+      triples = await getRootConcepts(version)
     } else {
       triples = await getFilteredTriples({
         conceptScheme,
-        pattern
+        pattern,
+        version
       })
     }
 
@@ -85,16 +117,15 @@ export const getConcepts = async (event) => {
     const startIndex = (pageNum - 1) * pageSize
     const endIndex = Math.min(startIndex + pageSize, totalConcepts)
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
+    const prefLabelMap = await createPrefLabelMap()
+    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
 
     let responseBody
     let contentType
 
+    // Handle different formats based on queryStringParameter 'format'
     if (format.toLowerCase() === 'json') {
-      // Grabbing all information for JSON response
-      const [schemeMap, prefLabelMap] = await Promise.all([
-        createConceptSchemeMap(),
-        createPrefLabelMap()
-      ])
+      const conceptSchemeMap = await createConceptSchemeMap()
       const jsonResponse = {
         hits: totalConcepts,
         page_num: pageNum,
@@ -105,7 +136,12 @@ export const getConcepts = async (event) => {
         concepts: conceptURIs.map((uri) => {
           const ntriples = [...nodes[uri]]
           const concept = toSkosJson(uri, ntriples, bNodeMap)
-          const legacyJSON = toLegacyJSON(concept, schemeMap, prefLabelMap)
+          const legacyJSON = toLegacyJSON(
+            concept,
+            conceptSchemeMap,
+            conceptToConceptSchemeShortNameMap,
+            prefLabelMap
+          )
 
           return {
             uuid: legacyJSON.uuid,
@@ -118,7 +154,7 @@ export const getConcepts = async (event) => {
           }
         })
       }
-      responseBody = JSON.stringify(jsonResponse)
+      responseBody = JSON.stringify(jsonResponse, null, 2)
       contentType = 'application/json'
     } else if (format.toLowerCase() === 'csv') {
       if (!conceptScheme) {
@@ -137,9 +173,41 @@ export const getConcepts = async (event) => {
         }
       }
 
-      return createCsvForScheme(conceptScheme)
+      return createCsvForScheme(conceptScheme, version)
     } else if (format.toLowerCase() === 'xml') {
-      // TODO in KMS-535
+      const xmlBuilder = new XMLBuilder({
+        format: true,
+        ignoreAttributes: false,
+        indentBy: '  ',
+        attributeNamePrefix: '@',
+        suppressEmptyNode: true
+      })
+
+      const xmlObj = {
+        concepts: {
+          '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+          '@xsi:noNamespaceSchemaLocation': 'https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd',
+          hits: totalConcepts,
+          page_num: pageNum,
+          page_size: pageSize,
+          termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
+          keywordVersion: '20.8',
+          viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
+          conceptBrief: conceptURIs.map((uri) => {
+            const concept = toSkosJson(uri, [...nodes[uri]], bNodeMap)
+            const schemeShortName = conceptToConceptSchemeShortNameMap.get(concept['@rdf:about'])
+
+            return {
+              '@conceptScheme': schemeShortName,
+              '@prefLabel': concept['skos:prefLabel']._text,
+              '@uuid': concept['@rdf:about']
+            }
+          })
+        }
+      }
+
+      responseBody = xmlBuilder.build(xmlObj)
+      contentType = 'application/xml'
     } else {
       // Default case (including 'rdf')
       const builder = new XMLBuilder({
@@ -163,14 +231,15 @@ export const getConcepts = async (event) => {
           'gcmd:gcmd': await getGcmdMetadata({
             pageNum,
             pageSize,
-            gcmdHits: totalConcepts
+            gcmdHits: totalConcepts,
+            version
           }),
           'skos:Concept': concepts
         }
       }
 
       responseBody = builder.build(rdfJson)
-      contentType = 'application/rdf+xml'
+      contentType = 'application/xml'
     }
 
     return {

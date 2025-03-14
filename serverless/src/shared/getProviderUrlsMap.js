@@ -1,6 +1,5 @@
 import { getProviderUrlsQuery } from '@/shared/operations/queries/getProviderUrlsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
-
 /**
  * Fetches provider URLs and creates a map based on the given scheme.
  * @param {string} scheme - The scheme to use for the query.
@@ -25,14 +24,15 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Failed to fetch provider URLs:', error);
  * }
  */
-export const getProviderUrlsMap = async (scheme) => {
+export const getProviderUrlsMap = async (scheme, version) => {
   try {
     // Make a SPARQL request to fetch provider URLs
     const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getProviderUrlsQuery(scheme)
+      body: getProviderUrlsQuery(scheme),
+      version
     })
 
     // Check if the response is successful

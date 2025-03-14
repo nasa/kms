@@ -6,22 +6,52 @@ import { getApplicationConfig } from '@/shared/getConfig'
 /**
  * Retrieves and formats concept schemes as XML.
  *
- * This function fetches all concept schemes, formats them into a specific XML structure,
+ * This function fetches all concept schemes for a specified version, formats them into a specific XML structure,
  * and returns the result as a response object suitable for use in a serverless environment.
  *
  * @async
  * @function getConceptSchemes
+ * @param {Object} event - The Lambda event object.
+ * @param {Object} [event.queryStringParameters] - The query string parameters from the API Gateway event.
+ * @param {string} [event.queryStringParameters.version='published'] - The version of the concept schemes to retrieve.
  * @returns {Promise<Object>} A promise that resolves to an object containing:
  *   - body: The XML string representation of the concept schemes.
  *   - headers: HTTP headers for the response, including Content-Type.
- *   - statusCode: HTTP status code (only present in case of an error).
+ *   - statusCode: HTTP status code (200 for success, 500 for error).
+ *
+ * @example
+ * // Lambda event object
+ * const event = {
+ *   queryStringParameters: { version: 'draft' }
+ * };
+ *
+ * const result = await getConceptSchemes(event);
+ * console.log(result);
+ * // Output on success:
+ * // {
+ * //   body: '<?xml version="1.0"?>...',
+ * //   headers: {
+ * //     'Content-Type': 'application/xml; charset=utf-8',
+ * //     ...
+ * //   }
+ * // }
+ *
+ * // Output on error:
+ * // {
+ * //   statusCode: 500,
+ * //   body: '{"error": "Error message"}',
+ * //   headers: { ... }
+ * // }
+ *
  * @throws Will throw an error if there's a problem fetching or processing the concept schemes.
  */
-export const getConceptSchemes = async () => {
+export const getConceptSchemes = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  const { queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'published'
 
   try {
-    const conceptSchemes = await getConceptSchemeDetails()
+    const conceptSchemes = await getConceptSchemeDetails({ version })
 
     const schemes = {
       schemes: {
