@@ -29,4 +29,3 @@ export const cmrRequest = async ({
 
   return fetch(`${endpoint}${path}`, fetchOptions)
 }
-

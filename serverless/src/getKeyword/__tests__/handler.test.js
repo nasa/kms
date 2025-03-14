@@ -9,7 +9,6 @@ import {
 
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { getApplicationConfig } from '@/shared/getConfig'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { toKeywordJson } from '@/shared/toKeywordJson'
 
