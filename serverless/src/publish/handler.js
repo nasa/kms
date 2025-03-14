@@ -100,7 +100,7 @@ export const publish = async (event) => {
       graphId: 'published',
       version: name,
       versionType: 'published',
-      createdDate: updateDate,
+      createdDate: updateDate, // E.g. 2025-03-14
       modifiedDate: updateDate
     })
 
