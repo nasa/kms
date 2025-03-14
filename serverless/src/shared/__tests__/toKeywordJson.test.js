@@ -10,8 +10,8 @@ import { getNumberOfCmrCollections } from '../getNumberOfCmrCollections'
 import {
   createChangeNote,
   getAltLabels,
-  getRelated,
   processChangeNotes,
+  processRelated,
   toKeywordJson
 } from '../toKeywordJson'
 import toLegacyJSON from '../toLegacyJSON'
@@ -19,6 +19,79 @@ import toLegacyJSON from '../toLegacyJSON'
 vi.mock('../buildFullPath')
 vi.mock('../getNumberOfCmrCollections')
 vi.mock('../toLegacyJSON')
+
+describe('processRelated', () => {
+  it('should process related concepts correctly', () => {
+    const skosConcept = {
+      'skos:related': [
+        { '@rdf:resource': 'http://example.com/concept/1' },
+        { '@rdf:resource': 'http://example.com/concept/2' }
+      ],
+      'gcmd:type': 'SomeRelationType'
+    }
+
+    const prefLabelMap = new Map([
+      ['http://example.com/concept/1', 'Related Concept 1'],
+      ['http://example.com/concept/2', 'Related Concept 2']
+    ])
+
+    const result = processRelated(skosConcept, prefLabelMap)
+
+    expect(result).toEqual([
+      {
+        keyword: {
+          uuid: 'http://example.com/concept/1',
+          prefLabel: 'Related Concept 1'
+        },
+        relationshipType: '_some_relation_type'
+      },
+      {
+        keyword: {
+          uuid: 'http://example.com/concept/2',
+          prefLabel: 'Related Concept 2'
+        },
+        relationshipType: '_some_relation_type'
+      }
+    ])
+  })
+
+  it('should return an empty array when no related concepts are present', () => {
+    const skosConcept = {
+      'gcmd:type': 'SomeRelationType'
+    }
+
+    const prefLabelMap = new Map()
+
+    const result = processRelated(skosConcept, prefLabelMap)
+
+    expect(result).toEqual([])
+  })
+
+  it('should handle different relationship types correctly', () => {
+    const skosConcept = {
+      'skos:related': [
+        { '@rdf:resource': 'http://example.com/concept/1' }
+      ],
+      'gcmd:type': 'AnotherRelationType'
+    }
+
+    const prefLabelMap = new Map([
+      ['http://example.com/concept/1', 'Related Concept 1']
+    ])
+
+    const result = processRelated(skosConcept, prefLabelMap)
+
+    expect(result).toEqual([
+      {
+        keyword: {
+          uuid: 'http://example.com/concept/1',
+          prefLabel: 'Related Concept 1'
+        },
+        relationshipType: '_another_relation_type'
+      }
+    ])
+  })
+})
 
 describe('toKeywordJson', () => {
   test('should convert SKOS concept to keyword JSON', async () => {
@@ -104,39 +177,6 @@ describe('getAltLabels', () => {
       {
         text: 'Another Label',
         languageCode: 'fr'
-      }
-    ])
-  })
-})
-
-describe('getRelated', () => {
-  test('should process related concepts correctly', () => {
-    const skosConcept = {
-      'skos:related': [
-        { '@rdf:resource': 'http://example.com/concept/2' },
-        { '@rdf:resource': 'http://example.com/concept/3' }
-      ],
-      'gcmd:type': 'RelatedTo'
-    }
-    const prefLabelMap = new Map([
-      ['http://example.com/concept/2', 'Related Concept 2'],
-      ['http://example.com/concept/3', 'Related Concept 3']
-    ])
-    const result = getRelated(skosConcept, prefLabelMap)
-    expect(result).toEqual([
-      {
-        keyword: {
-          prefLabel: 'Related Concept 2',
-          uuid: 'http://example.com/concept/2'
-        },
-        relationshipType: 'relatedto'
-      },
-      {
-        keyword: {
-          prefLabel: 'Related Concept 3',
-          uuid: 'http://example.com/concept/3'
-        },
-        relationshipType: 'relatedto'
       }
     ])
   })

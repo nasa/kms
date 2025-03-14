@@ -4,6 +4,55 @@ import { getNumberOfCmrCollections } from './getNumberOfCmrCollections'
 import toLegacyJSON from './toLegacyJSON'
 
 /**
+ * Processes the related concepts of a SKOS concept and formats them.
+ *
+ * @param {Object} skosConcept - The SKOS concept object containing related concepts.
+ * @param {Map} prefLabelMap - A map of preferred labels keyed by concept UUID.
+ * @returns {Array} An array of processed related concept objects.
+ *
+ * @example
+ * const skosConcept = {
+ *   'skos:related': [
+ *     { '@rdf:resource': 'http://example.com/concept/1' },
+ *     { '@rdf:resource': 'http://example.com/concept/2' }
+ *   ],
+ *   'gcmd:type': 'SomeRelationType'
+ * };
+ * const prefLabelMap = new Map([
+ *   ['http://example.com/concept/1', 'Related Concept 1'],
+ *   ['http://example.com/concept/2', 'Related Concept 2']
+ * ]);
+ * const relatedConcepts = processRelated(skosConcept, prefLabelMap);
+ * console.log(relatedConcepts);
+ * // Output:
+ * // [
+ * //   {
+ * //     keyword: {
+ * //       uuid: 'http://example.com/concept/1',
+ * //       prefLabel: 'Related Concept 1'
+ * //     },
+ * //     relationshipType: 'some_relation_type'
+ * //   },
+ * //   {
+ * //     keyword: {
+ * //       uuid: 'http://example.com/concept/2',
+ * //       prefLabel: 'Related Concept 2'
+ * //     },
+ * //     relationshipType: 'some_relation_type'
+ * //   }
+ * // ]
+ */
+export const processRelated = (skosConcept, prefLabelMap) => (
+  (skosConcept['skos:related'] || []).map((relation) => ({
+    keyword: {
+      uuid: relation['@rdf:resource'],
+      prefLabel: prefLabelMap.get(relation['@rdf:resource'])
+    },
+    relationshipType: skosConcept['gcmd:type'].replace(/([A-Z])/g, '_$1').toLowerCase()
+  }))
+)
+
+/**
  * Processes and formats alt labels from a SKOS concept.
  *
  * @param {Array|Object} altLabels - The alt labels to process.
@@ -42,48 +91,6 @@ export const getAltLabels = (altLabels) => {
 
     return processedLabel
   })
-}
-
-/**
- * Processes and formats related concepts from a SKOS concept.
- *
- * @param {Object} skosConcept - The SKOS concept object.
- * @param {Map} prefLabelMap - A map of preferred labels.
- * @returns {Array} An array of related concepts.
- *
- * @example
- * const skosConcept = {
- *   'skos:related': [
- *     { '@rdf:resource': 'http://example.com/concept/2' },
- *     { '@rdf:resource': 'http://example.com/concept/3' }
- *   ],
- *   'gcmd:type': 'RelatedTo'
- * };
- * const prefLabelMap = new Map([
- *   ['http://example.com/concept/2', 'Related Concept 2'],
- *   ['http://example.com/concept/3', 'Related Concept 3']
- * ]);
- * const relatedConcepts = getRelated(skosConcept, prefLabelMap);
- * console.log(relatedConcepts);
- * // Output:
- * // [
- * //   { keyword: { prefLabel: 'Related Concept 2', uuid: 'http://example.com/concept/2' }, relationshipType: 'related_to' },
- * //   { keyword: { prefLabel: 'Related Concept 3', uuid: 'http://example.com/concept/3' }, relationshipType: 'related_to' }
- * // ]
- */
-export const getRelated = (skosConcept, prefLabelMap) => {
-  const related = skosConcept['skos:related']
-  if (!related) return []
-
-  const relatedArray = Array.isArray(related) ? related : [related]
-
-  return relatedArray.map((relation) => ({
-    keyword: {
-      prefLabel: prefLabelMap.get(relation['@rdf:resource']),
-      uuid: relation['@rdf:resource']
-    },
-    relationshipType: skosConcept['gcmd:type'].replace(/([A-Z])/g, '$1').toLowerCase()
-  }))
 }
 
 /**
@@ -278,7 +285,7 @@ export const toKeywordJson = async (skosConcept, conceptSchemeMap, prefLabelMap)
     legacyJson.narrowers = legacyJson.narrower
     legacyJson.narrower = []
 
-    legacyJson.related = getRelated(skosConcept, prefLabelMap)
+    legacyJson.related = processRelated(skosConcept, prefLabelMap)
 
     return cleanupJsonObject(legacyJson)
   } catch (error) {
