@@ -1,4 +1,5 @@
 import { getConceptSchemeOfConcept } from '@/shared/getConceptSchemeOfConcept'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 
 /**
  * Generates GCMD (Global Change Master Directory) metadata based on provided parameters.
@@ -38,8 +39,9 @@ export const getGcmdMetadata = async ({
     _text: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf'
   }
 
+  const versionInfo = await getVersionMetadata(version)
   baseMetadata['gcmd:keywordVersion'] = {
-    _text: '20.5'
+    _text: versionInfo.versionName
   }
 
   if (conceptIRI) {

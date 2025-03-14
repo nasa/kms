@@ -11,7 +11,6 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
-import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import toLegacyJSON from '@/shared/toLegacyJSON'
 import toLegacyXML from '@/shared/toLegacyXML'
 
@@ -103,7 +102,6 @@ export const getConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
     const prefLabelMap = await createPrefLabelMap()
-    const versionInfo = await getVersionMetadata(version)
 
     let responseBody
     let contentType
@@ -156,7 +154,7 @@ export const getConcept = async (event) => {
           ...namespaces,
           'gcmd:gcmd': await getGcmdMetadata({
             conceptIRI,
-            version: versionInfo.versionName
+            version
           }),
           'skos:Concept': [concept]
         }

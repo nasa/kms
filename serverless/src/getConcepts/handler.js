@@ -12,7 +12,6 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
-import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { processTriples } from '@/shared/processTriples'
 import toLegacyJSON from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -94,7 +93,6 @@ export const getConcepts = async (event) => {
     const conceptURIs = fullURIs.slice(startIndex, endIndex)
     const prefLabelMap = await createPrefLabelMap()
     const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
-    const versionInfo = await getVersionMetadata(version)
 
     let responseBody
     let contentType
@@ -208,7 +206,7 @@ export const getConcepts = async (event) => {
             pageNum,
             pageSize,
             gcmdHits: totalConcepts,
-            version: versionInfo.versionName
+            version
           }),
           'skos:Concept': concepts
         }

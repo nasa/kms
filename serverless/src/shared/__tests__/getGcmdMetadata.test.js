@@ -7,10 +7,19 @@ import {
 } from 'vitest'
 
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 
 import { getConceptSchemeOfConcept } from '../getConceptSchemeOfConcept'
 
 vi.mock('../getConceptSchemeOfConcept')
+vi.mock('@/shared/getVersionMetadata')
+vi.mocked(getVersionMetadata).mockResolvedValue({
+  version: 'published',
+  versionName: '20.8',
+  versionType: 'published',
+  created: '2023-01-01T00:00:00Z',
+  modified: '2023-01-01T00:00:00Z'
+})
 
 describe('getGcmdMetadata', () => {
   describe('when successful', () => {
@@ -18,7 +27,7 @@ describe('getGcmdMetadata', () => {
       const result = await getGcmdMetadata({})
       expect(result).toEqual({
         'gcmd:termsOfUse': { _text: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf' },
-        'gcmd:keywordVersion': { _text: '20.5' },
+        'gcmd:keywordVersion': { _text: '20.8' },
         'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all' }
       })
     })
@@ -55,7 +64,7 @@ describe('getGcmdMetadata', () => {
         'gcmd:page_num': { _text: '1' },
         'gcmd:page_size': { _text: '2000' },
         'gcmd:termsOfUse': { _text: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf' },
-        'gcmd:keywordVersion': { _text: '20.5' },
+        'gcmd:keywordVersion': { _text: '20.8' },
         'gcmd:schemeVersion': { _text: '2025-01-22 17:32:01' },
         'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/5678/1234' }
       })
