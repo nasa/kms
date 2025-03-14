@@ -7,16 +7,19 @@ import {
 import { sparqlRequest } from './sparqlRequest'
 
 /**
- * Fetches the root concept for a given scheme.
+ * Fetches the root concept for a given scheme and version.
  *
+ * @async
+ * @function getRootConceptForScheme
  * @param {string} scheme - The scheme identifier for which to fetch the root concept.
+ * @param {string} version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  * @returns {Promise<Object>} A promise that resolves to the root concept object.
  * @throws {Error} If there's an HTTP error, no root concept is found, or any other error occurs.
  *
  * @example
- * // Fetch the root concept for the 'science_keywords' scheme
+ * // Fetch the root concept for the 'science_keywords' scheme in the published version
  * try {
- *   const rootConcept = await getRootConcept('science_keywords');
+ *   const rootConcept = await getRootConceptForScheme('science_keywords', 'published');
  *   console.log(rootConcept);
  *   // Example output:
  *   // {
@@ -28,13 +31,26 @@ import { sparqlRequest } from './sparqlRequest'
  * }
  *
  * @example
+ * // Attempt to fetch a root concept for a scheme in the draft version
+ * try {
+ *   const rootConcept = await getRootConceptForScheme('instruments', 'draft');
+ *   console.log(rootConcept);
+ * } catch (error) {
+ *   console.error('Failed to fetch root concept:', error);
+ * }
+ *
+ * @example
  * // Attempt to fetch a root concept for a non-existent scheme
  * try {
- *   const rootConcept = await getRootConcept('non_existent_scheme');
+ *   const rootConcept = await getRootConceptForScheme('non_existent_scheme', 'published');
  * } catch (error) {
  *   console.error(error.message);
  *   // Expected output: "No root concept found for scheme: non_existent_scheme"
  * }
+ *
+ * @see Related functions:
+ * {@link getRootConceptsBySchemeQuery}
+ * {@link sparqlRequest}
  */
 export const getRootConceptForScheme = async (scheme, version) => {
   try {

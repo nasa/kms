@@ -1,5 +1,55 @@
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
+/**
+ * Updates the version metadata for a specific graph in the RDF store.
+ *
+ * This function constructs and executes a SPARQL UPDATE query to modify the version metadata
+ * of a specified graph. It can update the version name, version type, creation date, and
+ * modification date of the version metadata.
+ *
+ * @async
+ * @function updateVersionMetadata
+ * @param {Object} options - The options for updating the version metadata.
+ * @param {string} options.graphId - The identifier of the graph to update (e.g., 'published', 'draft', or a specific version number).
+ * @param {string} [options.version] - The new version name to set.
+ * @param {string} [options.versionType] - The new version type to set (e.g., 'published', 'draft').
+ * @param {string} [options.createdDate] - The new creation date to set (in ISO 8601 format).
+ * @param {string} [options.modifiedDate] - The new modification date to set (in ISO 8601 format).
+ * @returns {Promise<Response>} A promise that resolves to the response from the SPARQL endpoint.
+ * @throws {Error} If the update operation fails or if there's an error in the SPARQL request.
+ *
+ * @example
+ * // Update the metadata for the published version
+ * try {
+ *   const response = await updateVersionMetadata({
+ *     graphId: 'published',
+ *     version: '9.1.5',
+ *     versionType: 'published',
+ *     modifiedDate: new Date().toISOString()
+ *   });
+ *   console.log('Version metadata updated successfully');
+ * } catch (error) {
+ *   console.error('Failed to update version metadata:', error);
+ * }
+ *
+ * @example
+ * // Update the metadata for a draft version
+ * try {
+ *   const response = await updateVersionMetadata({
+ *     graphId: 'draft',
+ *     versionType: 'draft',
+ *     createdDate: new Date().toISOString(),
+ *     modifiedDate: new Date().toISOString()
+ *   });
+ *   console.log('Draft version metadata updated successfully');
+ * } catch (error) {
+ *   console.error('Failed to update draft version metadata:', error);
+ * }
+ *
+ * @see Related function:
+ * {@link sparqlRequest}
+ */
+
 export const updateVersionMetadata = async ({
   graphId,
   version,

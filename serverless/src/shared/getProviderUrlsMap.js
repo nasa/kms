@@ -1,6 +1,5 @@
 import { getProviderUrlsQuery } from '@/shared/operations/queries/getProviderUrlsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
-
 /**
  * Fetches provider URLs and creates a map based on the given scheme.
  * @param {string} scheme - The scheme to use for the query.

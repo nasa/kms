@@ -266,6 +266,38 @@ const createRdfFile = async (version, versionType) => {
   }
 }
 
+/**
+ * Main function to download and process GCMD keyword versions.
+ *
+ * This function orchestrates the download and processing of GCMD (Global Change Master Directory)
+ * keyword versions. It performs the following steps for each version type:
+ * 1. Fetches the available versions for each version type (published, draft, and optionally past_published).
+ * 2. For each version:
+ *    a. Fetches and processes the concept schemes, creating an RDF file for the schemes.
+ *    b. Fetches and processes all concepts, creating an RDF file for the concepts.
+ *
+ * @async
+ * @function main
+ * @param {boolean} downloadAll - If true, includes 'past_published' versions in addition to 'published' and 'draft'.
+ * @throws {Error} If there's an issue fetching versions, processing schemes, or processing concepts.
+ *
+ * @example
+ * // To download only published and draft versions:
+ * main(false).catch(error => console.error('Download failed:', error));
+ *
+ * @example
+ * // To download all versions including past published:
+ * main(true).catch(error => console.error('Download failed:', error));
+ *
+ * @note This function creates RDF files in the '../data/' directory relative to the script location.
+ *       It creates separate files for schemes and concepts for each version.
+ *
+ * @see Related functions:
+ * {@link fetchVersions}
+ * {@link getXmlSchemes}
+ * {@link createSchemes}
+ * {@link createRdfFile}
+ */
 const main = async (downloadAll) => {
   try {
     const versionTypes = ['published', 'draft']

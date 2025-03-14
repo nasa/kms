@@ -13,21 +13,26 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @function createConcept
  * @param {Object} event - The Lambda event object.
  * @param {string} event.body - The RDF/XML representation of the concept to be created.
+ * @param {Object} event.queryStringParameters - Query string parameters.
+ * @param {string} [event.queryStringParameters.version='draft'] - The version of the concept (default is 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
  * // Lambda event object
  * const event = {
  *   body: '<rdf:RDF>...</rdf:RDF>',
- *   pathParameters: { conceptId: '123' }
+ *   queryStringParameters: { version: 'draft' }
  * };
  *
  * const result = await createConcept(event);
  * console.log(result);
  * // Output on success:
  * // {
- * //   statusCode: 200,
- * //   body: 'Successfully loaded RDF XML into RDF4J',
+ * //   statusCode: 201,
+ * //   body: JSON.stringify({
+ * //     message: 'Successfully created concept',
+ * //     conceptId: '123'
+ * //   }),
  * //   headers: { ... }
  * // }
  */

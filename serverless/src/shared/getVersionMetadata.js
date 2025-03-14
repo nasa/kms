@@ -1,9 +1,58 @@
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Retrieves metadata for a specific version
- * @param {string} version - The version number to retrieve
- * @returns {Promise<Object>} - The version metadata
+ * Retrieves metadata for a specific version of the concept scheme.
+ *
+ * This function sends a SPARQL query to fetch metadata about a particular version,
+ * including its name, type, creation date, and modification date.
+ *
+ * @async
+ * @function getVersionMetadata
+ * @param {string} version - The version identifier to retrieve metadata for (e.g., 'published', 'draft', or a specific version number).
+ * @returns {Promise<Object|null>} A promise that resolves to an object containing the version metadata, or null if the version is not found.
+ * @throws {Error} If there's an error during the SPARQL request or processing of the response.
+ *
+ * @example
+ * // Retrieve metadata for the published version
+ * try {
+ *   const metadata = await getVersionMetadata('published');
+ *   console.log(metadata);
+ *   // Example output:
+ *   // {
+ *   //   version: 'published',
+ *   //   versionName: '9.1.5',
+ *   //   versionType: 'published',
+ *   //   created: '2023-01-15T00:00:00Z',
+ *   //   modified: '2023-06-30T12:34:56Z'
+ *   // }
+ * } catch (error) {
+ *   console.error('Failed to retrieve version metadata:', error);
+ * }
+ *
+ * @example
+ * // Retrieve metadata for the draft version
+ * try {
+ *   const metadata = await getVersionMetadata('draft');
+ *   console.log(metadata);
+ * } catch (error) {
+ *   console.error('Failed to retrieve draft version metadata:', error);
+ * }
+ *
+ * @example
+ * // Retrieve metadata for a specific version number
+ * try {
+ *   const metadata = await getVersionMetadata('9.1.5');
+ *   if (metadata) {
+ *     console.log(metadata);
+ *   } else {
+ *     console.log('Version not found');
+ *   }
+ * } catch (error) {
+ *   console.error('Failed to retrieve version metadata:', error);
+ * }
+ *
+ * @see Related function:
+ * {@link sparqlRequest}
  */
 export const getVersionMetadata = async (version) => {
   const versionUri = 'https://gcmd.earthdata.nasa.gov/kms/version_metadata'

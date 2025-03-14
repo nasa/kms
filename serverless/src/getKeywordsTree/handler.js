@@ -14,42 +14,47 @@ import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordS
 import { toTitleCase } from '@/shared/toTitleCase'
 
 /**
- * Retrieves and processes a keywords tree based on the provided concept scheme.
+ * Retrieves and processes a keywords tree based on the provided concept scheme and version.
  *
+ * @async
+ * @function getKeywordsTree
  * @param {Object} event - The event object containing query and path parameters.
  * @param {Object} event.queryStringParameters - Query string parameters.
  * @param {string} [event.queryStringParameters.filter] - Optional filter string to apply to the tree.
+ * @param {string} [event.queryStringParameters.version='published'] - The version of the keywords to retrieve (default is 'published').
  * @param {Object} event.pathParameters - Path parameters.
  * @param {string} event.pathParameters.conceptScheme - The concept scheme to retrieve keywords for.
  *
- * @returns {Object} An object containing the status code, body, and headers.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the status code, body, and headers.
  *
  * @example
- * // Request for all schemes
+ * // Request for all schemes with a specific version
  * const event = {
  *   pathParameters: { conceptScheme: 'all' },
- *   queryStringParameters: { filter: 'atmosphere' }
+ *   queryStringParameters: { filter: 'atmosphere', version: 'draft' }
  * };
  * const result = await getKeywordsTree(event);
- * // Result will contain a tree of all keyword schemes, filtered by 'atmosphere'
+ * // Result will contain a tree of all keyword schemes from the draft version, filtered by 'atmosphere'
  *
  * @example
- * // Request for Earth Science scheme
+ * // Request for Earth Science scheme with default (published) version
  * const event = {
  *   pathParameters: { conceptScheme: 'earth science' },
  *   queryStringParameters: {}
  * };
  * const result = await getKeywordsTree(event);
- * // Result will contain the Earth Science keywords tree
+ * // Result will contain the published Earth Science keywords tree
  *
  * @example
- * // Request for a specific scheme
+ * // Request for a specific scheme with a specific version
  * const event = {
  *   pathParameters: { conceptScheme: 'instruments' },
- *   queryStringParameters: {}
+ *   queryStringParameters: { version: '9.1.5' }
  * };
  * const result = await getKeywordsTree(event);
- * // Result will contain the Instruments keywords tree
+ * // Result will contain the Instruments keywords tree from version 9.1.5
+ *
+ * @throws Will throw an error if there's a problem retrieving or processing the keywords.
  */
 export const getKeywordsTree = async (event) => {
   // Extract configuration and parameters

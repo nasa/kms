@@ -1,50 +1,42 @@
 import { createChangeNote } from './createChangeNote'
 
-// Helper function to retrieve parsed information in concept_schemes xml
-function findMatchingConceptScheme(schemeShortName, conceptSchemes) {
-  const matchingScheme = conceptSchemes.find(
-    (scheme) => scheme.notation.toLowerCase() === schemeShortName.toLowerCase()
-  )
-
-  if (!matchingScheme) {
-    throw new Error(`No matching scheme found for: ${schemeShortName}`)
-  }
-
-  return {
-    schemeLongName: matchingScheme.prefLabel,
-    schemeVersionDate: matchingScheme.modified
-  }
-}
-
-// Helper function to determine if there are multiple altLabels and assist in translating the different types
-function processAltLabels(altLabels) {
-  const labelsArray = Array.isArray(altLabels) ? altLabels : [altLabels]
-
-  return labelsArray.map((label) => ({
-    '@category': label['@gcmd:category'],
-    '#text': label['@gcmd:text']
-  }))
-}
-
 /**
- * Converts a SKOS concept to a legacy XML format.
+ * Converts a SKOS concept from a specific version to a legacy XML format.
  *
- * This function takes a SKOS concept and associated metadata, and transforms it into a legacy XML structure.
- * It processes various aspects of the concept including its basic metadata, hierarchical relationships (broader and narrower),
- * related concepts, definitions, alternative labels, and associated resources.
+ * This function takes a SKOS concept and associated metadata from a particular version of the concept scheme,
+ * and transforms it into a legacy XML structure. It processes various aspects of the concept including its
+ * basic metadata, hierarchical relationships (broader and narrower), related concepts, definitions,
+ * alternative labels, and associated resources.
  *
  * @function toLegacyXML
- * @param {Object} concept - The SKOS concept object to be transformed.
- * @param {Array} conceptSchemeDetails - An array of concept scheme details.
- * @param {Array} csvHeaders - An array of CSV headers.
- * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels.
+ * @param {Object} concept - The SKOS concept object to be transformed, from a specific version of the concept scheme.
+ * @param {Array} conceptSchemeDetails - An array of concept scheme details for the specific version.
+ * @param {Array} csvHeaders - An array of CSV headers for the specific version.
+ * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels for the specific version.
  * @param {string} schemeShortName - The short name of the concept scheme.
  * @returns {Object} An object representing the legacy XML structure of the concept.
  * @throws {Error} If no matching scheme is found for the provided schemeShortName.
  *
  * @example
- * const legacyXML = toLegacyXML(skosConcept, conceptSchemeDetails, csvHeaders, prefLabelMap, 'sciencekeywords');
+ * // Convert a concept from the published version to legacy XML
+ * const publishedConcept = { ... }; // SKOS concept object from the published version
+ * const publishedSchemeDetails = [ ... ]; // Concept scheme details for the published version
+ * const publishedCsvHeaders = [ ... ]; // CSV headers for the published version
+ * const publishedPrefLabelMap = new Map([ ... ]); // Preferred label map for the published version
+ *
+ * const legacyXML = toLegacyXML(
+ *   publishedConcept,
+ *   publishedSchemeDetails,
+ *   publishedCsvHeaders,
+ *   publishedPrefLabelMap,
+ *   'sciencekeywords'
+ * );
  * console.log(JSON.stringify(legacyXML, null, 2));
+ *
+ * @note While this function doesn't directly use a version parameter, it assumes that all input data
+ * (concept, conceptSchemeDetails, csvHeaders, and prefLabelMap) are from the same specific version
+ * of the concept scheme. The version consistency should be managed by the calling function when
+ * retrieving the concept and creating the necessary data structures.
  */
 const toLegacyXML = (
   concept,
@@ -53,6 +45,32 @@ const toLegacyXML = (
   prefLabelMap,
   schemeShortName
 ) => {
+  // Helper function to retrieve parsed information in concept_schemes xml
+  function findMatchingConceptScheme(schemeShortNameArg, conceptSchemes) {
+    const matchingScheme = conceptSchemes.find(
+      (scheme) => scheme.notation.toLowerCase() === schemeShortNameArg.toLowerCase()
+    )
+
+    if (!matchingScheme) {
+      throw new Error(`No matching scheme found for: ${schemeShortNameArg}`)
+    }
+
+    return {
+      schemeLongName: matchingScheme.prefLabel,
+      schemeVersionDate: matchingScheme.modified
+    }
+  }
+
+  // Helper function to determine if there are multiple altLabels and assist in translating the different types
+  function processAltLabels(altLabels) {
+    const labelsArray = Array.isArray(altLabels) ? altLabels : [altLabels]
+
+    return labelsArray.map((label) => ({
+      '@category': label['@gcmd:category'],
+      '#text': label['@gcmd:text']
+    }))
+  }
+
   const uuid = concept['@rdf:about']
 
   // Finding the appropriate shortName and longName for scheme

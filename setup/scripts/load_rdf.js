@@ -127,14 +127,40 @@ async function loadSchemes(versionType, version) {
   console.log('Success: ', await response.text())
 }
 
+/**
+ * Main function to load SKOS concepts and schemes into a SPARQL endpoint for all version types and versions.
+ *
+ * This function orchestrates the loading process for GCMD (Global Change Master Directory) 
+ * keyword concepts and schemes. It performs the following steps:
+ * 1. Iterates through version types: 'published', 'draft', and 'past_published'.
+ * 2. For each version type:
+ *    a. Fetches all available versions.
+ *    b. For each version:
+ *       i. Loads concepts from the corresponding RDF file into the SPARQL endpoint.
+ *       ii. Loads schemes from the corresponding RDF file into the SPARQL endpoint.
+ *
+ * @async
+ * @function main
+ * @throws {Error} If there's an issue fetching versions, loading concepts, or loading schemes.
+ *
+ * @example
+ * // To run the loading process:
+ * main().catch(error => console.error('Loading process failed:', error));
+ *
+ * @note This function assumes that RDF files for concepts and schemes are present in the '../data/' directory
+ *       with naming conventions 'concepts_<version>.rdf' and 'schemes_<version>.rdf' respectively.
+ *       For the 'published' version type, it uses 'concepts_published.rdf' and 'schemes_published.rdf'.
+ *
+ * @see Related functions:
+ * {@link fetchVersions}
+ * {@link loadConcepts}
+ * {@link loadSchemes}
+ */
 const main = async () => {
   try {
     const versionTypes = ['published', 'draft', 'past_published']
     for (const versionType of versionTypes) {
-      let versions = await fetchVersions(versionType)
-      if (versionType === 'past_published') {
-        versions = versions.slice(0, 3)
-      }
+      const versions = await fetchVersions(versionType)
 
       // eslint-disable-next-line no-restricted-syntax
       for (const version of versions) {

@@ -9,7 +9,7 @@
  * Sends a request to the SPARQL endpoint with the specified parameters.
  *
  * This function constructs and sends an HTTP request to the configured SPARQL endpoint,
- * handling authentication and content type specifications.
+ * handling authentication, content type specifications, and version-specific graph modifications.
  *
  * @async
  * @function sparqlRequest
@@ -19,17 +19,39 @@
  * @param {string|Object} [options.body] - The body of the request, if applicable.
  * @param {string} [options.contentType='application/rdf+xml'] - The Content-Type header for the request.
  * @param {string} [options.accept='application/rdf+xml'] - The Accept header for the request.
+ * @param {string} [options.version] - The version of the graph to query or update (e.g., 'published', 'draft', or a specific version number).
  * @returns {Promise<Response>} A promise that resolves to the fetch Response object.
  *
  * @example
+ * // Query the published version
  * const response = await sparqlRequest({
  *   method: 'POST',
  *   body: 'SELECT * WHERE { ?s ?p ?o }',
  *   contentType: 'application/sparql-query',
- *   accept: 'application/sparql-results+json'
+ *   accept: 'application/sparql-results+json',
+ *   version: 'published'
+ * });
+ *
+ * @example
+ * // Update the draft version
+ * const response = await sparqlRequest({
+ *   method: 'POST',
+ *   body: 'INSERT DATA { <http://example.com/subject> <http://example.com/predicate> "New Value" }',
+ *   contentType: 'application/sparql-update',
+ *   version: 'draft'
  * });
  *
  * @throws Will throw an error if the fetch operation fails.
+ *
+ * @description
+ * When a version is specified, the function modifies the request as follows:
+ * - For SPARQL queries, it adds a FROM clause to query the specific graph.
+ * - For SPARQL updates, it adds a WITH clause to update the specific graph.
+ * - For statement insertions/deletions, it adds a context parameter to the URL.
+ *
+ * @see Related functions:
+ * {@link addFromClause}
+ * {@link addWithClause}
  */
 export const sparqlRequest = async ({
   path = '',

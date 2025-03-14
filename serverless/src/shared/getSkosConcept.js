@@ -7,51 +7,64 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 /**
- * Retrieves and processes SKOS concept data.
+ * Retrieves and processes SKOS concept data for a specific version.
  *
  * This function performs the following operations:
  * 1. Constructs a SPARQL query based on the provided identifier (conceptIRI, shortName, or altLabel).
- * 2. Sends a SPARQL request to retrieve the concept data.
+ * 2. Sends a SPARQL request to retrieve the concept data for the specified version.
  * 3. Processes the SPARQL results and converts them into a SKOS JSON format.
  *
  * The SPARQL query retrieves:
  * - All direct properties of the concept.
  * - All properties of blank nodes connected to the concept.
  *
+ * @async
+ * @function getSkosConcept
  * @param {Object} options - The options for retrieving the SKOS concept.
  * @param {string} [options.conceptIRI] - The IRI of the SKOS concept to retrieve.
  * @param {string} [options.shortName] - The short name of the SKOS concept to retrieve.
  * @param {string} [options.altLabel] - The alternative label of the SKOS concept to retrieve.
  * @param {string} [options.scheme] - The scheme to filter the concept search (used with shortName or altLabel).
+ * @param {string} options.version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  *
- * @returns {Promise<Object>} A promise that resolves to the SKOS concept data in JSON format.
+ * @returns {Promise<Object|null>} A promise that resolves to the SKOS concept data in JSON format, or null if no concept is found.
  *
  * @throws {Error} If neither conceptIRI, shortName, nor altLabel is provided.
- * @throws {Error} If the HTTP request fails, if no results are found for the concept,
- *                 or if there's an error during the fetching or processing of the concept data.
+ * @throws {Error} If the HTTP request fails or if there's an error during the fetching or processing of the concept data.
  *
  * @example
- * // Retrieve by conceptIRI
+ * // Retrieve by conceptIRI from the published version
  * try {
- *   const conceptData = await getSkosConcept({ conceptIRI: 'http://example.com/concept/123' });
+ *   const conceptData = await getSkosConcept({
+ *     conceptIRI: 'http://example.com/concept/123',
+ *     version: 'published'
+ *   });
  *   console.log(conceptData);
  * } catch (error) {
  *   console.error('Failed to get concept:', error);
  * }
  *
  * @example
- * // Retrieve by shortName
+ * // Retrieve by shortName from the draft version
  * try {
- *   const conceptData = await getSkosConcept({ shortName: 'Earth Science', scheme: 'sciencekeywords' });
+ *   const conceptData = await getSkosConcept({
+ *     shortName: 'Earth Science',
+ *     scheme: 'sciencekeywords',
+ *     version: 'draft'
+ *   });
  *   console.log(conceptData);
  * } catch (error) {
  *   console.error('Failed to get concept:', error);
  * }
  *
  * @example
- * // Retrieve by altLabel
+ * // Retrieve by altLabel from a specific version
  * try {
- *   const conceptData = await getSkosConcept({ altLabel: 'ES', scheme: 'sciencekeywords' });
+ *   const conceptData = await getSkosConcept({
+ *     altLabel: 'ES',
+ *     scheme: 'sciencekeywords',
+ *     version: '9.1.5'
+ *   });
  *   console.log(conceptData);
  * } catch (error) {
  *   console.error('Failed to get concept:', error);
