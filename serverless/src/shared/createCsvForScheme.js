@@ -32,17 +32,17 @@ import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
  * }
  */
 
-export const createCsvForScheme = async (scheme) => {
+export const createCsvForScheme = async (scheme, version) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   try {
     // Get CSV output metadata
-    const csvMetadata = await getCsvMetadata(scheme)
+    const csvMetadata = await getCsvMetadata(scheme, version)
     // Get CSV headers
-    let csvHeaders = await getCsvHeaders(scheme)
+    let csvHeaders = await getCsvHeaders(scheme, version)
     // Calculate CSV header count
     const csvHeadersCount = csvHeaders.length
     // Get CSV row data
-    const paths = await getCsvPaths(scheme, csvHeadersCount)
+    const paths = await getCsvPaths(scheme, csvHeadersCount, version)
     // If no headers were retrieved, generate them based on the maximum number of columns in the paths
     if (csvHeaders.length === 0) {
       const maxColumns = getMaxLengthOfSubArray(paths)

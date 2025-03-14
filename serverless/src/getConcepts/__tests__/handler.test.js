@@ -18,7 +18,7 @@ import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { processTriples } from '@/shared/processTriples'
-import toLegacyJSON from '@/shared/toLegacyJSON'
+import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
@@ -75,7 +75,7 @@ describe('getConcepts', () => {
 
       const result = await getConcepts(event)
 
-      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme')
+      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme', 'published')
       expect(result).toEqual(mockCsvResponse)
     })
 
@@ -163,7 +163,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         pattern: 'matching',
-        conceptScheme: undefined
+        conceptScheme: undefined,
+        version: 'published'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -202,7 +203,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
-        pattern: undefined
+        pattern: undefined,
+        version: 'published'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -251,7 +253,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
-        pattern: 'matching'
+        pattern: 'matching',
+        version: 'published'
       })
 
       expect(result.body).toContain('<skos:Concept rdf:about="uri1">')
@@ -379,7 +382,8 @@ describe('getConcepts', () => {
           expect(getGcmdMetadata).toHaveBeenCalledWith({
             pageNum: parseInt(pageNum, 10),
             pageSize: parseInt(pageSize, 10),
-            gcmdHits: 100
+            gcmdHits: 100,
+            version: 'published'
           })
         }))
       })

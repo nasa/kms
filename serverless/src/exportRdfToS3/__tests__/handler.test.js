@@ -122,9 +122,6 @@ describe('exportRdfToS3 handler', () => {
       const headBucketCall = sendMock.mock.calls[0][0]
       const putObjectCall = sendMock.mock.calls[1][0]
 
-      console.log('HeadBucketCommand:', JSON.stringify(headBucketCall, null, 2))
-      console.log('PutObjectCommand:', JSON.stringify(putObjectCall, null, 2))
-
       expect(headBucketCall).toBeInstanceOf(HeadBucketCommand)
       expect(HeadBucketCommand).toHaveBeenCalledWith({ Bucket: 'kms-rdf-backup' })
 

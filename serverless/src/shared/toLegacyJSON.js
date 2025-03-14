@@ -1,16 +1,17 @@
 /**
- * Converts a SKOS concept to a legacy JSON format.
+ * Converts a SKOS concept from a specific version to a legacy JSON format.
  *
- * This function takes a SKOS concept and associated metadata, and transforms it into a legacy JSON structure.
- * It processes various aspects of the concept including its basic metadata, hierarchical relationships (broader and narrower),
- * related concepts, definitions, alternative labels, and associated resources.
+ * This function takes a SKOS concept and associated metadata from a particular version of the concept scheme,
+ * and transforms it into a legacy JSON structure. It processes various aspects of the concept including its
+ * basic metadata, hierarchical relationships (broader and narrower), related concepts, definitions,
+ * alternative labels, and associated resources.
  *
- * @async
  * @function toLegacyJSON
- * @param {Object} concept - The SKOS concept object to be transformed.
+ * @param {Object} concept - The SKOS concept object to be transformed, from a specific version of the concept scheme.
  * @param {Map<string, string>} conceptSchemeMap - A map of concept scheme short names to their long names.
+ * @param {Map<string, string>} conceptToConceptSchemeShortNameMap - A map of concept IRIs to their scheme short names.
  * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels.
- * @returns {Promise<Object>} A promise that resolves to the transformed legacy JSON object.
+ * @returns {Object} The transformed legacy JSON object.
  * @throws {Error} If there's an error during the conversion process.
  *
  * @property {string} termsOfUse - The URL to the terms of use document.
@@ -30,45 +31,51 @@
  * @property {Array<Object>} resources - An array of associated resources.
  *
  * @example
+ * // Convert a concept from the published version to legacy JSON
  * try {
- *   const concept = { ... }; // SKOS concept object
+ *   const concept = { ... }; // SKOS concept object from the published version
  *   const conceptSchemeMap = new Map([['scheme1', 'Scheme One'], ...]);
+ *   const conceptToConceptSchemeShortNameMap = new Map([['http://example.com/concept/1', 'scheme1'], ...]);
  *   const prefLabelMap = new Map([['http://example.com/concept/1', 'Concept One'], ...]);
  *
- *   const legacyJSON = await toLegacyJSON(concept, conceptSchemeMap, prefLabelMap);
+ *   const legacyJSON = toLegacyJSON(concept, conceptSchemeMap, conceptToConceptSchemeShortNameMap, prefLabelMap);
  *   console.log('Transformed legacy JSON:', legacyJSON);
  * } catch (error) {
  *   console.error('Error converting to legacy JSON:', error);
  * }
+ *
+ * @note While this function doesn't directly use a version parameter, it assumes that the input concept
+ * and associated maps are from a specific version of the concept scheme. The version information should
+ * be managed by the calling function when retrieving the concept and creating the necessary maps.
  */
 
-// Helper function to determine if there are multiple altLabels and assist in translating the different types
-const processAltLabels = (altLabels) => {
-  if (!altLabels) {
-    return []
-  }
-
-  const labelArray = Array.isArray(altLabels) ? altLabels : [altLabels]
-
-  return labelArray.map((label) => {
-    const processedLabel = {}
-
-    if (label['@gcmd:category']) {
-      processedLabel.category = label['@gcmd:category']
-    }
-
-    processedLabel.text = label['@gcmd:text']
-
-    return processedLabel
-  })
-}
-
-const toLegacyJSON = (
+export const toLegacyJSON = (
   concept,
   conceptSchemeMap,
   conceptToConceptSchemeShortNameMap,
   prefLabelMap
 ) => {
+  // Helper function to determine if there are multiple altLabels and assist in translating the different types
+  const processAltLabels = (altLabels) => {
+    if (!altLabels) {
+      return []
+    }
+
+    const labelArray = Array.isArray(altLabels) ? altLabels : [altLabels]
+
+    return labelArray.map((label) => {
+      const processedLabel = {}
+
+      if (label['@gcmd:category']) {
+        processedLabel.category = label['@gcmd:category']
+      }
+
+      processedLabel.text = label['@gcmd:text']
+
+      return processedLabel
+    })
+  }
+
   try {
     // Extract the UUID from the @rdf:about field
     const uuid = concept['@rdf:about']

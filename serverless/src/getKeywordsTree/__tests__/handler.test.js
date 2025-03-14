@@ -13,6 +13,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -31,6 +32,7 @@ vi.mock('@/shared/getRootConceptsForAllSchemes')
 vi.mock('@/shared/sortKeywordNodes')
 vi.mock('@/shared/sortKeywordSchemes')
 vi.mock('@/shared/toTitleCase')
+vi.mock('@/shared/getVersionMetadata')
 vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn()
 }))
@@ -44,6 +46,14 @@ vi.mock('@/shared/sortKeywordSchemes', () => ({
     return sequence.indexOf(a.title) - sequence.indexOf(b.title)
   })
 }))
+
+vi.mocked(getVersionMetadata).mockResolvedValue({
+  version: 'published',
+  versionName: '20.8',
+  versionType: 'published',
+  created: '2023-01-01T00:00:00Z',
+  modified: '2023-01-01T00:00:00Z'
+})
 
 describe('getKeywordsTree', () => {
   beforeEach(() => {
@@ -319,7 +329,7 @@ describe('getKeywordsTree', () => {
       )
 
       // Verify that getNarrowersMap was called with 'sciencekeywords'
-      expect(getNarrowersMap).toHaveBeenCalledWith('sciencekeywords')
+      expect(getNarrowersMap).toHaveBeenCalledWith('sciencekeywords', 'published')
 
       // Verify that the timestamp is in the correct format
       const { timestamp } = parsedBody.tree
@@ -371,10 +381,10 @@ describe('getKeywordsTree', () => {
       expect(parsedBody.versions[0].schemes[0].longName).toBe('Instruments')
 
       // Verify that getNarrowersMap was called with 'instruments'
-      expect(getNarrowersMap).toHaveBeenCalledWith('instruments')
+      expect(getNarrowersMap).toHaveBeenCalledWith('instruments', 'published')
 
       // Verify that getRootConceptForScheme was called with 'instruments'
-      expect(getRootConceptForScheme).toHaveBeenCalledWith('instruments')
+      expect(getRootConceptForScheme).toHaveBeenCalledWith('instruments', 'published')
 
       // Verify that the timestamp is in the correct format
       const { timestamp } = parsedBody.tree
@@ -506,7 +516,7 @@ describe('getKeywordsTree', () => {
       expect(getRootConceptsForAllSchemes).toHaveBeenCalled()
 
       // Verify that getNarrowersMap was called with undefined
-      expect(getNarrowersMap).toHaveBeenCalledWith(undefined)
+      expect(getNarrowersMap).toHaveBeenCalledWith(undefined, 'published')
     })
 
     test('should apply toTitleCase to direct descendants of Science Keywords and handle Other Keywords', async () => {

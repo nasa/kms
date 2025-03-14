@@ -13,27 +13,33 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @function createConcept
  * @param {Object} event - The Lambda event object.
  * @param {string} event.body - The RDF/XML representation of the concept to be created.
+ * @param {Object} event.queryStringParameters - Query string parameters.
+ * @param {string} [event.queryStringParameters.version='draft'] - The version of the concept (default is 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
  * // Lambda event object
  * const event = {
  *   body: '<rdf:RDF>...</rdf:RDF>',
- *   pathParameters: { conceptId: '123' }
+ *   queryStringParameters: { version: 'draft' }
  * };
  *
  * const result = await createConcept(event);
  * console.log(result);
  * // Output on success:
  * // {
- * //   statusCode: 200,
- * //   body: 'Successfully loaded RDF XML into RDF4J',
+ * //   statusCode: 201,
+ * //   body: JSON.stringify({
+ * //     message: 'Successfully created concept',
+ * //     conceptId: '123'
+ * //   }),
  * //   headers: { ... }
  * // }
  */
 export const createConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event || {} // Use empty object as fallback
+  const { body: rdfXml, queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   try {
     if (!rdfXml) {
@@ -47,7 +53,7 @@ export const createConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
-    const exists = await conceptIdExists(conceptIRI)
+    const exists = await conceptIdExists(conceptIRI, version)
     if (exists) {
       return {
         statusCode: 409,
@@ -61,7 +67,8 @@ export const createConcept = async (event) => {
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: rdfXml
+      body: rdfXml,
+      version
     })
 
     if (!response.ok) {

@@ -6,37 +6,67 @@ import { rollback } from '@/shared/rollback'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Updates an existing SKOS Concept in the RDF store.
+ * Updates an existing SKOS Concept in the RDF store for a specific version.
  *
- * This function checks if the specified concept exists, and if so, updates it
+ * This function checks if the specified concept exists in the given version, and if so, updates it
  * with the provided RDF/XML data. If the concept doesn't exist, it returns a 404 error.
+ * The function includes a rollback mechanism in case of failure during the update process.
  *
  * @async
  * @function updateConcept
  * @param {Object} event - The Lambda event object.
  * @param {string} event.body - The RDF/XML representation of the updated concept.
+ * @param {Object} event.queryStringParameters - Query string parameters.
+ * @param {string} [event.queryStringParameters.version='draft'] - The version to update (default is 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
- * // Lambda event object
- * const event = {
+ * // Lambda event object for updating a concept in the draft version
+ * const eventDraft = {
  *   body: '<rdf:RDF>...</rdf:RDF>',
- *   pathParameters: { conceptId: '123' }
+ *   pathParameters: { conceptId: '123' },
+ *   queryStringParameters: { version: 'draft' }
  * };
  *
- * const result = await updateConcept(event);
- * console.log(result);
+ * const resultDraft = await updateConcept(eventDraft);
+ * console.log(resultDraft);
  * // Output on success:
  * // {
  * //   statusCode: 200,
  * //   body: '{"message":"Successfully updated concept: 123"}',
  * //   headers: { ... }
  * // }
+ *
+ * @example
+ * // Lambda event object for updating a concept in the published version
+ * const eventPublished = {
+ *   body: '<rdf:RDF>...</rdf:RDF>',
+ *   pathParameters: { conceptId: '456' },
+ *   queryStringParameters: { version: 'published' }
+ * };
+ *
+ * const resultPublished = await updateConcept(eventPublished);
+ * console.log(resultPublished);
+ * // Output on success:
+ * // {
+ * //   statusCode: 200,
+ * //   body: '{"message":"Successfully updated concept: 456"}',
+ * //   headers: { ... }
+ * // }
+ *
+ * @throws Will return an object with error details if the update process fails.
+ *
+ * @see Related functions:
+ * {@link conceptIdExists}
+ * {@link deleteTriples}
+ * {@link getConceptId}
+ * {@link rollback}
+ * {@link sparqlRequest}
  */
-
 export const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event || {} // Use empty object as fallback
+  const { body: rdfXml, queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   try {
     if (!rdfXml) {
@@ -50,7 +80,7 @@ export const updateConcept = async (event) => {
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
-    const exists = await conceptIdExists(conceptIRI)
+    const exists = await conceptIdExists(conceptIRI, version)
     if (!exists) {
       return {
         statusCode: 404,
@@ -60,7 +90,7 @@ export const updateConcept = async (event) => {
     }
 
     // Delete existing triples and get the deleted data
-    const { deletedTriples, deleteResponse } = await deleteTriples(conceptIRI)
+    const { deletedTriples, deleteResponse } = await deleteTriples(conceptIRI, version)
 
     if (!deleteResponse.ok) {
       throw new Error(`HTTP error! delete status: ${deleteResponse.status}`)
@@ -75,7 +105,8 @@ export const updateConcept = async (event) => {
         accept: 'application/rdf+xml',
         path: '/statements',
         method: 'POST',
-        body: rdfXml
+        body: rdfXml,
+        version
       })
 
       if (!insertResponse.ok) {
@@ -93,7 +124,7 @@ export const updateConcept = async (event) => {
       console.error('Error inserting new data, rolling back:', insertError)
 
       // Rollback: reinsert the deleted triples
-      await rollback(deletedTriples)
+      await rollback(deletedTriples, version)
 
       return {
         statusCode: 500,

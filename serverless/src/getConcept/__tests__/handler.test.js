@@ -17,8 +17,9 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
-import toLegacyJSON from '@/shared/toLegacyJSON'
-import toLegacyXML from '@/shared/toLegacyXML'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { toLegacyJSON } from '@/shared/toLegacyJSON'
+import { toLegacyXML } from '@/shared/toLegacyXML'
 
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getSkosConcept')
@@ -30,6 +31,7 @@ vi.mock('@/shared/getCsvHeaders')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/toLegacyXML')
+vi.mock('@/shared/getVersionMetadata')
 
 describe('getConcept', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -45,6 +47,14 @@ describe('getConcept', () => {
     getConceptSchemeDetails.mockResolvedValue({})
     toLegacyJSON.mockReturnValue({})
     toLegacyXML.mockReturnValue({})
+
+    vi.mocked(getVersionMetadata).mockResolvedValue({
+      version: 'published',
+      versionName: '20.8',
+      versionType: 'published',
+      created: '2023-01-01T00:00:00Z',
+      modified: '2023-01-01T00:00:00Z'
+    })
   })
 
   const mockSuccessfulResponse = (mockSkosConcept) => {
@@ -70,6 +80,100 @@ describe('getConcept', () => {
         expect(result.body).toContain('<rdf:RDF')
         expect(result.body).toContain('<skos:Concept')
         expect(result.body).toContain('<gcmd:keywordVersion>1.0</gcmd:keywordVersion>')
+      })
+    })
+
+    describe('when retrieving by short name', () => {
+      test('should successfully with concept using short name', async () => {
+        const mockEvent = { pathParameters: { shortName: 'Test+Short+Name' } }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': 'Test Short Name'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        await getConcept(mockEvent)
+
+        expect(getSkosConcept).toHaveBeenCalledWith(expect.objectContaining({
+          shortName: 'Test Short Name'
+        }))
+      })
+    })
+
+    describe('when retrieving by altLabel', () => {
+      test('should successfully with concept using altLabel', async () => {
+        const mockEvent = { pathParameters: { altLabel: 'Alt%2BLabel' } }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:altLabel': 'Alt+Label'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        await getConcept(mockEvent)
+
+        expect(getSkosConcept).toHaveBeenCalledWith(expect.objectContaining({
+          altLabel: 'Alt+Label'
+        }))
+      })
+    })
+
+    describe('when retrieving by short name with a scheme', () => {
+      test('should successfully retrieve concept using short name and scheme', async () => {
+        const mockEvent = {
+          pathParameters: { shortName: 'Test+Short+Name' },
+          queryStringParameters: { scheme: 'Test%20Scheme' }
+        }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': 'Test Short Name'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        await getConcept(mockEvent)
+
+        expect(getSkosConcept).toHaveBeenCalledWith(expect.objectContaining({
+          shortName: 'Test Short Name',
+          scheme: 'Test Scheme'
+        }))
+      })
+    })
+
+    describe('when retrieving by altLabel with scheme', () => {
+      test('should successfully with concept using altLabel and scheme', async () => {
+        const mockEvent = {
+          pathParameters: { altLabel: 'Alt%2BLabel' },
+          queryStringParameters: { scheme: 'Test%20Scheme' }
+        }
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:altLabel': 'Alt+Label'
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        await getConcept(mockEvent)
+
+        expect(getSkosConcept).toHaveBeenCalledWith(expect.objectContaining({
+          altLabel: 'Alt+Label',
+          scheme: 'Test Scheme'
+        }))
+      })
+
+      describe('when concept is not found', () => {
+        test('returns 404 status code', async () => {
+          const mockEvent = {
+            pathParameters: { conceptId: 'nonexistent' },
+            queryStringParameters: {}
+          }
+          getSkosConcept.mockResolvedValue(null)
+
+          const result = await getConcept(mockEvent)
+
+          expect(result.statusCode).toBe(404)
+          expect(result.headers['Content-Type']).toBe('application/json')
+          expect(JSON.parse(result.body)).toEqual({
+            error: 'Concept not found'
+          })
+        })
       })
     })
 
@@ -217,7 +321,8 @@ describe('getConcept', () => {
           conceptIRI: null,
           shortName: 'Short Name',
           altLabel: 'Alt+Label',
-          scheme: 'Test Scheme'
+          scheme: 'Test Scheme',
+          version: 'published'
         })
       })
     })

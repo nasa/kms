@@ -5,7 +5,7 @@ import {
   vi
 } from 'vitest'
 
-import toLegacyXML from '../toLegacyXML'
+import { toLegacyXML } from '../toLegacyXML'
 
 // Mock the createChangeNote function
 vi.mock('./createChangeNote', () => ({

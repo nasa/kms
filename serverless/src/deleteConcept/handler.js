@@ -12,12 +12,15 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * @param {Object} event - The Lambda event object.
  * @param {Object} event.pathParameters - The path parameters from the API Gateway event.
  * @param {string} event.pathParameters.conceptId - The ID of the concept to be deleted.
+ * @param {Object} event.queryStringParameters - Query string parameters.
+ * @param {string} [event.queryStringParameters.version='draft'] - The version of the concept to delete (default is 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
  * // Lambda event object
  * const event = {
- *   pathParameters: { conceptId: '123' }
+ *   pathParameters: { conceptId: '123' },
+ *   queryStringParameters: { version: 'draft' }
  * };
  *
  * const result = await deleteConcept(event);
@@ -31,14 +34,15 @@ import { getApplicationConfig } from '@/shared/getConfig'
  */
 export const deleteConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { pathParameters } = event
+  const { pathParameters, queryStringParameters } = event
   const { conceptId } = pathParameters
+  const version = queryStringParameters?.version || 'draft'
 
   // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
   try {
-    const { deleteResponse: response } = await deleteTriples(conceptIRI)
+    const { deleteResponse: response } = await deleteTriples(conceptIRI, version)
 
     if (!response.ok) {
       const responseText = await response.text()

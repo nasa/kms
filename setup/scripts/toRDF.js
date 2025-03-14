@@ -1,39 +1,12 @@
 const { XMLParser, XMLBuilder } = require('fast-xml-parser')
 
-const maxRetries = 10
-const retryDelay = 5000
-
-// eslint-disable-next-line no-promise-executor-return
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-// Continues to fetch if previous attempts do not succeed
-const fetchWithRetry = async (url, retries = 0) => {
-  try {
-    const response = await fetch(url)
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    return response
-  } catch (error) {
-    if (retries < maxRetries) {
-      console.log(`Fetch failed. Retrying in ${retryDelay / 1000} seconds... (Attempt ${retries + 1}/${maxRetries})`)
-      await delay(retryDelay)
-
-      return fetchWithRetry(url, retries + 1)
-    }
-
-    throw error
-  }
-}
-
 // Synthesizes information from jsonURL and xmlURL into one RDF skos:concept
 const toRDF = async (jsonURL, xmlURL) => {
   try {
-    const jsonResponse = await fetchWithRetry(jsonURL)
+    const jsonResponse = await fetch(jsonURL)
     const json = await jsonResponse.json()
 
-    const xmlResponse = await fetchWithRetry(xmlURL)
+    const xmlResponse = await fetch(xmlURL)
     const xmlText = await xmlResponse.text()
 
     const parser = new XMLParser({
@@ -217,4 +190,4 @@ const toRDF = async (jsonURL, xmlURL) => {
   }
 }
 
-module.exports = toRDF
+module.exports = { toRDF }

@@ -103,12 +103,16 @@ const waitForRepository = async ({
  * @async
  * @param {string} filePath - Path to the RDF/XML file.
  */
-const loadRDFXMLToRDF4J = async (filePath) => {
+const loadRDFXMLToRDF4J = async (filePath, version) => {
   try {
     const xmlData = await fs.readFile(filePath, 'utf8')
     console.log(`Read ${xmlData.length} bytes from file`)
 
-    const response = await fetch(rdf4jUrl, {
+    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
+    const url = new URL(rdf4jUrl)
+    url.searchParams.append('context', `<${graphUri}>`)
+
+    const response = await fetch(url, {
       method: 'POST',
       body: xmlData,
       headers: {
@@ -130,14 +134,37 @@ const loadRDFXMLToRDF4J = async (filePath) => {
 }
 
 /**
- * Main function to execute the setup process.
+ * Main function to execute the RDF4J setup process.
  *
- * This function performs the following steps:
- * 1. Checks if the RDF4J server is running.
- * 2. Waits for the specified repository to become available.
- * 3. Loads the RDF/XML data into the repository.
+ * This function orchestrates the setup of the RDF4J server and repository,
+ * and loads initial data into the repository. It performs the following steps:
+ *
+ * 1. Checks if the RDF4J server is running and accessible.
+ * 2. Waits for the specified repository ('kms') to become available.
+ * 3. Loads RDF/XML data into both the 'published' and 'draft' versions of the repository.
+ *
+ * The function loads four RDF/XML files:
+ * - 'setup/data/concepts_published.rdf' into the 'published' version
+ * - 'setup/data/schemes_published.rdf' into the 'published' version
+ * - 'setup/data/concepts_draft.rdf' into the 'draft' version
+ * - 'setup/data/schemes_draft.rdf' into the 'draft' version
  *
  * @async
+ * @function main
+ * @throws {Error} If there's an issue connecting to the RDF4J server, accessing the repository,
+ *                 or loading the RDF/XML data.
+ *
+ * @example
+ * // To run the setup process:
+ * main().catch(error => console.error('Setup failed:', error));
+ *
+ * @note This function relies on environment variables RDF4J_USER_NAME and RDF4J_PASSWORD
+ *       for authentication with the RDF4J server. If not set, it defaults to 'rdf4j' for both.
+ *
+ * @see Related functions:
+ * {@link checkRDF4JServer}
+ * {@link waitForRepository}
+ * {@link loadRDFXMLToRDF4J}
  */
 const main = async () => {
   try {
@@ -160,8 +187,10 @@ const main = async () => {
       return
     }
 
-    await loadRDFXMLToRDF4J('setup/data/convertedConcepts.rdf', rdf4jUrl)
-    await loadRDFXMLToRDF4J('setup/data/schemes.rdf', rdf4jUrl)
+    await loadRDFXMLToRDF4J('setup/data/concepts_published.rdf', 'published')
+    await loadRDFXMLToRDF4J('setup/data/schemes_published.rdf', 'published')
+    await loadRDFXMLToRDF4J('setup/data/concepts_draft.rdf', 'draft')
+    await loadRDFXMLToRDF4J('setup/data/schemes_draft.rdf', 'draft')
   } catch (error) {
     console.error('An error occurred:', error)
   }

@@ -146,7 +146,7 @@ describe('getNarrowersMap', () => {
 
       sparqlRequest.mockResolvedValue(mockResponse)
 
-      await getNarrowersMap('testScheme')
+      await getNarrowersMap('testScheme', 'published')
 
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.stringContaining('https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/testScheme')

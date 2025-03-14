@@ -18,6 +18,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @function createConcepts
  * @param {Object} event - The Lambda event object.
  * @param {string} event.body - The RDF/XML data containing SKOS concepts.
+ * @param {Object} event.queryStringParameters - Query string parameters.
+ * @param {string} [event.queryStringParameters.version='draft'] - The version of the concepts (default is 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing:
  *   - statusCode {number} - HTTP status code (200 for success, 400 for invalid input, 500 for server error)
  *   - body {string} - JSON stringified response body
@@ -25,7 +27,10 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * @example
  * // Successful creation
- * const event = { body: '<rdf:RDF>...</rdf:RDF>' };
+ * const event = {
+ *   body: '<rdf:RDF>...</rdf:RDF>',
+ *   queryStringParameters: { version: 'draft' }
+ * };
  * const result = await createConcepts(event);
  * console.log(result);
  * // {
@@ -36,7 +41,10 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * @example
  * // Invalid input
- * const event = { body: null };
+ * const event = {
+ *   body: null,
+ *   queryStringParameters: { version: 'draft' }
+ * };
  * const result = await createConcepts(event);
  * console.log(result);
  * // {
@@ -47,7 +55,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const createConcepts = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml } = event
+  const { body: rdfXml, queryStringParameters } = event || {}
+  const version = queryStringParameters?.version || 'draft'
 
   if (!rdfXml || typeof rdfXml !== 'string') {
     return {
@@ -80,7 +89,8 @@ export const createConcepts = async (event) => {
       accept: 'application/rdf+xml',
       path: '/statements',
       method: 'POST',
-      body: rdfXml
+      body: rdfXml,
+      version
     })
 
     if (!response.ok) {
