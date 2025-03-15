@@ -7,7 +7,6 @@ export const cmrRequest = async ({
 }) => {
   const getCmrEndpoint = () => {
     const baseUrl = process.env.CMR_BASE_URL
-    // Const baseUrl = 'https://cmr.earthdata.nasa.gov'
 
     return `${baseUrl}`
   }
