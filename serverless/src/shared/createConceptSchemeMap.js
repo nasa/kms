@@ -30,7 +30,7 @@ import getConceptSchemes from '@/getConceptSchemes/handler'
  * }
  */
 
-export const createConceptSchemeMap = () => getConceptSchemes()
+export const createConceptSchemeMap = async (event) => getConceptSchemes(event)
   .then((conceptSchemes) => {
     const xmlConceptSchemes = conceptSchemes.body
     const parser = new XMLParser({
