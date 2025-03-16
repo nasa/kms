@@ -274,6 +274,116 @@ describe('createChangeNote', () => {
     expect(createChangeNote(noteString)).toEqual(expectedResult)
   })
 
+  test('should handle User Note correctly, including empty and whitespace-only notes', () => {
+    const noteStringWithUserNote = `
+      Date: 2023-05-11
+      User Id: user808
+      User Note: This is a user note
+      Change Note Item #1
+      System Note: User note test
+      Entity: UserNoteEntity
+      Operation: UPDATE
+    `
+
+    const noteStringWithEmptyUserNote = `
+      Date: 2023-05-12
+      User Id: user909
+      User Note:
+      Change Note Item #1
+      System Note: Empty user note test
+      Entity: EmptyNoteEntity
+      Operation: UPDATE
+    `
+
+    const noteStringWithWhitespaceUserNote = `
+      Date: 2023-05-13
+      User Id: user101
+      User Note:     
+      Change Note Item #1
+      System Note: Whitespace user note test
+      Entity: WhitespaceNoteEntity
+      Operation: UPDATE
+    `
+
+    const resultWithUserNote = createChangeNote(noteStringWithUserNote)
+    const resultWithEmptyUserNote = createChangeNote(noteStringWithEmptyUserNote)
+    const resultWithWhitespaceUserNote = createChangeNote(noteStringWithWhitespaceUserNote)
+
+    expect(resultWithUserNote.userNote).toBe('This is a user note')
+    expect(resultWithEmptyUserNote.userNote).toBe('')
+    expect(resultWithWhitespaceUserNote.userNote).toBe('')
+
+    // Additional checks to ensure other properties are set correctly
+    expect(resultWithUserNote).toMatchObject({
+      date: '2023-05-11',
+      userId: 'user808',
+      changeNoteItems: [
+        {
+          systemNote: 'User note test',
+          entity: 'UserNoteEntity',
+          operation: 'UPDATE'
+        }
+      ]
+    })
+
+    expect(resultWithEmptyUserNote).toMatchObject({
+      date: '2023-05-12',
+      userId: 'user909',
+      changeNoteItems: [
+        {
+          systemNote: 'Empty user note test',
+          entity: 'EmptyNoteEntity',
+          operation: 'UPDATE'
+        }
+      ]
+    })
+
+    expect(resultWithWhitespaceUserNote).toMatchObject({
+      date: '2023-05-13',
+      userId: 'user101',
+      changeNoteItems: [
+        {
+          systemNote: 'Whitespace user note test',
+          entity: 'WhitespaceNoteEntity',
+          operation: 'UPDATE'
+        }
+      ]
+    })
+  })
+
+  test('should handle multiple New Value and Old Value entries in a single Change Note Item', () => {
+    const noteString = `
+      Date: 2023-05-10
+      User Id: user707
+      Change Note Item #1
+      System Note: Multiple value update
+      New Value: First new value
+      New Value: Second new value
+      Old Value: First old value
+      Old Value: Second old value
+      Entity: MultiValueEntity
+      Operation: UPDATE
+      Field: multiValueField
+    `
+
+    const expectedResult = {
+      date: '2023-05-10',
+      userId: 'user707',
+      changeNoteItems: [
+        {
+          systemNote: 'Multiple value update',
+          newValue: 'First new value\nSecond new value\n', // Note the trailing newline
+          oldValue: 'First old value\nSecond old value\n', // Note the trailing newline
+          entity: 'MultiValueEntity',
+          operation: 'UPDATE',
+          field: 'multiValueField'
+        }
+      ]
+    }
+
+    expect(createChangeNote(noteString)).toEqual(expectedResult)
+  })
+
   test('should ignore unexpected keys', () => {
     const noteString = `
       Date: 2023-05-01
@@ -790,6 +900,7 @@ describe('processRelations', () => {
 })
 
 describe('toKeywordJson', () => {
+  let consoleErrorSpy
   beforeEach(() => {
     vi.resetAllMocks()
     buildFullPath.mockResolvedValue('mocked/full/path')
@@ -808,6 +919,13 @@ describe('toKeywordJson', () => {
         prefLabel: 'Broader Concept'
       }]
     })
+
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    // Restore the original console.error after each test
+    consoleErrorSpy.mockRestore()
   })
 
   test('should convert a SKOS concept to JSON representation', async () => {
@@ -1072,5 +1190,36 @@ describe('toKeywordJson', () => {
       expect(result.narrowers).not.toContain(null)
       expect(result.narrowers).not.toContain(undefined)
     })
+  })
+
+  test('should throw an error when conversion fails', async () => {
+    // Mock a concept that will cause an error
+    const skosConcept = {
+      '@rdf:about': 'uuid123',
+      'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/earth_science' }
+      // Deliberately omit required properties to cause an error
+    }
+
+    const conceptSchemeMap = {}
+    const conceptToConceptSchemeShortNameMap = new Map()
+    const prefLabelMap = new Map()
+
+    // Mock buildFullPath to throw an error
+    vi.mocked(buildFullPath).mockRejectedValue(new Error('Failed to build full path'))
+
+    // Expect the function to throw an error
+
+    await expect(
+      toKeywordJson(
+        skosConcept,
+        conceptSchemeMap,
+        conceptToConceptSchemeShortNameMap,
+        prefLabelMap
+      )
+    )
+      .rejects.toThrow('Failed to convert concept to JSON: Failed to build full path')
+
+    // Verify that console.error was called with the expected message
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Error converting concept to JSON: Failed to build full path')
   })
 })
