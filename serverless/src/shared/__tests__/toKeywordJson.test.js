@@ -19,6 +19,17 @@ vi.mock('../buildFullPath')
 vi.mock('../getNumberOfCmrCollections')
 vi.mock('../toLegacyJSON')
 
+beforeAll(() => {
+  vi.spyOn(console, 'log').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.spyOn(console, 'info').mockImplementation(() => {})
+})
+
+afterAll(() => {
+  vi.restoreAllMocks()
+})
+
 describe('getAltLabels', () => {
   test('should return an empty array if altLabels is undefined', () => {
     expect(getAltLabels(undefined)).toEqual([])
@@ -97,10 +108,6 @@ describe('getAltLabels', () => {
 })
 
 describe('createChangeNote', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-  })
-
   test('should create a change note object from a valid string', () => {
     const noteString = `
       Date: 2023-05-01
@@ -291,6 +298,7 @@ describe('createChangeNote', () => {
     }
 
     expect(createChangeNote(noteString)).toEqual(expectedResult)
+    vi.restoreAllMocks()
   })
 
   test('should handle change notes without "Change Note Item" markers', () => {
@@ -315,10 +323,6 @@ describe('createChangeNote', () => {
 })
 
 describe('processChangeNotes', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-  })
-
   test('should return an empty array for null input', () => {
     expect(processChangeNotes(null)).toEqual([])
   })
@@ -605,6 +609,15 @@ describe('processChangeNotes', () => {
   })
 
   test('should handle a change note with unexpected keys', () => {
+    const originalConsoleWarn = console.warn
+    console.warn = (...args) => {
+      if (args[0].includes('Unexpected key in change note:')) {
+        return
+      }
+
+      originalConsoleWarn(...args)
+    }
+
     const changeNote = `
     Date: 2023-05-09
     User Id: user606
@@ -632,6 +645,8 @@ describe('processChangeNotes', () => {
         }
       ]
     })
+
+    console.warn = vi.restoreAllMocks()
   })
 })
 
