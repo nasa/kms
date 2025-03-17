@@ -298,6 +298,7 @@ export const toKeywordJson = async (
     }
 
     const leafConcept = legacyJson.isLeaf
+    const version = legacyJson.keywordVersion
 
     // Remove not used fields
     const {
@@ -315,6 +316,7 @@ export const toKeywordJson = async (
     cleanedLegacyJson.root = !skosConcept['skos:broader']
     cleanedLegacyJson.longName = primaryAltLabels && primaryAltLabels.length > 0 ? primaryAltLabels[0].text : ''
     cleanedLegacyJson.altLabels = allAltLabels
+    cleanedLegacyJson.version = version
     cleanedLegacyJson.scheme = scheme
     cleanedLegacyJson.fullPath = await buildFullPath(uuid)
 
