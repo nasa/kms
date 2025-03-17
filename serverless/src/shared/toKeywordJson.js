@@ -297,6 +297,8 @@ export const toKeywordJson = async (
       legacyJson.narrowers = []
     }
 
+    const leafConcept = legacyJson.isLeaf
+
     // Remove not used fields
     const {
       termsOfUse,
@@ -319,7 +321,9 @@ export const toKeywordJson = async (
     cleanedLegacyJson.numberOfCollections = await getNumberOfCmrCollections({
       scheme,
       conceptId: cleanedLegacyJson.uuid,
-      prefLabel: cleanedLegacyJson.prefLabel
+      prefLabel: cleanedLegacyJson.prefLabel,
+      fullPath: cleanedLegacyJson.fullPath,
+      isLeaf: leafConcept
     })
 
     // eslint-disable-next-line no-underscore-dangle

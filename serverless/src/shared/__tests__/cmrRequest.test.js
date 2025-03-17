@@ -1,3 +1,5 @@
+// CmrRequest.test.js
+
 import {
   afterEach,
   beforeEach,
@@ -6,83 +8,95 @@ import {
   vi
 } from 'vitest'
 
-import { cmrRequest } from '../cmrRequest'
+import { cmrGetRequest, cmrPostRequest } from '../cmrRequest'
+
+// Mock the global fetch function
+global.fetch = vi.fn()
 
 describe('cmrRequest', () => {
   beforeEach(() => {
-    // Mock the fetch function
-    global.fetch = vi.fn()
-
-    // Mock process.env
+    // Clear all mocks before each test
+    vi.clearAllMocks()
+    // Set up the environment variable
     process.env.CMR_BASE_URL = 'https://cmr.example.com'
   })
 
   afterEach(() => {
-    vi.resetAllMocks()
+    // Clear environment variables after each test
+    delete process.env.CMR_BASE_URL
   })
 
-  test('should make a request with default options', async () => {
-    global.fetch.mockResolvedValueOnce('mock response')
+  describe('cmrPostRequest', () => {
+    it('should make a POST request with correct parameters', async () => {
+      // Mock the fetch response
+      global.fetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true })
+      })
 
-    const result = await cmrRequest({ method: 'GET' })
+      const result = await cmrPostRequest({
+        path: '/search/collections',
+        body: JSON.stringify({ query: { keyword: 'MODIS' } }),
+        contentType: 'application/json',
+        accept: 'application/json'
+      })
 
-    expect(global.fetch).toHaveBeenCalledWith('https://cmr.example.com', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      }
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://cmr.example.com/search/collections',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          },
+          body: JSON.stringify({ query: { keyword: 'MODIS' } })
+        }
+      )
+
+      const jsonResult = await result.json()
+      expect(jsonResult).toEqual({ success: true })
     })
 
-    expect(result).toBe('mock response')
-  })
+    it('should not include body in request if it is empty', async () => {
+      global.fetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({})
+      })
 
-  test('should make a request with custom options', async () => {
-    global.fetch.mockResolvedValueOnce('mock response')
+      await cmrPostRequest({
+        path: '/search/collections'
+      })
 
-    const result = await cmrRequest({
-      path: '/api/collections',
-      method: 'POST',
-      body: JSON.stringify({ key: 'value' }),
-      contentType: 'application/xml',
-      accept: 'application/xml'
-    })
-
-    expect(global.fetch).toHaveBeenCalledWith('https://cmr.example.com/api/collections', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/xml',
-        Accept: 'application/xml'
-      },
-      body: JSON.stringify({ key: 'value' })
-    })
-
-    expect(result).toBe('mock response')
-  })
-
-  test('should not include body in fetchOptions if it is empty', async () => {
-    global.fetch.mockResolvedValueOnce('mock response')
-
-    await cmrRequest({
-      method: 'GET',
-      body: ''
-    })
-
-    expect(global.fetch).toHaveBeenCalledWith('https://cmr.example.com', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      }
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://cmr.example.com/search/collections',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+          }
+        }
+      )
     })
   })
 
-  test('should use the CMR_BASE_URL from environment variables', async () => {
-    process.env.CMR_BASE_URL = 'https://custom.cmr.com'
-    global.fetch.mockResolvedValueOnce('mock response')
+  describe('cmrGetRequest', () => {
+    it('should make a GET request with correct parameters', async () => {
+      global.fetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true })
+      })
 
-    await cmrRequest({ method: 'GET' })
+      const result = await cmrGetRequest({
+        path: '/search/collections?keyword=MODIS'
+      })
 
-    expect(global.fetch).toHaveBeenCalledWith('https://custom.cmr.com', expect.any(Object))
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://cmr.example.com/search/collections?keyword=MODIS',
+        {
+          method: 'GET'
+        }
+      )
+
+      const jsonResult = await result.json()
+      expect(jsonResult).toEqual({ success: true })
+    })
   })
 })
