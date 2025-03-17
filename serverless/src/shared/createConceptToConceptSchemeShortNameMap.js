@@ -17,7 +17,7 @@ import { sparqlRequest } from './sparqlRequest'
  *   console.error('Failed to create short name map:', error);
  * }
  */
-export const createConceptToConceptSchemeShortNameMap = async () => {
+export const createConceptToConceptSchemeShortNameMap = async (version) => {
   const query = `
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
     SELECT ?concept ?schemeShortName
@@ -33,7 +33,8 @@ export const createConceptToConceptSchemeShortNameMap = async () => {
       method: 'POST',
       body: query,
       contentType: 'application/sparql-query',
-      accept: 'application/sparql-results+json'
+      accept: 'application/sparql-results+json',
+      version
     })
 
     if (!response.ok) {
