@@ -283,19 +283,22 @@ export const toKeywordJson = async (
     // Remove scheme from each narrower if the array exists and is not empty
     if (legacyJson.narrowers && Array.isArray(legacyJson.narrowers)
     && legacyJson.narrowers.length > 0) {
-      legacyJson.narrowers = legacyJson.narrowers.map((narrower) => {
-        if (narrower && typeof narrower === 'object') {
-          const { scheme: narrowerScheme, ...narrowerWithoutScheme } = narrower
+      legacyJson.narrowers = legacyJson.narrower.map((narrower) => {
+        const { scheme: narrowerScheme, ...narrowerWithoutScheme } = narrower
 
-          return narrowerWithoutScheme
-        }
-
-        return narrower
+        return narrowerWithoutScheme
       })
     } else {
       // If narrowers is null, undefined, or an empty array, set it to an empty array
       legacyJson.narrowers = []
     }
+
+    legacyJson.narrowers.sort((a, b) => {
+      if (a.prefLabel < b.prefLabel) return -1
+      if (a.prefLabel > b.prefLabel) return 1
+
+      return 0
+    })
 
     const leafConcept = legacyJson.isLeaf
     const version = legacyJson.keywordVersion

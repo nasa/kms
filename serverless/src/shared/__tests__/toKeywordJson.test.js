@@ -975,7 +975,8 @@ describe('toKeywordJson', () => {
           date: '2023-05-01',
           userId: 'user123'
         }
-      ]
+      ],
+      version: '1.0'
     })
 
     // The 'uuid' from the input is not present in the output
@@ -1088,6 +1089,104 @@ describe('toKeywordJson', () => {
     ])
   })
 
+  test('should map narrowers, remove scheme property, sort alphabetically (case-sensitive), and handle duplicate prefLabels', async () => {
+    const skosConcept = {
+      '@rdf:about': 'test-uuid',
+      'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' }
+    }
+    const conceptSchemeMap = {}
+    const conceptToConceptSchemeShortNameMap = {}
+    const prefLabelMap = new Map()
+
+    // Mock toLegacyJSON to return an object with narrower terms in unsorted order, including duplicates
+    toLegacyJSON.mockReturnValue({
+      narrower: [
+        {
+          uuid: 'narrower2',
+          prefLabel: 'Zebra',
+          scheme: 'test_scheme'
+        },
+        {
+          uuid: 'narrower1',
+          prefLabel: 'Apple',
+          scheme: 'test_scheme'
+        },
+        {
+          uuid: 'narrower3',
+          prefLabel: 'Banana',
+          scheme: 'test_scheme'
+        },
+        {
+          uuid: 'narrower4',
+          prefLabel: 'apple',
+          scheme: 'test_scheme'
+        },
+        {
+          uuid: 'narrower5',
+          prefLabel: 'Banana',
+          scheme: 'test_scheme'
+        } // Duplicate prefLabel
+      ],
+      broader: [{
+        uuid: 'broader-uuid',
+        prefLabel: 'Broader Concept'
+      }]
+    })
+
+    const result = await toKeywordJson(
+      skosConcept,
+      conceptSchemeMap,
+      conceptToConceptSchemeShortNameMap,
+      prefLabelMap
+    )
+
+    // Check that narrowers are mapped correctly, scheme is removed, and they are sorted
+    expect(result.narrowers).toEqual([
+      {
+        uuid: 'narrower1',
+        prefLabel: 'Apple'
+      },
+      {
+        uuid: 'narrower3',
+        prefLabel: 'Banana'
+      },
+      {
+        uuid: 'narrower5',
+        prefLabel: 'Banana'
+      }, // Duplicate prefLabel
+      {
+        uuid: 'narrower2',
+        prefLabel: 'Zebra'
+      },
+      {
+        uuid: 'narrower4',
+        prefLabel: 'apple'
+      }
+    ])
+
+    // Additional checks for sorting and duplicate handling
+    expect(result.narrowers[0].prefLabel).toBe('Apple')
+    expect(result.narrowers[1].prefLabel).toBe('Banana')
+    expect(result.narrowers[2].prefLabel).toBe('Banana')
+    expect(result.narrowers[1].uuid).not.toBe(result.narrowers[2].uuid) // Ensure different UUIDs for duplicates
+    expect(result.narrowers[3].prefLabel).toBe('Zebra')
+    expect(result.narrowers[4].prefLabel).toBe('apple')
+
+    // Verify that the original narrower array is not present
+    expect(result).not.toHaveProperty('narrower')
+
+    // Check other properties
+    expect(result).toMatchObject({
+      scheme: 'test_scheme',
+      fullPath: 'mocked/full/path',
+      numberOfCollections: 10,
+      broader: {
+        uuid: 'broader-uuid',
+        prefLabel: 'Broader Concept'
+      }
+    })
+  })
+
   test('should handle concepts with broader terms', async () => {
     const skosConcept = {
       '@rdf:about': 'test-uuid',
@@ -1139,59 +1238,6 @@ describe('toKeywordJson', () => {
       .rejects.toThrow('Legacy JSON conversion failed')
   })
 
-  describe('narrowers handling', () => {
-    test('should remove scheme from narrowers and handle non-object narrowers', async () => {
-      const skosConcept = {
-        '@rdf:about': 'test-uuid',
-        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' }
-      }
-      const conceptSchemeMap = {}
-      const prefLabelMap = new Map()
-
-      toLegacyJSON.mockReturnValue({
-        narrower: [
-          {
-            scheme: 'test_scheme',
-            uuid: 'narrower1',
-            prefLabel: 'Narrower 1'
-          },
-          'not an object',
-          {
-            scheme: 'test_scheme',
-            uuid: 'narrower2',
-            prefLabel: 'Narrower 2',
-            additionalProp: 'should remain'
-          },
-          null,
-          undefined
-        ],
-        broader: [{
-          uuid: 'broader-uuid',
-          prefLabel: 'Broader Concept'
-        }]
-      })
-
-      const result = await toKeywordJson(skosConcept, conceptSchemeMap, {}, prefLabelMap)
-
-      expect(result.narrowers).toEqual([
-        {
-          uuid: 'narrower1',
-          prefLabel: 'Narrower 1'
-        },
-        'not an object',
-        {
-          uuid: 'narrower2',
-          prefLabel: 'Narrower 2',
-          additionalProp: 'should remain'
-        }
-      ])
-
-      // Additional checks to ensure null and undefined are removed
-      expect(result.narrowers).not.toContain(null)
-      expect(result.narrowers).not.toContain(undefined)
-    })
-  })
-
   test('should throw an error when conversion fails', async () => {
     // Mock a concept that will cause an error
     const skosConcept = {
@@ -1221,5 +1267,64 @@ describe('toKeywordJson', () => {
 
     // Verify that console.error was called with the expected message
     expect(consoleErrorSpy).toHaveBeenCalledWith('Error converting concept to JSON: Failed to build full path')
+  })
+})
+
+describe('toKeywordJson broader handling', () => {
+  let skosConcept; let conceptSchemeMap; let conceptToConceptSchemeShortNameMap; let
+    prefLabelMap
+
+  beforeEach(() => {
+    skosConcept = {
+      '@rdf:about': 'test-uuid',
+      'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme/test_scheme' }
+    }
+
+    conceptSchemeMap = {}
+    conceptToConceptSchemeShortNameMap = {}
+    prefLabelMap = new Map()
+
+    buildFullPath.mockResolvedValue('mocked/full/path')
+    getNumberOfCmrCollections.mockResolvedValue(10)
+  })
+
+  test('should handle concept with broader term', async () => {
+    toLegacyJSON.mockReturnValue({
+      broader: [{
+        uuid: 'broader-uuid',
+        prefLabel: 'Broader Concept',
+        scheme: 'test_scheme'
+      }]
+    })
+
+    const result = await toKeywordJson(
+      skosConcept,
+      conceptSchemeMap,
+      conceptToConceptSchemeShortNameMap,
+      prefLabelMap
+    )
+
+    expect(result.broader).toEqual({
+      uuid: 'broader-uuid',
+      prefLabel: 'Broader Concept'
+    })
+
+    expect(result.broader).not.toHaveProperty('scheme')
+  })
+
+  test('should handle concept without broader term', async () => {
+    toLegacyJSON.mockReturnValue({
+      broader: []
+    })
+
+    const result = await toKeywordJson(
+      skosConcept,
+      conceptSchemeMap,
+      conceptToConceptSchemeShortNameMap,
+      prefLabelMap
+    )
+
+    expect(result.broader).toBeUndefined()
+    expect(result.root).toBe(true)
   })
 })
