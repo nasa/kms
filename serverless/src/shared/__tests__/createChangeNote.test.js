@@ -5,9 +5,8 @@ import {
   vi
 } from 'vitest'
 
-import { createChangeNote } from '../createChangeNote'
-
 // Import the mocked function
+import { createChangeNote } from '../createChangeNote'
 import { createChangeNoteItem } from '../createChangeNoteItem'
 
 // Mock createChangeNoteItem as a named export
