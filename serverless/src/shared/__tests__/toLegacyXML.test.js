@@ -1,8 +1,7 @@
 import {
   describe,
   expect,
-  test,
-  vi
+  test
 } from 'vitest'
 
 import { toLegacyXML } from '../toLegacyXML'
