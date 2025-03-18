@@ -223,6 +223,13 @@ export const processRelations = (concept, prefLabelMap) => {
     relations.push(...platforms.map((platform) => processRelation(platform, 'is_on_platform')))
   }
 
+  relations.sort((a, b) => {
+    if (a.keyword.prefLabel < b.keyword.prefLabel) return -1
+    if (a.keyword.prefLabel > b.keyword.prefLabel) return 1
+
+    return 0
+  })
+
   return relations
 }
 

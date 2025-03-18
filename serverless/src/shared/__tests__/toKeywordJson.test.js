@@ -897,6 +897,114 @@ describe('processRelations', () => {
       }
     ])
   })
+
+  test('should sort relations by prefLabel', () => {
+    const concept = {
+      'gcmd:hasInstrument': [
+        { '@rdf:resource': 'uuid2' },
+        { '@rdf:resource': 'uuid1' },
+        { '@rdf:resource': 'uuid3' }
+      ]
+    }
+    const prefLabelMap1 = new Map([
+      ['uuid1', 'B Instrument'],
+      ['uuid2', 'C Instrument'],
+      ['uuid3', 'A Instrument']
+    ])
+
+    const result = processRelations(concept, prefLabelMap1)
+
+    expect(result).toEqual([
+      {
+        keyword: {
+          uuid: 'uuid3',
+          prefLabel: 'A Instrument'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid1',
+          prefLabel: 'B Instrument'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid2',
+          prefLabel: 'C Instrument'
+        },
+        relationshipType: 'has_instrument'
+      }
+    ])
+  })
+
+  test('should maintain order for relations with identical prefLabels', () => {
+    const concept = {
+      'gcmd:hasInstrument': [
+        { '@rdf:resource': 'uuid1' },
+        { '@rdf:resource': 'uuid2' },
+        { '@rdf:resource': 'uuid3' }
+      ],
+      'gcmd:isOnPlatform': [
+        { '@rdf:resource': 'uuid4' },
+        { '@rdf:resource': 'uuid5' }
+      ]
+    }
+    const prefLabelMap1 = new Map([
+      ['uuid1', 'Same Instrument'],
+      ['uuid2', 'Same Instrument'],
+      ['uuid3', 'Different Instrument'],
+      ['uuid4', 'Platform A'],
+      ['uuid5', 'Platform B']
+    ])
+
+    const result = processRelations(concept, prefLabelMap1)
+
+    expect(result).toEqual([
+      {
+        keyword: {
+          uuid: 'uuid3',
+          prefLabel: 'Different Instrument'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid4',
+          prefLabel: 'Platform A'
+        },
+        relationshipType: 'is_on_platform'
+      },
+      {
+        keyword: {
+          uuid: 'uuid5',
+          prefLabel: 'Platform B'
+        },
+        relationshipType: 'is_on_platform'
+      },
+      {
+        keyword: {
+          uuid: 'uuid1',
+          prefLabel: 'Same Instrument'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid2',
+          prefLabel: 'Same Instrument'
+        },
+        relationshipType: 'has_instrument'
+      }
+    ])
+
+    // Check that the order of 'Same Instrument' items is maintained
+    const sameInstrumentIndices = result
+      .map((r, index) => (r.keyword.prefLabel === 'Same Instrument' ? index : -1))
+      .filter((i) => i !== -1)
+    expect(sameInstrumentIndices[0]).toBeLessThan(sameInstrumentIndices[1])
+  })
 })
 
 describe('toKeywordJson', () => {
