@@ -4,7 +4,7 @@ import {
   test
 } from 'vitest'
 
-import createChangeNoteItem from '../createChangeNoteItem'
+import { createChangeNoteItem } from '../createChangeNoteItem'
 
 describe('createChangeNoteItem', () => {
   test('handles basic case with all fields', () => {

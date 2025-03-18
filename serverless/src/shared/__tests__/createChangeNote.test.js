@@ -5,13 +5,14 @@ import {
   vi
 } from 'vitest'
 
-// Import the mocked function
 import { createChangeNote } from '../createChangeNote'
-import mockedCreateChangeNoteItem from '../createChangeNoteItem'
 
-// Mock createChangeNoteItem as a default export
+// Import the mocked function
+import { createChangeNoteItem } from '../createChangeNoteItem'
+
+// Mock createChangeNoteItem as a named export
 vi.mock('../createChangeNoteItem', () => ({
-  default: vi.fn()
+  createChangeNoteItem: vi.fn()
 }))
 
 describe('createChangeNote', () => {
@@ -25,7 +26,7 @@ describe('createChangeNote', () => {
       New Value: new@example.com
     `
 
-    mockedCreateChangeNoteItem.mockReturnValue({
+    createChangeNoteItem.mockReturnValue({
       date: '2023-05-15',
       userId: 'john_doe',
       userNote: 'This is a user note',
@@ -63,7 +64,7 @@ describe('createChangeNote', () => {
       Operation: UPDATE
     `
 
-    mockedCreateChangeNoteItem.mockReturnValue({
+    createChangeNoteItem.mockReturnValue({
       date: '2023-05-15',
       userId: 'john_doe',
       entity: 'User',
@@ -94,7 +95,7 @@ describe('createChangeNote', () => {
   test('should handle an empty change note', () => {
     const rawChangeNote = ''
 
-    mockedCreateChangeNoteItem.mockReturnValue({})
+    createChangeNoteItem.mockReturnValue({})
 
     const result = createChangeNote(rawChangeNote)
 
