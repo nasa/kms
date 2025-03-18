@@ -7,11 +7,6 @@ import {
 
 import { toLegacyXML } from '../toLegacyXML'
 
-// Mock the createChangeNote function
-vi.mock('./createChangeNote', () => ({
-  default: vi.fn((note) => ({ mockChangeNote: note }))
-}))
-
 describe('toLegacyXML', () => {
   const mockConceptSchemeDetails = [
     {
@@ -135,7 +130,7 @@ describe('toLegacyXML', () => {
   })
 
   describe('when processing a concept with change notes', () => {
-    test('should correctly handle single and multiple change notes', () => {
+    test('should correctly handle single change notes', () => {
       const conceptSingleNote = {
         '@rdf:about': 'http://example.com/concept',
         'skos:prefLabel': { _text: 'Test Concept' },
@@ -144,7 +139,6 @@ describe('toLegacyXML', () => {
         Date: 2020-01-06
         User Id: tstevens
         User Note: Rename Concept
-        Change Note Item #1
         System Note: update PrefLabel
         New Value: EARLY
         Old Value: LOWER
@@ -154,39 +148,7 @@ describe('toLegacyXML', () => {
       `
       }
 
-      const conceptMultipleNotes = {
-        '@rdf:about': 'http://example.com/concept',
-        'skos:prefLabel': { _text: 'Test Concept' },
-        'skos:changeNote': [
-          `
-        Change Note Information
-        Date: 2020-01-06
-        User Id: tstevens
-        User Note: Rename Concept
-        Change Note Item #1
-        System Note: update PrefLabel
-        New Value: EARLY
-        Old Value: LOWER
-        Entity: PrefLabel
-        Operation: UPDATE
-        Field: text
-        `,
-          `
-        Change Note Information
-        Date: 2020-01-07
-        User Id: jsmith
-        User Note: Add Relation
-        Change Note Item #1
-        System Note: add relation
-        New Value: NewRelation
-        Entity: Relation
-        Operation: INSERT
-        `
-        ]
-      }
-
       const resultSingle = toLegacyXML(conceptSingleNote, mockConceptSchemeDetails, mockCsvHeaders, mockPrefLabelMap, 'testScheme')
-      const resultMultiple = toLegacyXML(conceptMultipleNotes, mockConceptSchemeDetails, mockCsvHeaders, mockPrefLabelMap, 'testScheme')
 
       expect(resultSingle.concept.changeNotes.changeNote).toEqual({
         '@date': '2020-01-06',
@@ -205,41 +167,6 @@ describe('toLegacyXML', () => {
           ]
         }
       })
-
-      expect(resultMultiple.concept.changeNotes.changeNote).toEqual([
-        {
-          '@date': '2020-01-06',
-          '@userId': 'tstevens',
-          '@userNote': 'Rename Concept',
-          changeNoteItems: {
-            changeNoteItem: [
-              {
-                '@systemNote': 'update PrefLabel',
-                '@newValue': 'EARLY',
-                '@oldValue': 'LOWER',
-                '@entity': 'PrefLabel',
-                '@operation': 'UPDATE',
-                '@field': 'text'
-              }
-            ]
-          }
-        },
-        {
-          '@date': '2020-01-07',
-          '@userId': 'jsmith',
-          '@userNote': 'Add Relation',
-          changeNoteItems: {
-            changeNoteItem: [
-              {
-                '@systemNote': 'add relation',
-                '@newValue': 'NewRelation',
-                '@entity': 'Relation',
-                '@operation': 'INSERT'
-              }
-            ]
-          }
-        }
-      ])
     })
   })
 

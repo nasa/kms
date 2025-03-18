@@ -1,4 +1,4 @@
-import { createChangeNote } from './createChangeNote'
+import { createChangeNote } from '@/shared/createChangeNote'
 
 /**
  * Converts a SKOS concept from a specific version to a legacy XML format.
