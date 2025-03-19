@@ -50,7 +50,9 @@ describe('toLegacyJSON', () => {
       ['narrowerUUID1', 'Narrower PrefLabel 1'],
       ['narrowerUUID2', 'Narrower PrefLabel 2'],
       ['relatedUUID1', 'Related PrefLabel 1'],
-      ['relatedUUID2', 'Related PrefLabel 2']
+      ['relatedUUID2', 'Related PrefLabel 2'],
+      ['relatedUUID3', 'Related PrefLabel 3'],
+      ['relatedUUID4', 'Related PrefLabel 4']
     ])
 
     mockConceptToConceptSchemeShortNameMap = new Map([
@@ -59,7 +61,9 @@ describe('toLegacyJSON', () => {
       ['narrowerUUID1', 'testNarrowerScheme'],
       ['narrowerUUID2', 'testNarrowerScheme'],
       ['relatedUUID1', 'testRelatedScheme'],
-      ['relatedUUID2', 'testRelatedScheme']
+      ['relatedUUID2', 'testRelatedScheme'],
+      ['relatedUUID3', 'testRelatedScheme'],
+      ['relatedUUID4', 'testRelatedScheme']
     ])
   })
 
@@ -222,8 +226,8 @@ describe('toLegacyJSON', () => {
       ])
     })
 
-    test('should return correct related information for isOnPlatform', () => {
-      mockConcept['gcmd:isOnPlatform'] = [
+    test('should return correct related information for onPlatform', () => {
+      mockConcept['gcmd:onPlatform'] = [
         { '@rdf:resource': 'relatedUUID1' },
         { '@rdf:resource': 'relatedUUID2' }
       ]
@@ -440,10 +444,11 @@ describe('toLegacyJSON', () => {
     })
   })
 
-  describe('when the concept has both hasInstrument and isOnPlatform relations', () => {
+  describe('when the concept has both hasInstrument, hasSensor, and onPlatform relations', () => {
     test('should include both types of relations in the related array', () => {
       mockConcept['gcmd:hasInstrument'] = { '@rdf:resource': 'relatedUUID1' }
-      mockConcept['gcmd:isOnPlatform'] = { '@rdf:resource': 'relatedUUID2' }
+      mockConcept['gcmd:onPlatform'] = { '@rdf:resource': 'relatedUUID2' }
+      mockConcept['gcmd:hasSensor'] = { '@rdf:resource': 'relatedUUID3' }
 
       const result = toLegacyJSON(
         mockConcept,
@@ -463,6 +468,15 @@ describe('toLegacyJSON', () => {
           type: 'has_instrument'
         },
         {
+          uuid: 'relatedUUID3',
+          prefLabel: 'Test PrefLabel',
+          scheme: {
+            shortName: 'testRelatedScheme',
+            longName: 'Test Related Scheme'
+          },
+          type: 'has_sensor'
+        },
+        {
           uuid: 'relatedUUID2',
           prefLabel: 'Test PrefLabel',
           scheme: {
@@ -470,6 +484,30 @@ describe('toLegacyJSON', () => {
             longName: 'Test Related Scheme'
           },
           type: 'is_on_platform'
+        }
+      ])
+    })
+  })
+
+  describe('when the concept has skos:related relationships', () => {
+    test('should include both types of relations in the related array', () => {
+      mockConcept['skos:related'] = { '@rdf:resource': 'relatedUUID4' }
+
+      const result = toLegacyJSON(
+        mockConcept,
+        mockConceptSchemeMap,
+        mockConceptToConceptSchemeShortNameMap,
+        mockPrefLabelMap
+      )
+
+      expect(result.related).toEqual([
+        {
+          uuid: 'relatedUUID4',
+          prefLabel: 'Test PrefLabel',
+          scheme: {
+            shortName: 'testRelatedScheme',
+            longName: 'Test Related Scheme'
+          }
         }
       ])
     })

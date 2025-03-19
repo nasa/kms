@@ -37,13 +37,13 @@ const toRDF = async (jsonURL, xmlURL) => {
     // Helper function to provide information for <skos:changeNote> based on what the xml data looks like
     // It also adds attributes for easier parsing
     const createChangeNotes = (date, userId, userNote, changeNoteItems) => {
-      let changeNoteText = ''
       if (changeNoteItems) {
         const changeNoteItem = Array.isArray(changeNoteItems.changeNoteItem)
           ? changeNoteItems.changeNoteItem
           : [changeNoteItems.changeNoteItem]
 
-        changeNoteItem.forEach((item) => {
+        return changeNoteItem.map((item) => {
+          let changeNoteText = ''
           const {
             '@_systemNote': systemNote,
             '@_newValue': newValue,
@@ -62,10 +62,12 @@ const toRDF = async (jsonURL, xmlURL) => {
           changeNoteText += addText('System Note', systemNote, true)
           changeNoteText += addText('Old Value', oldValue, true)
           changeNoteText += addText('New Value', newValue, true)
+
+          return changeNoteText
         })
       }
 
-      return changeNoteText.trim()
+      return []
     }
 
     const concept = {
@@ -129,31 +131,55 @@ const toRDF = async (jsonURL, xmlURL) => {
       '@_rdf:resource': narrow.uuid
     }))
 
-    concept['gcmd:hasInstrument'] = []
-    concept['gcmd:isOnPlatform'] = []
+    const relateds = ['gcmd:hasInstrument', 'gcmd:onPlatform', 'gcmd:hasSensor', 'skos:related']
+    relateds.forEach((related) => {
+      concept[related] = []
+    })
 
-    json.related.forEach((rel) => {
+    const source = json.scheme.shortName
+
+    json.related?.forEach((rel) => {
       const { scheme } = rel
-      const { shortName } = scheme
-      if (shortName === 'instruments') {
+      const { shortName: target } = scheme
+
+      let found = false
+      if (source === 'platforms' && target === 'instruments') {
         concept['gcmd:hasInstrument'].push({
           '@_rdf:resource': rel.uuid
         })
-      } else {
-        concept['gcmd:isOnPlatform'].push({
+
+        found = true
+      }
+
+      if (source === 'instruments' && target === 'platforms') {
+        concept['gcmd:onPlatform'].push({
+          '@_rdf:resource': rel.uuid
+        })
+
+        found = true
+      }
+
+      if (source === 'instruments' && target === 'instruments') {
+        concept['gcmd:hasSensor'].push({
+          '@_rdf:resource': rel.uuid
+        })
+
+        found = true
+      }
+
+      if (!found) {
+        concept['skos:related'].push({
           '@_rdf:resource': rel.uuid
         })
       }
     })
 
     // Remove empty arrays
-    if (concept['gcmd:hasInstrument'].length === 0) {
-      delete concept['gcmd:hasInstrument']
-    }
-
-    if (concept['gcmd:isOnPlatform'].length === 0) {
-      delete concept['gcmd:isOnPlatform']
-    }
+    relateds.forEach((related) => {
+      if (concept[related].length === 0) {
+        delete concept[related]
+      }
+    })
 
     const { changeNotes } = xml.concept
     let changeNote = changeNotes?.changeNote
@@ -162,9 +188,17 @@ const toRDF = async (jsonURL, xmlURL) => {
         changeNote = [changeNote]
       }
 
-      concept['skos:changeNote'] = changeNote.map((note) => ({
-        '#text': `${createChangeNotes(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)}`
-      }))
+      concept['skos:changeNote'] = []
+      changeNote.forEach((note) => {
+        const notes = createChangeNotes(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems)
+        notes.forEach((changeNoteItem) => {
+          concept['skos:changeNote'].push({ '#text': changeNoteItem })
+        })
+      })
+    }
+
+    if (concept['skos:changeNote']?.length === 0) {
+      delete concept['skos:changeNote']
     }
 
     const rdfObject = {

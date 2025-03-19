@@ -138,15 +138,19 @@ export const toLegacyJSON = (
           const relatedShortName = conceptToConceptSchemeShortNameMap.get(relationUuid)
           const relatedLongName = conceptSchemeMap.get(relatedShortName)
 
-          return {
+          const result = {
             uuid: relationUuid,
             prefLabel: prefLabelMap.get(uuid),
             scheme: {
               shortName: relatedShortName,
               longName: relatedLongName
-            },
-            type
+            }
           }
+          if (type) {
+            result.type = type
+          }
+
+          return result
         }
 
         // Handle gcmd:hasInstrument
@@ -158,13 +162,31 @@ export const toLegacyJSON = (
           instruments.forEach((instrument) => relations.push(processRelation(instrument, 'has_instrument')))
         }
 
-        // Handle gcmd:isOnPlatform
-        if (concept['gcmd:isOnPlatform']) {
-          const platforms = Array.isArray(concept['gcmd:isOnPlatform'])
-            ? concept['gcmd:isOnPlatform']
-            : [concept['gcmd:isOnPlatform']]
+        // Handle gcmd:hasSensor
+        if (concept['gcmd:hasSensor']) {
+          const sensors = Array.isArray(concept['gcmd:hasSensor'])
+            ? concept['gcmd:hasSensor']
+            : [concept['gcmd:hasSensor']]
+
+          sensors.forEach((sensor) => relations.push(processRelation(sensor, 'has_sensor')))
+        }
+
+        // Handle gcmd:onPlatform
+        if (concept['gcmd:onPlatform']) {
+          const platforms = Array.isArray(concept['gcmd:onPlatform'])
+            ? concept['gcmd:onPlatform']
+            : [concept['gcmd:onPlatform']]
 
           platforms.forEach((platform) => relations.push(processRelation(platform, 'is_on_platform')))
+        }
+
+        // Handle skos:related
+        if (concept['skos:related']) {
+          const related = Array.isArray(concept['skos:related'])
+            ? concept['skos:related']
+            : [concept['skos:related']]
+
+          related.forEach((relatedItem) => relations.push(processRelation(relatedItem, null)))
         }
 
         return relations
