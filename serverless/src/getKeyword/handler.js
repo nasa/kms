@@ -1,7 +1,3 @@
-import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
-import {
-  createConceptToConceptSchemeShortNameMap
-} from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSkosConcept } from '@/shared/getSkosConcept'
@@ -35,15 +31,9 @@ const getKeyword = async (event) => {
     }
 
     const prefLabelMap = await createPrefLabelMap(version)
-    const conceptSchemeMap = await createConceptSchemeMap(event)
-    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(
-      version
-    )
 
     const result = await toKeywordJson(
       concept,
-      conceptSchemeMap,
-      conceptToConceptSchemeShortNameMap,
       prefLabelMap
     )
 

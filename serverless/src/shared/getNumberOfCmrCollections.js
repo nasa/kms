@@ -64,8 +64,8 @@ export const getJsonQueryForKeywordHierarchy = ({
 /**
  * Gets the number of CMR collections based on the provided parameters
  * @param {object} params - The parameters object
- * @param {string} params.scheme - The scheme to use for the query (e.g., 'sciencekeywords', 'projects', 'providers')
- * @param {string} [params.conceptId] - The concept ID (used for schemes like 'sciencekeywords', 'platforms', 'instruments', 'locations')
+ * @param {string} [params.scheme] - The scheme to use for the query (e.g., 'sciencekeywords', 'projects', 'providers')
+ * @param {string} [params.uuid] - The concept ID (used for schemes like 'sciencekeywords', 'platforms', 'instruments', 'locations')
  * @param {string} [params.prefLabel] - The preferred label (used for schemes like 'projects', 'ProductLevelId', or as short_name for 'providers')
  * @param {string} [params.fullPath] - The full hierarchical path (used for 'providers' scheme)
  * @param {boolean} [params.isLeaf] - Indicates if the node is a leaf node (used for 'providers' scheme)
@@ -75,7 +75,7 @@ export const getJsonQueryForKeywordHierarchy = ({
  * // Example 1: Searching by science keywords
  * const scienceKeywordsCount = await getNumberOfCmrCollections({
  *   scheme: 'sciencekeywords',
- *   conceptId: '1234-5678-9ABC-DEF0'
+ *   uuid: '1234-5678-9ABC-DEF0'
  * });
  *
  * @example
@@ -98,12 +98,12 @@ export const getJsonQueryForKeywordHierarchy = ({
  * // Example 4: Searching by instrument
  * const instrumentCount = await getNumberOfCmrCollections({
  *   scheme: 'instruments',
- *   conceptId: 'ABCD-1234-5678-EFGH'
+ *   uuid: 'ABCD-1234-5678-EFGH'
  * });
  */
 export const getNumberOfCmrCollections = async ({
   scheme,
-  conceptId,
+  uuid,
   prefLabel,
   fullPath,
   isLeaf
@@ -146,7 +146,7 @@ export const getNumberOfCmrCollections = async ({
     const jsonQuery = {
       condition: {
         [cmrScheme]: {
-          uuid: conceptId
+          uuid
         }
       }
     }
