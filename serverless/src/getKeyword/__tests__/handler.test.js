@@ -55,7 +55,7 @@ describe('getKeyword', () => {
     const result = await getKeyword(event)
 
     expect(result.statusCode).toBe(404)
-    expect(JSON.parse(result.body)).toEqual({ error: 'Keyword not found' })
+    expect(JSON.parse(result.body)).toEqual({ error: 'Keyword not found for uuid=nonexistent' })
   })
 
   test('should return 200 with keyword data if concept exists', async () => {
