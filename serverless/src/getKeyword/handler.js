@@ -25,7 +25,7 @@ const getKeyword = async (event) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          error: 'Keyword not found'
+          error: `Keyword not found for uuid=${conceptId}`
         })
       }
     }
