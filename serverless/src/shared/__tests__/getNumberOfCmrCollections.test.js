@@ -36,7 +36,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'sciencekeywords',
-      conceptId: '1234-5678-9ABC-DEF0'
+      uuid: '1234-5678-9ABC-DEF0'
     })
 
     expect(result).toBe(100)
@@ -133,7 +133,7 @@ describe('getNumberOfCmrCollections', () => {
     await Promise.all(testCases.map(async (testCase) => {
       const result = await getNumberOfCmrCollections({
         scheme: testCase.scheme,
-        conceptId: 'test-id',
+        uuid: 'test-id',
         prefLabel: 'test-label',
         fullPath: 'LEVEL_1|LEVEL_2',
         isLeaf: true
@@ -202,7 +202,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'locations',
-      conceptId: 'LOC-1234-5678-ABCD'
+      uuid: 'LOC-1234-5678-ABCD'
     })
 
     expect(result).toBe(35)
@@ -261,7 +261,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'instruments',
-      conceptId: 'ABCD-1234-5678-EFGH'
+      uuid: 'ABCD-1234-5678-EFGH'
     })
 
     expect(result).toBe(25)
@@ -331,7 +331,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'sciencekeywords',
-      conceptId: '1234-5678-9ABC-DEF0'
+      uuid: '1234-5678-9ABC-DEF0'
     })
 
     expect(result).toBeNull()
@@ -350,7 +350,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'sciencekeywords',
-      conceptId: '1234-5678-9ABC-DEF0'
+      uuid: '1234-5678-9ABC-DEF0'
     })
 
     expect(result).toBe(0)
@@ -383,7 +383,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'platforms',
-      conceptId: 'PLAT-1234-5678'
+      uuid: 'PLAT-1234-5678'
     })
 
     expect(result).toBe(45)
@@ -440,7 +440,7 @@ describe('getNumberOfCmrCollections', () => {
     await Promise.all(schemes.map(async (scheme) => {
       const result = await getNumberOfCmrCollections({
         scheme,
-        conceptId: 'test-id',
+        uuid: 'test-id',
         prefLabel: 'test-label',
         fullPath: 'LEVEL_1|LEVEL_2',
         isLeaf: true
