@@ -104,15 +104,16 @@ export const getConcept = async (event) => {
     }
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${concept['@rdf:about']}`
-    const prefLabelMap = await createPrefLabelMap()
+    const prefLabelMap = await createPrefLabelMap(version)
 
     let responseBody
     let contentType
 
     // Create a different responseBody based on format recieved from queryStringParameters (defaults to 'rdf)
     if (format.toLowerCase() === 'json') {
-      const conceptSchemeMap = await createConceptSchemeMap()
-      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap()
+      const conceptSchemeMap = await createConceptSchemeMap(event)
+      // eslint-disable-next-line max-len
+      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
       responseBody = JSON.stringify(toLegacyJSON(
         concept,
         conceptSchemeMap,
@@ -133,10 +134,13 @@ export const getConcept = async (event) => {
       const schemeShortName = schemeResource.split('/').pop()
       const csvHeaders = await getCsvHeaders(schemeShortName)
       const conceptSchemeDetails = await getConceptSchemeDetails({ version })
+      // eslint-disable-next-line max-len
+      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
       const legacyXML = toLegacyXML(
         concept,
         conceptSchemeDetails,
         csvHeaders,
+        conceptToConceptSchemeShortNameMap,
         prefLabelMap,
         schemeShortName
       )

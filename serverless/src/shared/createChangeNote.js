@@ -1,62 +1,62 @@
+import { createChangeNoteItem } from '@/shared/createChangeNoteItem'
+
 /**
- * Creates a change note string and converts it into a structured object.
+ * Creates a structured change note object from raw change note text.
  *
- * @param {string} note - The change note string to process.
- * @returns {Object} An object representing the processed change note, with the following structure:
- *   {
- *     '@date': string,
- *     '@userId': string,
- *     '@userNote': string,
- *     changeNoteItems: {
- *       changeNoteItem: [
- *         {
- *           '@systemNote': string,
- *           '@newValue': string,
- *           '@oldValue': string,
- *           '@entity': string,
- *           '@operation': string,
- *           '@field': string
- *         },
- *         ...
- *       ]
- *     }
- *   }
+ * @param {string} changeNoteText - The raw text of the change note.
+ * @returns {Object} A structured object representing the change note.
+ *
+ * @description
+ * This function takes raw change note text and converts it into a structured object
+ * that represents a change note in a specific format. The process involves:
+ * 1. Parsing the raw text using the createChangeNoteItem function.
+ * 2. Constructing a new object with a specific structure, including:
+ *    - Top-level metadata (date, userId, userNote)
+ *    - A nested 'changeNoteItems' object containing an array of change note items
+ *
+ * The resulting object is designed to be easily convertible to XML or other
+ * structured formats for further processing or storage.
+ *
+ * @example
+ * const rawText = "Date: 2023-05-15\nUser Id: john_doe\nEntity: User\nOperation: UPDATE";
+ * const changeNote = createChangeNote(rawText);
+ * // Returns:
+ * // {
+ * //   "@date": "2023-05-15",
+ * //   "@userId": "john_doe",
+ * //   "@userNote": undefined,
+ * //   "changeNoteItems": {
+ * //     "changeNoteItem": [
+ * //       {
+ * //         "@entity": "User",
+ * //         "@operation": "UPDATE",
+ * //         "@systemNote": undefined,
+ * //         "@newValue": undefined,
+ * //         "@oldValue": undefined,
+ * //         "@field": undefined
+ * //       }
+ * //     ]
+ * //   }
+ * // }
  */
-export const createChangeNote = (note) => {
-  const lines = note.split('\n').map((line) => line.trim())
-  const changeNote = {
+export const createChangeNote = (changeNoteText) => {
+  const changeNoteItem = createChangeNoteItem(changeNoteText)
+
+  return {
+    '@date': changeNoteItem.date,
+    '@userId': changeNoteItem.userId,
+    '@userNote': changeNoteItem.userNote,
     changeNoteItems: {
-      changeNoteItem: []
+      changeNoteItem: [
+        {
+          '@systemNote': changeNoteItem.systemNote,
+          '@newValue': changeNoteItem.newValue,
+          '@oldValue': changeNoteItem.oldValue,
+          '@entity': changeNoteItem.entity,
+          '@operation': changeNoteItem.operation,
+          '@field': changeNoteItem.field
+        }
+      ]
     }
   }
-  let currentChangeNoteItem = null
-
-  lines.forEach((line) => {
-    if (line.startsWith('Date:')) changeNote['@date'] = line.split(':')[1].trim()
-    else if (line.startsWith('User Id:')) changeNote['@userId'] = line.split(':')[1].trim()
-    else if (line.startsWith('User Note:')) changeNote['@userNote'] = line.split(':')[1].trim() || ''
-    else if (line.startsWith('Change Note Item #')) {
-      if (currentChangeNoteItem) {
-        changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
-      }
-
-      currentChangeNoteItem = {}
-    } else if (currentChangeNoteItem) {
-      const [key, ...valueParts] = line.split(':')
-      const value = valueParts.join(':').trim()
-      if (key === 'System Note') currentChangeNoteItem['@systemNote'] = value
-      else if (key === 'New Value') currentChangeNoteItem['@newValue'] = value
-      else if (key === 'Old Value') currentChangeNoteItem['@oldValue'] = value
-      else if (key === 'Entity') currentChangeNoteItem['@entity'] = value
-      else if (key === 'Operation') currentChangeNoteItem['@operation'] = value
-      else if (key === 'Field') currentChangeNoteItem['@field'] = value
-    }
-  })
-
-  // Add the last ChangeNoteItem if it exists
-  if (currentChangeNoteItem) {
-    changeNote.changeNoteItems.changeNoteItem.push(currentChangeNoteItem)
-  }
-
-  return changeNote
 }
