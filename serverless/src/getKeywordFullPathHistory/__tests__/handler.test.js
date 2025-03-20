@@ -17,9 +17,18 @@ vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getVersionNames')
 
 describe('getKeywordFullPathHistory', () => {
+  // Add these lines at the beginning of your describe block
+  let consoleErrorSpy
+
   beforeEach(() => {
-    // Reset all mocks before each test
-    vi.resetAllMocks()
+    vi.clearAllMocks()
+    // Mock console.error before each test
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    // Restore console.error after each test
+    consoleErrorSpy.mockRestore()
   })
 
   test('should return keyword full path history successfully', async () => {

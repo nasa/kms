@@ -1,7 +1,4 @@
-import {
-  describe,
-  expect
-} from 'vitest'
+import { describe, expect } from 'vitest'
 
 import { getVersionNamesQuery } from '../getVersionNamesQuery'
 

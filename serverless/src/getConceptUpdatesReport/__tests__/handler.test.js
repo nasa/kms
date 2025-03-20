@@ -2,7 +2,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -23,14 +22,14 @@ describe('getConceptUpdatesReport', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'Content-Type': 'application/json' } })
   })
 
-  it('should return 400 if mandatory parameters are missing', async () => {
+  test('should return 400 if mandatory parameters are missing', async () => {
     const event = { queryStringParameters: {} }
     const response = await getConceptUpdatesReport(event)
     expect(response.statusCode).toBe(400)
     expect(JSON.parse(response.body).error).toContain('Missing mandatory parameter(s)')
   })
 
-  it('should return 400 if date format is invalid', async () => {
+  test('should return 400 if date format is invalid', async () => {
     const event = {
       queryStringParameters: {
         version: '1.0',
@@ -43,7 +42,7 @@ describe('getConceptUpdatesReport', () => {
     expect(JSON.parse(response.body).error).toContain('Invalid date format')
   })
 
-  it('should return 200 with CSV data for valid input', async () => {
+  test('should return 200 with CSV data for valid input', async () => {
     const event = {
       queryStringParameters: {
         version: '1.0',
@@ -79,7 +78,7 @@ describe('getConceptUpdatesReport', () => {
 })
 
 describe('createCsvReport', () => {
-  it('should create a CSV report from processed change notes', () => {
+  test('should create a CSV report from processed change notes', () => {
     const notes = [
       {
         date: '2023-06-01',
@@ -107,7 +106,7 @@ describe('createCsvReport', () => {
     expect(csv).toContain('"2023-06-01","user1","Concept","Update","","Label","","Old","New"')
   })
 
-  it('should filter notes by userId when provided', () => {
+  test('should filter notes by userId when provided', () => {
     const notes = [
       {
         date: '2023-06-01',
@@ -134,7 +133,7 @@ describe('createCsvReport', () => {
     expect(csv).not.toContain('user2')
   })
 
-  it('should handle empty input', () => {
+  test('should handle empty input', () => {
     const csv = createCsvReport([], null, 'Empty Report')
     expect(csv).toContain('Empty Report')
     expect(csv).toContain('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
@@ -142,9 +141,9 @@ describe('createCsvReport', () => {
     expect(lines).toHaveLength(2) // Title and headers only, no data rows
     expect(lines[0]).toBe('Empty Report')
     expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
-  })  
+  })
 
-  it('should properly escape and quote values', () => {
+  test('should properly escape and quote values', () => {
     const notes = [
       {
         date: '2023-06-01',
@@ -162,11 +161,35 @@ describe('createCsvReport', () => {
     expect(csv).toContain('"New,value"') // Comma in newValue should be quoted
   })
 
-  it('should sort notes by date, newest first', () => {
+  test('should sort notes by date, newest first', () => {
     const notes = [
-      { date: '2023-06-01', userId: 'user1', entity: 'Concept', operation: 'Update', field: 'Label', oldValue: 'Old', newValue: 'New' },
-      { date: '2023-06-03', userId: 'user2', entity: 'Concept', operation: 'Create', field: 'Definition', oldValue: '', newValue: 'New definition' },
-      { date: '2023-06-02', userId: 'user3', entity: 'Concept', operation: 'Delete', field: '', oldValue: '', newValue: '' }
+      {
+        date: '2023-06-01',
+        userId: 'user1',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Label',
+        oldValue: 'Old',
+        newValue: 'New'
+      },
+      {
+        date: '2023-06-03',
+        userId: 'user2',
+        entity: 'Concept',
+        operation: 'Create',
+        field: 'Definition',
+        oldValue: '',
+        newValue: 'New definition'
+      },
+      {
+        date: '2023-06-02',
+        userId: 'user3',
+        entity: 'Concept',
+        operation: 'Delete',
+        field: '',
+        oldValue: '',
+        newValue: ''
+      }
     ]
     const csv = createCsvReport(notes, null, 'Sorted Report')
     const lines = csv.split('\n')
@@ -175,7 +198,7 @@ describe('createCsvReport', () => {
     expect(lines[4]).toContain('"2023-06-01"') // Oldest date should be last
   })
 
-  it('should handle undefined or null values', () => {
+  test('should handle undefined or null values', () => {
     const notes = [
       {
         date: '2023-06-01',

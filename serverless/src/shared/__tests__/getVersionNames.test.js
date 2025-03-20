@@ -12,9 +12,18 @@ import { sparqlRequest } from '../sparqlRequest'
 vi.mock('../sparqlRequest')
 
 describe('getVersionNames', () => {
+  // Add these lines at the beginning of your describe block
+  let consoleErrorSpy
+
   beforeEach(() => {
-    // Clear all mocks before each test
     vi.clearAllMocks()
+    // Mock console.error before each test
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    // Restore console.error after each test
+    consoleErrorSpy.mockRestore()
   })
 
   test('should return an array of version names when successful', async () => {
