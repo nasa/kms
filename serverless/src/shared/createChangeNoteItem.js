@@ -25,7 +25,7 @@ import { camelCase } from 'lodash'
  * capturing all text even if it doesn't match the expected structure.
  */
 export const createChangeNoteItem = (rawText) => {
-  const fields = ['Date', 'User Id', 'Entity', 'Operation', 'System Note', 'Field', 'User Note', 'Old Value', 'New Value']
+  const fields = ['[Date]', '[User Id]', '[Entity]', '[Operation]', '[System Note]', '[Field]', '[User Note]', '[Old Value]', '[New Value]']
   const result = {}
   let currentFieldInScope = null
   let buffer = []
