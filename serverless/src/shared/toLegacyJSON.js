@@ -49,6 +49,8 @@
  * be managed by the calling function when retrieving the concept and creating the necessary maps.
  */
 
+import { castArray } from 'lodash'
+
 export const toLegacyJSON = (
   concept,
   conceptSchemeMap,
@@ -155,37 +157,25 @@ export const toLegacyJSON = (
 
         // Handle gcmd:hasInstrument
         if (concept['gcmd:hasInstrument']) {
-          const instruments = Array.isArray(concept['gcmd:hasInstrument'])
-            ? concept['gcmd:hasInstrument']
-            : [concept['gcmd:hasInstrument']]
-
+          const instruments = castArray(concept['gcmd:hasInstrument'])
           instruments.forEach((instrument) => relations.push(processRelation(instrument, 'has_instrument')))
         }
 
         // Handle gcmd:hasSensor
         if (concept['gcmd:hasSensor']) {
-          const sensors = Array.isArray(concept['gcmd:hasSensor'])
-            ? concept['gcmd:hasSensor']
-            : [concept['gcmd:hasSensor']]
-
+          const sensors = castArray(concept['gcmd:hasSensor'])
           sensors.forEach((sensor) => relations.push(processRelation(sensor, 'has_sensor')))
         }
 
         // Handle gcmd:onPlatform
         if (concept['gcmd:onPlatform']) {
-          const platforms = Array.isArray(concept['gcmd:onPlatform'])
-            ? concept['gcmd:onPlatform']
-            : [concept['gcmd:onPlatform']]
-
+          const platforms = castArray(concept['gcmd:onPlatform'])
           platforms.forEach((platform) => relations.push(processRelation(platform, 'is_on_platform')))
         }
 
         // Handle skos:related
         if (concept['skos:related']) {
-          const related = Array.isArray(concept['skos:related'])
-            ? concept['skos:related']
-            : [concept['skos:related']]
-
+          const related = castArray(concept['skos:related'])
           related.forEach((relatedItem) => relations.push(processRelation(relatedItem, null)))
         }
 

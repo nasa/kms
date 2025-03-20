@@ -1,3 +1,5 @@
+import { castArray } from 'lodash'
+
 import { createChangeNote } from '@/shared/createChangeNote'
 
 /**
@@ -144,9 +146,7 @@ export const toLegacyXML = (
 
         // Handle gcmd:hasInstrument
         if (concept['gcmd:hasInstrument']) {
-          const instruments = Array.isArray(concept['gcmd:hasInstrument'])
-            ? concept['gcmd:hasInstrument']
-            : [concept['gcmd:hasInstrument']]
+          const instruments = castArray(concept['gcmd:hasInstrument'])
 
           instruments.forEach((instrument) => {
             relations.push({
@@ -160,9 +160,7 @@ export const toLegacyXML = (
         }
 
         if (concept['gcmd:hasSensor']) {
-          const sensors = Array.isArray(concept['gcmd:hasSensor'])
-            ? concept['gcmd:hasSensor']
-            : [concept['gcmd:hasSensor']]
+          const sensors = castArray(concept['gcmd:hasSensor'])
 
           sensors.forEach((sensor) => {
             relations.push({
@@ -177,9 +175,7 @@ export const toLegacyXML = (
 
         // Handle gcmd:onPlatform
         if (concept['gcmd:onPlatform']) {
-          const platforms = Array.isArray(concept['gcmd:onPlatform'])
-            ? concept['gcmd:onPlatform']
-            : [concept['gcmd:onPlatform']]
+          const platforms = castArray(concept['gcmd:onPlatform'])
 
           platforms.forEach((platform) => {
             relations.push({
@@ -194,9 +190,7 @@ export const toLegacyXML = (
 
         // Handle skos:related
         if (concept['skos:related']) {
-          const related = Array.isArray(concept['skos:related'])
-            ? concept['skos:related']
-            : [concept['skos:related']]
+          const related = castArray(concept['skos:related'])
 
           related.forEach((obj) => {
             const resourceUUID = obj['@rdf:resource'].split('/').pop()
