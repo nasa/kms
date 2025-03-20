@@ -95,7 +95,7 @@ describe('getConceptVersions', () => {
     })
 
     describe('when there are no results', () => {
-      it('should return 0 version tags', async () => {
+      test('should return 0 version tags', async () => {
         sparqlRequest.mockResolvedValue({
           ok: true,
           json: () => Promise.resolve({
