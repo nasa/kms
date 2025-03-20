@@ -78,7 +78,7 @@ describe('updateVersionMetadata', () => {
   })
 
   describe('when errors occur', () => {
-    it('should handle errors when updating version metadata', async () => {
+    test('should handle errors when updating version metadata', async () => {
       sparqlRequest.mockResolvedValue({
         ok: false,
         status: 500,
@@ -94,7 +94,7 @@ describe('updateVersionMetadata', () => {
       await expect(updateVersionMetadata(params)).rejects.toThrow('SPARQL update failed')
     })
 
-    it('should handle network errors', async () => {
+    test('should handle network errors', async () => {
       sparqlRequest.mockRejectedValue(new Error('Network error'))
 
       const params = {

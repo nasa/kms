@@ -1,4 +1,6 @@
-import { createChangeNote } from './createChangeNote'
+import { castArray } from 'lodash'
+
+import { createChangeNote } from '@/shared/createChangeNote'
 
 /**
  * Converts a SKOS concept from a specific version to a legacy XML format.
@@ -12,6 +14,7 @@ import { createChangeNote } from './createChangeNote'
  * @param {Object} concept - The SKOS concept object to be transformed, from a specific version of the concept scheme.
  * @param {Array} conceptSchemeDetails - An array of concept scheme details for the specific version.
  * @param {Array} csvHeaders - An array of CSV headers for the specific version.
+ * @param {Map<string, string>} conceptToConceptSchemeShortNameMap - A map of concept IRIs to their scheme short names.
  * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels for the specific version.
  * @param {string} schemeShortName - The short name of the concept scheme.
  * @returns {Object} An object representing the legacy XML structure of the concept.
@@ -42,6 +45,7 @@ export const toLegacyXML = (
   concept,
   conceptSchemeDetails,
   csvHeaders,
+  conceptToConceptSchemeShortNameMap,
   prefLabelMap,
   schemeShortName
 ) => {
@@ -142,9 +146,7 @@ export const toLegacyXML = (
 
         // Handle gcmd:hasInstrument
         if (concept['gcmd:hasInstrument']) {
-          const instruments = Array.isArray(concept['gcmd:hasInstrument'])
-            ? concept['gcmd:hasInstrument']
-            : [concept['gcmd:hasInstrument']]
+          const instruments = castArray(concept['gcmd:hasInstrument'])
 
           instruments.forEach((instrument) => {
             relations.push({
@@ -157,14 +159,48 @@ export const toLegacyXML = (
           })
         }
 
+        if (concept['gcmd:hasSensor']) {
+          const sensors = castArray(concept['gcmd:hasSensor'])
+
+          sensors.forEach((sensor) => {
+            relations.push({
+              '@type': 'has_sensor',
+              '@generatedBy': 'server',
+              '@conceptScheme': 'instruments',
+              '@prefLabel': prefLabelMap.get(sensor['@rdf:resource']),
+              '@uuid': sensor['@rdf:resource']
+            })
+          })
+        }
+
         // Handle gcmd:isOnPlatform
         if (concept['gcmd:isOnPlatform']) {
-          relations.push({
-            '@type': 'is_on_platform',
-            '@generatedBy': 'server',
-            '@conceptScheme': 'platforms',
-            '@prefLabel': prefLabelMap.get(concept['gcmd:isOnPlatform']['@rdf:resource']),
-            '@uuid': concept['gcmd:isOnPlatform']['@rdf:resource']
+          const platforms = castArray(concept['gcmd:isOnPlatform'])
+
+          platforms.forEach((platform) => {
+            relations.push({
+              '@type': 'is_on_platform',
+              '@generatedBy': 'server',
+              '@conceptScheme': 'platforms',
+              '@prefLabel': prefLabelMap.get(platform['@rdf:resource']),
+              '@uuid': platform['@rdf:resource']
+            })
+          })
+        }
+
+        // Handle skos:related
+        if (concept['skos:related']) {
+          const related = castArray(concept['skos:related'])
+
+          related.forEach((obj) => {
+            const resourceUUID = obj['@rdf:resource'].split('/').pop()
+            const scheme = conceptToConceptSchemeShortNameMap[obj[resourceUUID]]
+            relations.push({
+              '@generatedBy': 'server',
+              '@conceptScheme': scheme,
+              '@prefLabel': prefLabelMap.get(obj['@rdf:resource']),
+              '@uuid': obj['@rdf:resource']
+            })
           })
         }
 
