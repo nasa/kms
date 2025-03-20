@@ -227,7 +227,7 @@ describe('toLegacyJSON', () => {
     })
 
     test('should return correct related information for onPlatform', () => {
-      mockConcept['gcmd:onPlatform'] = [
+      mockConcept['gcmd:isOnPlatform'] = [
         { '@rdf:resource': 'relatedUUID1' },
         { '@rdf:resource': 'relatedUUID2' }
       ]
@@ -447,7 +447,7 @@ describe('toLegacyJSON', () => {
   describe('when the concept has both hasInstrument, hasSensor, and onPlatform relations', () => {
     test('should include both types of relations in the related array', () => {
       mockConcept['gcmd:hasInstrument'] = { '@rdf:resource': 'relatedUUID1' }
-      mockConcept['gcmd:onPlatform'] = { '@rdf:resource': 'relatedUUID2' }
+      mockConcept['gcmd:isOnPlatform'] = { '@rdf:resource': 'relatedUUID2' }
       mockConcept['gcmd:hasSensor'] = { '@rdf:resource': 'relatedUUID3' }
 
       const result = toLegacyJSON(

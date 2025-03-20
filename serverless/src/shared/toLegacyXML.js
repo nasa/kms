@@ -173,9 +173,9 @@ export const toLegacyXML = (
           })
         }
 
-        // Handle gcmd:onPlatform
-        if (concept['gcmd:onPlatform']) {
-          const platforms = castArray(concept['gcmd:onPlatform'])
+        // Handle gcmd:isOnPlatform
+        if (concept['gcmd:isOnPlatform']) {
+          const platforms = castArray(concept['gcmd:isOnPlatform'])
 
           platforms.forEach((platform) => {
             relations.push({

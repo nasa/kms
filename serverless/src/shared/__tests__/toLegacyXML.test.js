@@ -125,7 +125,7 @@ describe('toLegacyXML', () => {
         'gcmd:hasInstrument': [
           { '@rdf:resource': 'http://example.com/instrument' }
         ],
-        'gcmd:onPlatform': { '@rdf:resource': 'http://example.com/platform' },
+        'gcmd:isOnPlatform': { '@rdf:resource': 'http://example.com/platform' },
         'gcmd:hasSensor': { '@rdf:resource': 'http://example.com/sensor' },
         'skos:definition': { _text: 'Test Definition' }
 

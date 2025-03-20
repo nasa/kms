@@ -131,7 +131,7 @@ const toRDF = async (jsonURL, xmlURL) => {
       '@_rdf:resource': narrow.uuid
     }))
 
-    const relateds = ['gcmd:hasInstrument', 'gcmd:onPlatform', 'gcmd:hasSensor', 'skos:related']
+    const relateds = ['gcmd:hasInstrument', 'gcmd:isOnPlatform', 'gcmd:hasSensor', 'skos:related']
     relateds.forEach((related) => {
       concept[related] = []
     })
@@ -152,7 +152,7 @@ const toRDF = async (jsonURL, xmlURL) => {
       }
 
       if (source === 'instruments' && target === 'platforms') {
-        concept['gcmd:onPlatform'].push({
+        concept['gcmd:isOnPlatform'].push({
           '@_rdf:resource': rel.uuid
         })
 
