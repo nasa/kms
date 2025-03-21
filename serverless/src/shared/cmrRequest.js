@@ -36,7 +36,7 @@
  */
 
 export const cmrPostRequest = async ({
-  path = '',
+  path,
   body,
   contentType = 'application/json',
   accept = 'application/json'
@@ -66,7 +66,7 @@ export const cmrPostRequest = async ({
 }
 
 export const cmrGetRequest = async ({
-  path = ''
+  path
 }) => {
   const getCmrEndpoint = () => {
     const baseUrl = process.env.CMR_BASE_URL
