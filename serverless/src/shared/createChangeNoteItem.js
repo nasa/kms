@@ -25,31 +25,29 @@ import { camelCase } from 'lodash'
  * capturing all text even if it doesn't match the expected structure.
  */
 export const createChangeNoteItem = (rawText) => {
-  const fields = ['[Date]', '[User Id]', '[Entity]', '[Operation]', '[System Note]', '[Field]', '[User Note]', '[Old Value]', '[New Value]']
+  let fields = ['Date', 'User Id', 'Entity', 'Operation', 'System Note', 'Field', 'User Note', 'Old Value', 'New Value']
   const result = {}
   let currentFieldInScope = null
   let buffer = []
-
-  const findFieldMatch = (text) => fields.find((field) => text.includes(`${field}:`))
-
+  const findFieldMatch = (text) => fields.find((field) => text.includes(`${field}=`))
   const words = rawText.split(/(\s+)/)
-
   for (let i = 0; i < words.length; i += 1) {
     const word = words[i]
     buffer.push(word)
-
     if (!currentFieldInScope) {
       const fieldMatch = findFieldMatch(buffer.join(''))
       if (fieldMatch) {
         currentFieldInScope = fieldMatch
-        buffer = [buffer.join('').slice(buffer.join('').indexOf(`${fieldMatch}:`) + fieldMatch.length + 1)]
+        buffer = [buffer.join('').slice(buffer.join('').indexOf(`${fieldMatch}=`) + fieldMatch.length + 1)]
       }
     } else {
       const nextFieldMatch = findFieldMatch(buffer.join(''))
       if (nextFieldMatch) {
-        result[camelCase(currentFieldInScope)] = buffer.join('').slice(0, buffer.join('').indexOf(`${nextFieldMatch}:`)).trim()
+        result[camelCase(currentFieldInScope)] = buffer.join('').slice(0, buffer.join('').indexOf(`${nextFieldMatch}=`)).trim()
+        const fieldToRemove = currentFieldInScope // Capture the current value
+        fields = fields.filter((field) => field !== fieldToRemove)
         currentFieldInScope = nextFieldMatch
-        buffer = [buffer.join('').slice(buffer.join('').indexOf(`${nextFieldMatch}:`) + nextFieldMatch.length + 1)]
+        buffer = [buffer.join('').slice(buffer.join('').indexOf(`${nextFieldMatch}=`) + nextFieldMatch.length + 1)]
       }
     }
   }
