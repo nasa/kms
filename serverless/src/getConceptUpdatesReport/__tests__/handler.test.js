@@ -29,6 +29,13 @@ describe('getConceptUpdatesReport', () => {
     expect(JSON.parse(response.body).error).toContain('Missing mandatory parameter(s)')
   })
 
+  test('should handle missing queryStringParameters', async () => {
+    const event = {} // Event without queryStringParameters
+    const response = await getConceptUpdatesReport(event)
+    expect(response.statusCode).toBe(400)
+    expect(JSON.parse(response.body).error).toContain('Missing mandatory parameter(s)')
+  })
+
   test('should return 400 if date format is invalid', async () => {
     const event = {
       queryStringParameters: {
@@ -212,5 +219,33 @@ describe('createCsvReport', () => {
     ]
     const csv = createCsvReport(notes, null, 'Null Value Report')
     expect(csv).toContain('"2023-06-01","","","Update","","Label","","","New"')
+  })
+
+  test('should handle custom headers and hit the default case', () => {
+    const notes = [
+      {
+        date: '2023-06-01',
+        userId: 'user1',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Label',
+        oldValue: 'Old',
+        newValue: 'New',
+        customField: 'Custom Value'
+      }
+    ]
+
+    const customHeaders = ['Date', 'User Id', 'Entity', 'Operation', 'Field', 'Old Value', 'New Value', 'Custom Field']
+
+    const csv = createCsvReport(notes, null, 'Custom Header Report', customHeaders)
+    const lines = csv.split('\n')
+
+    expect(lines[0]).toBe('Custom Header Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","Field","Old Value","New Value","Custom Field"')
+    expect(lines[2]).toBe('"2023-06-01","user1","Concept","Update","Label","Old","New",""')
+
+    // Ensure that the custom field is empty (undefined)
+    const values = lines[2].split(',')
+    expect(values[values.length - 1]).toBe('""')
   })
 })

@@ -6,8 +6,9 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * Creates a CSV report from processed change notes.
  *
  * @param {Array} processedChangeNotes - Array of change note objects
- * @param {string} userId - Optional user ID to filter notes
+ * @param {string|null} userId - Optional user ID to filter notes
  * @param {string} title - Title of the report
+ * @param {Array<string>|null} customHeaders - Optional custom headers for the CSV
  * @returns {string} CSV formatted string
  *
  * @example
@@ -22,9 +23,19 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * // "Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"
  * // "2023-06-02","user2","Concept","Create","","Definition","","","New definition"
  * // "2023-06-01","user1","Concept","Update","","Label","","Old","New"
+ *
+ * // With custom headers
+ * const customHeaders = ['Date', 'User', 'Action', 'Details'];
+ * const customCsv = createCsvReport(notes, null, 'Custom Report', customHeaders);
+ * console.log(customCsv);
+ * // Output:
+ * // Custom Report
+ * // "Date","User","Action","Details"
+ * // "2023-06-02","user2","Create","Definition: New definition"
+ * // "2023-06-01","user1","Update","Label: Old -> New"
  */
-export const createCsvReport = (processedChangeNotes, userId, title) => {
-  const headers = ['Date', 'User Id', 'Entity', 'Operation', 'System Note', 'Field', 'User Note', 'Old Value', 'New Value']
+export const createCsvReport = (processedChangeNotes, userId, title, customHeaders = null) => {
+  const headers = customHeaders || ['Date', 'User Id', 'Entity', 'Operation', 'System Note', 'Field', 'User Note', 'Old Value', 'New Value']
   const result = []
   result.push(title)
 
@@ -160,6 +171,8 @@ export const getConceptUpdatesReport = async (event) => {
     startDate,
     endDate
   })
+
+  console.log('CNtriples=', changeNoteTriples)
 
   // Process change notes
   const processedChangeNotes = changeNoteTriples.map((triple) => {
