@@ -12,8 +12,9 @@ WHERE {
   GRAPH ?graph {
     ?version a gcmd:Version ;
              dcterms:created ?creationDate ;
-             gcmd:versionName ?versionName ;
+             gcmd:versionName ?originalVersionName ;
              gcmd:versionType ?versionType .
+    BIND(IF(?versionType = "published", "published", ?originalVersionName) AS ?versionName)
   }
 }
 ORDER BY DESC(?creationDate)
@@ -42,8 +43,14 @@ ORDER BY DESC(?creationDate)
 
     expect(result).toContain('?version a gcmd:Version ;')
     expect(result).toContain('dcterms:created ?creationDate ;')
-    expect(result).toContain('gcmd:versionName ?versionName ;')
+    expect(result).toContain('gcmd:versionName ?originalVersionName ;')
     expect(result).toContain('gcmd:versionType ?versionType .')
+  })
+
+  test('should include BIND statement for versionName', () => {
+    const result = getVersionNamesQuery()
+
+    expect(result).toContain('BIND(IF(?versionType = "published", "published", ?originalVersionName) AS ?versionName)')
   })
 
   test('should order results by creation date in descending order', () => {

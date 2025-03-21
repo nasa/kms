@@ -6,8 +6,9 @@ WHERE {
   GRAPH ?graph {
     ?version a gcmd:Version ;
              dcterms:created ?creationDate ;
-             gcmd:versionName ?versionName ;
+             gcmd:versionName ?originalVersionName ;
              gcmd:versionType ?versionType .
+    BIND(IF(?versionType = "published", "published", ?originalVersionName) AS ?versionName)
   }
 }
 ORDER BY DESC(?creationDate)
