@@ -206,6 +206,77 @@ describe('toRDF', () => {
       const result = toRDF(json, baseXml)
       expect(result).toContain('<gcmd:reference gcmd:text="Test reference" xml:lang="en"/>')
     })
+
+    test('should handle missing or undefined changeNoteItem attributes', () => {
+      const json = {
+        uuid: 'test-uuid',
+        prefLabel: 'Test Concept',
+        scheme: { shortName: 'testScheme' }
+      }
+      const xml = {
+        changeNotes: {
+          changeNote: {
+            '@_date': '2023-01-01',
+            '@_userId': 'user1',
+            '@_userNote': 'Test note',
+            changeNoteItems: {
+              changeNoteItem: {
+                // All attributes are missing
+              }
+            }
+          }
+        }
+      }
+      const result = toRDF(json, xml)
+      expect(result).toContain('<skos:changeNote>')
+      expect(result).toContain('Date=2023-01-01')
+      expect(result).toContain('User Id=user1')
+      expect(result).toContain('User Note=Test note')
+      expect(result).not.toContain('System Note=')
+      expect(result).not.toContain('New Value=')
+      expect(result).not.toContain('Old Value=')
+      expect(result).not.toContain('Entity=')
+      expect(result).not.toContain('Operation=')
+      expect(result).not.toContain('Field=')
+    })
+
+    test('should handle empty string changeNoteItem attributes', () => {
+      const json = {
+        uuid: 'test-uuid',
+        prefLabel: 'Test Concept',
+        scheme: { shortName: 'testScheme' }
+      }
+      const xml = {
+        changeNotes: {
+          changeNote: {
+            '@_date': '2023-01-01',
+            '@_userId': 'user1',
+            '@_userNote': 'Test note',
+            changeNoteItems: {
+              changeNoteItem: {
+                '@_systemNote': '',
+                '@_newValue': '',
+                '@_oldValue': '',
+                '@_entity': '',
+                '@_operation': '',
+                '@_field': ''
+              }
+            }
+          }
+        }
+      }
+      const result = toRDF(json, xml)
+      expect(result).toContain('<skos:changeNote>')
+      expect(result).toContain('Date=2023-01-01')
+      expect(result).toContain('User Id=user1')
+      expect(result).toContain('User Note=Test note')
+      expect(result).not.toContain('System Note=')
+      expect(result).not.toContain('New Value=')
+      expect(result).not.toContain('Old Value=')
+      expect(result).not.toContain('Entity=')
+      expect(result).not.toContain('Operation=')
+      expect(result).not.toContain('Field=')
+    })
   })
 
   describe('when contains related concepts', () => {
