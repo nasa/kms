@@ -14,13 +14,11 @@ syncConceptData:
         rate: cron(0 21 * * ? *) 
         input:
           version: "published"
-          versionType: "published"
     - schedule:
         name: SyncDraftConcepts
         rate: cron(0 32 * * ? *)
         input:
           version: "draft"
-          versionType: "draft"
 exportRdfToS3:
   handler: serverless/src/exportRdfToS3/handler.default
   timeout: 900

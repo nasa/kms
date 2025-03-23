@@ -13,7 +13,6 @@ import { importConceptData } from '@/shared/importConceptData'
  * @param {Object} event - The event object from API Gateway or CloudWatch Events
  * @param {string} [event.body] - JSON string containing version and versionType (for HTTP events)
  * @param {string} [event.version] - Version of the concepts to sync (for scheduled events)
- * @param {string} [event.versionType] - Type of version to sync (for scheduled events)
  * @returns {Promise<Object>} A promise that resolves to the response object
  * @throws {Error} If required parameters are missing or empty
  * @throws {Error} If SYNC_API_ENDPOINT is not set
@@ -23,7 +22,7 @@ import { importConceptData } from '@/shared/importConceptData'
  * // Invoke via curl (replace YOUR_API_ENDPOINT with the actual endpoint):
  * curl -X POST http://localhost:4001/dev/sync-concept-data \
  *   -H "Content-Type: application/json" \
- *   -d '{"version": "latest", "versionType": "published"}'
+ *   -d '{"version": "published"}'
  */
 export const syncConceptData = async (event) => {
   const syncProcess = async (version, versionType, apiEndpoint) => {
@@ -58,23 +57,28 @@ export const syncConceptData = async (event) => {
     }
 
     let version
-    let versionType
 
     if (event.body) {
       // This is an HTTP event
-      ({ version, versionType } = event.body)
-    } else if (event.version && event.versionType) {
+      ({ version } = event.body)
+    } else if (event.version) {
       // This is a scheduled event
-      ({ version, versionType } = event)
+      ({ version } = event)
     } else {
-      throw new Error('Missing required parameters: version and versionType')
+      throw new Error('Missing required parameters: version')
     }
 
-    if (!version || !versionType) {
-      throw new Error('Invalid parameters: version and versionType must not be empty')
+    if (!version) {
+      throw new Error('Invalid parameters: version must not be empty')
     }
 
     const apiEndpoint = process.env.SYNC_API_ENDPOINT
+
+    let versionType = 'past_published'
+
+    if (version === 'published' || version === 'draft') {
+      versionType = version
+    }
 
     // Start the sync process asynchronously
     syncProcess(version, versionType, apiEndpoint).catch((error) => {
