@@ -1,7 +1,6 @@
 import {
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -17,7 +16,7 @@ describe('delay function', () => {
     vi.useRealTimers()
   })
 
-  it('should resolve after the specified delay', async () => {
+  test('should resolve after the specified delay', async () => {
     const delayTime = 1000
     const delayPromise = delay(delayTime)
 
@@ -27,7 +26,7 @@ describe('delay function', () => {
     await expect(delayPromise).resolves.toBeUndefined()
   })
 
-  it('should not resolve before the specified delay', async () => {
+  test('should not resolve before the specified delay', async () => {
     const delayTime = 1000
     const delayPromise = delay(delayTime)
 
@@ -40,7 +39,7 @@ describe('delay function', () => {
     expect(delayPromise).not.toBe(immediatePromise)
   })
 
-  it('should work with different delay times', async () => {
+  test('should work with different delay times', async () => {
     const delays = [100, 500, 1000, 2000]
 
     await Promise.all(delays.map(async (delayTime) => {
@@ -50,13 +49,13 @@ describe('delay function', () => {
     }))
   })
 
-  it('should handle zero delay', async () => {
+  test('should handle zero delay', async () => {
     const delayPromise = delay(0)
     vi.advanceTimersByTime(0)
     await expect(delayPromise).resolves.toBeUndefined()
   })
 
-  it('should handle multiple simultaneous delays', async () => {
+  test('should handle multiple simultaneous delays', async () => {
     const delay1 = delay(1000)
     const delay2 = delay(2000)
 

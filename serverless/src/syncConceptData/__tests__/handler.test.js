@@ -2,7 +2,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -40,7 +39,7 @@ describe('syncConceptData', () => {
   })
 
   describe('when successful', () => {
-    it('should initiate sync process from HTTP event', async () => {
+    test('should initiate sync process from HTTP event', async () => {
       const event = {
         body: {
           version: 'v1'
@@ -53,7 +52,7 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync process initiated' })
     })
 
-    it('should initiate sync process from scheduled event', async () => {
+    test('should initiate sync process from scheduled event', async () => {
       const event = {
         version: 'published'
       }
@@ -64,7 +63,7 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync process initiated' })
     })
 
-    it('should return a message when sync is disabled', async () => {
+    test('should return a message when sync is disabled', async () => {
       vi.stubEnv('SHOULD_SYNC', 'false')
       const event = {
         body: {
@@ -76,7 +75,7 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync is disabled' })
     })
 
-    it('should call fetchPagedConceptData and importConceptData', async () => {
+    test('should call fetchPagedConceptData and importConceptData', async () => {
       const event = {
         body: {
           version: 'draft'
@@ -99,7 +98,7 @@ describe('syncConceptData', () => {
       expect(consoleLogSpy).toHaveBeenCalledWith('Concept data synchronized successfully')
     })
 
-    it('should log "Error in sync process" when syncProcess fails', async () => {
+    test('should log "Error in sync process" when syncProcess fails', async () => {
       const event = {
         body: {
           version: 'v1'
@@ -126,7 +125,7 @@ describe('syncConceptData', () => {
   })
 
   describe('when unsuccessful', () => {
-    it('should return an error when SYNC_API_ENDPOINT is not set', async () => {
+    test('should return an error when SYNC_API_ENDPOINT is not set', async () => {
       vi.unstubAllEnvs()
       vi.stubEnv('SHOULD_SYNC', 'true')
       const event = {
@@ -139,14 +138,14 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ error: 'SYNC_API_ENDPOINT environment variable is not set' })
     })
 
-    it('should return an error when required parameters are missing in HTTP event', async () => {
+    test('should return an error when required parameters are missing in HTTP event', async () => {
       const event = { body: { } }
       const response = await syncConceptData(event)
       expect(response.statusCode).toBe(500)
       expect(JSON.parse(response.body)).toEqual({ error: 'Invalid parameters: version must not be empty' })
     })
 
-    it('should log error when sync process fails', async () => {
+    test('should log error when sync process fails', async () => {
       const event = {
         body: {
           version: 'published'
@@ -163,7 +162,7 @@ describe('syncConceptData', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith('Error in sync process:', mockError)
     })
 
-    it('should return an error when both event.body and event.version are missing', async () => {
+    test('should return an error when both event.body and event.version are missing', async () => {
       const event = {}
       const response = await syncConceptData(event)
 
@@ -171,7 +170,7 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ error: 'Missing required parameters: version' })
     })
 
-    it('should log errors that occur during the sync process', async () => {
+    test('should log errors that occur during the sync process', async () => {
       const event = {
         body: {
           version: 'v1'

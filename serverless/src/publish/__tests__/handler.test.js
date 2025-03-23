@@ -2,7 +2,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -31,7 +30,7 @@ describe('publish handler', () => {
   })
 
   describe('when publishing a draft', () => {
-    it('should initiate the publish process and return immediately', async () => {
+    test('should initiate the publish process and return immediately', async () => {
       const event = { body: { name: 'new_version' } }
       const result = await publish(event)
 
@@ -39,7 +38,7 @@ describe('publish handler', () => {
       expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
     })
 
-    it('should start the publish process asynchronously', async () => {
+    test('should start the publish process asynchronously', async () => {
       const event = { body: { name: 'new_version' } }
       await publish(event)
 
@@ -59,7 +58,7 @@ describe('publish handler', () => {
       }))
     })
 
-    it('should rename existing published graph when it exists', async () => {
+    test('should rename existing published graph when it exists', async () => {
       getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
       const event = { body: { name: 'new_version' } }
       await publish(event)
@@ -80,7 +79,7 @@ describe('publish handler', () => {
   })
 
   describe('when errors occur', () => {
-    it('should return a 400 error when name is not provided', async () => {
+    test('should return a 400 error when name is not provided', async () => {
       const event = { body: {} }
       const result = await publish(event)
 
@@ -88,7 +87,7 @@ describe('publish handler', () => {
       expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
     })
 
-    it('should log errors that occur during the publish process', async () => {
+    test('should log errors that occur during the publish process', async () => {
       getVersionMetadata.mockRejectedValue(new Error('Database error'))
 
       const event = { body: { name: 'new_version' } }

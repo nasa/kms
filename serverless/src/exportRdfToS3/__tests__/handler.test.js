@@ -8,7 +8,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -47,14 +46,14 @@ describe('exportRdfToS3 handler', () => {
   })
 
   describe('when initiating export process', () => {
-    it('should return immediately with a 202 status', async () => {
+    test('should return immediately with a 202 status', async () => {
       const result = await handler({ version: 'published' })
 
       expect(result.statusCode).toBe(202)
       expect(JSON.parse(result.body).message).toBe('RDF export process initiated for version published')
     })
 
-    it('should use default version if not provided', async () => {
+    test('should use default version if not provided', async () => {
       const result = await handler({})
 
       expect(result.statusCode).toBe(202)
@@ -63,7 +62,7 @@ describe('exportRdfToS3 handler', () => {
   })
 
   describe('when export process runs', () => {
-    it('should successfully export RDF data to S3', async () => {
+    test('should successfully export RDF data to S3', async () => {
       await handler({ version: 'published' })
 
       // Run all pending timers and microtasks
@@ -81,7 +80,7 @@ describe('exportRdfToS3 handler', () => {
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('RDF data for version published exported successfully'))
     })
 
-    it('should create S3 bucket if it does not exist', async () => {
+    test('should create S3 bucket if it does not exist', async () => {
       S3Client.prototype.send.mockRejectedValueOnce({ name: 'NotFound' })
 
       await handler({ version: 'published' })
@@ -92,7 +91,7 @@ describe('exportRdfToS3 handler', () => {
       expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(CreateBucketCommand))
     })
 
-    it('should handle S3 upload failure', async () => {
+    test('should handle S3 upload failure', async () => {
       S3Client.prototype.send.mockResolvedValueOnce({}) // HeadBucketCommand
       S3Client.prototype.send.mockRejectedValueOnce(new Error('S3 upload failed')) // PutObjectCommand
 
@@ -109,7 +108,7 @@ describe('exportRdfToS3 handler', () => {
       )
     })
 
-    it('should handle unexpected S3 errors', async () => {
+    test('should handle unexpected S3 errors', async () => {
       S3Client.prototype.send.mockRejectedValueOnce(new Error('Unexpected S3 error'))
 
       await handler({ version: 'published' })
@@ -125,7 +124,7 @@ describe('exportRdfToS3 handler', () => {
       )
     })
 
-    it('should handle sparqlRequest HTTP error', async () => {
+    test('should handle sparqlRequest HTTP error', async () => {
       sparqlRequest.mockResolvedValue({
         ok: false,
         status: 503
@@ -146,7 +145,7 @@ describe('exportRdfToS3 handler', () => {
   })
 
   describe('Configuration and settings', () => {
-    it('should use default bucket name if RDF_BUCKET_NAME is not set', async () => {
+    test('should use default bucket name if RDF_BUCKET_NAME is not set', async () => {
       delete process.env.RDF_BUCKET_NAME
 
       await handler({ version: 'published' })
@@ -163,7 +162,7 @@ describe('exportRdfToS3 handler', () => {
       }))
     })
 
-    it('should set correct ContentType for S3 upload', async () => {
+    test('should set correct ContentType for S3 upload', async () => {
       await handler({ version: 'published' })
 
       // Run all pending timers and microtasks
