@@ -13,6 +13,7 @@ import { fetchVersions } from './fetchVersions'
 /**
  * Loads SKOS concepts from an RDF/XML file into a SPARQL endpoint in batches.
  *
+ * Usage: npx vite-node loadConcepts.js <YOUR TOKEN>
  * @async
  * @param {string} filePath - The path to the RDF/XML file containing the concepts.
  * @param {number} [batchSize=100] - The number of concepts to send in each batch.
@@ -106,7 +107,7 @@ async function loadSchemes(token, versionType, version, versionName) {
 
   const xmlData = readFileSync(filePath, 'utf8')
 
-  const response = await fetch(`https://cmr.sit.earthdata.nasa.gov/kms/concepts?${versionName}`, {
+  const response = await fetch(`https://cmr.sit.earthdata.nasa.gov/kms/concepts?version=${versionName}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/rdf+xml',
@@ -203,7 +204,7 @@ const token = process.argv[2]
 
 if (!token) {
   console.error('Please provide an authentication token as the first argument')
-  console.error('Usage: node load_rdf.js <YOUR_TOKEN>')
+  console.error('Usage: npx vite-node loadConcepts.js <YOUR_TOKEN>')
   process.exit(1)
 }
 
