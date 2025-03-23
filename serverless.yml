@@ -24,6 +24,8 @@ provider:
     RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
     RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
     EDL_PASSWORD: ${env:EDL_PASSWORD, ''}
+    SHOULD_SYNC: ${env:SHOULD_SYNC, 'false'}
+    SYNC_API_ENDPOINT: ${env:SYNC_API_ENDPOINT, 'https://gcmd.sit.earthdata.nasa.gov'}
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
     skipPolicySetup: true

@@ -57,6 +57,8 @@ dockerRun() {
         --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
         --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
+        --env "SHOULD_SYNC=$bamboo_SHOULD_SYNC" \
+        --env "SYNC_API_ENDPOINT=$bamboo_SYNC_API_ENDPOINT" \
         $dockerTag "$@"
 }
 

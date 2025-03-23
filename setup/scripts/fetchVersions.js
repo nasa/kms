@@ -1,4 +1,4 @@
-const { XMLParser } = require('fast-xml-parser')
+import { XMLParser } from 'fast-xml-parser'
 
 /**
  * Fetches and parses version information for a specified version type from the GCMD KMS API.
@@ -36,7 +36,7 @@ const { XMLParser } = require('fast-xml-parser')
  *
  * @see {@link https://gcmd.earthdata.nasa.gov/kms/concept_versions/version_type/|GCMD KMS API}
  */
-const fetchVersions = async (versionType) => {
+export const fetchVersions = async (versionType) => {
   try {
     // Fetch the XML content
     const response = await fetch(`https://gcmd.earthdata.nasa.gov/kms/concept_versions/version_type/${versionType}`)
@@ -65,5 +65,3 @@ const fetchVersions = async (versionType) => {
     throw error
   }
 }
-
-module.exports = { fetchVersions }

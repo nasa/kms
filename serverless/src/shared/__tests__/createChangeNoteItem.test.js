@@ -8,15 +8,15 @@ import { createChangeNoteItem } from '../createChangeNoteItem'
 
 describe('createChangeNoteItem', () => {
   test('handles basic case with all fields', () => {
-    const rawText = `Date: 2023-05-15
-User Id: john_doe
-Entity: User
-Operation: UPDATE
-System Note: Some system note
-Field: email
-User Note: User requested change
-Old Value: old@email.com
-New Value: new@email.com`
+    const rawText = `Date=2023-05-15
+User Id=john_doe
+Entity=User
+Operation=UPDATE
+System Note=Some system note
+Field=email
+User Note=User requested change
+Old Value=old@email.com
+New Value=new@email.com`
 
     const result = createChangeNoteItem(rawText)
 
@@ -34,9 +34,9 @@ New Value: new@email.com`
   })
 
   test('handles missing fields gracefully', () => {
-    const rawText = `Date: 2023-05-15
-Entity: User
-New Value: john.doe@example.com`
+    const rawText = `Date=2023-05-15
+Entity=User
+New Value=john.doe@example.com`
 
     const result = createChangeNoteItem(rawText)
 
@@ -48,14 +48,14 @@ New Value: john.doe@example.com`
   })
 
   test('correctly processes multi-line field values preserving new lines', () => {
-    const rawText = `Date: 2023-05-15
-User Id: john_doe
-New Value: This is a
+    const rawText = `Date=2023-05-15
+User Id=john_doe
+New Value=This is a
 multi-line value
 with preserved
 new lines
-Entity: User
-Operation: INSERT`
+Entity=User
+Operation=INSERT`
 
     const result = createChangeNoteItem(rawText)
 
@@ -65,9 +65,9 @@ Operation: INSERT`
   })
 
   test('handles fields being on the same line', () => {
-    const rawText = `Date: 2023-05-15 User Id: john_doe
-Entity: User Operation: UPDATE
-New Value: example@email.com`
+    const rawText = `Date=2023-05-15 User Id=john_doe
+Entity= User Operation=UPDATE
+New Value=example@email.com and Launch_Date: 2006-10-26 and Date=xyz`
 
     const result = createChangeNoteItem(rawText)
 
@@ -76,19 +76,19 @@ New Value: example@email.com`
       userId: 'john_doe',
       entity: 'User',
       operation: 'UPDATE',
-      newValue: 'example@email.com'
+      newValue: 'example@email.com and Launch_Date: 2006-10-26 and Date=xyz'
     })
   })
 
   test('handles complex multi-line values with embedded colons', () => {
     const rawText = `Date: 2023-05-15
-User Id: john_doe
-New Value: This is a complex value:
+User Id=john_doe
+New Value=This is a complex value:
 It has multiple lines
 And even has: colons
 Within its content
-Entity: User
-Operation: COMPLEX_UPDATE`
+Entity=User
+Operation=COMPLEX_UPDATE`
 
     const result = createChangeNoteItem(rawText)
 

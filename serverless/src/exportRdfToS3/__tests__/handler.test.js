@@ -8,6 +8,7 @@ import {
   beforeEach,
   describe,
   expect,
+  it,
   vi
 } from 'vitest'
 
@@ -24,6 +25,7 @@ vi.mock('@aws-sdk/client-s3')
 describe('exportRdfToS3 handler', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.useFakeTimers()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
     process.env.RDF_BUCKET_NAME = 'test-bucket'
@@ -40,123 +42,136 @@ describe('exportRdfToS3 handler', () => {
     S3Client.prototype.send = vi.fn().mockResolvedValue({})
   })
 
-  describe('when successful', () => {
-    test('should successfully export RDF data to S3', async () => {
-      S3Client.prototype.send.mockResolvedValueOnce({}) // HeadBucketCommand
-      S3Client.prototype.send.mockResolvedValueOnce({}) // PutObjectCommand
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
-      const result = await handler()
+  describe('when initiating export process', () => {
+    it('should return immediately with a 202 status', async () => {
+      const result = await handler({ version: 'published' })
 
-      expect(result.statusCode).toBe(200)
-      expect(JSON.parse(result.body).message).toBe('RDF data exported successfully')
-      expect(JSON.parse(result.body).s3Key).toMatch(/^\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/)
-      expect(S3Client.prototype.send).toHaveBeenCalledTimes(2)
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(HeadBucketCommand))
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(PutObjectCommand))
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body).message).toBe('RDF export process initiated for version published')
     })
 
-    test('should create S3 bucket if it does not exist', async () => {
-      S3Client.prototype.send.mockRejectedValueOnce({ name: 'NotFound' }) // HeadBucketCommand
-      S3Client.prototype.send.mockResolvedValueOnce({}) // CreateBucketCommand
-      S3Client.prototype.send.mockResolvedValueOnce({}) // PutObjectCommand
+    it('should use default version if not provided', async () => {
+      const result = await handler({})
 
-      const result = await handler()
-
-      expect(result.statusCode).toBe(200)
-      expect(S3Client.prototype.send).toHaveBeenCalledTimes(3)
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(HeadBucketCommand))
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(CreateBucketCommand))
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(PutObjectCommand))
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body).message).toBe('RDF export process initiated for version published')
     })
   })
 
-  describe('when unsuccessful', () => {
-    test('should handle sparqlRequest failure', async () => {
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500
+  describe('when export process runs', () => {
+    it('should successfully export RDF data to S3', async () => {
+      await handler({ version: 'published' })
+
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
+
+      expect(sparqlRequest).toHaveBeenCalledWith({
+        method: 'GET',
+        path: '/statements?version=published',
+        accept: 'application/rdf+xml',
+        version: 'published'
       })
 
-      const result = await handler()
-
-      expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toBe('Error exporting RDF data')
-      expect(S3Client.prototype.send).not.toHaveBeenCalled()
+      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(HeadBucketCommand))
+      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(PutObjectCommand))
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('RDF data for version published exported successfully'))
     })
 
-    test('should handle S3 upload failure', async () => {
+    it('should create S3 bucket if it does not exist', async () => {
+      S3Client.prototype.send.mockRejectedValueOnce({ name: 'NotFound' })
+
+      await handler({ version: 'published' })
+
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
+
+      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(CreateBucketCommand))
+    })
+
+    it('should handle S3 upload failure', async () => {
       S3Client.prototype.send.mockResolvedValueOnce({}) // HeadBucketCommand
       S3Client.prototype.send.mockRejectedValueOnce(new Error('S3 upload failed')) // PutObjectCommand
 
-      const result = await handler()
+      await handler({ version: 'published' })
 
-      expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toBe('Error exporting RDF data')
-      expect(S3Client.prototype.send).toHaveBeenCalledTimes(2)
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(HeadBucketCommand))
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(PutObjectCommand))
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in export process:',
+        expect.objectContaining({
+          message: 'S3 upload failed'
+        })
+      )
     })
 
-    test('should handle unexpected S3 errors', async () => {
+    it('should handle unexpected S3 errors', async () => {
       S3Client.prototype.send.mockRejectedValueOnce(new Error('Unexpected S3 error'))
 
-      const result = await handler()
+      await handler({ version: 'published' })
 
-      expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toBe('Error exporting RDF data')
-      expect(S3Client.prototype.send).toHaveBeenCalledTimes(1)
-      expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(HeadBucketCommand))
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in export process:',
+        expect.objectContaining({
+          message: 'Unexpected S3 error'
+        })
+      )
+    })
+
+    it('should handle sparqlRequest HTTP error', async () => {
+      sparqlRequest.mockResolvedValue({
+        ok: false,
+        status: 503
+      })
+
+      await handler({ version: 'published' })
+
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in export process:',
+        expect.objectContaining({
+          message: 'HTTP error! status: 503'
+        })
+      )
     })
   })
 
   describe('Configuration and settings', () => {
-    test('should use default bucket name if RDF_BUCKET_NAME is not set', async () => {
+    it('should use default bucket name if RDF_BUCKET_NAME is not set', async () => {
       delete process.env.RDF_BUCKET_NAME
-      const sendMock = vi.fn().mockResolvedValue({})
-      vi.spyOn(S3Client.prototype, 'send').mockImplementation(sendMock)
 
-      await handler()
+      await handler({ version: 'published' })
 
-      expect(sendMock).toHaveBeenCalledTimes(2)
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
 
-      const headBucketCall = sendMock.mock.calls[0][0]
-      const putObjectCall = sendMock.mock.calls[1][0]
-
-      expect(headBucketCall).toBeInstanceOf(HeadBucketCommand)
       expect(HeadBucketCommand).toHaveBeenCalledWith({ Bucket: 'kms-rdf-backup' })
-
-      expect(putObjectCall).toBeInstanceOf(PutObjectCommand)
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
         Bucket: 'kms-rdf-backup',
-        Key: expect.stringMatching(/^\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/),
+        Key: expect.stringMatching(/^published\/\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/),
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
       }))
     })
 
-    test('should set correct ContentType for S3 upload', async () => {
-      const sendMock = vi.fn().mockResolvedValue({})
-      vi.spyOn(S3Client.prototype, 'send').mockImplementation(sendMock)
+    it('should set correct ContentType for S3 upload', async () => {
+      await handler({ version: 'published' })
 
-      await handler()
+      // Run all pending timers and microtasks
+      await vi.runAllTimersAsync()
 
-      expect(sendMock).toHaveBeenCalledTimes(2)
-
-      const headBucketCall = sendMock.mock.calls[0][0]
-      const putObjectCall = sendMock.mock.calls[1][0]
-
-      console.log('HeadBucketCommand:', JSON.stringify(headBucketCall, null, 2))
-      console.log('PutObjectCommand:', JSON.stringify(putObjectCall, null, 2))
-
-      // Check HeadBucketCommand
-      expect(headBucketCall).toBeInstanceOf(HeadBucketCommand)
-      expect(HeadBucketCommand).toHaveBeenCalledWith({ Bucket: 'test-bucket' })
-
-      // Check PutObjectCommand
-      expect(putObjectCall).toBeInstanceOf(PutObjectCommand)
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
         Bucket: 'test-bucket',
-        Key: expect.stringMatching(/^\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/),
+        Key: expect.stringMatching(/^published\/\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/),
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
       }))

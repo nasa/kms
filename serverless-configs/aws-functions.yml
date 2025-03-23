@@ -1,6 +1,40 @@
 edlAuthorizer:
-    handler: serverless/src/edlAuthorizer/handler.default
-    timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  handler: serverless/src/edlAuthorizer/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+syncConceptData:
+  handler: serverless/src/syncConceptData/handler.syncConceptData
+  timeout: 900
+  events:
+    - http:
+        path: sync-concept-data
+        method: post
+        async: true
+    - schedule:
+        name: SyncPublishedConcepts
+        rate: cron(0 21 * * ? *) 
+        input:
+          version: "published"
+          versionType: "published"
+    - schedule:
+        name: SyncDraftConcepts
+        rate: cron(0 32 * * ? *)
+        input:
+          version: "draft"
+          versionType: "draft"
+exportRdfToS3:
+  handler: serverless/src/exportRdfToS3/handler.default
+  timeout: 900
+  events:
+    - schedule:
+      name: exportRdfToS3
+      rate: cron(0 0 * * ? *) 
+      input:
+        version: "published"
+    - schedule:
+      name: exportRdfToS3
+      rate: cron(0 1 * * ? *) 
+      input:
+        version: "draft"
 errorLogger:
   handler: serverless/src/errorLogger/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -141,16 +175,7 @@ recreateDatabase:
         authorizer:
           name: edlAuthorizer
           type: request
-          resultTtlInSeconds: 0
-exportRdfToS3:
-  handler: serverless/src/exportRdfToS3/handler.default
-  timeout: 900
-  events:
-    - http:
-        method: post
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: exportRdfToS3
-    - schedule: cron(0 0 * * ? *)
+          resultTtlInSeconds: 0*)
 getFullPath:
   handler: serverless/src/getFullPath/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -173,8 +198,6 @@ publish:
   events:
     - http:
         method: post
+        async: true
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /publish
-
-
-
