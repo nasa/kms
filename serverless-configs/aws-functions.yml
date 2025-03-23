@@ -25,12 +25,12 @@ exportRdfToS3:
   events:
     - schedule:
         name: exportRdfToS3ForPublished
-        rate: cron(0 0 * * ? *) 
+        rate: cron(50 22 * * ? *) 
         input:
           version: "published"
     - schedule:
         name: exportRdfToS3ForDraft
-        rate: cron(0 1 * * ? *) 
+        rate: cron(50 23 * * ? *) 
         input:
           version: "draft"
 publish:
@@ -173,7 +173,7 @@ deleteConcept:
           resultTtlInSeconds: 0
 recreateDatabase:
   handler: serverless/src/recreateDatabase/handler.default
-  timeout: '900'
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
   events:
     - http:
         method: delete
