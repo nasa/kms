@@ -172,8 +172,6 @@ export const getConceptUpdatesReport = async (event) => {
     endDate
   })
 
-  console.log('CNtriples=', changeNoteTriples)
-
   // Process change notes
   const processedChangeNotes = changeNoteTriples.map((triple) => {
     const changeNote = createChangeNoteItem(triple.changeNote.value)

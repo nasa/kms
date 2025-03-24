@@ -73,7 +73,7 @@ export const getKeywordFullPathHistory = async (event) => {
       headers: defaultResponseHeaders
     }
   } catch (error) {
-  // Log and return error response
+    // Log and return error response
     console.error(`Error retrieving fullpath history, error=${error.toString()}`)
 
     return {
