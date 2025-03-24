@@ -25,21 +25,6 @@ import { importConceptData } from '@/shared/importConceptData'
  *   -d '{"version": "published"}'
  */
 export const syncConceptData = async (event) => {
-  const syncProcess = async (version, versionType, apiEndpoint) => {
-    // Fetch JSON and XML content using fetchPagedConceptData
-    const jsonContent = await fetchPagedConceptData('json', apiEndpoint, version)
-    const xmlContent = await fetchPagedConceptData('xml', apiEndpoint, version)
-
-    // eslint-disable-next-line no-underscore-dangle
-    // For testing until KMS endpoint is ready.
-    // const jsonContent = await fs.readFile(`./setup/data/json_results_${version}.json`, 'utf8')
-    // const xmlContent = await fs.readFile(`./setup/data/xml_results_${version}.xml`, 'utf8')
-
-    await importConceptData(jsonContent, xmlContent, version, versionType)
-
-    console.log('Concept data synchronized successfully')
-  }
-
   try {
     // Check if synchronization should occur
     if (process.env.SHOULD_SYNC !== 'true') {
@@ -80,10 +65,19 @@ export const syncConceptData = async (event) => {
       versionType = version
     }
 
-    // Start the sync process asynchronously
-    await syncProcess(version, versionType, apiEndpoint)
+    // Fetch JSON and XML content using fetchPagedConceptData
+    const jsonContent = await fetchPagedConceptData('json', apiEndpoint, version)
+    const xmlContent = await fetchPagedConceptData('xml', apiEndpoint, version)
 
-    // Return immediately for both HTTP and scheduled events
+    // eslint-disable-next-line no-underscore-dangle
+    // For testing until KMS endpoint is ready.
+    // const jsonContent = await fs.readFile(`./setup/data/json_results_${version}.json`, 'utf8')
+    // const xmlContent = await fs.readFile(`./setup/data/xml_results_${version}.xml`, 'utf8')
+
+    await importConceptData(jsonContent, xmlContent, version, versionType)
+
+    console.log('Concept data synchronized successfully')
+
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Sync process complete.' })

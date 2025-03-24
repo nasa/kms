@@ -86,8 +86,8 @@ describe('exportRdfToS3 handler', () => {
 
       const result = await handler({ version: 'published' })
 
-      expect(result.statusCode).toBe(200) // The handler catches the error and still returns 200
-      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
+      expect(result.statusCode).toBe(500) // The handler catches the error and still returns 200
+      expect(JSON.parse(result.body).message).toBe('Error in RDF export process')
       expect(console.error).toHaveBeenCalledWith(
         'Error in export process:',
         expect.objectContaining({
@@ -101,8 +101,8 @@ describe('exportRdfToS3 handler', () => {
 
       const result = await handler({ version: 'published' })
 
-      expect(result.statusCode).toBe(200)
-      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).message).toBe('Error in RDF export process')
       expect(console.error).toHaveBeenCalledWith(
         'Error in export process:',
         expect.objectContaining({
@@ -119,8 +119,8 @@ describe('exportRdfToS3 handler', () => {
 
       const result = await handler({ version: 'published' })
 
-      expect(result.statusCode).toBe(200)
-      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).message).toBe('Error in RDF export process')
       expect(console.error).toHaveBeenCalledWith(
         'Error in export process:',
         expect.objectContaining({

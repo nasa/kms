@@ -12,7 +12,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Handler for exporting RDF data to Amazon S3.
  *
  * This function is designed to be invoked on a schedule. It initiates the export process
- * asynchronously and returns immediately.
+ * asynchronously.
  *
  * Environment Variables:
  * - RDF_BUCKET_NAME: The name of the S3 bucket to use. Defaults to 'kms-rdf-backup' if not set.
@@ -31,7 +31,7 @@ export const handler = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const version = event.version || 'published' // Default to 'published' if not specified
 
-  async function exportData() {
+  try {
     const s3BucketName = process.env.RDF_BUCKET_NAME || 'kms-rdf-backup'
     const s3Client = new S3Client({})
 
@@ -78,18 +78,20 @@ export const handler = async (event) => {
     }))
 
     console.log(`RDF data for version ${version} exported successfully to ${s3Key}`)
-  }
 
-  // Start the export process asynchronously
-  await exportData().catch((error) => {
+    return {
+      statusCode: 200,
+      headers: defaultResponseHeaders,
+      body: JSON.stringify({ message: `RDF export process complete for version ${version}` })
+    }
+  } catch (error) {
     console.error('Error in export process:', error)
-  })
 
-  // Return immediately
-  return {
-    statusCode: 200,
-    headers: defaultResponseHeaders,
-    body: JSON.stringify({ message: `RDF export process complete for version ${version}` })
+    return {
+      statusCode: 500,
+      headers: defaultResponseHeaders,
+      body: JSON.stringify({ message: 'Error in RDF export process' })
+    }
   }
 }
 
