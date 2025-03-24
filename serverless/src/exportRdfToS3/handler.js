@@ -26,22 +26,25 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   - body: A JSON string with a message indicating the export process has been initiated
  */
 export const handler = async (event) => {
+  console.log('in export rdf to s3', event)
+
   const { defaultResponseHeaders } = getApplicationConfig()
   const version = event.version || 'published' // Default to 'published' if not specified
 
-  async function exportProcess() {
+  async function exportData() {
     const s3BucketName = process.env.RDF_BUCKET_NAME || 'kms-rdf-backup'
     const s3Client = new S3Client({})
 
     // Fetch RDF data from the repository using sparqlRequest
     const response = await sparqlRequest({
       method: 'GET',
-      path: `/statements?version=${version}`,
+      path: '/statements',
       accept: 'application/rdf+xml',
       version
     })
 
     if (!response.ok) {
+      console.log('error fetching rdfxml for ', version)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
@@ -78,15 +81,15 @@ export const handler = async (event) => {
   }
 
   // Start the export process asynchronously
-  exportProcess(version).catch((error) => {
+  await exportData().catch((error) => {
     console.error('Error in export process:', error)
   })
 
   // Return immediately
   return {
-    statusCode: 202,
+    statusCode: 200,
     headers: defaultResponseHeaders,
-    body: JSON.stringify({ message: `RDF export process initiated for version ${version}` })
+    body: JSON.stringify({ message: `RDF export process complete for version ${version}` })
   }
 }
 

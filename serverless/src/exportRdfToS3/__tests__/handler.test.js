@@ -45,32 +45,16 @@ describe('exportRdfToS3 handler', () => {
     vi.useRealTimers()
   })
 
-  describe('when initiating export process', () => {
-    test('should return immediately with a 202 status', async () => {
-      const result = await handler({ version: 'published' })
-
-      expect(result.statusCode).toBe(202)
-      expect(JSON.parse(result.body).message).toBe('RDF export process initiated for version published')
-    })
-
-    test('should use default version if not provided', async () => {
-      const result = await handler({})
-
-      expect(result.statusCode).toBe(202)
-      expect(JSON.parse(result.body).message).toBe('RDF export process initiated for version published')
-    })
-  })
-
   describe('when export process runs', () => {
     test('should successfully export RDF data to S3', async () => {
-      await handler({ version: 'published' })
+      const result = await handler({ version: 'published' })
 
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
 
       expect(sparqlRequest).toHaveBeenCalledWith({
         method: 'GET',
-        path: '/statements?version=published',
+        path: '/statements',
         accept: 'application/rdf+xml',
         version: 'published'
       })
@@ -80,14 +64,19 @@ describe('exportRdfToS3 handler', () => {
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('RDF data for version published exported successfully'))
     })
 
+    test('should use default version if not provided', async () => {
+      const result = await handler({})
+
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
+    })
+
     test('should create S3 bucket if it does not exist', async () => {
       S3Client.prototype.send.mockRejectedValueOnce({ name: 'NotFound' })
 
-      await handler({ version: 'published' })
+      const result = await handler({ version: 'published' })
 
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
-
+      expect(result.statusCode).toBe(200)
       expect(S3Client.prototype.send).toHaveBeenCalledWith(expect.any(CreateBucketCommand))
     })
 
@@ -95,11 +84,10 @@ describe('exportRdfToS3 handler', () => {
       S3Client.prototype.send.mockResolvedValueOnce({}) // HeadBucketCommand
       S3Client.prototype.send.mockRejectedValueOnce(new Error('S3 upload failed')) // PutObjectCommand
 
-      await handler({ version: 'published' })
+      const result = await handler({ version: 'published' })
 
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
-
+      expect(result.statusCode).toBe(200) // The handler catches the error and still returns 200
+      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
       expect(console.error).toHaveBeenCalledWith(
         'Error in export process:',
         expect.objectContaining({
@@ -111,11 +99,10 @@ describe('exportRdfToS3 handler', () => {
     test('should handle unexpected S3 errors', async () => {
       S3Client.prototype.send.mockRejectedValueOnce(new Error('Unexpected S3 error'))
 
-      await handler({ version: 'published' })
+      const result = await handler({ version: 'published' })
 
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
-
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
       expect(console.error).toHaveBeenCalledWith(
         'Error in export process:',
         expect.objectContaining({
@@ -130,11 +117,10 @@ describe('exportRdfToS3 handler', () => {
         status: 503
       })
 
-      await handler({ version: 'published' })
+      const result = await handler({ version: 'published' })
 
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
-
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
       expect(console.error).toHaveBeenCalledWith(
         'Error in export process:',
         expect.objectContaining({
@@ -150,9 +136,6 @@ describe('exportRdfToS3 handler', () => {
 
       await handler({ version: 'published' })
 
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
-
       expect(HeadBucketCommand).toHaveBeenCalledWith({ Bucket: 'kms-rdf-backup' })
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
         Bucket: 'kms-rdf-backup',
@@ -164,9 +147,6 @@ describe('exportRdfToS3 handler', () => {
 
     test('should set correct ContentType for S3 upload', async () => {
       await handler({ version: 'published' })
-
-      // Run all pending timers and microtasks
-      await vi.runAllTimersAsync()
 
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
         Bucket: 'test-bucket',

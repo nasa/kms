@@ -1,8 +1,16 @@
 edlAuthorizer:
   handler: serverless/src/edlAuthorizer/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
+publish:
+  handler: serverless/src/publish/handler.default
+  timeout: 900
+  events:
+    - http:
+        path: publish
+        method: post
+        async: true
 syncConceptData:
-  handler: serverless/src/syncConceptData/handler.syncConceptData
+  handler: serverless/src/syncConceptData/handler.default
   timeout: 900
   events:
     - http:
@@ -16,7 +24,7 @@ syncConceptData:
           version: "published"
     - schedule:
         name: SyncDraftConcepts
-        rate: cron(0 32 * * ? *)
+        rate: cron(0 22 * * ? *)
         input:
           version: "draft"
 exportRdfToS3:
@@ -25,23 +33,14 @@ exportRdfToS3:
   events:
     - schedule:
         name: exportRdfToS3ForPublished
-        rate: cron(50 22 * * ? *) 
+        rate: cron(0 0 * * ? *) 
         input:
           version: "published"
     - schedule:
         name: exportRdfToS3ForDraft
-        rate: cron(50 23 * * ? *) 
+        rate: cron(0 1 * * ? *) 
         input:
           version: "draft"
-publish:
-  handler: serverless/src/publish/handler.default
-  timeout: 900
-  events:
-    - http:
-        method: post
-        async: true
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: /publish
 errorLogger:
   handler: serverless/src/errorLogger/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}

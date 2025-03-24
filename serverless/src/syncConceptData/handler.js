@@ -81,14 +81,12 @@ export const syncConceptData = async (event) => {
     }
 
     // Start the sync process asynchronously
-    syncProcess(version, versionType, apiEndpoint).catch((error) => {
-      console.error('Error in sync process:', error)
-    })
+    await syncProcess(version, versionType, apiEndpoint)
 
     // Return immediately for both HTTP and scheduled events
     return {
-      statusCode: 202,
-      body: JSON.stringify({ message: 'Sync process initiated' })
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Sync process complete.' })
     }
   } catch (error) {
     console.error('Error syncing concept data:', error)
