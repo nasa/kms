@@ -37,6 +37,12 @@ const processConcept = async (uuid, version, retryCount = 0) => {
   }
 
   try {
+    /**
+     * Writes data to a stream with backpressure handling.
+     * This function is necessary to prevent memory issues when writing large amounts of data,
+     * ensuring that the stream's internal buffer doesn't overflow. It respects the stream's
+     * backpressure mechanism by waiting for the 'drain' event when the buffer is full.
+    */
     const writeToStream = (stream, data) => new Promise((resolve) => {
       if (!stream.write(data)) {
         stream.once('drain', resolve)
