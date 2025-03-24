@@ -529,12 +529,7 @@ describe('toKeywordJson', () => {
 
     const result = await toKeywordJson(skosConcept, mockPrefLabelMap)
 
-    expect(result.resources).toEqual([
-      {
-        type: undefined,
-        url: undefined
-      }
-    ])
+    expect(result.resources).toBeUndefined()
   })
 
   test('should handle concepts with prefLabel as an object', async () => {

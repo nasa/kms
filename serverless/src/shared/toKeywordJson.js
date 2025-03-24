@@ -1,10 +1,10 @@
 import { castArray } from 'lodash'
 
 import { buildFullPath } from './buildFullPath'
-import { cleanupJsonObject } from './cleanupJsonObject'
 import { createChangeNoteItem } from './createChangeNoteItem'
 import { getNumberOfCmrCollections } from './getNumberOfCmrCollections'
 import { getVersionMetadata } from './getVersionMetadata'
+import { removeEmpty } from './removeEmpty'
 
 /**
  * Converts a SKOS concept to JSON format.
@@ -186,7 +186,7 @@ export const toKeywordJson = async (
       changeNotes
     }
 
-    return cleanupJsonObject(transformedData)
+    return removeEmpty(transformedData)
   } catch (error) {
     console.error(`Error converting concept to JSON: ${error.message}`)
     throw new Error(`Failed to convert concept to JSON: ${error.message}`)
