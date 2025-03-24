@@ -1,5 +1,5 @@
 import { createChangeNoteItem } from '@/shared/createChangeNoteItem'
-import { getConceptChangeNotes } from '@/shared/getConceptChangeNotes'
+import { getConceptChangeNoteTriples } from '@/shared/getConceptChangeNoteTriples'
 import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
@@ -165,7 +165,7 @@ export const getConceptUpdatesReport = async (event) => {
     }
   }
 
-  const changeNoteTriples = await getConceptChangeNotes({
+  const changeNoteTriples = await getConceptChangeNoteTriples({
     version,
     scheme,
     startDate,

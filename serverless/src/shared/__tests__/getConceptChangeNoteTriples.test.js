@@ -5,7 +5,7 @@ import {
   vi
 } from 'vitest'
 
-import { getConceptChangeNotes } from '../getConceptChangeNotes'
+import { getConceptChangeNoteTriples } from '../getConceptChangeNoteTriples'
 import { sparqlRequest } from '../sparqlRequest'
 
 // Mock the sparqlRequest function
@@ -46,7 +46,7 @@ describe('getConceptChangeNotes', () => {
     }
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    const result = await getConceptChangeNotes({
+    const result = await getConceptChangeNoteTriples({
       version: 'v1',
       scheme: 'earth_science',
       startDate: '2023-01-01',
@@ -83,7 +83,7 @@ describe('getConceptChangeNotes', () => {
     }
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    await expect(getConceptChangeNotes({ version: 'v1' }))
+    await expect(getConceptChangeNoteTriples({ version: 'v1' }))
       .rejects.toThrow('No concept change notes found')
   })
 
@@ -94,14 +94,14 @@ describe('getConceptChangeNotes', () => {
     }
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    await expect(getConceptChangeNotes({ version: 'v1' }))
+    await expect(getConceptChangeNoteTriples({ version: 'v1' }))
       .rejects.toThrow('HTTP error! status: 500')
   })
 
   test('handles network errors', async () => {
     sparqlRequest.mockRejectedValue(new Error('Network error'))
 
-    await expect(getConceptChangeNotes({ version: 'v1' }))
+    await expect(getConceptChangeNoteTriples({ version: 'v1' }))
       .rejects.toThrow('Network error')
   })
 
@@ -119,7 +119,7 @@ describe('getConceptChangeNotes', () => {
     }
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    await getConceptChangeNotes({
+    await getConceptChangeNoteTriples({
       version: 'v2',
       scheme: 'test_scheme',
       startDate: '2023-01-01',

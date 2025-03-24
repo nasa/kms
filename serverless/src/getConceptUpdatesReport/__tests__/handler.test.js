@@ -6,14 +6,14 @@ import {
 } from 'vitest'
 
 import { createChangeNoteItem } from '@/shared/createChangeNoteItem'
-import { getConceptChangeNotes } from '@/shared/getConceptChangeNotes'
+import { getConceptChangeNoteTriples } from '@/shared/getConceptChangeNoteTriples'
 import { getApplicationConfig } from '@/shared/getConfig'
 
 import { createCsvReport, getConceptUpdatesReport } from '../handler'
 
 // Mock the imported modules
 vi.mock('@/shared/getConfig')
-vi.mock('@/shared/getConceptChangeNotes')
+vi.mock('@/shared/getConceptChangeNoteTriples')
 vi.mock('@/shared/createChangeNoteItem')
 
 describe('getConceptUpdatesReport', () => {
@@ -60,7 +60,7 @@ describe('getConceptUpdatesReport', () => {
       }
     }
 
-    getConceptChangeNotes.mockResolvedValue([
+    getConceptChangeNoteTriples.mockResolvedValue([
       { changeNote: { value: 'Sample change note' } }
     ])
 

@@ -39,7 +39,7 @@ import { sparqlRequest } from './sparqlRequest'
  *   console.error('Failed to fetch all concept change notes:', error);
  * }
  */
-export const getConceptChangeNotes = async ({
+export const getConceptChangeNoteTriples = async ({
   version, scheme, startDate, endDate
 }) => {
   const query = getConceptChangeNotesQuery({
