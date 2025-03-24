@@ -58,6 +58,11 @@ npm run rdf4j:start
 npm run rdf4j:setup
 ```
 
+### At any time, you can stop the RDF database by issuing:
+```
+npm run rdf4j:stop
+```
+
 # Deployments
 ## Deploying RDF Database to AWS
 ### Prerequisites

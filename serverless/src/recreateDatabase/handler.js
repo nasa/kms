@@ -50,7 +50,6 @@ export const recreateDatabase = async () => {
     const repositoryId = 'kms'
 
     // Step 1: Delete existing repository
-    console.log('recreating database')
     const deleteResponse = await fetch(`${baseUrl}/repositories/${repositoryId}`, {
       method: 'DELETE',
       headers: {

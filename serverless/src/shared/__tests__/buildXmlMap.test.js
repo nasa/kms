@@ -24,7 +24,7 @@ describe('buildXmlMap', () => {
 
   test('should build an XML map from valid content', async () => {
     const content = `
-      <results>
+      <concepts>
         <concept uuid="1">
           <skos:Concept>
             <skos:prefLabel>Concept 1</skos:prefLabel>
@@ -37,7 +37,7 @@ describe('buildXmlMap', () => {
             <skos:definition>Definition 2</skos:definition>
           </skos:Concept>
         </concept>
-      </results>
+      </concepts>
     `
 
     const result = await buildXmlMap(content)
@@ -62,7 +62,7 @@ describe('buildXmlMap', () => {
 
   test('should preserve number-like strings', async () => {
     const content = `
-      <results>
+      <concepts>
         <concept uuid="1">
           <skos:Concept>
             <skos:notation>1.0</skos:notation>
@@ -73,7 +73,7 @@ describe('buildXmlMap', () => {
             <skos:notation>-2.5e10</skos:notation>
           </skos:Concept>
         </concept>
-      </results>
+      </concepts>
     `
 
     const result = await buildXmlMap(content)
@@ -84,7 +84,7 @@ describe('buildXmlMap', () => {
 
   test('should handle concepts without UUID', async () => {
     const content = `
-      <results>
+      <concepts>
         <concept uuid="1">
           <skos:Concept>
             <skos:prefLabel>Concept 1</skos:prefLabel>
@@ -95,7 +95,7 @@ describe('buildXmlMap', () => {
             <skos:prefLabel>Concept 2</skos:prefLabel>
           </skos:Concept>
         </concept>
-      </results>
+      </concepts>
     `
 
     await buildXmlMap(content)
@@ -128,8 +128,8 @@ describe('buildXmlMap', () => {
 
   test('should handle empty results', async () => {
     const content = `
-      <results>
-      </results>
+      <concepts>
+      </concepts>
     `
 
     const result = await buildXmlMap(content)
@@ -140,13 +140,13 @@ describe('buildXmlMap', () => {
 
   test('should handle a single concept', async () => {
     const content = `
-      <results>
+      <concepts>
         <concept uuid="1">
           <skos:Concept>
             <skos:prefLabel>Single Concept</skos:prefLabel>
           </skos:Concept>
         </concept>
-      </results>
+      </concepts>
     `
 
     const result = await buildXmlMap(content)
@@ -174,7 +174,7 @@ describe('buildXmlMap', () => {
 
     test('should warn about unexpected XML structure', async () => {
       XMLParser.mockImplementation(() => ({
-        parse: () => ({ results: { unexpectedElement: 'data' } })
+        parse: () => ({ concepts: { unexpectedElement: 'data' } })
       }))
 
       const result = await buildXmlMap('<dummy xml>')

@@ -6,7 +6,7 @@ import { delay } from '@/shared/delay'
 const PAGE_SIZE = 2000
 
 export const fetchPagedConceptData = async (format, apiEndpoint, version) => {
-  let baseUrl = `${apiEndpoint}/kms/concepts?format=${format}`
+  let baseUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?format=${format}`
   if (version && version !== 'published') {
     baseUrl += `&version=${version}`
   }
@@ -35,9 +35,9 @@ export const fetchPagedConceptData = async (format, apiEndpoint, version) => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const totalHits = response.headers.get('X-Total-Hits')
+    const totalHits = response.headers.get('Total-Count')
     if (!totalHits) {
-      throw new Error('Invalid X-Total-Hits header')
+      throw new Error('Invalid Total-Count header')
     }
 
     totalPages = Math.ceil(parseInt(totalHits, 10) / PAGE_SIZE)

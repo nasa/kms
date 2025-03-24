@@ -40,7 +40,7 @@ describe('fetchPagedConceptData', () => {
         const startIndex = i * pageSize
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          headers: new Headers({ 'X-Total-Hits': totalHits.toString() }),
+          headers: new Headers({ 'Total-Count': totalHits.toString() }),
           text: () => Promise.resolve(`<concepts>${generateMockData('xml', pageHits, startIndex)}</concepts>`)
         })
       }
@@ -58,7 +58,7 @@ describe('fetchPagedConceptData', () => {
     test('should handle XML content with no concepts correctly', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        headers: new Headers({ 'X-Total-Hits': '0' }),
+        headers: new Headers({ 'Total-Count': '0' }),
         text: () => Promise.resolve('<concepts></concepts>')
       })
 
@@ -81,7 +81,7 @@ describe('fetchPagedConceptData', () => {
         const startIndex = i * pageSize
         mockFetch.mockResolvedValueOnce({
           ok: true,
-          headers: new Headers({ 'X-Total-Hits': totalHits.toString() }),
+          headers: new Headers({ 'Total-Count': totalHits.toString() }),
           text: () => Promise.resolve(JSON.stringify(generateMockData('json', pageHits, startIndex)))
         })
       }
@@ -100,7 +100,7 @@ describe('fetchPagedConceptData', () => {
     test('should not include version in the URL for published data', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        headers: new Headers({ 'X-Total-Hits': '1' }),
+        headers: new Headers({ 'Total-Count': '1' }),
         text: () => Promise.resolve('[]')
       })
 
@@ -114,7 +114,7 @@ describe('fetchPagedConceptData', () => {
     test('should include version in the URL for non-published data', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        headers: new Headers({ 'X-Total-Hits': '1' }),
+        headers: new Headers({ 'Total-Count': '1' }),
         text: () => Promise.resolve('[]')
       })
 
@@ -135,13 +135,13 @@ describe('fetchPagedConceptData', () => {
       })
 
       await expect(fetchPagedConceptData('json', 'http://api.example.com', 'published'))
-        .rejects.toThrow('Invalid X-Total-Hits header')
+        .rejects.toThrow('Invalid Total-Count header')
     })
 
     test('should throw an error when JSON response is not an array', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        headers: new Headers({ 'X-Total-Hits': '1' }),
+        headers: new Headers({ 'Total-Count': '1' }),
         text: () => Promise.resolve('{}')
       })
 
@@ -152,7 +152,7 @@ describe('fetchPagedConceptData', () => {
     test('should throw an error when parsing invalid JSON', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        headers: new Headers({ 'X-Total-Hits': '1' }),
+        headers: new Headers({ 'Total-Count': '1' }),
         text: () => Promise.resolve('invalid json')
       })
 
@@ -163,7 +163,7 @@ describe('fetchPagedConceptData', () => {
     test('should throw an error when parsing invalid XML', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        headers: new Headers({ 'X-Total-Hits': '1' }),
+        headers: new Headers({ 'Total-Count': '1' }),
         text: () => Promise.resolve('<invalid>xml')
       })
 

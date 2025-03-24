@@ -38,10 +38,10 @@ export const buildXmlMap = async (content) => {
 
   // Create a map from the parsed XML
   const xmlMap = {}
-  if (result.results && result.results.concept) {
-    const concepts = Array.isArray(result.results.concept)
-      ? result.results.concept
-      : [result.results.concept]
+  if (result.concepts && result.concepts.concept) {
+    const concepts = Array.isArray(result.concepts.concept)
+      ? result.concepts.concept
+      : [result.concepts.concept]
 
     concepts.forEach((concept) => {
       if (concept['@_uuid']) {
