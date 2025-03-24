@@ -26,6 +26,7 @@ vi.mock('@/shared/toRDF')
 describe('importConceptData', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+
     vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Set up mock implementations
@@ -74,8 +75,9 @@ describe('importConceptData', () => {
     const xmlContent = 'mocked XML content'
     const version = '1.0'
     const versionType = 'draft'
+    const options = { minConceptsRequired: 1 }
 
-    await importConceptData(jsonContent, xmlContent, version, versionType)
+    await importConceptData(jsonContent, xmlContent, version, versionType, options)
 
     expect(removeGraph).toHaveBeenCalledWith('1.0')
     expect(createSchemes).toHaveBeenCalledWith('1.0', 'draft')
@@ -125,8 +127,9 @@ describe('importConceptData', () => {
     const xmlContent = 'mocked XML content'
     const version = '1.0'
     const versionType = 'published'
+    const options = { minConceptsRequired: 1 }
 
-    await importConceptData(jsonContent, xmlContent, version, versionType)
+    await importConceptData(jsonContent, xmlContent, version, versionType, options)
 
     expect(removeGraph).toHaveBeenCalledWith('published')
     expect(createSchemes).toHaveBeenCalledWith('published', 'published')
@@ -168,8 +171,9 @@ describe('importConceptData', () => {
     sparqlRequest.mockResolvedValue({ ok: true })
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const options = { minConceptsRequired: 1 }
 
-    await importConceptData(jsonContent, xmlContent, version, versionType)
+    await importConceptData(jsonContent, xmlContent, version, versionType, options)
 
     // Check if the specific error was logged
     expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -192,6 +196,7 @@ describe('importConceptData', () => {
     const xmlContent = 'mocked XML content'
     const version = '1.0'
     const versionType = 'draft'
+    const options = { minConceptsRequired: 1 }
 
     sparqlRequest.mockResolvedValue({
       ok: false,
@@ -202,28 +207,65 @@ describe('importConceptData', () => {
     console.error = vi.fn() // Mock console.error to check if it's called
     console.log = vi.fn() // Mock console.log to check if it's called
 
-    await importConceptData(jsonContent, xmlContent, version, versionType)
+    await importConceptData(jsonContent, xmlContent, version, versionType, options)
 
     expect(console.log).toHaveBeenCalledWith('Response text:', 'Server Error')
     expect(console.error).toHaveBeenCalledWith('Error loading batch:', expect.any(Error))
   })
 
-  test('should process empty concept list', async () => {
-    const jsonContent = 'mocked empty JSON content'
-    const xmlContent = 'mocked empty XML content'
+  test('should throw error for empty concept list without calling removeGraph or createSchemes', async () => {
+    const jsonContent = '[]' // Empty JSON array
+    const xmlContent = '<root></root>' // Empty XML
     const version = '1.0'
     const versionType = 'draft'
+    const options = { minConceptsRequired: 1 }
 
     buildJsonMap.mockResolvedValue({})
     buildXmlMap.mockResolvedValue({})
 
-    await importConceptData(jsonContent, xmlContent, version, versionType)
+    await expect(importConceptData(jsonContent, xmlContent, version, versionType, options))
+      .rejects.toThrow(`Refusing to import data, # of concepts < ${options.minConceptsRequired}`)
 
-    expect(removeGraph).toHaveBeenCalled()
-    expect(createSchemes).toHaveBeenCalled()
+    expect(removeGraph).not.toHaveBeenCalled()
+    expect(createSchemes).not.toHaveBeenCalled()
     expect(buildJsonMap).toHaveBeenCalled()
     expect(buildXmlMap).toHaveBeenCalled()
     expect(toRDF).not.toHaveBeenCalled()
     expect(sparqlRequest).not.toHaveBeenCalled()
+  })
+
+  // Add a new test to verify the error is thrown when concepts are less than required
+  test('should throw error when number of concepts is less than required without calling removeGraph or createSchemes', async () => {
+    const jsonContent = JSON.stringify([{ id: 'concept1' }])
+    const xmlContent = '<root><concept id="concept1"></concept></root>'
+    const version = '1.0'
+    const versionType = 'draft'
+    const options = { minConceptsRequired: 2 }
+
+    buildJsonMap.mockResolvedValue({ concept1: { id: 'concept1' } })
+    buildXmlMap.mockResolvedValue({ concept1: { id: 'concept1' } })
+
+    await expect(importConceptData(jsonContent, xmlContent, version, versionType, options))
+      .rejects.toThrow(`Refusing to import data, # of concepts < ${options.minConceptsRequired}`)
+
+    expect(removeGraph).not.toHaveBeenCalled()
+    expect(createSchemes).not.toHaveBeenCalled()
+    expect(buildJsonMap).toHaveBeenCalled()
+    expect(buildXmlMap).toHaveBeenCalled()
+    expect(toRDF).not.toHaveBeenCalled()
+    expect(sparqlRequest).not.toHaveBeenCalled()
+  })
+
+  test('should use default minConceptsRequired when not provided', async () => {
+    const jsonContent = JSON.stringify(Array(9999).fill({ id: 'concept' }))
+    const xmlContent = `<root>${Array(9999).fill('<concept></concept>').join('')}</root>`
+    const version = '1.0'
+    const versionType = 'draft'
+
+    buildJsonMap.mockResolvedValue(Object.fromEntries(Array(9999).fill(0).map((_, i) => [`concept${i}`, { id: `concept${i}` }])))
+    buildXmlMap.mockResolvedValue(Object.fromEntries(Array(9999).fill(0).map((_, i) => [`concept${i}`, { id: `concept${i}` }])))
+
+    await expect(importConceptData(jsonContent, xmlContent, version, versionType))
+      .rejects.toThrow('Refusing to import data, # of concepts < 10000')
   })
 })

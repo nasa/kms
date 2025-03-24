@@ -6,6 +6,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 import { toRDF } from '@/shared/toRDF'
 
 const BATCH_SIZE = 100
+const DEFAULT_MIN_CONCEPTS = 10000
 
 /**
  * Imports concept data into the SPARQL endpoint.
@@ -25,7 +26,13 @@ const BATCH_SIZE = 100
  * @returns {Promise<void>}
  * @throws {Error} If there's an issue during the import process.
  */
-export const importConceptData = async (jsonContent, xmlContent, version, versionType) => {
+export const importConceptData = async (
+  jsonContent,
+  xmlContent,
+  version,
+  versionType,
+  options = {}
+) => {
   const processBatch = async (batch, jsonMap, xmlMap) => {
     let rdfBatch = '<?xml version="1.0" encoding="UTF-8"?>\n'
     rdfBatch += '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#">\n'
@@ -77,13 +84,19 @@ export const importConceptData = async (jsonContent, xmlContent, version, versio
     versionName = 'published'
   }
 
-  await removeGraph(versionName)
-
-  await createSchemes(versionName, versionType)
+  const { minConceptsRequired = DEFAULT_MIN_CONCEPTS } = options
 
   const jsonMap = await buildJsonMap(jsonContent)
   const xmlMap = await buildXmlMap(xmlContent)
   const conceptIds = Object.keys(jsonMap)
+
+  if (conceptIds.length < minConceptsRequired) {
+    throw new Error(`Refusing to import data, # of concepts < ${minConceptsRequired}`)
+  }
+
+  await removeGraph(versionName)
+
+  await createSchemes(versionName, versionType)
 
   const batchCount = Math.ceil(conceptIds.length / BATCH_SIZE)
   await Array.from({ length: batchCount }).reduce(async (previousPromise, _, index) => {

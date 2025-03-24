@@ -1,3 +1,4 @@
+import nodeFetch from 'node-fetch'
 import {
   beforeEach,
   describe,
@@ -6,6 +7,8 @@ import {
 } from 'vitest'
 
 import { fetchPagedConceptData } from '../fetchPagedConceptData'
+
+vi.mock('node-fetch')
 
 vi.mock('@/shared/delay', () => ({
   delay: vi.fn(() => Promise.resolve())
@@ -16,7 +19,8 @@ describe('fetchPagedConceptData', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn()
-    global.fetch = mockFetch
+    vi.mocked(nodeFetch).mockImplementation(mockFetch)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
   const generateMockData = (format, count, startIndex = 0) => {
@@ -45,7 +49,7 @@ describe('fetchPagedConceptData', () => {
         })
       }
 
-      const result = await fetchPagedConceptData('xml', 'http://api.example.com', 'published')
+      const result = await fetchPagedConceptData('xml', 'https://api.example.com', 'published')
 
       expect(result).toMatch(/<concepts>(<concept uuid="uuid-\d+"\/>\s*){5500}<\/concepts>/)
       expect(mockFetch).toHaveBeenCalledTimes(pages)
@@ -62,7 +66,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('<concepts></concepts>')
       })
 
-      const result = await fetchPagedConceptData('xml', 'http://api.example.com', 'published')
+      const result = await fetchPagedConceptData('xml', 'https://api.example.com', 'published')
 
       expect(result).toBe('<concepts></concepts>')
       expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -86,7 +90,7 @@ describe('fetchPagedConceptData', () => {
         })
       }
 
-      const result = await fetchPagedConceptData('json', 'http://api.example.com', 'published')
+      const result = await fetchPagedConceptData('json', 'https://api.example.com', 'published')
 
       const parsedResult = JSON.parse(result)
       expect(parsedResult).toHaveLength(5500)
@@ -104,7 +108,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('[]')
       })
 
-      await fetchPagedConceptData('json', 'http://api.example.com', 'published')
+      await fetchPagedConceptData('json', 'https://api.example.com', 'published')
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       const calledUrl = mockFetch.mock.calls[0][0]
@@ -118,7 +122,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('[]')
       })
 
-      await fetchPagedConceptData('json', 'http://api.example.com', 'draft')
+      await fetchPagedConceptData('json', 'https://api.example.com', 'draft')
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       const calledUrl = mockFetch.mock.calls[0][0]
@@ -134,7 +138,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('[]')
       })
 
-      await expect(fetchPagedConceptData('json', 'http://api.example.com', 'published'))
+      await expect(fetchPagedConceptData('json', 'https://api.example.com', 'published'))
         .rejects.toThrow('Invalid Total-Count header')
     })
 
@@ -145,7 +149,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('{}')
       })
 
-      await expect(fetchPagedConceptData('json', 'http://api.example.com', 'published'))
+      await expect(fetchPagedConceptData('json', 'https://api.example.com', 'published'))
         .rejects.toThrow('Invalid JSON response: expected an array')
     })
 
@@ -156,7 +160,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('invalid json')
       })
 
-      await expect(fetchPagedConceptData('json', 'http://api.example.com', 'published'))
+      await expect(fetchPagedConceptData('json', 'https://api.example.com', 'published'))
         .rejects.toThrow(SyntaxError)
     })
 
@@ -167,7 +171,7 @@ describe('fetchPagedConceptData', () => {
         text: () => Promise.resolve('<invalid>xml')
       })
 
-      await expect(fetchPagedConceptData('xml', 'http://api.example.com', 'published'))
+      await expect(fetchPagedConceptData('xml', 'https://api.example.com', 'published'))
         .rejects.toThrow()
     })
 
@@ -178,7 +182,7 @@ describe('fetchPagedConceptData', () => {
         statusText: 'Not Found'
       })
 
-      await expect(fetchPagedConceptData('json', 'http://api.example.com', 'published'))
+      await expect(fetchPagedConceptData('json', 'https://api.example.com', 'published'))
         .rejects.toThrow('HTTP error! status: 404')
     })
   })

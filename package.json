@@ -32,6 +32,7 @@
     "html-entities": "^2.5.2",
     "html-escaper": "^3.0.3",
     "lodash": "^4.17.21",
+    "node-fetch": "^2.7.0",
     "node-http-proxy": "^0.2.4",
     "postcss-scss": "^4.0.9",
     "prop-types": "^15.8.1",

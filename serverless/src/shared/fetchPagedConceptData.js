@@ -1,5 +1,8 @@
 /* eslint-disable no-await-in-loop */
+import https from 'https'
+
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
+import fetch from 'node-fetch'
 
 import { delay } from '@/shared/delay'
 
@@ -29,8 +32,12 @@ export const fetchPagedConceptData = async (format, apiEndpoint, version) => {
   let isFirstPage = true
 
   do {
+    console.log(`Fetching page ${currentPage} for ${version} with ${format}`)
     const url = `${baseUrl}&page_num=${currentPage}&page_size=${PAGE_SIZE}`
-    const response = await fetch(url)
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false
+    })
+    const response = await fetch(url, { agent: httpsAgent })
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
