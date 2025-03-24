@@ -7,11 +7,7 @@ import {
 import * as buildFullPathModule from '../buildFullPath'
 import * as getNumberOfCmrCollectionsModule from '../getNumberOfCmrCollections'
 import * as getVersionMetadataModule from '../getVersionMetadata'
-import {
-  processAltLabels,
-  processRelations,
-  toKeywordJson
-} from '../toKeywordJson'
+import { toKeywordJson } from '../toKeywordJson'
 
 // Mock the imported functions
 vi.mock('../buildFullPath', () => ({
@@ -33,283 +29,6 @@ vi.mock('../createChangeNoteItem', () => ({
     description: changeNote['gcmd:changeDescription']
   }))
 }))
-
-describe('processAltLabels', () => {
-  test('should return an empty array when altLabels is undefined', () => {
-    expect(processAltLabels(undefined)).toEqual([])
-  })
-
-  test('should return an empty array when altLabels is null', () => {
-    expect(processAltLabels(null)).toEqual([])
-  })
-
-  test('should process a single altLabel object correctly', () => {
-    const input = {
-      '@gcmd:category': 'primary',
-      '@gcmd:text': 'Test Label',
-      '@xml:lang': 'en'
-    }
-    const expected = [{
-      category: 'primary',
-      text: 'Test Label',
-      languageCode: 'en'
-    }]
-    expect(processAltLabels(input)).toEqual(expected)
-  })
-
-  test('should process an array of altLabel objects correctly', () => {
-    const input = [
-      {
-        '@gcmd:category': 'primary',
-        '@gcmd:text': 'Test Label 1',
-        '@xml:lang': 'en'
-      },
-      {
-        '@gcmd:text': 'Test Label 2',
-        '@xml:lang': 'fr'
-      }
-    ]
-    const expected = [
-      {
-        category: 'primary',
-        text: 'Test Label 1',
-        languageCode: 'en'
-      },
-      {
-        text: 'Test Label 2',
-        languageCode: 'fr'
-      }
-    ]
-    expect(processAltLabels(input)).toEqual(expected)
-  })
-
-  test('should handle altLabels without a category', () => {
-    const input = {
-      '@gcmd:text': 'Test Label',
-      '@xml:lang': 'en'
-    }
-    const expected = [{
-      text: 'Test Label',
-      languageCode: 'en'
-    }]
-    expect(processAltLabels(input)).toEqual(expected)
-  })
-
-  test('should handle altLabels without a language code', () => {
-    const input = {
-      '@gcmd:category': 'primary',
-      '@gcmd:text': 'Test Label'
-    }
-    const expected = [{
-      category: 'primary',
-      text: 'Test Label',
-      languageCode: undefined
-    }]
-    expect(processAltLabels(input)).toEqual(expected)
-  })
-})
-
-describe('processRelations', () => {
-  const mockPrefLabelMap = new Map([
-    ['uuid1', 'Instrument 1'],
-    ['uuid2', 'Sensor 1'],
-    ['uuid3', 'Platform 1'],
-    ['uuid4', 'Related 1']
-  ])
-
-  test('should return an empty array when no relations exist', () => {
-    const concept = {}
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual([])
-  })
-
-  test('should process gcmd:hasInstrument relation correctly', () => {
-    const concept = {
-      'gcmd:hasInstrument': { '@rdf:resource': 'uuid1' }
-    }
-    const expected = [{
-      keyword: {
-        uuid: 'uuid1',
-        prefLabel: 'Instrument 1'
-      },
-      relationshipType: 'has_instrument'
-    }]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should process gcmd:hasSensor relation correctly', () => {
-    const concept = {
-      'gcmd:hasSensor': { '@rdf:resource': 'uuid2' }
-    }
-    const expected = [{
-      keyword: {
-        uuid: 'uuid2',
-        prefLabel: 'Sensor 1'
-      },
-      relationshipType: 'has_sensor'
-    }]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should process gcmd:isOnPlatform relation correctly', () => {
-    const concept = {
-      'gcmd:isOnPlatform': { '@rdf:resource': 'uuid3' }
-    }
-    const expected = [{
-      keyword: {
-        uuid: 'uuid3',
-        prefLabel: 'Platform 1'
-      },
-      relationshipType: 'is_on_platform'
-    }]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should process skos:related relation correctly', () => {
-    const concept = {
-      'skos:related': { '@rdf:resource': 'uuid4' }
-    }
-    const expected = [{
-      keyword: {
-        uuid: 'uuid4',
-        prefLabel: 'Related 1'
-      },
-      relationshipType: null
-    }]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should process multiple relations correctly and sort by prefLabel', () => {
-    const concept = {
-      'gcmd:hasInstrument': [
-        { '@rdf:resource': 'uuid1' },
-        { '@rdf:resource': 'uuid2' }
-      ],
-      'gcmd:isOnPlatform': { '@rdf:resource': 'uuid3' },
-      'skos:related': { '@rdf:resource': 'uuid4' }
-    }
-    const expected = [
-      {
-        keyword: {
-          uuid: 'uuid1',
-          prefLabel: 'Instrument 1'
-        },
-        relationshipType: 'has_instrument'
-      },
-      {
-        keyword: {
-          uuid: 'uuid3',
-          prefLabel: 'Platform 1'
-        },
-        relationshipType: 'is_on_platform'
-      },
-      {
-        keyword: {
-          uuid: 'uuid4',
-          prefLabel: 'Related 1'
-        },
-        relationshipType: null
-      },
-      {
-        keyword: {
-          uuid: 'uuid2',
-          prefLabel: 'Sensor 1'
-        },
-        relationshipType: 'has_instrument'
-      }
-    ]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should sort relations by prefLabel', () => {
-    const concept = {
-      'gcmd:hasInstrument': [
-        { '@rdf:resource': 'uuid2' },
-        { '@rdf:resource': 'uuid1' }
-      ]
-    }
-    const expected = [
-      {
-        keyword: {
-          uuid: 'uuid1',
-          prefLabel: 'Instrument 1'
-        },
-        relationshipType: 'has_instrument'
-      },
-      {
-        keyword: {
-          uuid: 'uuid2',
-          prefLabel: 'Sensor 1'
-        },
-        relationshipType: 'has_instrument'
-      }
-    ]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should handle a single relation as an object', () => {
-    const concept = {
-      'gcmd:hasInstrument': { '@rdf:resource': 'uuid1' }
-    }
-    const expected = [{
-      keyword: {
-        uuid: 'uuid1',
-        prefLabel: 'Instrument 1'
-      },
-      relationshipType: 'has_instrument'
-    }]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should handle multiple relations as an array', () => {
-    const concept = {
-      'gcmd:hasInstrument': [
-        { '@rdf:resource': 'uuid1' },
-        { '@rdf:resource': 'uuid2' }
-      ]
-    }
-    const expected = [
-      {
-        keyword: {
-          uuid: 'uuid1',
-          prefLabel: 'Instrument 1'
-        },
-        relationshipType: 'has_instrument'
-      },
-      {
-        keyword: {
-          uuid: 'uuid2',
-          prefLabel: 'Sensor 1'
-        },
-        relationshipType: 'has_instrument'
-      }
-    ]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should handle unknown UUIDs in prefLabelMap', () => {
-    const concept = {
-      'gcmd:hasInstrument': { '@rdf:resource': 'unknown_uuid' }
-    }
-    const expected = [{
-      keyword: {
-        uuid: 'unknown_uuid',
-        prefLabel: undefined
-      },
-      relationshipType: 'has_instrument'
-    }]
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual(expected)
-  })
-
-  test('should handle empty relation arrays', () => {
-    const concept = {
-      'gcmd:hasInstrument': [],
-      'gcmd:hasSensor': [],
-      'gcmd:isOnPlatform': [],
-      'skos:related': []
-    }
-    expect(processRelations(concept, mockPrefLabelMap)).toEqual([])
-  })
-})
 
 describe('toKeywordJson', () => {
   // Mock console.log to suppress output
@@ -829,6 +548,307 @@ describe('toKeywordJson', () => {
 
     expect(result.prefLabel).toBe('Test Concept')
   })
+
+  test('should process alt labels correctly', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'gcmd:altLabel': [
+        {
+          '@gcmd:category': 'primary',
+          '@gcmd:text': 'Primary Alt Label',
+          '@xml:lang': 'en'
+        },
+        {
+          '@gcmd:category': 'secondary',
+          '@gcmd:text': 'Secondary Alt Label',
+          '@xml:lang': 'fr'
+        }
+      ]
+    }
+
+    const result = await toKeywordJson(skosConcept, new Map())
+
+    expect(result.altLabels).toEqual([
+      {
+        category: 'primary',
+        text: 'Primary Alt Label',
+        languageCode: 'en'
+      },
+      {
+        category: 'secondary',
+        text: 'Secondary Alt Label',
+        languageCode: 'fr'
+      }
+    ])
+
+    expect(result.longName).toBe('Primary Alt Label')
+  })
+
+  test('should handle concepts with no alt labels', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' }
+    }
+
+    const result = await toKeywordJson(skosConcept, new Map())
+
+    expect(result.altLabels).toBeUndefined()
+    expect(result.longName).toBeUndefined()
+  })
+
+  test('should handle concepts with a single alt label', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'gcmd:altLabel': {
+        '@gcmd:category': 'primary',
+        '@gcmd:text': 'Single Alt Label',
+        '@xml:lang': 'en'
+      }
+    }
+
+    const result = await toKeywordJson(skosConcept, new Map())
+
+    expect(result.altLabels).toEqual([
+      {
+        category: 'primary',
+        text: 'Single Alt Label',
+        languageCode: 'en'
+      }
+    ])
+
+    expect(result.longName).toBe('Single Alt Label')
+  })
+
+  test('should process relations correctly and sort them', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'gcmd:hasInstrument': { '@rdf:resource': 'uuid1' },
+      'gcmd:hasSensor': { '@rdf:resource': 'uuid2' },
+      'gcmd:isOnPlatform': { '@rdf:resource': 'uuid3' },
+      'skos:related': { '@rdf:resource': 'uuid4' }
+    }
+
+    const prefLabelMap = new Map([
+      ['uuid1', 'Instrument 1'],
+      ['uuid2', 'Sensor 1'],
+      ['uuid3', 'Platform 1'],
+      ['uuid4', 'Related 1']
+    ])
+
+    // Mock the necessary functions
+    vi.spyOn(buildFullPathModule, 'buildFullPath').mockResolvedValue('mock/path')
+    vi.spyOn(getNumberOfCmrCollectionsModule, 'getNumberOfCmrCollections').mockResolvedValue(10)
+    vi.spyOn(getVersionMetadataModule, 'getVersionMetadata').mockResolvedValue({ versionName: '1.0.0' })
+
+    const result = await toKeywordJson(skosConcept, prefLabelMap)
+
+    expect(result.related).toEqual([
+      {
+        keyword: {
+          uuid: 'uuid1',
+          prefLabel: 'Instrument 1'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid3',
+          prefLabel: 'Platform 1'
+        },
+        relationshipType: 'is_on_platform'
+      },
+      {
+        keyword: {
+          uuid: 'uuid4',
+          prefLabel: 'Related 1'
+        }
+      },
+      {
+        keyword: {
+          uuid: 'uuid2',
+          prefLabel: 'Sensor 1'
+        },
+        relationshipType: 'has_sensor'
+      }
+    ])
+  })
+
+  test('should handle multiple relations of the same type', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'gcmd:hasInstrument': [
+        { '@rdf:resource': 'uuid1' },
+        { '@rdf:resource': 'uuid2' }
+      ]
+    }
+
+    const prefLabelMap = new Map([
+      ['uuid1', 'Instrument 1'],
+      ['uuid2', 'Instrument 2']
+    ])
+
+    const result = await toKeywordJson(skosConcept, prefLabelMap)
+
+    expect(result.related).toEqual([
+      {
+        keyword: {
+          uuid: 'uuid1',
+          prefLabel: 'Instrument 1'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid2',
+          prefLabel: 'Instrument 2'
+        },
+        relationshipType: 'has_instrument'
+      }
+    ])
+  })
+
+  test('should maintain order of relations when prefLabels are equal', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'gcmd:hasInstrument': [
+        { '@rdf:resource': 'uuid1' },
+        { '@rdf:resource': 'uuid2' }
+      ]
+    }
+
+    const prefLabelMap = new Map([
+      ['uuid1', 'Same Label'],
+      ['uuid2', 'Same Label']
+    ])
+
+    // Mock necessary functions
+    vi.spyOn(buildFullPathModule, 'buildFullPath').mockResolvedValue('mock/path')
+    vi.spyOn(getNumberOfCmrCollectionsModule, 'getNumberOfCmrCollections').mockResolvedValue(10)
+    vi.spyOn(getVersionMetadataModule, 'getVersionMetadata').mockResolvedValue({ versionName: '1.0.0' })
+
+    const result = await toKeywordJson(skosConcept, prefLabelMap)
+
+    expect(result.related).toEqual([
+      {
+        keyword: {
+          uuid: 'uuid1',
+          prefLabel: 'Same Label'
+        },
+        relationshipType: 'has_instrument'
+      },
+      {
+        keyword: {
+          uuid: 'uuid2',
+          prefLabel: 'Same Label'
+        },
+        relationshipType: 'has_instrument'
+      }
+    ])
+  })
+
+  test('should process alt labels with and without category correctly', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'gcmd:altLabel': [
+        {
+          '@gcmd:category': 'primary',
+          '@gcmd:text': 'Primary Alt Label',
+          '@xml:lang': 'en'
+        },
+        {
+          '@gcmd:text': 'Alt Label Without Category',
+          '@xml:lang': 'fr'
+        }
+      ]
+    }
+
+    // Mock necessary functions
+    vi.spyOn(buildFullPathModule, 'buildFullPath').mockResolvedValue('mock/path')
+    vi.spyOn(getNumberOfCmrCollectionsModule, 'getNumberOfCmrCollections').mockResolvedValue(10)
+    vi.spyOn(getVersionMetadataModule, 'getVersionMetadata').mockResolvedValue({ versionName: '1.0.0' })
+
+    const result = await toKeywordJson(skosConcept, new Map())
+
+    expect(result.altLabels).toEqual([
+      {
+        category: 'primary',
+        text: 'Primary Alt Label',
+        languageCode: 'en'
+      },
+      {
+        text: 'Alt Label Without Category',
+        languageCode: 'fr'
+      }
+    ])
+
+    expect(result.longName).toBe('Primary Alt Label')
+  })
+
+  test('should sort change notes in descending order by date', async () => {
+    const skosConcept = {
+      '@rdf:about': 'uuid0',
+      'skos:inScheme': { '@rdf:resource': 'scheme/test' },
+      'skos:prefLabel': { _text: 'Test Concept' },
+      'skos:changeNote': [
+        {
+          '@rdf:parseType': 'Resource',
+          'gcmd:changeVersion': '1.0.0',
+          'gcmd:changeDate': '2023-01-01',
+          'gcmd:changeDescription': 'Initial version'
+        },
+        {
+          '@rdf:parseType': 'Resource',
+          'gcmd:changeVersion': '1.1.0',
+          'gcmd:changeDate': '2023-06-01',
+          'gcmd:changeDescription': 'Updated version'
+        },
+        {
+          '@rdf:parseType': 'Resource',
+          'gcmd:changeVersion': '1.0.5',
+          'gcmd:changeDate': '2023-03-15',
+          'gcmd:changeDescription': 'Patch version'
+        }
+      ]
+    }
+
+    // Mock necessary functions
+    vi.spyOn(buildFullPathModule, 'buildFullPath').mockResolvedValue('mock/path')
+    vi.spyOn(getNumberOfCmrCollectionsModule, 'getNumberOfCmrCollections').mockResolvedValue(10)
+    vi.spyOn(getVersionMetadataModule, 'getVersionMetadata').mockResolvedValue({ versionName: '1.1.0' })
+
+    const result = await toKeywordJson(skosConcept, new Map())
+
+    expect(result.changeNotes).toEqual([
+      {
+        version: '1.1.0',
+        date: '2023-06-01',
+        description: 'Updated version'
+      },
+      {
+        version: '1.0.5',
+        date: '2023-03-15',
+        description: 'Patch version'
+      },
+      {
+        version: '1.0.0',
+        date: '2023-01-01',
+        description: 'Initial version'
+      }
+    ])
+  })
 })
 
 describe('Sorting functions in toKeywordJson', () => {
@@ -879,38 +899,6 @@ describe('Sorting functions in toKeywordJson', () => {
       {
         uuid: 'uuid3',
         prefLabel: 'C Label'
-      }
-    ])
-  })
-
-  test('processRelations should maintain order when prefLabels are equal', () => {
-    const concept = {
-      'gcmd:hasInstrument': [
-        { '@rdf:resource': 'uuid1' },
-        { '@rdf:resource': 'uuid2' }
-      ]
-    }
-    const prefLabelMap = new Map([
-      ['uuid1', 'Same Label'],
-      ['uuid2', 'Same Label']
-    ])
-
-    const result = processRelations(concept, prefLabelMap)
-
-    expect(result).toEqual([
-      {
-        keyword: {
-          uuid: 'uuid1',
-          prefLabel: 'Same Label'
-        },
-        relationshipType: 'has_instrument'
-      },
-      {
-        keyword: {
-          uuid: 'uuid2',
-          prefLabel: 'Same Label'
-        },
-        relationshipType: 'has_instrument'
       }
     ])
   })

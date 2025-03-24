@@ -1,65 +1,5 @@
-import { cmrGetRequest, cmrPostRequest } from './cmrRequest'
-
-/**
- * Performs a CMR request and returns the number of hits
- * @param {string} method - The HTTP method to use (GET or POST)
- * @param {object|string} query - The query parameters or body
- * @returns {Promise<number>} The number of CMR hits
- */
-const doRequest = async (method, query) => {
-  let response
-  if (method === 'POST') {
-    response = await cmrPostRequest({
-      path: '/search/collections',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify(query)
-    })
-  } else {
-    response = await cmrGetRequest({
-      path: '/search/collections?'.concat(query)
-    })
-  }
-
-  // Check if the response is successful
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
-  }
-
-  const cmrHits = Number(response.headers.get('cmr-hits')) || 0
-
-  return cmrHits
-}
-
-export const getJsonQueryForKeywordHierarchy = ({
-  scheme,
-  hierarchyFields,
-  keywordList,
-  prefLabelField,
-  prefLabel
-}) => {
-  const sb = []
-
-  for (let i = 0; i < Math.min(hierarchyFields.length, keywordList.length); i += 1) {
-    const name = hierarchyFields[i]
-    const value = keywordList[i]
-
-    if (value != null && value !== '') {
-      sb.push(`"${name}":"${value}"`)
-    }
-  }
-
-  if (prefLabel != null) {
-    sb.push(`"${prefLabelField}":"${prefLabel}"`)
-  }
-
-  // Always add ignore_case
-  sb.push('"ignore_case":false')
-
-  const query = `{"condition":{"${scheme}":{${sb.join(', ')}}}}`
-
-  return JSON.parse(query)
-}
+import { cmrGetRequest } from './cmrGetRequest'
+import { cmrPostRequest } from './cmrPostRequest'
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -108,6 +48,61 @@ export const getNumberOfCmrCollections = async ({
   fullPath,
   isLeaf
 }) => {
+  const doRequest = async (method, query) => {
+    let response
+    if (method === 'POST') {
+      response = await cmrPostRequest({
+        path: '/search/collections',
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: JSON.stringify(query)
+      })
+    } else {
+      response = await cmrGetRequest({
+        path: '/search/collections?'.concat(query)
+      })
+    }
+
+    // Check if the response is successful
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const cmrHits = Number(response.headers.get('cmr-hits')) || 0
+
+    return cmrHits
+  }
+
+  const getJsonQueryForKeywordHierarchy = ({
+    schemeParam,
+    hierarchyFields,
+    keywordList,
+    prefLabelField,
+    prefLabelParam
+  }) => {
+    const sb = []
+
+    for (let i = 0; i < Math.min(hierarchyFields.length, keywordList.length); i += 1) {
+      const name = hierarchyFields[i]
+      const value = keywordList[i]
+
+      if (value != null && value !== '') {
+        sb.push(`"${name}":"${value}"`)
+      }
+    }
+
+    if (prefLabel != null) {
+      sb.push(`"${prefLabelField}":"${prefLabelParam}"`)
+    }
+
+    // Always add ignore_case
+    sb.push('"ignore_case":false')
+
+    const query = `{"condition":{"${schemeParam}":{${sb.join(', ')}}}}`
+
+    return JSON.parse(query)
+  }
+
   // Map the input scheme to the corresponding CMR scheme
   let cmrScheme
   switch (scheme.toLowerCase()) {
@@ -186,19 +181,19 @@ export const getNumberOfCmrCollections = async ({
 
       const prefLabelField = 'short_name'
       jsonQuery = getJsonQueryForKeywordHierarchy({
-        scheme: cmrScheme,
+        schemeParam: cmrScheme,
         hierarchyFields,
         keywordList,
         prefLabelField,
-        prefLabel
+        prefLabelParam: prefLabel
       })
     } else {
       jsonQuery = getJsonQueryForKeywordHierarchy({
-        scheme: cmrScheme,
+        schemeParam: cmrScheme,
         hierarchyFields,
         keywordList,
         prefLabelField: null,
-        prefLabel: null
+        prefLabelParam: null
       })
     }
 

@@ -6,28 +6,24 @@ import {
   vi
 } from 'vitest'
 
-import { cmrGetRequest, cmrPostRequest } from '../cmrRequest'
+import { cmrGetRequest } from '../cmrGetRequest'
+import { cmrPostRequest } from '../cmrPostRequest'
 import { getNumberOfCmrCollections } from '../getNumberOfCmrCollections'
 
 // Mock the cmrGetRequest and cmrPostRequest functions
-vi.mock('../cmrRequest', () => ({
-  cmrGetRequest: vi.fn(),
-  cmrPostRequest: vi.fn()
-}))
-
-// Mock console.error
-vi.spyOn(console, 'error').mockImplementation(() => {})
+vi.mock('../cmrGetRequest')
+vi.mock('../cmrPostRequest')
 
 describe('getNumberOfCmrCollections', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  afterEach(() => {
     vi.resetAllMocks()
   })
 
-  test('should handle science keywords search', async () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  test('should return the correct number of collections for science keywords', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '100']])
@@ -54,7 +50,7 @@ describe('getNumberOfCmrCollections', () => {
     })
   })
 
-  test('should handle project search', async () => {
+  test('should return the correct number of collections for projects', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '50']])
@@ -79,207 +75,42 @@ describe('getNumberOfCmrCollections', () => {
     })
   })
 
-  test('should handle various schemes correctly', async () => {
-    const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '10']])
-    }
-    cmrPostRequest.mockResolvedValue(mockResponse)
-    cmrGetRequest.mockResolvedValue(mockResponse)
+  test('should return null when an error occurs', async () => {
+    const originalConsoleError = console.error
+    console.error = vi.fn()
 
-    const testCases = [
-      {
-        scheme: 'sciencekeywords',
-        expectedScheme: 'science_keywords'
-      },
-      {
-        scheme: 'platforms',
-        expectedScheme: 'platform'
-      },
-      {
-        scheme: 'instruments',
-        expectedScheme: 'instrument'
-      },
-      {
-        scheme: 'locations',
-        expectedScheme: 'location_keyword'
-      },
-      {
-        scheme: 'projects',
-        expectedScheme: 'project'
-      },
-      {
-        scheme: 'providers',
-        expectedScheme: 'data_center'
-      },
-      {
-        scheme: 'productlevelid',
-        expectedScheme: 'processing_level_id'
-      },
-      {
-        scheme: 'dataformat',
-        expectedScheme: 'granule_data_format'
-      },
-      {
-        scheme: 'granuledataformat',
-        expectedScheme: 'granule_data_format'
-      },
-      {
-        scheme: 'unknownscheme',
-        expectedScheme: 'unknownscheme'
-      }
-    ]
-
-    await Promise.all(testCases.map(async (testCase) => {
-      const result = await getNumberOfCmrCollections({
-        scheme: testCase.scheme,
-        uuid: 'test-id',
-        prefLabel: 'test-label',
-        fullPath: 'LEVEL_1|LEVEL_2',
-        isLeaf: true
-      })
-
-      expect(result).toBe(10)
-
-      if (['science_keywords', 'platform', 'instrument', 'location_keyword'].includes(testCase.expectedScheme)) {
-        expect(cmrPostRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`"${testCase.expectedScheme}":{"uuid":"test-id"}`)
-        }))
-      } else if (['project', 'processing_level_id'].includes(testCase.expectedScheme)) {
-        expect(cmrPostRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`"${testCase.expectedScheme}":"test-label"`)
-        }))
-      } else if (testCase.expectedScheme === 'data_center') {
-        expect(cmrPostRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`"${testCase.expectedScheme}":`)
-        }))
-      } else {
-        expect(cmrGetRequest).toHaveBeenCalledWith(expect.objectContaining({
-          path: expect.stringContaining(`${testCase.expectedScheme}=test-label`)
-        }))
-      }
-    }))
-  })
-
-  test('should handle provider search with null and empty values in hierarchy', async () => {
-    const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '55']])
-    }
-    cmrPostRequest.mockResolvedValue(mockResponse)
+    cmrPostRequest.mockRejectedValue(new Error('API Error'))
+    cmrPostRequest.mockRejectedValue(new Error('API Error'))
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'providers',
-      fullPath: 'LEVEL_1||LEVEL_3|',
-      prefLabel: 'SHORT_NAME',
-      isLeaf: true
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
     })
 
-    expect(result).toBe(55)
-    expect(cmrPostRequest).toHaveBeenCalledWith({
-      path: '/search/collections',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        condition: {
-          data_center: {
-            level_0: 'LEVEL_1',
-            level_2: 'LEVEL_3',
-            short_name: 'SHORT_NAME',
-            ignore_case: false
-          }
-        }
-      })
-    })
+    expect(result).toBeNull()
+    // Restore console.error
+    console.error = originalConsoleError
   })
 
-  test('should handle location keyword search', async () => {
-    const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '35']])
-    }
-    cmrPostRequest.mockResolvedValue(mockResponse)
-
-    const result = await getNumberOfCmrCollections({
-      scheme: 'locations',
-      uuid: 'LOC-1234-5678-ABCD'
-    })
-
-    expect(result).toBe(35)
-    expect(cmrPostRequest).toHaveBeenCalledWith({
-      path: '/search/collections',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        condition: {
-          location_keyword: {
-            uuid: 'LOC-1234-5678-ABCD'
-          }
-        }
-      })
-    })
-  })
-
-  test('should handle provider search', async () => {
-    const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '75']])
-    }
-    cmrPostRequest.mockResolvedValue(mockResponse)
-
-    const result = await getNumberOfCmrCollections({
-      scheme: 'providers',
-      fullPath: 'LEVEL_1|LEVEL_2|LEVEL_3',
-      prefLabel: 'SHORT_NAME',
-      isLeaf: true
-    })
-
-    expect(result).toBe(75)
-    expect(cmrPostRequest).toHaveBeenCalledWith({
-      path: '/search/collections',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        condition: {
-          data_center: {
-            level_0: 'LEVEL_1',
-            level_1: 'LEVEL_2',
-            short_name: 'SHORT_NAME',
-            ignore_case: false
-          }
-        }
-      })
-    })
-  })
-
-  test('should handle instrument search', async () => {
+  test('should use GET request for unsupported schemes', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '25']])
     }
-    cmrPostRequest.mockResolvedValue(mockResponse)
+    cmrGetRequest.mockResolvedValue(mockResponse)
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'instruments',
-      uuid: 'ABCD-1234-5678-EFGH'
+      scheme: 'unsupported_scheme',
+      prefLabel: 'test_label'
     })
 
     expect(result).toBe(25)
-    expect(cmrPostRequest).toHaveBeenCalledWith({
-      path: '/search/collections',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        condition: {
-          instrument: {
-            uuid: 'ABCD-1234-5678-EFGH'
-          }
-        }
-      })
+    expect(cmrGetRequest).toHaveBeenCalledWith({
+      path: '/search/collections?unsupported_scheme=test_label'
     })
   })
 
-  test('should handle processing level id search', async () => {
+  test('should handle processing_level_id scheme correctly', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '30']])
@@ -288,7 +119,7 @@ describe('getNumberOfCmrCollections', () => {
 
     const result = await getNumberOfCmrCollections({
       scheme: 'ProductLevelId',
-      prefLabel: '1B'
+      prefLabel: 'Level 1'
     })
 
     expect(result).toBe(30)
@@ -298,50 +129,61 @@ describe('getNumberOfCmrCollections', () => {
       accept: 'application/json',
       body: JSON.stringify({
         condition: {
-          processing_level_id: '1B'
+          processing_level_id: 'Level 1'
         }
       })
     })
   })
 
-  test('should handle other schemes using GET request', async () => {
+  test('should handle data_center scheme with non-leaf node correctly', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '40']])
     }
-    cmrGetRequest.mockResolvedValue(mockResponse)
-
-    const result = await getNumberOfCmrCollections({
-      scheme: 'otherScheme',
-      prefLabel: 'someValue'
-    })
-
-    expect(result).toBe(40)
-    expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/collections?otherScheme=someValue'
-    })
-  })
-
-  test('should return null for invalid response', async () => {
-    const mockResponse = {
-      ok: false,
-      status: 400
-    }
     cmrPostRequest.mockResolvedValue(mockResponse)
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'sciencekeywords',
-      uuid: '1234-5678-9ABC-DEF0'
+      scheme: 'providers',
+      fullPath: 'LEVEL_1|LEVEL_2',
+      isLeaf: false
     })
 
-    expect(result).toBeNull()
-    expect(console.error).toHaveBeenCalledWith(
-      'Error in getNumberOfCmrCollections:',
-      expect.any(Error)
-    )
+    expect(result).toBe(40)
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
+          data_center: {
+            level_0: 'LEVEL_1',
+            level_1: 'LEVEL_2',
+            ignore_case: false
+          }
+        }
+      })
+    })
   })
 
-  test('should handle missing cmr-hits header', async () => {
+  test('should handle granule_data_format scheme correctly', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '60']])
+    }
+    cmrGetRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'dataformat',
+      prefLabel: 'HDF5'
+    })
+
+    expect(result).toBe(60)
+    expect(cmrGetRequest).toHaveBeenCalledWith({
+      path: '/search/collections?granule_data_format=HDF5'
+    })
+  })
+
+  test('should return 0 when cmr-hits header is missing', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map()
@@ -356,25 +198,32 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBe(0)
   })
 
-  test('should handle granule data format search', async () => {
+  test('should throw an error when the response is not ok', async () => {
+    const mockConsoleError = vi.fn()
+    const originalConsoleError = console.error
+    console.error = mockConsoleError
+
     const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '60']])
+      ok: false,
+      status: 400
     }
-    cmrGetRequest.mockResolvedValue(mockResponse)
+    cmrPostRequest.mockResolvedValue(mockResponse)
 
-    const result = await getNumberOfCmrCollections({
-      scheme: 'granuledataformat',
-      prefLabel: 'HDF5'
-    })
+    await expect(getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })).resolves.toBeNull()
 
-    expect(result).toBe(60)
-    expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/collections?granule_data_format=HDF5'
-    })
+    expect(mockConsoleError).toHaveBeenCalled()
+    expect(mockConsoleError.mock.calls[0][0]).toBe('Error in getNumberOfCmrCollections:')
+    expect(mockConsoleError.mock.calls[0][1]).toBeInstanceOf(Error)
+    expect(mockConsoleError.mock.calls[0][1].message).toBe('HTTP error! status: 400')
+
+    // Restore original console.error
+    console.error = originalConsoleError
   })
 
-  test('should handle platform search', async () => {
+  test('should handle instruments scheme correctly', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '45']])
@@ -382,8 +231,8 @@ describe('getNumberOfCmrCollections', () => {
     cmrPostRequest.mockResolvedValue(mockResponse)
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'platforms',
-      uuid: 'PLAT-1234-5678'
+      scheme: 'instruments',
+      uuid: 'ABCD-1234-5678-EFGH'
     })
 
     expect(result).toBe(45)
@@ -393,15 +242,87 @@ describe('getNumberOfCmrCollections', () => {
       accept: 'application/json',
       body: JSON.stringify({
         condition: {
-          platform: {
-            uuid: 'PLAT-1234-5678'
+          instrument: {
+            uuid: 'ABCD-1234-5678-EFGH'
           }
         }
       })
     })
   })
 
-  test('should handle non-leaf provider search', async () => {
+  test('should handle platforms scheme correctly', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '55']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'platforms',
+      uuid: 'EFGH-5678-1234-ABCD'
+    })
+
+    expect(result).toBe(55)
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
+          platform: {
+            uuid: 'EFGH-5678-1234-ABCD'
+          }
+        }
+      })
+    })
+  })
+
+  test('should handle locations scheme correctly', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '35']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'locations',
+      uuid: 'IJKL-9012-3456-MNOP'
+    })
+
+    expect(result).toBe(35)
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
+          location_keyword: {
+            uuid: 'IJKL-9012-3456-MNOP'
+          }
+        }
+      })
+    })
+  })
+
+  test('should handle granuledataformat scheme correctly', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '70']])
+    }
+    cmrGetRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'granuledataformat',
+      prefLabel: 'NetCDF-4'
+    })
+
+    expect(result).toBe(70)
+    expect(cmrGetRequest).toHaveBeenCalledWith({
+      path: '/search/collections?granule_data_format=NetCDF-4'
+    })
+  })
+
+  test('should handle case-insensitive scheme matching', async () => {
     const mockResponse = {
       ok: true,
       headers: new Map([['cmr-hits', '80']])
@@ -409,9 +330,8 @@ describe('getNumberOfCmrCollections', () => {
     cmrPostRequest.mockResolvedValue(mockResponse)
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'providers',
-      fullPath: 'LEVEL_1|LEVEL_2',
-      isLeaf: false
+      scheme: 'ScienceKeywords',
+      uuid: 'QRST-5678-1234-UVWX'
     })
 
     expect(result).toBe(80)
@@ -421,9 +341,90 @@ describe('getNumberOfCmrCollections', () => {
       accept: 'application/json',
       body: JSON.stringify({
         condition: {
+          science_keywords: {
+            uuid: 'QRST-5678-1234-UVWX'
+          }
+        }
+      })
+    })
+  })
+
+  test('should handle empty response from CMR', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '0']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: 'EMPTY-0000-0000-0000'
+    })
+
+    expect(result).toBe(0)
+  })
+
+  test('should handle network errors', async () => {
+    const mockConsoleError = vi.fn()
+    const originalConsoleError = console.error
+    console.error = mockConsoleError
+
+    cmrPostRequest.mockRejectedValue(new Error('Network Error'))
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(mockConsoleError).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(mockConsoleError.mock.calls[0][1].message).toBe('Network Error')
+
+    // Restore original console.error
+    console.error = originalConsoleError
+  })
+
+  test('should handle malformed JSON responses', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', 'not-a-number']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBe(0)
+  })
+
+  test('should handle providers scheme with full hierarchy', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '15']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'providers',
+      fullPath: 'LEVEL_1|LEVEL_2|LEVEL_3|LEVEL_4',
+      prefLabel: 'SHORT_NAME',
+      isLeaf: true
+    })
+
+    expect(result).toBe(15)
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
           data_center: {
             level_0: 'LEVEL_1',
             level_1: 'LEVEL_2',
+            level_2: 'LEVEL_3',
+            short_name: 'SHORT_NAME',
             ignore_case: false
           }
         }
@@ -431,26 +432,165 @@ describe('getNumberOfCmrCollections', () => {
     })
   })
 
-  test('should handle errors for various schemes', async () => {
-    cmrPostRequest.mockRejectedValue(new Error('Network error'))
+  test('should handle providers scheme with partial hierarchy', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '25']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'providers',
+      fullPath: 'LEVEL_1',
+      isLeaf: false
+    })
+
+    expect(result).toBe(25)
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
+          data_center: {
+            level_0: 'LEVEL_1',
+            ignore_case: false
+          }
+        }
+      })
+    })
+  })
+
+  test('should handle errors for unknown schemes', async () => {
+    // Mock console.error
+    const originalConsoleError = console.error
+    console.error = vi.fn()
+
+    // Mock the cmrGetRequest to throw an error
     cmrGetRequest.mockRejectedValue(new Error('Network error'))
 
-    const schemes = ['sciencekeywords', 'projects', 'providers', 'ProductLevelId', 'otherScheme']
+    const result = await getNumberOfCmrCollections({
+      scheme: 'unknown_scheme',
+      prefLabel: 'Some Label'
+    })
 
-    await Promise.all(schemes.map(async (scheme) => {
-      const result = await getNumberOfCmrCollections({
-        scheme,
-        uuid: 'test-id',
-        prefLabel: 'test-label',
-        fullPath: 'LEVEL_1|LEVEL_2',
-        isLeaf: true
+    // Check if the function returns null on error
+    expect(result).toBeNull()
+
+    // Check if the error is logged
+    expect(console.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
+      expect.any(Error)
+    )
+
+    // Verify that cmrGetRequest was called with the correct arguments
+    expect(cmrGetRequest).toHaveBeenCalledWith({
+      path: '/search/collections?unknown_scheme=Some Label'
+    })
+
+    // Restore the original console.error
+    console.error = originalConsoleError
+  })
+
+  test('should handle errors for processing_level_id scheme', async () => {
+    // Mock console.error
+    console.error = vi.fn()
+    // Mock cmrPostRequest to return a failed response
+    cmrPostRequest.mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Map()
+    })
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'ProductLevelId',
+      prefLabel: 'Level 1'
+    })
+
+    // Check if the function returns null on error
+    expect(result).toBeNull()
+
+    // Check if the error is logged
+    expect(console.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
+      expect.any(Error)
+    )
+
+    // Verify that cmrPostRequest was called with the correct arguments
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
+          processing_level_id: 'Level 1'
+        }
       })
+    })
+  })
 
-      expect(result).toBeNull()
-      expect(console.error).toHaveBeenCalledWith(
-        'Error in getNumberOfCmrCollections:',
-        expect.any(Error)
-      )
-    }))
+  test('should handle errors for data_center scheme', async () => {
+    // Mock cmrPostRequest to return a failed response
+    cmrPostRequest.mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Map()
+    })
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'providers',
+      fullPath: 'LEVEL_1|LEVEL_2|LEVEL_3',
+      prefLabel: 'SHORT_NAME',
+      isLeaf: true
+    })
+
+    // Check if the function returns null on error
+    expect(result).toBeNull()
+
+    // Check if the error is logged
+    expect(console.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
+      expect.any(Error)
+    )
+
+    // Verify that cmrPostRequest was called
+    expect(cmrPostRequest).toHaveBeenCalled()
+
+    // You can add more specific checks for the cmrPostRequest arguments if needed
+  })
+
+  test('should handle errors for project scheme', async () => {
+    // Mock cmrPostRequest to return a failed response
+    cmrPostRequest.mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Map()
+    })
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'projects',
+      prefLabel: 'SOME_PROJECT'
+    })
+
+    // Check if the function returns null on error
+    expect(result).toBeNull()
+
+    // Check if the error is logged
+    expect(console.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
+      expect.any(Error)
+    )
+
+    // Verify that cmrPostRequest was called with the correct arguments
+    expect(cmrPostRequest).toHaveBeenCalledWith({
+      path: '/search/collections',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        condition: {
+          project: 'SOME_PROJECT'
+        }
+      })
+    })
   })
 })
