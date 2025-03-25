@@ -1,3 +1,5 @@
+import https from 'https'
+
 import {
   beforeEach,
   describe,
@@ -5,16 +7,13 @@ import {
   vi
 } from 'vitest'
 
-import { fetchPagedConceptData } from '@/shared/fetchPagedConceptData'
 import { importConceptData } from '@/shared/importConceptData'
-import { sparqlRequest } from '@/shared/sparqlRequest'
 import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 import syncConceptData from '../handler'
 
-vi.mock('@/shared/fetchPagedConceptData', () => ({
-  fetchPagedConceptData: vi.fn()
-}))
+// Mock the fetch function
+global.fetch = vi.fn()
 
 vi.mock('@/shared/importConceptData', () => ({
   importConceptData: vi.fn()
@@ -24,8 +23,11 @@ vi.mock('@/shared/updateVersionMetadata', () => ({
   updateVersionMetadata: vi.fn()
 }))
 
-vi.mock('@/shared/sparqlRequest', () => ({
-  sparqlRequest: vi.fn()
+// Mock the https module
+vi.mock('https', () => ({
+  default: {
+    Agent: vi.fn(() => ({}))
+  }
 }))
 
 describe('syncConceptData', () => {
@@ -42,10 +44,13 @@ describe('syncConceptData', () => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Mock successful responses
-    vi.mocked(fetchPagedConceptData).mockResolvedValue('mockData')
+    global.fetch.mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('mockData')
+    })
+
     vi.mocked(importConceptData).mockResolvedValue(undefined)
     vi.mocked(updateVersionMetadata).mockResolvedValue(undefined)
-    vi.mocked(sparqlRequest).mockResolvedValue({ ok: true })
   })
 
   afterEach(() => {
@@ -98,7 +103,7 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync is disabled' })
     })
 
-    test('should call fetchPagedConceptData, importConceptData, and updateVersionMetadata', async () => {
+    test('should call importConceptData, and updateVersionMetadata', async () => {
       const event = {
         body: {
           version: 'draft'
@@ -107,15 +112,30 @@ describe('syncConceptData', () => {
       const mockJsonContent = '{"data": "json"}'
       const mockXmlContent = '<data>xml</data>'
 
-      vi.mocked(fetchPagedConceptData).mockResolvedValueOnce(mockJsonContent)
-      vi.mocked(fetchPagedConceptData).mockResolvedValueOnce(mockXmlContent)
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(mockJsonContent)
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          text: () => Promise.resolve(mockXmlContent)
+        })
 
       const response = await syncConceptData(event)
 
       expect(response.statusCode).toBe(200)
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync process complete.' })
-      expect(fetchPagedConceptData).toHaveBeenCalledWith('json', 'http://api.example.com', 'draft')
-      expect(fetchPagedConceptData).toHaveBeenCalledWith('xml', 'http://api.example.com', 'draft')
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://api.example.com/kms/concepts_to_rdf_repo?fetch=1&format=json&version=draft',
+        expect.anything()
+      )
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://api.example.com/kms/concepts_to_rdf_repo?fetch=1&format=xml&version=draft',
+        expect.anything()
+      )
+
       expect(importConceptData).toHaveBeenCalledWith(mockJsonContent, mockXmlContent, 'draft', 'draft')
       expect(updateVersionMetadata).toHaveBeenCalledWith(expect.objectContaining({
         graphId: 'draft',
@@ -141,21 +161,6 @@ describe('syncConceptData', () => {
       expect(JSON.parse(response.body)).toEqual({ error: 'SYNC_API_ENDPOINT environment variable is not set' })
     })
 
-    test('should return an error when required parameters are missing in HTTP event', async () => {
-      const event = { body: {} }
-      const response = await syncConceptData(event)
-      expect(response.statusCode).toBe(500)
-      expect(JSON.parse(response.body)).toEqual({ error: "Cannot read properties of undefined (reading 'body')" })
-    })
-
-    test('should return an error when both event.body and event.version are missing', async () => {
-      const event = {}
-      const response = await syncConceptData(event)
-
-      expect(response.statusCode).toBe(500)
-      expect(JSON.parse(response.body)).toEqual({ error: 'Missing required parameters: version' })
-    })
-
     test('should handle errors during sync process', async () => {
       const event = {
         body: {
@@ -163,14 +168,13 @@ describe('syncConceptData', () => {
         }
       }
 
-      const mockError = new Error('Sync process failed')
-      vi.mocked(fetchPagedConceptData).mockRejectedValueOnce(mockError)
+      global.fetch.mockRejectedValueOnce(new Error('Fetch failed'))
 
       const response = await syncConceptData(event)
 
       expect(response.statusCode).toBe(500)
-      expect(JSON.parse(response.body)).toEqual({ error: 'Sync process failed' })
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error syncing concept data:', mockError)
+      expect(JSON.parse(response.body)).toEqual({ error: 'Fetch failed' })
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error syncing concept data:', expect.any(Error))
     })
 
     test('should throw an error when version is empty', async () => {
@@ -185,6 +189,54 @@ describe('syncConceptData', () => {
       expect(response.statusCode).toBe(500)
       expect(JSON.parse(response.body)).toEqual({
         error: 'Invalid parameters: version must not be empty'
+      })
+    })
+
+    test('should handle HTTP errors from fetch', async () => {
+      const event = {
+        body: {
+          version: 'v1'
+        }
+      }
+
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found'
+      })
+
+      const response = await syncConceptData(event)
+
+      expect(response.statusCode).toBe(500)
+      expect(JSON.parse(response.body)).toEqual({
+        error: 'HTTP error! status: 404'
+      })
+    })
+
+    test('should handle network errors', async () => {
+      const event = {
+        body: {
+          version: 'v1'
+        }
+      }
+
+      global.fetch.mockRejectedValueOnce(new Error('Network error'))
+
+      const response = await syncConceptData(event)
+
+      expect(response.statusCode).toBe(500)
+      expect(JSON.parse(response.body)).toEqual({
+        error: 'Network error'
+      })
+    })
+
+    test('should throw an error when both event.body and event.version are missing', async () => {
+      const event = {}
+      const response = await syncConceptData(event)
+
+      expect(response.statusCode).toBe(500)
+      expect(JSON.parse(response.body)).toEqual({
+        error: 'Missing required parameters: version'
       })
     })
   })

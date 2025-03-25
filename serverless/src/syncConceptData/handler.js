@@ -1,7 +1,6 @@
 // eslint-disable-next-line no-unused-vars
-import { existsSync, promises as fs } from 'fs'
+import https from 'https'
 
-import { fetchPagedConceptData } from '@/shared/fetchPagedConceptData'
 import { importConceptData } from '@/shared/importConceptData'
 import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
@@ -26,6 +25,24 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  *   -d '{"version": "published"}'
  */
 export const syncConceptData = async (event) => {
+  const fetchLegacyData = async (apiEndpoint, format, version) => {
+    let baseUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?fetch=1&format=${format}`
+    if (version && version !== 'published') {
+      baseUrl += `&version=${version}`
+    }
+
+    const url = `${baseUrl}`
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false
+    })
+    const response = await fetch(url, { agent: httpsAgent })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return response.text()
+  }
+
   try {
     // Check if synchronization should occur
     if (process.env.SHOULD_SYNC !== 'true') {
@@ -69,8 +86,9 @@ export const syncConceptData = async (event) => {
     }
 
     // Fetch JSON and XML content using fetchPagedConceptData
-    const jsonContent = await fetchPagedConceptData('json', apiEndpoint, version)
-    const xmlContent = await fetchPagedConceptData('xml', apiEndpoint, version)
+
+    const jsonContent = await fetchLegacyData(apiEndpoint, 'json', version)
+    const xmlContent = await fetchLegacyData(apiEndpoint, 'xml', version)
 
     // eslint-disable-next-line no-underscore-dangle
     // For testing until KMS endpoint is ready.

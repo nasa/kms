@@ -23,11 +23,9 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  *
  * @example
  * // Curl command to create a new concept
- * curl -X POST https://your-api-endpoint.com/concepts \
+ * curl -X POST https://your-api-endpoint.com/concept?version=draft \
  *   -H "Content-Type: application/rdf+xml" \
- *   -d @concept.rdf \
- *   -G \
- *   -d "version=draft"
+ *   -d @concept.rdf
  *
  * // Where concept.rdf is a file containing the RDF/XML representation of the concept.
  * // The 'version' query parameter is optional and defaults to 'draft'.
