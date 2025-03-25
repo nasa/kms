@@ -5,23 +5,19 @@ import { sparqlRequest } from './sparqlRequest'
  * Fetches concept change notes based on provided parameters.
  *
  * @async
- * @function getConceptChangeNotes
+ * @function getConceptChangeNoteTriples
  * @param {Object} params - The parameters for fetching concept change notes.
  * @param {string} params.version - The version of the API to use.
  * @param {string} [params.scheme] - The scheme to filter the concepts by (optional).
- * @param {string} [params.startDate] - The start date for the date range (optional).
- * @param {string} [params.endDate] - The end date for the date range (optional).
  * @returns {Promise<Array>} A promise that resolves to an array of concept change notes.
  * @throws {Error} Throws an error if the request fails or no results are found.
  *
  * @example
  * // Fetch concept change notes for a specific date range and scheme
  * try {
- *   const notes = await getConceptChangeNotes({
+ *   const notes = await getConceptChangeNoteTriples({
  *     version: 'v1',
- *     scheme: 'earth_science',
- *     startDate: '2023-01-01',
- *     endDate: '2023-12-31'
+ *     scheme: 'earth_science'
  *   });
  *   console.log(notes);
  * } catch (error) {
@@ -31,7 +27,7 @@ import { sparqlRequest } from './sparqlRequest'
  * @example
  * // Fetch all concept change notes without date range or scheme
  * try {
- *   const allNotes = await getConceptChangeNotes({
+ *   const allNotes = await getConceptChangeNoteTriples({
  *     version: 'v1'
  *   });
  *   console.log(allNotes);
@@ -40,13 +36,11 @@ import { sparqlRequest } from './sparqlRequest'
  * }
  */
 export const getConceptChangeNoteTriples = async ({
-  version, scheme, startDate, endDate
+  version, scheme
 }) => {
-  const query = getConceptChangeNotesQuery({
-    startDate,
-    endDate,
-    scheme: scheme ? `https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}` : null
-  })
+  const query = getConceptChangeNotesQuery(
+    scheme ? `https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}` : null
+  )
 
   try {
     const response = await sparqlRequest({
