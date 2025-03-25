@@ -44,13 +44,14 @@ export const getConceptVersions = async (event) => {
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
     PREFIX dcterms: <http://purl.org/dc/terms/>
 
-    SELECT DISTINCT ?graph ?creationDate ?versionType ?versionName
+    SELECT DISTINCT ?graph ?creationDate ?versionType ?versionName ?lastSynced
     WHERE {
       GRAPH ?graph {
         ?version a gcmd:Version ;
                  dcterms:created ?creationDate ;
                  gcmd:versionName ?versionName ;
                  gcmd:versionType ?versionType .
+        OPTIONAL { ?version gcmd:lastSynced ?lastSynced }
         ${versionType && versionType.toLowerCase() !== 'all' ? `FILTER(LCASE(?versionType) = LCASE("${versionType}"))` : ''}
       }
     }
@@ -68,24 +69,27 @@ export const getConceptVersions = async (event) => {
     }
 
     const result = await response.json()
+
     const graphData = result.results.bindings
 
     const versions = graphData.map((data) => {
       const creationDate = data.creationDate.value
       const versionName = data.versionName.value
       const vType = data.versionType.value
+      const lastSynced = data.lastSynced ? data.lastSynced.value : null
 
-      let formattedDate = ''
+      let formattedCreationDate = ''
       try {
         const [formattedDatePart] = new Date(creationDate).toISOString().split('T')
-        formattedDate = formattedDatePart
+        formattedCreationDate = formattedDatePart
       } catch (error) {
         console.warn(`Invalid date format: ${creationDate}`)
       }
 
       return {
         '@_type': vType,
-        '@_creation_date': formattedDate,
+        '@_creation_date': formattedCreationDate,
+        '@_last_synced': lastSynced,
         '#text': versionName
       }
     }).filter(Boolean)

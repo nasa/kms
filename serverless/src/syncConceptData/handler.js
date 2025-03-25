@@ -3,6 +3,7 @@ import { existsSync, promises as fs } from 'fs'
 
 import { fetchPagedConceptData } from '@/shared/fetchPagedConceptData'
 import { importConceptData } from '@/shared/importConceptData'
+import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 /**
  * Handler to synchronize concept data.
@@ -53,6 +54,8 @@ export const syncConceptData = async (event) => {
       throw new Error('Missing required parameters: version')
     }
 
+    console.log('version=', version.body)
+
     if (!version) {
       throw new Error('Invalid parameters: version must not be empty')
     }
@@ -77,6 +80,14 @@ export const syncConceptData = async (event) => {
     await importConceptData(jsonContent, xmlContent, version, versionType)
 
     console.log('Concept data synchronized successfully')
+
+    const now = new Date().toISOString()
+    await updateVersionMetadata({
+      graphId: version,
+      lastSynced: now
+    })
+
+    console.log(`Updated lastSynced date to ${now} for version ${version}`)
 
     return {
       statusCode: 200,

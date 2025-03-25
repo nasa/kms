@@ -29,7 +29,7 @@ describe('getConceptVersions', () => {
 
   describe('when successful', async () => {
     describe('when requesting all versions', async () => {
-      test('should return XML of all versions', async () => {
+      test('should return XML of all versions including lastSynced', async () => {
         // Mock SPARQL response
         sparqlRequest.mockResolvedValue({
           ok: true,
@@ -40,13 +40,15 @@ describe('getConceptVersions', () => {
                   graph: { value: 'graph1' },
                   creationDate: { value: '2023-01-01' },
                   versionType: { value: 'published' },
-                  versionName: { value: '1.0' }
+                  versionName: { value: '1.0' },
+                  lastSynced: { value: '2023-01-02T10:00:00Z' }
                 },
                 {
                   graph: { value: 'graph2' },
                   creationDate: { value: '2023-02-01' },
                   versionType: { value: 'draft' },
-                  versionName: { value: '1.1' }
+                  versionName: { value: '1.1' },
+                  lastSynced: { value: '2023-02-02T11:00:00Z' }
                 }
               ]
             }
@@ -62,13 +64,13 @@ describe('getConceptVersions', () => {
 
         // Check XML content
         expect(response.body).toContain('<versions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"')
-        expect(response.body).toContain('<version type="published" creation_date="2023-01-01">1.0</version>')
-        expect(response.body).toContain('<version type="draft" creation_date="2023-02-01">1.1</version>')
+        expect(response.body).toContain('<version type="published" creation_date="2023-01-01" last_synced="2023-01-02T10:00:00Z">1.0</version>')
+        expect(response.body).toContain('<version type="draft" creation_date="2023-02-01" last_synced="2023-02-02T11:00:00Z">1.1</version>')
       })
     })
 
     describe('when requesting all published versions', async () => {
-      test('should filter versions based on versionType parameter', async () => {
+      test('should filter versions based on versionType parameter and include lastSynced', async () => {
         sparqlRequest.mockResolvedValue({
           ok: true,
           json: () => Promise.resolve({
@@ -78,7 +80,8 @@ describe('getConceptVersions', () => {
                   graph: { value: 'graph1' },
                   creationDate: { value: '2023-01-01' },
                   versionType: { value: 'published' },
-                  versionName: { value: '1.0' }
+                  versionName: { value: '1.0' },
+                  lastSynced: { value: '2023-01-02T10:00:00Z' }
                 }
               ]
             }
@@ -89,7 +92,7 @@ describe('getConceptVersions', () => {
         const response = await getConceptVersions(event)
 
         expect(response.statusCode).toBe(200)
-        expect(response.body).toContain('<version type="published" creation_date="2023-01-01">1.0</version>')
+        expect(response.body).toContain('<version type="published" creation_date="2023-01-01" last_synced="2023-01-02T10:00:00Z">1.0</version>')
         expect(response.body).not.toContain('type="draft"')
       })
     })
@@ -120,7 +123,7 @@ describe('getConceptVersions', () => {
       })
     })
 
-    test('should handle invalid creation dates', async () => {
+    test('should handle invalid creation dates and missing lastSynced', async () => {
       sparqlRequest.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
@@ -142,10 +145,11 @@ describe('getConceptVersions', () => {
 
       expect(response.statusCode).toBe(200)
       expect(response.body).toContain('<version type="published" creation_date="">1.0</version>')
+      expect(response.body).not.toContain('last_synced')
     })
   })
 
-  describe('when unsuccesful', () => {
+  describe('when unsuccessful', () => {
     test('should handle SPARQL request errors', async () => {
       sparqlRequest.mockResolvedValue({
         ok: false,

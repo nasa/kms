@@ -20,7 +20,7 @@ describe('updateVersionMetadata', () => {
   })
 
   describe('when supplying all fields', () => {
-    test('should update version metadata successfully', async () => {
+    test('should update version metadata successfully including lastSynced', async () => {
       sparqlRequest.mockResolvedValue({
         ok: true,
         status: 200,
@@ -32,7 +32,8 @@ describe('updateVersionMetadata', () => {
         version: '1.0',
         versionType: 'PUBLISHED',
         createdDate: '2023-01-01',
-        modifiedDate: '2023-01-02'
+        modifiedDate: '2023-01-02',
+        lastSynced: '2023-01-03'
       }
 
       const response = await updateVersionMetadata(params)
@@ -51,11 +52,12 @@ describe('updateVersionMetadata', () => {
       expect(sparqlCall.body).toContain('gcmd:versionType "PUBLISHED"')
       expect(sparqlCall.body).toContain('dcterms:created "2023-01-01"^^xsd:dateTime')
       expect(sparqlCall.body).toContain('dcterms:modified "2023-01-02"^^xsd:dateTime')
+      expect(sparqlCall.body).toContain('gcmd:lastSynced "2023-01-03"^^xsd:dateTime')
     })
   })
 
   describe('when supplying partial fields', () => {
-    test('should only update provided fields', async () => {
+    test('should only update provided fields including lastSynced', async () => {
       sparqlRequest.mockResolvedValue({
         ok: true,
         status: 200,
@@ -64,13 +66,15 @@ describe('updateVersionMetadata', () => {
 
       const params = {
         graphId: 'test-graph',
-        versionType: 'DRAFT'
+        versionType: 'DRAFT',
+        lastSynced: '2023-01-03'
       }
 
       await updateVersionMetadata(params)
 
       const sparqlCall = sparqlRequest.mock.calls[0][0]
       expect(sparqlCall.body).toContain('gcmd:versionType "DRAFT"')
+      expect(sparqlCall.body).toContain('gcmd:lastSynced "2023-01-03"^^xsd:dateTime')
       expect(sparqlCall.body).not.toContain('gcmd:versionName')
       expect(sparqlCall.body).not.toContain('dcterms:created')
       expect(sparqlCall.body).not.toContain('dcterms:modified')
@@ -88,10 +92,11 @@ describe('updateVersionMetadata', () => {
 
       const params = {
         graphId: 'test-graph',
-        version: '1.0'
+        version: '1.0',
+        lastSynced: '2023-01-03'
       }
 
-      await expect(updateVersionMetadata(params)).rejects.toThrow('SPARQL update failed')
+      await expect(updateVersionMetadata(params)).rejects.toThrow('Failed to update version metadata: 500 Internal Server Error\nSPARQL update failed')
     })
 
     test('should handle network errors', async () => {
@@ -99,7 +104,8 @@ describe('updateVersionMetadata', () => {
 
       const params = {
         graphId: 'test-graph',
-        version: '1.0'
+        version: '1.0',
+        lastSynced: '2023-01-03'
       }
 
       await expect(updateVersionMetadata(params)).rejects.toThrow('Network error')

@@ -9,6 +9,8 @@ publish:
         path: publish
         method: post
         async: true
+# This should not be called in production, only from the scheduler, otherwise
+# it will timeout in 30 seconds.
 syncConceptData:
   handler: serverless/src/syncConceptData/handler.default
   timeout: 900
