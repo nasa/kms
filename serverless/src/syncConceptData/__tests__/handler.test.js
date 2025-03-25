@@ -1,5 +1,3 @@
-import https from 'https'
-
 import {
   beforeEach,
   describe,
