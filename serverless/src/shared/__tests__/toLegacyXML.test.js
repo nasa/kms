@@ -166,15 +166,15 @@ describe('toLegacyXML', () => {
         'skos:prefLabel': { _text: 'Test Concept' },
         'skos:changeNote': `
         Change Note Information
-        Date: 2020-01-06
-        User Id: tstevens
-        User Note: Rename Concept
-        System Note: update PrefLabel
-        New Value: EARLY
-        Old Value: LOWER
-        Entity: PrefLabel
-        Operation: UPDATE
-        Field: text
+        Date=2020-01-06
+        User Id=tstevens
+        User Note=Rename Concept
+        System Note=update PrefLabel
+        New Value=EARLY
+        Old Value=LOWER
+        Entity=PrefLabel
+        Operation=UPDATE
+        Field=text
       `
       }
 

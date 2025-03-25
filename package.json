@@ -20,6 +20,7 @@
     "@vitejs/plugin-react": "^4.1.0",
     "@xmldom/xmldom": "^0.8.10",
     "aws-cdk-lib": "^2.177.0",
+    "compact-object-deep": "^1.0.0",
     "csv": "^6.3.11",
     "date-fns": "^4.1.0",
     "esbuild": "^0.19.5",

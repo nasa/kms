@@ -57,6 +57,7 @@ dockerRun() {
         --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
         --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
+        --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
         $dockerTag "$@"
 }
 

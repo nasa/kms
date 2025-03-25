@@ -65,6 +65,14 @@ getConcept:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept/alt_label/{altLabel}        
+getKeyword:
+  handler: serverless/src/getKeyword/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /keyword/{conceptId}
 getConceptSchemes:
   handler: serverless/src/getConceptSchemes/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}

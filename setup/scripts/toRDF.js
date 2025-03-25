@@ -24,10 +24,10 @@ const toRDF = async (jsonURL, xmlURL) => {
         const str = (decodeHtmlEntities(value) || '').trim()
         if (str.length > 0) {
           if (newline) {
-            return `\n${fieldName}: ${str}`
+            return `\n${fieldName}=${str}`
           }
 
-          return `${fieldName}: ${str} `
+          return `${fieldName}=${str} `
         }
       }
 
