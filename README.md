@@ -26,8 +26,9 @@ npm install
 In order to run serverless-offline, which is used for mimicking API Gateway to call lambda functions, run:
 
 ```
-RDF4J_SERVICE_URL=http://localhost:8080 npm run offline
+CMR_BASE_URL=https://cmr.earthdata.nasa.gov RDF4J_SERVICE_URL=http://localhost:8080 npm run offline
 ```
+CMR_BASE_URL used to fetch number of collections for interface /keyword/uuid called by Keyword Viewer
 
 ## Local Testing
 

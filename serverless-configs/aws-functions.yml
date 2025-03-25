@@ -111,6 +111,14 @@ getConcept:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept/alt_label/{altLabel}        
+getKeyword:
+  handler: serverless/src/getKeyword/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /keyword/{conceptId}
 getConceptSchemes:
   handler: serverless/src/getConceptSchemes/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -127,6 +135,22 @@ getKeywordsTree:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /tree/concept_scheme/{conceptScheme}
+getConceptUpdatesReport:
+  handler: serverless/src/getConceptUpdatesReport/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concepts/operations/update_report
+getKeywordFullPathHistory:
+  handler: serverless/src/getKeywordFullPathHistory/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /keyword_version_report/{uuid}
 createConcept:
   handler: serverless/src/createConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}

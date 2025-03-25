@@ -59,6 +59,7 @@ dockerRun() {
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
         --env "SHOULD_SYNC=$bamboo_SHOULD_SYNC" \
         --env "SYNC_API_ENDPOINT=$bamboo_SYNC_API_ENDPOINT" \
+        --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
         $dockerTag "$@"
 }
 

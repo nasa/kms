@@ -29,15 +29,11 @@ export const createChangeNoteItem = (rawText) => {
   const result = {}
   let currentFieldInScope = null
   let buffer = []
-
   const findFieldMatch = (text) => fields.find((field) => text.includes(`${field}=`))
-
   const words = rawText.split(/(\s+)/)
-
   for (let i = 0; i < words.length; i += 1) {
     const word = words[i]
     buffer.push(word)
-
     if (!currentFieldInScope) {
       const fieldMatch = findFieldMatch(buffer.join(''))
       if (fieldMatch) {
