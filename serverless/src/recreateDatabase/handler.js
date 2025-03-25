@@ -59,6 +59,13 @@ export const recreateDatabase = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const rdf4jServiceUrl = process.env.RDF4J_SERVICE_URL
 
+  const getAuthHeader = () => {
+    const username = process.env.RDF4J_USER_NAME
+    const password = process.env.RDF4J_PASSWORD
+
+    return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+  }
+
   try {
     const baseUrl = `${rdf4jServiceUrl}/rdf4j-server`
     const repositoryId = 'kms'
@@ -67,7 +74,7 @@ export const recreateDatabase = async () => {
     const deleteResponse = await fetch(`${baseUrl}/repositories/${repositoryId}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
+        Authorization: getAuthHeader()
       }
     })
 
@@ -104,7 +111,7 @@ export const recreateDatabase = async () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/x-turtle',
-        Authorization: `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
+        Authorization: getAuthHeader()
       },
       body: createConfig
     })
