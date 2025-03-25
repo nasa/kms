@@ -21,39 +21,15 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   - headers: HTTP headers for the response, including Content-Type.
  *
  * @example
- * // Lambda event object for all versions
- * const eventAll = {
- *   pathParameters: { versionType: 'all' }
- * };
+ * curl -X GET https://your-api-endpoint.com/concept_versions/all
  *
- * // Lambda event object for a specific version type
- * const eventSpecific = {
- *   pathParameters: { versionType: 'published' }
- * };
- *
- * const result = await getConceptVersions(eventAll);
- * console.log(result);
- * // Output on success:
- * // {
- * //   statusCode: 200,
- * //   body: `<?xml version="1.0"?>
- * //     <versions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd">
- * //       <version type="published" creation_date="2023-06-15">9.1.5</version>
- * //       <version type="draft" creation_date="2023-06-10">9.1.6-SNAPSHOT</version>
- * //       <version type="past_published" creation_date="2023-05-01">9.1.4</version>
- * //     </versions>`,
- * //   headers: {
- * //     'Content-Type': 'application/xml; charset=utf-8',
- * //     ...
- * //   }
- * // }
- *
- * // Output on error:
- * // {
- * //   statusCode: 500,
- * //   body: '{"error": "Error message"}',
- * //   headers: { ... }
- * // }
+ * // Response:
+ * // <?xml version="1.0" encoding="UTF-8"?>
+ * // <versions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd">
+ * //   <version type="published" creation_date="2023-06-15">9.1.5</version>
+ * //   <version type="draft" creation_date="2023-06-10">9.1.6-SNAPSHOT</version>
+ * //   <version type="past_published" creation_date="2023-05-01">9.1.4</version>
+ * // </versions>
  *
  * @throws Will throw an error if there's a problem fetching or processing the concept versions.
  */

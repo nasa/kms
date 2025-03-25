@@ -20,28 +20,15 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *   - statusCode: HTTP status code (200 for success, 500 for error).
  *
  * @example
- * // Lambda event object
- * const event = {
- *   queryStringParameters: { version: 'draft' }
- * };
+ * curl -X GET https://your-api-endpoint.com/concept_schemes?version=draft
  *
- * const result = await getConceptSchemes(event);
- * console.log(result);
- * // Output on success:
- * // {
- * //   body: '<?xml version="1.0"?>...',
- * //   headers: {
- * //     'Content-Type': 'application/xml; charset=utf-8',
- * //     ...
- * //   }
- * // }
- *
- * // Output on error:
- * // {
- * //   statusCode: 500,
- * //   body: '{"error": "Error message"}',
- * //   headers: { ... }
- * // }
+ * // Response:
+ * // <?xml version="1.0" encoding="UTF-8"?>
+ * // <schemes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd">
+ * //   <scheme updateDate="2023-05-15" longName="Science Keywords" name="sciencekeywords" csvHeaders="Category,Topic,Term,Variable Level 1,Variable Level 2,Variable Level 3,Detailed Variable"/>
+ * //   <scheme updateDate="2023-05-14" longName="Platforms" name="platforms" csvHeaders="Category,Series_Entity,Short_Name,Long_Name"/>
+ * //   <!-- More scheme entries... -->
+ * // </schemes>
  *
  * @throws Will throw an error if there's a problem fetching or processing the concept schemes.
  */

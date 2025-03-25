@@ -1,4 +1,7 @@
+import prefixes from '@/shared/constants/prefixes'
+
 export const getTriplesForConceptQuery = (conceptIRI) => `
+  ${prefixes}
   SELECT DISTINCT ?s ?p ?o
   WHERE {
     {

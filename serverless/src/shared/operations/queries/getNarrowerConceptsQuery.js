@@ -1,5 +1,7 @@
+import prefixes from '@/shared/constants/prefixes'
+
 export const getNarrowerConceptsQuery = (scheme) => `
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  ${prefixes}
   SELECT ?subject ?prefLabel ?narrower ?narrowerPrefLabel
   WHERE {
     ?subject skos:prefLabel ?prefLabel .

@@ -39,10 +39,19 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  * // }
  *
  * @example
- * // Curl example (replace YOUR_API_ENDPOINT with the actual endpoint):
- * curl -X POST https://YOUR_API_ENDPOINT/publish \
+ * curl -X POST https://your-api-endpoint.com/publish \
  *   -H "Content-Type: application/json" \
  *   -d '{"name": "9.1.6"}'
+ *
+ * // Response:
+ * // {
+ * //   "statusCode": 202,
+ * //   "headers": {
+ * //     "Content-Type": "application/json",
+ * //     "Access-Control-Allow-Origin": "*"
+ * //   },
+ * //   "body": "{\"message\":\"Publish process initiated for version 9.1.6\"}"
+ * // }
  */
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()

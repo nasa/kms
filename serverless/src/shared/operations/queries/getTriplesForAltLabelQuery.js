@@ -1,8 +1,7 @@
-export const getTriplesForAltLabelQuery = ({ altLabel, scheme }) => `
-PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+import prefixes from '@/shared/constants/prefixes'
 
+export const getTriplesForAltLabelQuery = ({ altLabel, scheme }) => `
+${prefixes}
 SELECT DISTINCT ?s ?p ?o
 WHERE {
   {

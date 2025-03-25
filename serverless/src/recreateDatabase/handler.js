@@ -40,6 +40,20 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * Usage:
  * This handler can be invoked to completely reset the RDF4J repository to a clean state.
  * Use with caution as it will delete all existing data in the repository.
+ *
+ * @example
+ * curl -X POST https://your-api-endpoint.com/recreate-database \
+ *   -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+ *
+ * // Response:
+ * // {
+ * //   "statusCode": 200,
+ * //   "headers": {
+ * //     "Content-Type": "application/json",
+ * //     "Access-Control-Allow-Origin": "*"
+ * //   },
+ * //   "body": "{\"message\":\"Successfully recreated repository 'kms'\"}"
+ * // }
  */
 export const recreateDatabase = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()

@@ -17,6 +17,10 @@ syncConceptData:
         path: sync-concept-data
         method: post
         async: true
+        authorizer: 
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
     - schedule:
         name: SyncPublishedConcepts
         rate: cron(0 21 * * ? *) 
@@ -132,20 +136,7 @@ createConcept:
         authorizer:
           name: edlAuthorizer
           type: request
-          resultTtlInSeconds: 0
-        
-createConcepts:
-  handler: serverless/src/createConcepts/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '30'}
-  events:
-    - http:
-        method: post
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: concepts
-        authorizer:
-          name: edlAuthorizer
-          type: request
-          resultTtlInSeconds: 0
+          resultTtlInSeconds: 0        
 updateConcept:
   handler: serverless/src/updateConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -154,7 +145,7 @@ updateConcept:
         method: put
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept
-        authorizer:
+        authorizer: 
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
@@ -198,3 +189,15 @@ getConceptVersions:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept_versions/version_type/{versionType}
+uploadRdfData:
+  handler: serverless/src/uploadRdfData/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: post
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: upload-rdf-data
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0

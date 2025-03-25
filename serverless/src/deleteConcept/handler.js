@@ -17,19 +17,16 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
- * // Lambda event object
- * const event = {
- *   pathParameters: { conceptId: '123' },
- *   queryStringParameters: { version: 'draft' }
- * };
+ * curl -X DELETE https://your-api-endpoint.com/concepts/123?version=draft
  *
- * const result = await deleteConcept(event);
- * console.log(result);
- * // Output on success:
+ * // Response:
  * // {
- * //   statusCode: 200,
- * //   body: '{"message":"Successfully deleted concept: 123"}',
- * //   headers: { ... }
+ * //   "statusCode": 200,
+ * //   "body": "{\"message\":\"Successfully deleted concept: 123\"}",
+ * //   "headers": {
+ * //     "Content-Type": "application/json",
+ * //     "Access-Control-Allow-Origin": "*"
+ * //   }
  * // }
  */
 export const deleteConcept = async (event) => {
