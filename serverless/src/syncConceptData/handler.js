@@ -1,9 +1,10 @@
 // eslint-disable-next-line no-unused-vars
 import https from 'https'
 
+import fetch from 'node-fetch'
+
 import { importConceptData } from '@/shared/importConceptData'
 import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
-
 /**
  * Handler to synchronize concept data.
  *
@@ -71,7 +72,7 @@ export const syncConceptData = async (event) => {
       throw new Error('Missing required parameters: version')
     }
 
-    console.log('version=', version.body)
+    console.log('version=', version)
 
     if (!version) {
       throw new Error('Invalid parameters: version must not be empty')
@@ -87,7 +88,9 @@ export const syncConceptData = async (event) => {
 
     // Fetch JSON and XML content using fetchPagedConceptData
 
+    console.log('fetching json')
     const jsonContent = await fetchLegacyData(apiEndpoint, 'json', version)
+    console.log('fetching xml')
     const xmlContent = await fetchLegacyData(apiEndpoint, 'xml', version)
 
     // eslint-disable-next-line no-underscore-dangle

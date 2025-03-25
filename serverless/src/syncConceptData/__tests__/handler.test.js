@@ -1,3 +1,4 @@
+import fetch from 'node-fetch'
 import {
   beforeEach,
   describe,
@@ -21,6 +22,10 @@ vi.mock('@/shared/updateVersionMetadata', () => ({
   updateVersionMetadata: vi.fn()
 }))
 
+vi.mock('node-fetch', () => ({
+  default: vi.fn()
+}))
+
 // Mock the https module
 vi.mock('https', () => ({
   default: {
@@ -42,7 +47,8 @@ describe('syncConceptData', () => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Mock successful responses
-    global.fetch.mockResolvedValue({
+    // Mock successful responses
+    fetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve('mockData')
     })

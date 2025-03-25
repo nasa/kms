@@ -25,12 +25,12 @@ syncConceptData:
           resultTtlInSeconds: 0
     - schedule:
         name: SyncPublishedConcepts
-        rate: cron(0 21 * * ? *) 
+        rate: cron(15 7 * * ? *) 
         input:
           version: "published"
     - schedule:
         name: SyncDraftConcepts
-        rate: cron(0 22 * * ? *)
+        rate: cron(15 8 * * ? *)
         input:
           version: "draft"
 exportRdfToS3:
