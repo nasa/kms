@@ -26,8 +26,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   - body: A JSON string with a message indicating the export process has been initiated
  */
 export const handler = async (event) => {
-  console.log('in export rdf to s3', event)
-
   const { defaultResponseHeaders } = getApplicationConfig()
   const version = event.version || 'published' // Default to 'published' if not specified
 
