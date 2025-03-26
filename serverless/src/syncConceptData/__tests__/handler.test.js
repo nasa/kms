@@ -11,9 +11,6 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 import syncConceptData from '../handler'
 
-// Mock the fetch function
-global.fetch = vi.fn()
-
 vi.mock('@/shared/importConceptData', () => ({
   importConceptData: vi.fn()
 }))
@@ -116,7 +113,7 @@ describe('syncConceptData', () => {
       const mockJsonContent = '{"data": "json"}'
       const mockXmlContent = '<data>xml</data>'
 
-      global.fetch
+      fetch
         .mockResolvedValueOnce({
           ok: true,
           text: () => Promise.resolve(mockJsonContent)
@@ -130,12 +127,12 @@ describe('syncConceptData', () => {
 
       expect(response.statusCode).toBe(200)
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync process complete.' })
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetch).toHaveBeenCalledWith(
         'http://api.example.com/kms/concepts_to_rdf_repo?fetch=1&format=json&version=draft',
         expect.anything()
       )
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(fetch).toHaveBeenCalledWith(
         'http://api.example.com/kms/concepts_to_rdf_repo?fetch=1&format=xml&version=draft',
         expect.anything()
       )
@@ -172,7 +169,7 @@ describe('syncConceptData', () => {
         }
       }
 
-      global.fetch.mockRejectedValueOnce(new Error('Fetch failed'))
+      fetch.mockRejectedValueOnce(new Error('Fetch failed'))
 
       const response = await syncConceptData(event)
 
@@ -203,7 +200,7 @@ describe('syncConceptData', () => {
         }
       }
 
-      global.fetch.mockResolvedValueOnce({
+      fetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found'
@@ -224,7 +221,7 @@ describe('syncConceptData', () => {
         }
       }
 
-      global.fetch.mockRejectedValueOnce(new Error('Network error'))
+      fetch.mockRejectedValueOnce(new Error('Network error'))
 
       const response = await syncConceptData(event)
 
