@@ -5,9 +5,13 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { publish } from '../publish/handler'
 
 // Import the publish function
+const region = process.env.AWS_REGION || 'us-east-1'
 
-const sfnClient = new SFNClient()
-
+const sfnClient = new SFNClient({
+  region,
+  maxAttempts: 3,
+  retryMode: 'standard'
+})
 const triggerPublish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body } = event
