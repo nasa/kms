@@ -74,6 +74,7 @@ export const createCsvReport = ({
 
   // Filter changeNotes based on date range and userId
   const filteredNotes = changeNotes.filter((note) => {
+    if (!note.date) return false
     const noteDate = new Date(note.date)
     const start = new Date(startDate)
     const end = new Date(endDate)

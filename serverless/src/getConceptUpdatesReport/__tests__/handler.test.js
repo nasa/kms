@@ -238,6 +238,104 @@ describe('createCsvReport', () => {
     expect(lines[4]).toContain('"2023-06-01"') // Oldest date should be last
   })
 
+  test('should handle null or undefined dates in change notes', () => {
+    const notes = [
+      {
+        date: null,
+        userId: 'user1',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Label',
+        oldValue: 'Old',
+        newValue: 'New'
+      },
+      {
+        date: undefined,
+        userId: 'user2',
+        entity: 'Concept',
+        operation: 'Create',
+        field: 'Definition',
+        oldValue: '',
+        newValue: 'New definition'
+      },
+      {
+        date: '2023-06-01',
+        userId: 'user3',
+        entity: 'Concept',
+        operation: 'Delete',
+        field: '',
+        oldValue: '',
+        newValue: ''
+      }
+    ]
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Null Date Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-03'
+    })
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Null Date Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
+    expect(lines[2]).toBe('"2023-06-01","user3","Concept","Delete","","","","",""') // Only valid date should be included
+    expect(lines.length).toBe(3) // Only title, headers, and one valid entry
+  })
+
+  test('should sort notes correctly and exclude notes with missing dates', () => {
+    const notes = [
+      {
+        // Note without date - should be excluded
+        userId: 'user1',
+        entity: 'Concept',
+        operation: 'Create',
+        field: 'Definition',
+        oldValue: '',
+        newValue: 'New definition'
+      },
+      {
+        date: '2023-06-02',
+        userId: 'user2',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Label',
+        oldValue: 'Old',
+        newValue: 'New'
+      },
+      {
+        // Another note without date - should be excluded
+        userId: 'user3',
+        entity: 'Concept',
+        operation: 'Delete',
+        field: '',
+        oldValue: '',
+        newValue: ''
+      },
+      {
+        date: '2023-06-01',
+        userId: 'user4',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Relationship',
+        oldValue: 'Old relation',
+        newValue: 'New relation'
+      }
+    ]
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Sorting Test Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-03'
+    })
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Sorting Test Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
+    expect(lines[2]).toContain('2023-06-02') // Newest date should be first
+    expect(lines[3]).toContain('2023-06-01') // Oldest date should be second
+    expect(lines.length).toBe(4) // Title, headers, and two data rows (notes without dates are excluded)
+  })
+
   test('should handle undefined or null values', () => {
     const notes = [
       {
