@@ -5,10 +5,13 @@ import { getApplicationConfig } from '@/shared/getConfig'
 /**
  * Creates a CSV report from processed change notes.
  *
- * @param {Array} processedChangeNotes - Array of change note objects
- * @param {string|null} userId - Optional user ID to filter notes
- * @param {string} title - Title of the report
- * @param {Array<string>|null} customHeaders - Optional custom headers for the CSV
+ * @param {Object} options - The options for creating the CSV report
+ * @param {Array} options.changeNotes - Array of change note objects
+ * @param {string|null} options.userId - Optional user ID to filter notes
+ * @param {string} options.title - Title of the report
+ * @param {Array<string>|null} [options.customHeaders=null] - Optional custom headers for the CSV
+ * @param {string} options.startDate - Start date for filtering change notes (format: 'YYYY-MM-DD')
+ * @param {string} options.endDate - End date for filtering change notes (format: 'YYYY-MM-DD')
  * @returns {string} CSV formatted string
  *
  * @example
@@ -16,7 +19,13 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *   { date: '2023-06-01', userId: 'user1', entity: 'Concept', operation: 'Update', field: 'Label', oldValue: 'Old', newValue: 'New' },
  *   { date: '2023-06-02', userId: 'user2', entity: 'Concept', operation: 'Create', field: 'Definition', oldValue: '', newValue: 'New definition' }
  * ];
- * const csv = createCsvReport(notes, null, 'Change Report');
+ * const csv = createCsvReport({
+ *   changeNotes: notes,
+ *   userId: null,
+ *   title: 'Change Report',
+ *   startDate: '2023-06-01',
+ *   endDate: '2023-06-30'
+ * });
  * console.log(csv);
  * // Output:
  * // Change Report
@@ -26,7 +35,14 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *
  * // With custom headers
  * const customHeaders = ['Date', 'User', 'Action', 'Details'];
- * const customCsv = createCsvReport(notes, null, 'Custom Report', customHeaders);
+ * const customCsv = createCsvReport({
+ *   changeNotes: notes,
+ *   userId: null,
+ *   title: 'Custom Report',
+ *   customHeaders: customHeaders,
+ *   startDate: '2023-06-01',
+ *   endDate: '2023-06-30'
+ * });
  * console.log(customCsv);
  * // Output:
  * // Custom Report
@@ -34,7 +50,9 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * // "2023-06-02","user2","Create","Definition: New definition"
  * // "2023-06-01","user1","Update","Label: Old -> New"
  */
-export const createCsvReport = (processedChangeNotes, userId, title, customHeaders = null) => {
+export const createCsvReport = ({
+  changeNotes, userId, title, customHeaders = null, startDate, endDate
+}) => {
   const headers = customHeaders || ['Date', 'User Id', 'Entity', 'Operation', 'System Note', 'Field', 'User Note', 'Old Value', 'New Value']
   const result = []
   result.push(title)
@@ -54,10 +72,16 @@ export const createCsvReport = (processedChangeNotes, userId, title, customHeade
   // Add the headers as the first row, with each header in quotes
   result.push(headers.map(quoteValue).join(','))
 
-  // Filter processedChangeNotes if userId is provided
-  const filteredNotes = userId
-    ? processedChangeNotes.filter((note) => note.userId === userId)
-    : processedChangeNotes
+  // Filter changeNotes based on date range and userId
+  const filteredNotes = changeNotes.filter((note) => {
+    if (!note.date) return false
+    const noteDate = new Date(note.date)
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const isInDateRange = noteDate >= start && noteDate <= end
+
+    return isInDateRange && (userId ? note.userId === userId : true)
+  })
 
   // Sort the filtered notes by date, newest first
   filteredNotes.sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -167,9 +191,7 @@ export const getConceptUpdatesReport = async (event) => {
 
   const changeNoteTriples = await getConceptChangeNoteTriples({
     version,
-    scheme,
-    startDate,
-    endDate
+    scheme
   })
 
   // Process change notes
@@ -180,7 +202,13 @@ export const getConceptUpdatesReport = async (event) => {
   })
 
   const title = `Keyword Change Report\nKeyword Version: ${version}, From: ${startDate}, To: ${endDate}`
-  const result = createCsvReport(processedChangeNotes, userId, title)
+  const result = createCsvReport({
+    changeNotes: processedChangeNotes,
+    userId,
+    title,
+    startDate,
+    endDate
+  })
   const fileName = `KeywordUpdateReport-${startDate}-${endDate}`
 
   // Set CSV response header

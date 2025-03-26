@@ -106,7 +106,13 @@ describe('createCsvReport', () => {
         newValue: 'New definition'
       }
     ]
-    const csv = createCsvReport(notes, null, 'Change Report')
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Change Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-02'
+    })
     expect(csv).toContain('Change Report')
     expect(csv).toContain('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
     expect(csv).toContain('"2023-06-02","user2","Concept","Create","","Definition","","","New definition"')
@@ -134,14 +140,26 @@ describe('createCsvReport', () => {
         newValue: 'New definition'
       }
     ]
-    const csv = createCsvReport(notes, 'user1', 'Filtered Report')
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: 'user1',
+      title: 'Filtered Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-02'
+    })
     expect(csv).toContain('Filtered Report')
     expect(csv).toContain('"2023-06-01","user1","Concept","Update","","Label","","Old","New"')
     expect(csv).not.toContain('user2')
   })
 
   test('should handle empty input', () => {
-    const csv = createCsvReport([], null, 'Empty Report')
+    const csv = createCsvReport({
+      changeNotes: [],
+      userId: null,
+      title: 'Empty Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-02'
+    })
     expect(csv).toContain('Empty Report')
     expect(csv).toContain('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
     const lines = csv.split('\n')
@@ -162,10 +180,17 @@ describe('createCsvReport', () => {
         newValue: 'New,value'
       }
     ]
-    const csv = createCsvReport(notes, null, 'Escaped Report')
-    expect(csv).toContain('"user,1"') // Comma in userId should be quoted
-    expect(csv).toContain('"Old ""quoted"" value"') // Double quotes should be escaped
-    expect(csv).toContain('"New,value"') // Comma in newValue should be quoted
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Escaped Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-01'
+    })
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Escaped Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
+    expect(lines[2]).toBe('"2023-06-01","user,1","Concept","Update","","Label","","Old ""quoted"" value","New,value"')
   })
 
   test('should sort notes by date, newest first', () => {
@@ -198,11 +223,117 @@ describe('createCsvReport', () => {
         newValue: ''
       }
     ]
-    const csv = createCsvReport(notes, null, 'Sorted Report')
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Sorted Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-03'
+    })
     const lines = csv.split('\n')
+    expect(lines[0]).toBe('Sorted Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
     expect(lines[2]).toContain('"2023-06-03"') // Newest date should be first
     expect(lines[3]).toContain('"2023-06-02"')
     expect(lines[4]).toContain('"2023-06-01"') // Oldest date should be last
+  })
+
+  test('should handle null or undefined dates in change notes', () => {
+    const notes = [
+      {
+        date: null,
+        userId: 'user1',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Label',
+        oldValue: 'Old',
+        newValue: 'New'
+      },
+      {
+        date: undefined,
+        userId: 'user2',
+        entity: 'Concept',
+        operation: 'Create',
+        field: 'Definition',
+        oldValue: '',
+        newValue: 'New definition'
+      },
+      {
+        date: '2023-06-01',
+        userId: 'user3',
+        entity: 'Concept',
+        operation: 'Delete',
+        field: '',
+        oldValue: '',
+        newValue: ''
+      }
+    ]
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Null Date Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-03'
+    })
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Null Date Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
+    expect(lines[2]).toBe('"2023-06-01","user3","Concept","Delete","","","","",""') // Only valid date should be included
+    expect(lines.length).toBe(3) // Only title, headers, and one valid entry
+  })
+
+  test('should sort notes correctly and exclude notes with missing dates', () => {
+    const notes = [
+      {
+        // Note without date - should be excluded
+        userId: 'user1',
+        entity: 'Concept',
+        operation: 'Create',
+        field: 'Definition',
+        oldValue: '',
+        newValue: 'New definition'
+      },
+      {
+        date: '2023-06-02',
+        userId: 'user2',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Label',
+        oldValue: 'Old',
+        newValue: 'New'
+      },
+      {
+        // Another note without date - should be excluded
+        userId: 'user3',
+        entity: 'Concept',
+        operation: 'Delete',
+        field: '',
+        oldValue: '',
+        newValue: ''
+      },
+      {
+        date: '2023-06-01',
+        userId: 'user4',
+        entity: 'Concept',
+        operation: 'Update',
+        field: 'Relationship',
+        oldValue: 'Old relation',
+        newValue: 'New relation'
+      }
+    ]
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Sorting Test Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-03'
+    })
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Sorting Test Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
+    expect(lines[2]).toContain('2023-06-02') // Newest date should be first
+    expect(lines[3]).toContain('2023-06-01') // Oldest date should be second
+    expect(lines.length).toBe(4) // Title, headers, and two data rows (notes without dates are excluded)
   })
 
   test('should handle undefined or null values', () => {
@@ -212,13 +343,24 @@ describe('createCsvReport', () => {
         userId: null,
         entity: undefined,
         operation: 'Update',
+        systemNote: null,
         field: 'Label',
+        userNote: undefined,
         oldValue: '',
         newValue: 'New'
       }
     ]
-    const csv = createCsvReport(notes, null, 'Null Value Report')
-    expect(csv).toContain('"2023-06-01","","","Update","","Label","","","New"')
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Null Value Report',
+      startDate: '2023-06-01',
+      endDate: '2023-06-01'
+    })
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Null Value Report')
+    expect(lines[1]).toBe('"Date","User Id","Entity","Operation","System Note","Field","User Note","Old Value","New Value"')
+    expect(lines[2]).toBe('"2023-06-01","","","Update","","Label","","","New"')
   })
 
   test('should handle custom headers and hit the default case', () => {
@@ -237,7 +379,14 @@ describe('createCsvReport', () => {
 
     const customHeaders = ['Date', 'User Id', 'Entity', 'Operation', 'Field', 'Old Value', 'New Value', 'Custom Field']
 
-    const csv = createCsvReport(notes, null, 'Custom Header Report', customHeaders)
+    const csv = createCsvReport({
+      changeNotes: notes,
+      userId: null,
+      title: 'Custom Header Report',
+      customHeaders,
+      startDate: '2023-06-01',
+      endDate: '2023-06-01'
+    })
     const lines = csv.split('\n')
 
     expect(lines[0]).toBe('Custom Header Report')

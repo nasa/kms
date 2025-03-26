@@ -1,4 +1,5 @@
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -12,7 +13,6 @@ import { sparqlRequest } from '../sparqlRequest'
 vi.mock('../sparqlRequest')
 
 describe('getConceptChangeNotes', () => {
-  // Add these lines at the beginning of your describe block
   let consoleErrorSpy
 
   beforeEach(() => {
@@ -48,9 +48,7 @@ describe('getConceptChangeNotes', () => {
 
     const result = await getConceptChangeNoteTriples({
       version: 'v1',
-      scheme: 'earth_science',
-      startDate: '2023-01-01',
-      endDate: '2023-12-31'
+      scheme: 'earth_science'
     })
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -121,9 +119,7 @@ describe('getConceptChangeNotes', () => {
 
     await getConceptChangeNoteTriples({
       version: 'v2',
-      scheme: 'test_scheme',
-      startDate: '2023-01-01',
-      endDate: '2023-12-31'
+      scheme: 'test_scheme'
     })
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -132,6 +128,33 @@ describe('getConceptChangeNotes', () => {
       accept: 'application/sparql-results+json',
       version: 'v2',
       body: expect.stringContaining('https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/test_scheme')
+    }))
+  })
+
+  test('calls sparqlRequest without scheme parameter', async () => {
+    const mockResponse = {
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [{
+            concept: 'Concept1',
+            changeNote: 'Note1'
+          }]
+        }
+      })
+    }
+    sparqlRequest.mockResolvedValue(mockResponse)
+
+    await getConceptChangeNoteTriples({
+      version: 'v2'
+    })
+
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'POST',
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
+      version: 'v2',
+      body: expect.not.stringContaining('https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/')
     }))
   })
 })
