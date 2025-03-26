@@ -4,6 +4,12 @@ frameworkVersion: '3'
 provider:
   name: aws
   runtime: nodejs18.x
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - states:StartExecution
+      Resource: 
+        - Fn::GetAtt: [PublishProcessStepMachine, Arn]  
   httpApi:
     payload: '2.0'
   versionFunctions: false
@@ -21,10 +27,13 @@ provider:
       - ${env:SUBNET_ID_C, 'subnetIdC'}
   environment:
     RDF4J_SERVICE_URL: ${env:RDF4J_SERVICE_URL, cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, 'http://localhost:8080'}
+    PUBLISH_STATE_MACHINE_ARN: ${self:custom.publishStateMachineArn}
     RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
     RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
     CMR_BASE_URL: ${env:CMR_BASE_URL, 'https://cmr.earthdata.nasa.gov'}
     EDL_PASSWORD: ${env:EDL_PASSWORD, ''}
+    SHOULD_SYNC: ${env:SHOULD_SYNC, 'false'}
+    SYNC_API_ENDPOINT: ${env:SYNC_API_ENDPOINT, 'https://gcmd.earthdata.nasa.gov'}
   # Prevent Serverless from attempting to modify the deployment bucket policy as NGAP does not allow it
   deploymentBucket:
     skipPolicySetup: true
@@ -36,6 +45,19 @@ package:
 
 configValidationMode: error
 
+stepFunctions:
+  stateMachines:
+    publishProcess:
+      name: PublishProcessStepMachine
+      definition:
+        Comment: "Publish Process State Machine"
+        StartAt: PublishHandler
+        States:
+          PublishHandler:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [PublishHandlerLambdaFunction, Arn]
+            End: true
 #
 # Lambda Functions
 #
@@ -51,8 +73,11 @@ plugins:
   - serverless-finch
   - serverless-offline
   - serverless-s3-local
+  - serverless-step-functions
 
 custom:
+  configResolver: ${file(./config.js)}
+  publishStateMachineArn: ${self:custom.configResolver.publishStateMachineArn}
   siteName: kms-${self:provider.stage}
   collectionTemplatesBucketName: ${self:custom.siteName}-collection-templates
   infrastructureStackName: kms-infrastructure-${self:provider.stage}
@@ -92,3 +117,4 @@ custom:
     packager: 'npm'
     external:
       - '@aws-sdk/client-s3'
+

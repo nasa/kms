@@ -26,21 +26,10 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *     - For errors: JSON string with error information.
  *
  * @throws Will not throw errors directly, but will catch and return them in the response object.
- *
  * @example
- * // Example event object
- * const event = {
- *   pathParameters: {
- *     conceptId: 'e610b940-2fda-4e1f-88eb-1b2b7bd23e7d'
- *   },
- *   queryStringParameters: {
- *     version: 'draft'
- *   }
- * };
+ * curl -X GET https://your-api-endpoint.com/concept_fullpaths/concept_uuid/e610b940-2fda-4e1f-88eb-1b2b7bd23e7d?version=draft
  *
- * // Example usage
- * const response = await getFullPath(event);
- * // response.body might contain:
+ * // Response:
  * // <?xml version="1.0" encoding="UTF-8"?>
  * // <FullPaths>
  * //   <FullPath xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

@@ -2,6 +2,7 @@ import {
   beforeEach,
   describe,
   expect,
+  it,
   vi
 } from 'vitest'
 
@@ -25,83 +26,67 @@ describe('publish handler', () => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: {} })
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
-  describe('when publishing a draft', () => {
-    describe('when published version exists', () => {
-      test('should copy published graph to past_published graph and copy draft to published', async () => {
-        getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
+  it('should successfully publish a new version', async () => {
+    const event = { name: 'new_version' }
+    getVersionMetadata.mockResolvedValue(null)
+    copyGraph.mockResolvedValue()
+    updateVersionMetadata.mockResolvedValue()
 
-        const event = { queryStringParameters: { name: 'new_version' } }
-        const result = await publish(event)
+    const result = await publish(event)
 
-        expect(renameGraph).toHaveBeenCalledWith({
-          oldGraphName: 'published',
-          newGraphName: 'old_version'
-        })
-
-        expect(updateVersionMetadata).toHaveBeenCalledWith({
-          graphId: 'old_version',
-          versionType: 'past_published'
-        })
-
-        expect(copyGraph).toHaveBeenCalledWith({
-          sourceGraphName: 'draft',
-          targetGraphName: 'published'
-        })
-
-        expect(updateVersionMetadata).toHaveBeenCalledWith(expect.objectContaining({
-          graphId: 'published',
-          version: 'new_version',
-          versionType: 'published'
-        }))
-
-        expect(result.statusCode).toBe(200)
-      })
+    expect(result.statusCode).toBe(200)
+    expect(JSON.parse(result.body).message).toBe('Publish process completed for version new_version')
+    expect(copyGraph).toHaveBeenCalledWith({
+      sourceGraphName: 'draft',
+      targetGraphName: 'published'
     })
 
-    describe('when published version does not exist', () => {
-      test('should just copy draft graph to published graph', async () => {
-        getVersionMetadata.mockResolvedValue(null)
+    expect(updateVersionMetadata).toHaveBeenCalledWith(expect.objectContaining({
+      graphId: 'published',
+      version: 'new_version',
+      versionType: 'published'
+    }))
+  })
 
-        const event = { queryStringParameters: { name: 'new_version' } }
-        const result = await publish(event)
+  it('should rename existing published graph when it exists', async () => {
+    const event = { name: 'new_version' }
+    getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
+    renameGraph.mockResolvedValue()
+    updateVersionMetadata.mockResolvedValue()
+    copyGraph.mockResolvedValue()
 
-        expect(renameGraph).not.toHaveBeenCalled()
-        expect(copyGraph).toHaveBeenCalledWith({
-          sourceGraphName: 'draft',
-          targetGraphName: 'published'
-        })
+    await publish(event)
 
-        expect(updateVersionMetadata).toHaveBeenCalledWith(expect.objectContaining({
-          graphId: 'published',
-          version: 'new_version',
-          versionType: 'published'
-        }))
+    expect(renameGraph).toHaveBeenCalledWith({
+      oldGraphName: 'published',
+      newGraphName: 'old_version'
+    })
 
-        expect(result.statusCode).toBe(200)
-      })
+    expect(updateVersionMetadata).toHaveBeenCalledWith({
+      graphId: 'old_version',
+      versionType: 'past_published'
     })
   })
 
-  describe('when errors occur', () => {
-    test('should return a 400 error when name is not provided', async () => {
-      const event = { queryStringParameters: {} }
-      const result = await publish(event)
+  it('should return a 400 error when name is not provided', async () => {
+    const event = {}
+    const result = await publish(event)
 
-      expect(result.statusCode).toBe(400)
-      expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
-    })
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
+  })
 
-    test('should return a 500 error when an operation fails', async () => {
-      getVersionMetadata.mockRejectedValue(new Error('Database error'))
+  it('should handle errors during the publish process', async () => {
+    const event = { name: 'new_version' }
+    getVersionMetadata.mockRejectedValue(new Error('Database error'))
 
-      const event = { queryStringParameters: { name: 'new_version' } }
-      const result = await publish(event)
+    const result = await publish(event)
 
-      expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toContain('Error publishing draft to new_version')
-    })
+    expect(result.statusCode).toBe(500)
+    expect(JSON.parse(result.body).message).toBe('Error in publish process')
+    expect(console.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
   })
 })

@@ -24,6 +24,9 @@ describe('recreateDatabase', () => {
     vi.clearAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
+    process.env.RDF4J_SERVICE_URL = 'http://test-rdf4j-service'
+    process.env.RDF4J_USER_NAME = 'testuser'
+    process.env.RDF4J_PASSWORD = 'testpass'
 
     process.env.RDF4J_SERVICE_URL = 'http://test-rdf4j-service'
   })
@@ -97,7 +100,7 @@ describe('recreateDatabase', () => {
 
       await recreateDatabase()
 
-      const expectedAuthHeader = `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
+      const expectedAuthHeader = `Basic ${Buffer.from('testuser:testpass').toString('base64')}`
       expect(fetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({

@@ -1,6 +1,55 @@
 edlAuthorizer:
-    handler: serverless/src/edlAuthorizer/handler.default
-    timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  handler: serverless/src/edlAuthorizer/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+triggerPublish:
+  handler: serverless/src/triggerPublish/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        path: publish
+        method: post
+publishHandler:
+  handler: serverless/src/publish/handler.default
+  timeout: 900
+
+# This should not be called in production, only from the scheduler, otherwise
+# it will timeout in 30 seconds.
+syncConceptData:
+  handler: serverless/src/syncConceptData/handler.default
+  timeout: 900
+  events:
+    - http:
+        path: sync-concept-data
+        method: post
+        async: true
+        authorizer: 
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
+    - schedule:
+        name: SyncPublishedConcepts
+        rate: cron(15 7 * * ? *) 
+        input:
+          version: "published"
+    - schedule:
+        name: SyncDraftConcepts
+        rate: cron(15 8 * * ? *)
+        input:
+          version: "draft"
+exportRdfToS3:
+  handler: serverless/src/exportRdfToS3/handler.default
+  timeout: 900
+  events:
+    - schedule:
+        name: exportRdfToS3ForPublished
+        rate: cron(0 0 * * ? *) 
+        input:
+          version: "published"
+    - schedule:
+        name: exportRdfToS3ForDraft
+        rate: cron(0 1 * * ? *) 
+        input:
+          version: "draft"
 errorLogger:
   handler: serverless/src/errorLogger/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -116,20 +165,7 @@ createConcept:
         authorizer:
           name: edlAuthorizer
           type: request
-          resultTtlInSeconds: 0
-        
-createConcepts:
-  handler: serverless/src/createConcepts/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '30'}
-  events:
-    - http:
-        method: post
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: concepts
-        authorizer:
-          name: edlAuthorizer
-          type: request
-          resultTtlInSeconds: 0
+          resultTtlInSeconds: 0        
 updateConcept:
   handler: serverless/src/updateConcept/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -138,7 +174,7 @@ updateConcept:
         method: put
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: concept
-        authorizer:
+        authorizer: 
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
@@ -156,7 +192,7 @@ deleteConcept:
           resultTtlInSeconds: 0
 recreateDatabase:
   handler: serverless/src/recreateDatabase/handler.default
-  timeout: 900
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
   events:
     - http:
         method: delete
@@ -166,15 +202,6 @@ recreateDatabase:
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
-exportRdfToS3:
-  handler: serverless/src/exportRdfToS3/handler.default
-  timeout: 900
-  events:
-    - http:
-        method: post
-        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: exportRdfToS3
-    - schedule: cron(0 0 * * ? *)
 getFullPath:
   handler: serverless/src/getFullPath/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -191,14 +218,15 @@ getConceptVersions:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept_versions/version_type/{versionType}
-publish:
-  handler: serverless/src/publish/handler.default
-  timeout: 900
+uploadRdfData:
+  handler: serverless/src/uploadRdfData/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
   events:
     - http:
         method: post
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: /publish
-
-
-
+        path: upload-rdf-data
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0

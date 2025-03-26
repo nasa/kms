@@ -73,3 +73,8 @@ Resources:
       BucketName: ${self:custom.collectionTemplatesBucketName}
 
 Outputs:
+  PublishProcessStepFunctionArn:
+    Value:
+      Ref: PublishProcessStepMachine
+    Export:
+      Name: ${self:service}-${self:provider.stage}-PublishProcessStepFunctionArn

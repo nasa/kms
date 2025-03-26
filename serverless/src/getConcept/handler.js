@@ -159,6 +159,7 @@ export const getConcept = async (event) => {
       const rdfJson = {
         'rdf:RDF': {
           ...namespaces,
+          '@xml:base': 'https://gcmd.earthdata.nasa.gov/kms/concept/',
           'gcmd:gcmd': await getGcmdMetadata({
             conceptIRI,
             version

@@ -12,6 +12,7 @@ import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { rollback } from '@/shared/rollback'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+import { updateModifiedDate } from '@/shared/updateModifiedDate'
 import { updateConcept } from '@/updateConcept/handler'
 
 // Mock the dependencies
@@ -21,6 +22,7 @@ vi.mock('@/shared/rollback')
 vi.mock('@/shared/getConceptId')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/sparqlRequest')
+vi.mock('@/shared/updateModifiedDate')
 
 describe('updateConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
@@ -36,6 +38,7 @@ describe('updateConcept', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
@@ -258,6 +261,118 @@ describe('updateConcept', () => {
         }),
         headers: mockDefaultHeaders
       })
+    })
+  })
+
+  describe('when updating last modified date', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2023-05-15T10:30:00.000Z'))
+
+      conceptIdExists.mockResolvedValue(true)
+      deleteTriples.mockResolvedValue({
+        deletedTriples: mockDeletedTriples,
+        deleteResponse: { ok: true }
+      })
+
+      sparqlRequest.mockResolvedValue({ ok: true })
+
+      // Add these lines to mock console methods
+      vi.spyOn(console, 'log').mockImplementation(() => {})
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+      vi.restoreAllMocks() // This will restore all mocked functions
+    })
+
+    test('should update modified date after successful concept update', async () => {
+      updateModifiedDate.mockResolvedValue(true)
+
+      const result = await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
+      expect(console.log).toHaveBeenCalledWith(`Updated modified date to 2023-05-15T10:30:00.000Z for concept ${mockConceptId}`)
+    })
+
+    test('should log warning if updating modified date fails', async () => {
+      updateModifiedDate.mockResolvedValue(false)
+
+      const result = await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
+      expect(console.warn).toHaveBeenCalledWith(`Failed to update modified date for concept ${mockConceptId}`)
+    })
+
+    test('should still return success if concept update succeeds but modified date update fails', async () => {
+      updateModifiedDate.mockResolvedValue(false)
+
+      const result = await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(result.statusCode).toBe(200)
+      expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
+    })
+
+    test('should use provided version for updating modified date', async () => {
+      const versionedEvent = {
+        ...mockEvent,
+        queryStringParameters: { version: 'published' }
+      }
+      updateModifiedDate.mockResolvedValue(true)
+
+      await updateConcept(versionedEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'published', '2023-05-15T10:30:00.000Z')
+    })
+
+    test('should handle errors from updateModifiedDate', async () => {
+      updateModifiedDate.mockRejectedValue(new Error('Failed to update modified date'))
+
+      const result = await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body)).toEqual({
+        message: 'Error updating concept',
+        error: 'Failed to update modified date'
+      })
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error inserting new data, rolling back:',
+        expect.objectContaining({ message: 'Failed to update modified date' })
+      )
+
+      expect(rollback).toHaveBeenCalledWith(mockDeletedTriples, 'draft')
+    })
+
+    test('should not update modified date if concept update fails', async () => {
+      sparqlRequest.mockResolvedValue({
+        ok: false,
+        status: 500
+      })
+
+      const result = await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).not.toHaveBeenCalled()
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('HTTP error! insert status: 500')
+    })
+
+    test('should use current date for updating modified date', async () => {
+      const customDate = new Date('2024-01-01T00:00:00.000Z')
+      vi.setSystemTime(customDate)
+      updateModifiedDate.mockResolvedValue(true)
+
+      await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', customDate.toISOString())
     })
   })
 })

@@ -1,5 +1,7 @@
+import prefixes from '@/shared/constants/prefixes'
+
 export const getConceptSchemeOfConceptQuery = (conceptUri) => `
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  ${prefixes}
 SELECT ?scheme
 WHERE {
   <${conceptUri}> skos:inScheme ?scheme .

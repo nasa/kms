@@ -5,70 +5,31 @@ import { renameGraph } from '@/shared/renameGraph'
 import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 /**
- * Publishes the draft version of the keyword management system (KMS) to a new published version.
+ * Triggered by the publish process either directly (in offline mode) or via AWS Step Functions.
  *
- * This function performs the following steps in the publishing process:
- * 1. If a published version exists:
- *    a. Renames the current 'published' graph to its version name (e.g., '9.1.5').
- *    b. Updates the metadata of this graph to mark it as 'past_published'.
- * 2. Copies the 'draft' graph to a new 'published' graph.
- * 3. Updates the metadata of the new 'published' graph with the new version information.
+ * This function is not called via curl, but is triggered by an internal process.
+ * It performs the following steps:
+ * 1. Validates the input to ensure a 'name' parameter is provided.
+ * 2. If in offline mode, it calls the publish function directly.
+ * 3. If not in offline mode, it triggers an AWS Step Function to handle the publish process.
  *
- * @async
- * @function publish
- * @param {Object} event - The Lambda event object.
- * @param {Object} event.queryStringParameters - The query string parameters from the HTTP request.
- * @param {string} event.queryStringParameters.name - The name of the new version to be published (e.g., '9.1.6').
- *
- * @returns {Promise<Object>} A promise that resolves to an object containing:
- *   @property {number} statusCode - HTTP status code (200 for success, 400 for bad request, 500 for server error).
- *   @property {Object} headers - Response headers.
- *   @property {string} body - JSON stringified response body containing a success or error message.
- *
- * @throws Will not throw errors directly, but will catch and return them in the response object.
- *
- * @example
- * // Example event object
- * const event = {
- *   queryStringParameters: {
- *     name: '9.1.6'
- *   }
- * };
- *
- * // Example usage
- * const response = await publish(event);
- * console.log(response);
- * // On success:
- * // {
- * //   statusCode: 200,
- * //   headers: { ... },
- * //   body: '{"message":"Published draft to 9.1.6 successfully"}'
- * // }
- *
- * // On error (e.g., missing name parameter):
- * // {
- * //   statusCode: 400,
- * //   headers: { ... },
- * //   body: '{"message":"Error: \"name\" parameter is required"}'
- * // }
- *
- * @see Related functions:
- * {@link getVersionMetadata}
- * {@link renameGraph}
- * {@link updateVersionMetadata}
- * {@link copyGraph}
+ * @param {Object} event - The event object containing the publish request details.
+ * @param {string} event.body - A JSON string containing the publish parameters.
+ * @param {string} event.body.name - The name of the version to be published.
+ * @returns {Object} An object containing the status code, headers, and response body.
+ *   The response varies based on whether the function is running in offline mode or not.
  */
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { queryStringParameters } = event
-  const { name } = queryStringParameters
+
+  const name = event.name || (event.body ? JSON.parse(event.body).name : null)
 
   // Check if name is provided
   if (!name) {
     return {
       statusCode: 400,
       headers: defaultResponseHeaders,
-      body: JSON.stringify({ message: 'Error: "name" parameter is required' })
+      body: JSON.stringify({ message: 'Error: "name" parameter is required in the request body' })
     }
   }
 
@@ -94,30 +55,39 @@ export const publish = async (event) => {
       targetGraphName: 'published'
     })
 
-    // 3. Updated published graphwith version info.
+    // 3. Updated published graph with version info.
     const updateDate = new Date().toISOString()
     await updateVersionMetadata({
       graphId: 'published',
       version: name,
       versionType: 'published',
-      createdDate: updateDate, // E.g. 2025-03-14
+      createdDate: updateDate,
       modifiedDate: updateDate
     })
 
+    console.log(`Published draft to ${name} successfully`)
+
+    // Return success response
     return {
       statusCode: 200,
       headers: defaultResponseHeaders,
       body: JSON.stringify({
-        message: `Published draft to ${name} successfully`
+        message: `Publish process completed for version ${name}`,
+        version: name,
+        publishDate: updateDate
       })
     }
   } catch (error) {
-    console.error('Error publishing data:', error)
+    console.error('Error in publish process:', error)
 
+    // Return error response
     return {
       statusCode: 500,
       headers: defaultResponseHeaders,
-      body: JSON.stringify({ message: `Error publishing draft to ${name}` })
+      body: JSON.stringify({
+        message: 'Error in publish process',
+        error: error.message
+      })
     }
   }
 }

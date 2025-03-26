@@ -53,7 +53,6 @@ export const deleteTriples = async (conceptIRI, version) => {
       body: getTriplesForConceptQuery(conceptIRI),
       version
     })
-
     if (!selectResponse.ok) {
       throw new Error(`HTTP error! select status: ${selectResponse.status}`)
     }

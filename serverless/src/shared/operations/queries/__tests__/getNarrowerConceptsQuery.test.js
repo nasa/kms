@@ -1,12 +1,14 @@
 import { describe, expect } from 'vitest'
 
+import prefixes from '@/shared/constants/prefixes'
+
 import { getNarrowerConceptsQuery } from '../getNarrowerConceptsQuery'
 
 describe('getNarrowerConceptsQuery', () => {
   test('should return the correct query without a scheme', () => {
     const result = getNarrowerConceptsQuery()
     expect(result).toEqual(`
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  ${prefixes}
   SELECT ?subject ?prefLabel ?narrower ?narrowerPrefLabel
   WHERE {
     ?subject skos:prefLabel ?prefLabel .
@@ -21,7 +23,7 @@ describe('getNarrowerConceptsQuery', () => {
     const scheme = 'test_scheme'
     const result = getNarrowerConceptsQuery(scheme)
     expect(result).toEqual(`
-  PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+  ${prefixes}
   SELECT ?subject ?prefLabel ?narrower ?narrowerPrefLabel
   WHERE {
     ?subject skos:prefLabel ?prefLabel .

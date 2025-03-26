@@ -1,6 +1,7 @@
+import prefixes from '@/shared/constants/prefixes'
+
 export const getRootConceptsQuery = () => `
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+${prefixes}
 
 SELECT DISTINCT ?s ?p ?o
 WHERE {

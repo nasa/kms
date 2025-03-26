@@ -4,8 +4,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Updates the version metadata for a specific graph in the RDF store.
  *
  * This function constructs and executes a SPARQL UPDATE query to modify the version metadata
- * of a specified graph. It can update the version name, version type, creation date, and
- * modification date of the version metadata.
+ * of a specified graph. It can update the version name, version type, creation date,
+ * modification date, and last synced date of the version metadata.
  *
  * @async
  * @function updateVersionMetadata
@@ -15,6 +15,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} [options.versionType] - The new version type to set (e.g., 'published', 'draft').
  * @param {string} [options.createdDate] - The new creation date to set (in ISO 8601 format).
  * @param {string} [options.modifiedDate] - The new modification date to set (in ISO 8601 format).
+ * @param {string} [options.lastSynced] - The new last synced date to set (in ISO 8601 format).
  * @returns {Promise<Response>} A promise that resolves to the response from the SPARQL endpoint.
  * @throws {Error} If the update operation fails or if there's an error in the SPARQL request.
  *
@@ -25,25 +26,12 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *     graphId: 'published',
  *     version: '9.1.5',
  *     versionType: 'published',
- *     modifiedDate: new Date().toISOString()
+ *     modifiedDate: new Date().toISOString(),
+ *     lastSynced: new Date().toISOString()
  *   });
  *   console.log('Version metadata updated successfully');
  * } catch (error) {
  *   console.error('Failed to update version metadata:', error);
- * }
- *
- * @example
- * // Update the metadata for a draft version
- * try {
- *   const response = await updateVersionMetadata({
- *     graphId: 'draft',
- *     versionType: 'draft',
- *     createdDate: new Date().toISOString(),
- *     modifiedDate: new Date().toISOString()
- *   });
- *   console.log('Draft version metadata updated successfully');
- * } catch (error) {
- *   console.error('Failed to update draft version metadata:', error);
  * }
  *
  * @see Related function:
@@ -55,7 +43,8 @@ export const updateVersionMetadata = async ({
   version,
   versionType,
   createdDate,
-  modifiedDate
+  modifiedDate,
+  lastSynced
 }) => {
   const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
   const versionUri = 'https://gcmd.earthdata.nasa.gov/kms/version_metadata'
@@ -81,6 +70,11 @@ export const updateVersionMetadata = async ({
   if (modifiedDate !== undefined) {
     deleteClause += `<${versionUri}> dcterms:modified ?oldModifiedDate .\n`
     insertClause += `<${versionUri}> dcterms:modified "${modifiedDate}"^^xsd:dateTime .\n`
+  }
+
+  if (lastSynced !== undefined) {
+    deleteClause += `<${versionUri}> gcmd:lastSynced ?oldLastSynced .\n`
+    insertClause += `<${versionUri}> gcmd:lastSynced "${lastSynced}"^^xsd:dateTime .\n`
   }
 
   const query = `

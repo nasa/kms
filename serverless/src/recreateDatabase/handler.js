@@ -40,10 +40,31 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * Usage:
  * This handler can be invoked to completely reset the RDF4J repository to a clean state.
  * Use with caution as it will delete all existing data in the repository.
+ *
+ * @example
+ * curl -X POST https://your-api-endpoint.com/recreate-database \
+ *   -H "Authorization: Bearer YOUR_AUTH_TOKEN"
+ *
+ * // Response:
+ * // {
+ * //   "statusCode": 200,
+ * //   "headers": {
+ * //     "Content-Type": "application/json",
+ * //     "Access-Control-Allow-Origin": "*"
+ * //   },
+ * //   "body": "{\"message\":\"Successfully recreated repository 'kms'\"}"
+ * // }
  */
 export const recreateDatabase = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const rdf4jServiceUrl = process.env.RDF4J_SERVICE_URL
+
+  const getAuthHeader = () => {
+    const username = process.env.RDF4J_USER_NAME
+    const password = process.env.RDF4J_PASSWORD
+
+    return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+  }
 
   try {
     const baseUrl = `${rdf4jServiceUrl}/rdf4j-server`
@@ -53,7 +74,7 @@ export const recreateDatabase = async () => {
     const deleteResponse = await fetch(`${baseUrl}/repositories/${repositoryId}`, {
       method: 'DELETE',
       headers: {
-        Authorization: `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
+        Authorization: getAuthHeader()
       }
     })
 
@@ -90,7 +111,7 @@ export const recreateDatabase = async () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/x-turtle',
-        Authorization: `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
+        Authorization: getAuthHeader()
       },
       body: createConfig
     })

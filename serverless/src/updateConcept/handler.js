@@ -4,6 +4,7 @@ import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { rollback } from '@/shared/rollback'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+import { updateModifiedDate } from '@/shared/updateModifiedDate'
 
 /**
  * Updates an existing SKOS Concept in the RDF store for a specific version.
@@ -53,7 +54,21 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * //   body: '{"message":"Successfully updated concept: 456"}',
  * //   headers: { ... }
  * // }
+ * @example
+ * curl -X POST https://your-api-endpoint.com/upload-rdf \
+ *   -H "Content-Type: application/xml" \
+ *   -d @your-rdf-file.xml \
+ *   -G --data-urlencode "version=draft"
  *
+ * // Response:
+ * // {
+ * //   "statusCode": 200,
+ * //   "body": "{\"message\":\"Successfully loaded RDF data into RDF4J\"}",
+ * //   "headers": {
+ * //     "Content-Type": "application/json",
+ * //     "Access-Control-Allow-Origin": "*"
+ * //   }
+ * // }
  * @throws Will return an object with error details if the update process fails.
  *
  * @see Related functions:
@@ -114,6 +129,16 @@ export const updateConcept = async (event) => {
       }
 
       console.log(`Successfully updated concept: ${conceptId}`)
+
+      // Update the modified date
+      const today = new Date().toISOString()
+      const updateModifiedSuccess = await updateModifiedDate(conceptId, version, today)
+
+      if (!updateModifiedSuccess) {
+        console.warn(`Failed to update modified date for concept ${conceptId}`)
+      } else {
+        console.log(`Updated modified date to ${today} for concept ${conceptId}`)
+      }
 
       return {
         statusCode: 200,

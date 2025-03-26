@@ -4,7 +4,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Retrieves metadata for a specific version of the concept scheme.
  *
  * This function sends a SPARQL query to fetch metadata about a particular version,
- * including its name, type, creation date, and modification date.
+ * including its name, type, creation date, modification date, and last sync date.
  *
  * @async
  * @function getVersionMetadata
@@ -23,30 +23,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   //   versionName: '9.1.5',
  *   //   versionType: 'published',
  *   //   created: '2023-01-15T00:00:00Z',
- *   //   modified: '2023-06-30T12:34:56Z'
+ *   //   modified: '2023-06-30T12:34:56Z',
+ *   //   lastSynced: '2023-07-01T10:00:00Z'
  *   // }
- * } catch (error) {
- *   console.error('Failed to retrieve version metadata:', error);
- * }
- *
- * @example
- * // Retrieve metadata for the draft version
- * try {
- *   const metadata = await getVersionMetadata('draft');
- *   console.log(metadata);
- * } catch (error) {
- *   console.error('Failed to retrieve draft version metadata:', error);
- * }
- *
- * @example
- * // Retrieve metadata for a specific version number
- * try {
- *   const metadata = await getVersionMetadata('9.1.5');
- *   if (metadata) {
- *     console.log(metadata);
- *   } else {
- *     console.log('Version not found');
- *   }
  * } catch (error) {
  *   console.error('Failed to retrieve version metadata:', error);
  * }
@@ -61,13 +40,14 @@ export const getVersionMetadata = async (version) => {
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
     PREFIX dcterms: <http://purl.org/dc/terms/>
 
-    SELECT ?versionType ?versionName ?created ?modified
+    SELECT ?versionType ?versionName ?created ?modified ?lastSynced
     WHERE {
       <${versionUri}> a gcmd:Version ;
                       gcmd:versionName ?versionName ;
                       gcmd:versionType ?versionType ;
                       dcterms:created ?created ;
                       dcterms:modified ?modified .
+      OPTIONAL { <${versionUri}> gcmd:lastSynced ?lastSynced }
     }
   `
 
@@ -98,7 +78,8 @@ export const getVersionMetadata = async (version) => {
       versionName: metadata.versionName.value.toString(),
       versionType: metadata.versionType.value,
       created: metadata.created.value,
-      modified: metadata.modified.value
+      modified: metadata.modified.value,
+      lastSynced: metadata.lastSynced ? metadata.lastSynced.value : null
     }
   } catch (error) {
     console.error('Error retrieving version metadata:', error)

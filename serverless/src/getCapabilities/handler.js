@@ -9,6 +9,24 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * @function getCapabilities
  * @returns {Object} An object containing the XML response body and headers.
  * @throws {Error} If there's an error during the XML generation process.
+ *
+ * @example
+ * curl -X GET https://your-api-endpoint.com/capabilities
+ *
+ * // Response:
+ * // <?xml version="1.0" encoding="UTF-8"?>
+ * // <capabilities version="0.5">
+ * //   <software>
+ * //     <version>3.1.0</version>
+ * //     <build>KMS-24.4.8-5</build>
+ * //   </software>
+ * //   <documentation>https://wiki.earthdata.nasa.gov/display/ED/KMS+User%27s+Guide</documentation>
+ * //   <termsOfUse>https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf</termsOfUse>
+ * //   <urls>
+ * //     <a name="get_status" href="/status" params="format=[xml|html]" action="N/A"/>
+ * //     <!-- ... other URL entries ... -->
+ * //   </urls>
+ * // </capabilities>
  */
 export const getCapabilities = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()

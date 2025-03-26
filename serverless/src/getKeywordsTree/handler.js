@@ -54,6 +54,49 @@ import { toTitleCase } from '@/shared/toTitleCase'
  * const result = await getKeywordsTree(event);
  * // Result will contain the Instruments keywords tree from version 9.1.5
  *
+ * @example
+ * curl -X GET "https://your-api-endpoint.com/keywords/earth%20science?version=draft&filter=atmosphere"
+ *
+ * // Response:
+ * // {
+ * //   "versions": [
+ * //     {
+ * //       "id": 999,
+ * //       "version": "9.1.5",
+ * //       "type": "PUBLISHED",
+ * //       "schemes": [
+ * //         {
+ * //           "id": 1,
+ * //           "scheme": "Earth Science",
+ * //           "longName": "Earth Science"
+ * //         },
+ * //         ...
+ * //       ]
+ * //     }
+ * //   ],
+ * //   "tree": {
+ * //     "scheme": "earth science",
+ * //     "version": "9.1.5",
+ * //     "timestamp": "2023-06-15 10:30:00",
+ * //     "treeData": [
+ * //       {
+ * //         "key": "keywords-uuid",
+ * //         "title": "Keywords",
+ * //         "children": [
+ * //           {
+ * //             "title": "Atmosphere",
+ * //             "children": [
+ * //               ...
+ * //             ]
+ * //           },
+ * //           ...
+ * //         ]
+ * //       }
+ * //     ]
+ * //   }
+ * // }
+ *
+ *
  * @throws Will throw an error if there's a problem retrieving or processing the keywords.
  */
 export const getKeywordsTree = async (event) => {
