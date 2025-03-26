@@ -1,14 +1,17 @@
 edlAuthorizer:
   handler: serverless/src/edlAuthorizer/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
-publish:
-  handler: serverless/src/publish/handler.default
+triggerPublish:
+  handler: serverless/src/triggerPublish/handler.default
   timeout: 900
   events:
     - http:
         path: publish
         method: post
-        async: true
+publishHandler:
+  handler: serverless/src/publish/handler.default
+  timeout: 900
+
 # This should not be called in production, only from the scheduler, otherwise
 # it will timeout in 30 seconds.
 syncConceptData:

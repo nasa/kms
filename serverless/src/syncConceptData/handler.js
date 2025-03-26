@@ -27,7 +27,7 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  */
 export const syncConceptData = async (event) => {
   const fetchLegacyData = async (apiEndpoint, format, version) => {
-    let baseUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?fetch=1&format=${format}`
+    let baseUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?format=${format}`
     if (version && version !== 'published') {
       baseUrl += `&version=${version}`
     }

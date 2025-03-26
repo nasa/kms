@@ -44,7 +44,6 @@ describe('syncConceptData', () => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Mock successful responses
-    // Mock successful responses
     fetch.mockResolvedValue({
       ok: true,
       text: () => Promise.resolve('mockData')
@@ -128,12 +127,12 @@ describe('syncConceptData', () => {
       expect(response.statusCode).toBe(200)
       expect(JSON.parse(response.body)).toEqual({ message: 'Sync process complete.' })
       expect(fetch).toHaveBeenCalledWith(
-        'http://api.example.com/kms/concepts_to_rdf_repo?fetch=1&format=json&version=draft',
+        'http://api.example.com/kms/concepts_to_rdf_repo?format=json&version=draft',
         expect.anything()
       )
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://api.example.com/kms/concepts_to_rdf_repo?fetch=1&format=xml&version=draft',
+        'http://api.example.com/kms/concepts_to_rdf_repo?format=xml&version=draft',
         expect.anything()
       )
 
