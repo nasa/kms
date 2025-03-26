@@ -27,7 +27,7 @@ provider:
       - ${env:SUBNET_ID_C, 'subnetIdC'}
   environment:
     RDF4J_SERVICE_URL: ${env:RDF4J_SERVICE_URL, cf:rdf4jLoadBalancerStack.RDF4JServiceUrl, 'http://localhost:8080'}
-    PUBLISH_STATE_MACHINE_ARN: ${self:custom.publishStateMachineArn}
+    PUBLISH_STATE_MACHINE_ARN: ${env:PUBLISH_STATE_MACHINE_ARN, cf:${self:service}-${self:provider.stage}.PublishProcessStepFunctionArn, 'defaultArnForLocalDev'}
     RDF4J_USER_NAME: ${env:RDF4J_USER_NAME, 'rdf4j'}
     RDF4J_PASSWORD: ${env:RDF4J_PASSWORD, 'rdf4j'}
     CMR_BASE_URL: ${env:CMR_BASE_URL, 'https://cmr.earthdata.nasa.gov'}
@@ -76,8 +76,6 @@ plugins:
   - serverless-step-functions
 
 custom:
-  configResolver: ${file(./config.js)}
-  publishStateMachineArn: ${self:custom.configResolver.publishStateMachineArn}
   siteName: kms-${self:provider.stage}
   collectionTemplatesBucketName: ${self:custom.siteName}-collection-templates
   infrastructureStackName: kms-infrastructure-${self:provider.stage}
