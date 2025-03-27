@@ -2,7 +2,6 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
   vi
 } from 'vitest'
 
@@ -29,7 +28,7 @@ describe('publish handler', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
   })
 
-  it('should successfully publish a new version', async () => {
+  test('should successfully publish a new version', async () => {
     const event = { name: 'new_version' }
     getVersionMetadata.mockResolvedValue(null)
     copyGraph.mockResolvedValue()
@@ -51,7 +50,7 @@ describe('publish handler', () => {
     }))
   })
 
-  it('should rename existing published graph when it exists', async () => {
+  test('should rename existing published graph when it exists', async () => {
     const event = { name: 'new_version' }
     getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
     renameGraph.mockResolvedValue()
@@ -71,7 +70,7 @@ describe('publish handler', () => {
     })
   })
 
-  it('should return a 400 error when name is not provided', async () => {
+  test('should return a 400 error when name is not provided', async () => {
     const event = {}
     const result = await publish(event)
 
@@ -79,7 +78,7 @@ describe('publish handler', () => {
     expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
   })
 
-  it('should handle errors during the publish process', async () => {
+  test('should handle errors during the publish process', async () => {
     const event = { name: 'new_version' }
     getVersionMetadata.mockRejectedValue(new Error('Database error'))
 

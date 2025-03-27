@@ -3,13 +3,14 @@ edlAuthorizer:
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
 triggerPublish:
   handler: serverless/src/triggerPublish/handler.default
-  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  timeout: 900
   events:
     - http:
         path: publish
         method: post
 publishHandler:
   handler: serverless/src/publish/handler.default
+  provisionedConcurrency: 1
   timeout: 900
 
 # This should not be called in production, only from the scheduler, otherwise

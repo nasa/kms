@@ -71,10 +71,3 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: ${self:custom.collectionTemplatesBucketName}
-
-Outputs:
-  PublishProcessStepFunctionArn:
-    Value:
-      Ref: PublishProcessStepMachine
-    Export:
-      Name: ${self:service}-${self:provider.stage}-PublishProcessStepFunctionArn
