@@ -5,19 +5,47 @@ import { renameGraph } from '@/shared/renameGraph'
 import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 /**
- * Triggered by the publish process either directly (in offline mode) or via AWS Step Functions.
+ * Performs the publication process for a new version of the keyword set.
  *
- * This function is not called via curl, but is triggered by an internal process.
- * It performs the following steps:
+ * This function is invoked asynchronously by the triggerPublish Lambda function.
+ * It is not called directly via HTTP requests, but rather as part of an internal process.
+ *
+ * The function performs the following steps:
  * 1. Validates the input to ensure a 'name' parameter is provided.
- * 2. If in offline mode, it calls the publish function directly.
- * 3. If not in offline mode, it triggers an AWS Step Function to handle the publish process.
+ * 2. If a 'published' version exists, it is moved to 'past_published'.
+ * 3. The 'draft' version is copied to become the new 'published' version.
+ * 4. Metadata for the new 'published' version is updated with the provided name and timestamp.
  *
- * @param {Object} event - The event object containing the publish request details.
- * @param {string} event.body - A JSON string containing the publish parameters.
- * @param {string} event.body.name - The name of the version to be published.
- * @returns {Object} An object containing the status code, headers, and response body.
- *   The response varies based on whether the function is running in offline mode or not.
+ * @async
+ * @function publish
+ * @param {Object} event - The event object passed from the triggering Lambda function.
+ * @param {string} event.name - The name of the version to be published.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the status code, headers, and response body.
+ * @property {number} statusCode - The HTTP status code (200 for success, 400 for bad request, 500 for server error).
+ * @property {Object} headers - The response headers, including CORS and content type settings.
+ * @property {string} body - A JSON string containing the response message, version name, and publish date (for success) or error details (for failure).
+ *
+ * @throws {Error} If there's an issue with renaming graphs, copying data, or updating metadata.
+ *
+ * @example
+ * // Successful invocation
+ * const event = { name: 'v1.0.0' };
+ * const result = await publish(event);
+ * // result = {
+ * //   statusCode: 200,
+ * //   headers: { 'Content-Type': 'application/json', ... },
+ * //   body: '{"message":"Publish process completed for version v1.0.0","version":"v1.0.0","publishDate":"2023-06-01T12:00:00.000Z"}'
+ * // }
+ *
+ * @example
+ * // Failed invocation (missing name)
+ * const event = {};
+ * const result = await publish(event);
+ * // result = {
+ * //   statusCode: 400,
+ * //   headers: { 'Content-Type': 'application/json', ... },
+ * //   body: '{"message":"Error: \\"name\\" parameter is required in the request body"}'
+ * // }
  */
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()

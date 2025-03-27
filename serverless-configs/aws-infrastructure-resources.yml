@@ -74,15 +74,20 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: '*'
-        - PolicyName: StepFunctionExecutionPolicy
+        - PolicyName: LambdaInvocationPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - states:StartExecution
+                  - lambda:InvokeFunction
                 Resource: 
-                  - arn:aws:states:us-east-1:832706493240:stateMachine:PublishProcessStepMachine
+                  - Fn::Join:
+                    - ':'
+                    - - arn:aws:lambda
+                      - Ref: AWS::Region
+                      - Ref: AWS::AccountId
+                      - function:${self:service}-${self:provider.stage}-publish
 
 # Output the following resources so that other stacks can access the values
 Outputs:

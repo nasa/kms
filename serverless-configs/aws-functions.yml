@@ -10,6 +10,7 @@ triggerPublish:
         method: post
 publishHandler:
   handler: serverless/src/publish/handler.default
+  provisionedConcurrency: 1
   timeout: 900
 
 # This should not be called in production, only from the scheduler, otherwise
