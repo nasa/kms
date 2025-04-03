@@ -1,159 +1,114 @@
-/* eslint-disable no-underscore-dangle */
-/* eslint-disable import/extensions */
-/* eslint-disable no-restricted-syntax */
 import fs from 'fs'
+import https from 'https'
 import path from 'path'
 import url from 'url'
 
-import { delay } from '../../serverless/src/shared/delay'
+import fetch from 'node-fetch'
 
-import { fetchConceptIds } from './fetchConceptIds.js'
-import { fetchVersions } from './fetchVersions.js'
+import { fetchVersions } from './lib/fetchVersions'
 
 /* eslint-disable no-await-in-loop */
-const MAX_RETRIES = 10
-const RETRY_DELAY = 2000 // 2 seconds
-
-let jsonStream
-let xmlStream
+const LEGACY_SERVER = process.env.LEGACY_SERVER || 'https://gcmd.sit.earthdata.nasa.gov'
 
 /**
- * Processes a single concept, fetching its JSON and XML representations from the GCMD API.
- * This function downloads the raw data used for building concept data.
+ * Downloads and saves concept data from the GCMD API for different versions and types.
  *
- * @param {string} uuid - The UUID of the concept to process.
- * @param {string|null} version - The version of the concept to fetch, or null for the latest version.
- * @param {number} retryCount - The number of times this function has been retried.
- * @returns {Promise<Object>} A promise that resolves to an object indicating success and the processed UUID.
- * @throws {Error} If processing fails after maximum retries.
+ * This function performs the following operations:
+ * 1. Fetches versions for 'published' and 'draft' concepts, and optionally 'past_published' if specified.
+ * 2. For each version and type, downloads the concept data in JSON format from the GCMD API.
+ * 3. Saves the downloaded data to JSON files in the '../data' directory.
+ *
+ * @async
+ * @function downloadData
+ * @param {boolean} downloadAll - If true, includes 'past_published' versions in addition to 'published' and 'draft'.
+ *
+ * @throws {Error} If there's an issue fetching data from the API or writing to files.
+ *
+ * File naming convention:
+ * - For 'published' and 'draft': json_{published|draft}.json
+ * - For 'past_published': json_v{version}.json
+ *
+ * The function uses the LEGACY_SERVER environment variable (default: 'https://gcmd.sit.earthdata.nasa.gov')
+ * to determine the source of data.
+ *
+ * @example
+ * // Download only 'published' and 'draft' versions
+ * downloadData(false);
+ *
+ * @example
+ * // Download all versions including 'past_published'
+ * downloadData(true);
  */
-const processConcept = async (uuid, version, retryCount = 0) => {
-  let jsonFileURL = `https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}?format=json`
-  let xmlFileURL = `https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}?format=xml`
+const downloadData = async (downloadAll) => {
+  let jsonStream
 
-  if (version) {
-    jsonFileURL += `&version=${version}`
-    xmlFileURL += `&version=${version}`
+  const addVersionParameter = (version, versionType) => {
+    if (versionType === 'past_published') {
+      return `&version=${version}`
+    }
+
+    if (versionType === 'draft') {
+      return `&version=${versionType}`
+    }
+
+    return ''
   }
 
-  try {
-    /**
-     * Writes data to a stream with backpressure handling.
-     * This function is necessary to prevent memory issues when writing large amounts of data,
-     * ensuring that the stream's internal buffer doesn't overflow. It respects the stream's
-     * backpressure mechanism by waiting for the 'drain' event when the buffer is full.
-    */
-    const writeToStream = (stream, data) => new Promise((resolve) => {
-      if (!stream.write(data)) {
-        stream.once('drain', resolve)
-      } else {
-        process.nextTick(resolve)
-      }
+  const fetchLegacyData = async (apiEndpoint, format, version, versionType) => {
+    let fetchUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?format=${format}`
+    fetchUrl += addVersionParameter(version, versionType)
+
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false
     })
+    const response = await fetch(fetchUrl, { agent: httpsAgent })
 
-    const jsonResponse = await fetch(jsonFileURL)
-    const json = await jsonResponse.json()
-    await writeToStream(jsonStream, `${JSON.stringify(json, null, 2)}\n`)
-
-    const xmlResponse = await fetch(xmlFileURL)
-    let xmlText = await xmlResponse.text()
-    xmlText = xmlText.replace('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', '')
-    await writeToStream(xmlStream, `${xmlText}\n`)
-
-    return {
-      success: true,
-      uuid
-    }
-  } catch (error) {
-    console.log(error)
-    if (retryCount < MAX_RETRIES && (error.name === 'FetchError' || error.message.includes('HTTP error'))) {
-      console.warn(`Network error for UUID ${uuid}. Retrying in ${RETRY_DELAY / 1000} seconds...`)
-      await delay(RETRY_DELAY)
-
-      return processConcept(uuid, version, retryCount + 1)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    console.error(`Error processing UUID ${uuid}:`, error)
-    throw new Error(`Failed to process concept ${uuid}: ${error.message}`)
+    return response.text()
   }
-}
 
-/**
- * Creates JSON and XML files for all concepts in a specified version by downloading concept data from the GCMD API.
- * This function orchestrates the download of raw JSON and XML content used for building concept data.
- *
- * @param {string} version - The version to process.
- * @param {string} versionType - The type of version (e.g., 'published', 'draft').
- * @throws {Error} If there's an error during file creation or concept data download.
- */
-const createFiles = async (version, versionType) => {
-  try {
-    let versionName = version
-    if (versionType === 'published') {
-      // eslint-disable-next-line no-param-reassign
-      version = null
-      versionName = 'published'
-    }
-
-    // Fetch UUIDs dynamically
-    const extractedUUIDs = await fetchConceptIds(version)
-    const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-    // Create JSON and XML output streams
-    const jsonOutputPath = path.join(__dirname, '..', 'data', `json_results_${versionName}.json`)
-    const xmlOutputPath = path.join(__dirname, '..', 'data', `xml_results_${versionName}.xml`)
-    jsonStream = fs.createWriteStream(jsonOutputPath)
-
-    jsonStream.write('[')
-    xmlStream = fs.createWriteStream(xmlOutputPath)
-    xmlStream.write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n')
-    xmlStream.write('<concepts>')
-
-    // Process concepts and write to file
-    const total = extractedUUIDs.length
-    for (let i = 0; i < extractedUUIDs.length; i += 1) {
-      const uuid = extractedUUIDs[i]
-      try {
-        console.log(`   processing ${i + 1}/${total} - ${uuid}`)
-        await processConcept(uuid, version)
-        if (i !== extractedUUIDs.length - 1) {
-          jsonStream.write(',')
-        }
-
-        await delay(25)
-      } catch (error) {
-        console.log('Error processing concept ', uuid)
+  /**
+   * Creates JSON file for all concepts in a specified version by downloading concept data from the GCMD API.
+   * This function orchestrates the download of raw JSON content used for building concept data.
+   */
+  const createFiles = async (version, versionType) => {
+    try {
+      // eslint-disable-next-line no-underscore-dangle
+      const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
+      // Create JSON output stream
+      let jsonOutputPath
+      if (versionType === 'past_published') {
+        jsonOutputPath = path.join(__dirname, '..', 'data', `json_v${version}.json`)
+      } else {
+        jsonOutputPath = path.join(__dirname, '..', 'data', `json_${versionType}.json`)
       }
+
+      const content = await fetchLegacyData(LEGACY_SERVER, 'json', version, versionType)
+      jsonStream = fs.createWriteStream(jsonOutputPath)
+      jsonStream.write(content)
+      await jsonStream.close()
+    } catch (error) {
+      console.error('Error in convertFiles:', error)
+      throw error
     }
-
-    jsonStream.write(']')
-    await jsonStream.close()
-    xmlStream.write('</concepts>')
-    await xmlStream.close()
-  } catch (error) {
-    console.error('Error in convertFiles:', error)
-    throw error
   }
-}
 
-/**
- * Main function to orchestrate the download of concept data for various GCMD keyword versions.
- * This function initiates the process of downloading JSON and XML content for all concepts across different versions.
- *
- * @param {boolean} downloadAll - Whether to download all versions including past published versions.
- */
-const main = async (downloadAll) => {
   try {
     const versionTypes = ['published', 'draft']
     if (downloadAll) {
       versionTypes.push('past_published')
     }
 
+    // eslint-disable-next-line no-restricted-syntax
     for (const versionType of versionTypes) {
-      const versions = await fetchVersions(versionType)
+      const versions = await fetchVersions(LEGACY_SERVER, versionType)
 
       // eslint-disable-next-line no-restricted-syntax
       for (const version of versions) {
-        console.log(`*********** fetching ${version} ***********`)
+        console.log(`*********** fetching version ${version} ${versionType} ***********`)
         await createFiles(version, versionType)
       }
     }
@@ -168,4 +123,4 @@ const args = process.argv.slice(2)
 const downloadAll = args.includes('-all')
 
 // Run the main function
-main(downloadAll)
+downloadData(downloadAll)

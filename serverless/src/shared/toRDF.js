@@ -2,30 +2,21 @@ import { XMLBuilder } from 'fast-xml-parser'
 import { decode } from 'html-entities'
 
 /**
- * Synthesizes information from JSON and XML data into one RDF skos:concept.
- *
- * This function takes JSON and XML representations of a concept and combines them
- * into a single RDF/XML representation of a SKOS concept.
+ * Converts a legacy json record into RDF skos:Concept.
  *
  * @function toRDF
  * @param {Object} json - The JSON representation of the concept.
- * @param {Object} xml - The XML representation of the concept.
  * @returns {string} The RDF/XML string representation of the SKOS concept.
- * @throws {Error} If the JSON or XML input is invalid, or if there's an error during processing.
+ * @throws {Error} If the JSON input is invalid, or if there's an error during processing.
  *
  * @example
  * const json = { uuid: '123', prefLabel: 'Example Concept', ... };
- * const xml = { creationDate: '2023-01-01', ... };
- * const rdfXml = toRDF(json, xml);
+ * const rdfXml = toRDF(json);
  */
-export const toRDF = (json, xml) => {
+export const toRDF = (json) => {
   try {
     if (!json || typeof json !== 'object') {
       throw new Error('Invalid JSON input')
-    }
-
-    if (!xml || typeof xml !== 'object') {
-      throw new Error('Invalid XML input')
     }
 
     // Reads raw text and changes it from a literal string to a formated one
@@ -49,20 +40,20 @@ export const toRDF = (json, xml) => {
     // Helper function to provide information for <skos:changeNote> based on what the xml data looks like
     // It also adds attributes for easier parsing
     const createChangeNotes = (date, userId, userNote, changeNoteItems) => {
-      if (changeNoteItems && changeNoteItems.changeNoteItem) {
-        const changeNoteItem = Array.isArray(changeNoteItems.changeNoteItem)
-          ? changeNoteItems.changeNoteItem
-          : [changeNoteItems.changeNoteItem]
+      if (changeNoteItems) {
+        const changeNoteItem = Array.isArray(changeNoteItems)
+          ? changeNoteItems
+          : [changeNoteItems]
 
         return changeNoteItem.map((item) => {
           let changeNoteText = ''
           const {
-            '@_systemNote': systemNote = '',
-            '@_newValue': newValue = '',
-            '@_oldValue': oldValue = '',
-            '@_entity': entity = '',
-            '@_operation': operation = '',
-            '@_field': field = ''
+            systemNote = '',
+            newValue = '',
+            oldValue = '',
+            entity = '',
+            operation = '',
+            field = ''
           } = item || {}
 
           changeNoteText += addText('Date', date, false)
@@ -104,8 +95,8 @@ export const toRDF = (json, xml) => {
       concept['dcterms:modified'] = json.lastModifiedDate
     }
 
-    if (xml.creationDate) {
-      concept['dcterms:created'] = xml.creationDate
+    if (json.creationDate) {
+      concept['dcterms:created'] = json.creationDate
     }
 
     if (json.altLabels && Array.isArray(json.altLabels)) {
@@ -206,14 +197,13 @@ export const toRDF = (json, xml) => {
       }
     })
 
-    const { changeNotes } = xml
-    let changeNote = changeNotes?.changeNote
-    if (changeNote) {
-      if (!Array.isArray(changeNote)) {
-        changeNote = [changeNote]
+    let { changeNotes } = json
+    if (changeNotes) {
+      if (!Array.isArray(changeNotes)) {
+        changeNotes = [changeNotes]
       }
 
-      const allNotes = changeNote.flatMap((note) => createChangeNotes(note['@_date'], note['@_userId'], note['@_userNote'], note.changeNoteItems))
+      const allNotes = changeNotes.flatMap((note) => createChangeNotes(note.date, note.userId, note.userNote, note.changeNoteItems))
 
       if (allNotes.length > 0) {
         concept['skos:changeNote'] = allNotes.map((note) => ({ '#text': note }))

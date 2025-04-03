@@ -9,7 +9,7 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  * Handler to synchronize concept data.
  *
  * This function can be triggered by an HTTP POST request or a scheduled event.
- * It fetches concept data in both JSON and XML formats, then imports this data.
+ * It fetches concept data in JSON format, then imports this data.
  *
  * @param {Object} event - The event object from API Gateway or CloudWatch Events
  * @param {string} [event.body] - JSON string containing version and versionType (for HTTP events)
@@ -37,6 +37,7 @@ export const syncConceptData = async (event) => {
       rejectUnauthorized: false
     })
     const response = await fetch(url, { agent: httpsAgent })
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
@@ -90,15 +91,8 @@ export const syncConceptData = async (event) => {
 
     console.log('fetching json')
     const jsonContent = await fetchLegacyData(apiEndpoint, 'json', version)
-    console.log('fetching xml')
-    const xmlContent = await fetchLegacyData(apiEndpoint, 'xml', version)
 
-    // eslint-disable-next-line no-underscore-dangle
-    // For testing until KMS endpoint is ready.
-    // const jsonContent = await fs.readFile(`./setup/data/json_results_${version}.json`, 'utf8')
-    // const xmlContent = await fs.readFile(`./setup/data/xml_results_${version}.xml`, 'utf8')
-
-    await importConceptData(jsonContent, xmlContent, version, versionType)
+    await importConceptData(jsonContent, version, versionType)
 
     console.log('Concept data synchronized successfully')
 

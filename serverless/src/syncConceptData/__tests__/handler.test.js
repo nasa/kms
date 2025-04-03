@@ -110,16 +110,11 @@ describe('syncConceptData', () => {
         }
       }
       const mockJsonContent = '{"data": "json"}'
-      const mockXmlContent = '<data>xml</data>'
 
       fetch
         .mockResolvedValueOnce({
           ok: true,
           text: () => Promise.resolve(mockJsonContent)
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          text: () => Promise.resolve(mockXmlContent)
         })
 
       const response = await syncConceptData(event)
@@ -131,12 +126,7 @@ describe('syncConceptData', () => {
         expect.anything()
       )
 
-      expect(fetch).toHaveBeenCalledWith(
-        'http://api.example.com/kms/concepts_to_rdf_repo?format=xml&version=draft',
-        expect.anything()
-      )
-
-      expect(importConceptData).toHaveBeenCalledWith(mockJsonContent, mockXmlContent, 'draft', 'draft')
+      expect(importConceptData).toHaveBeenCalledWith(mockJsonContent, 'draft', 'draft')
       expect(updateVersionMetadata).toHaveBeenCalledWith(expect.objectContaining({
         graphId: 'draft',
         lastSynced: expect.any(String)

@@ -22,10 +22,7 @@ describe('toRDF', () => {
     broader: [{ uuid: 'broader-uuid' }],
     narrower: [{ uuid: 'narrower-uuid' }],
     related: [],
-    lastModifiedDate: '2023-01-01'
-  }
-
-  const baseXml = {
+    lastModifiedDate: '2023-01-01',
     creationDate: '2022-01-01'
   }
 
@@ -38,113 +35,99 @@ describe('toRDF', () => {
       const json = {
         uuid: 'test-uuid',
         prefLabel: 'Test Concept',
-        scheme: { shortName: 'testScheme' }
-      }
-      const xml = {
-        changeNotes: {
-          changeNote: {
-            '@_date': '2023-01-01',
-            '@_userId': 'user1',
-            '@_userNote': 'Test note',
-            changeNoteItems: {
-              changeNoteItem: {
-                '@_systemNote': 'System note',
-                '@_newValue': 'New value',
-                '@_oldValue': 'Old value',
-                '@_entity': 'Entity',
-                '@_operation': 'Update',
-                '@_field': 'Field'
-              }
-            }
+        scheme: { shortName: 'testScheme' },
+        changeNotes: [{
+          date: '2023-01-01',
+          userId: 'user1',
+          userNote: 'Test note',
+          changeNoteItems: [{
+            systemNote: 'System note',
+            newValue: 'New value',
+            oldValue: 'Old value',
+            entity: 'Entity',
+            operation: 'Update',
+            field: 'Field'
           }
-        }
+          ]
+        }]
       }
-      const result = toRDF(json, xml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:changeNote>')
       expect(result).toContain('Date=2023-01-01')
     })
 
     test('should handle multiple change notes', () => {
-      const xml = {
-        ...baseXml,
-        changeNotes: {
-          changeNote: [
+      const json = {
+        ...baseJson,
+        changeNotes: [{
+          date: '2023-01-01',
+          userId: 'user1',
+          userNote: 'Test note 1',
+          changeNoteItems: [
             {
-              '@_date': '2023-01-01',
-              '@_userId': 'user1',
-              '@_userNote': 'Test note 1',
-              changeNoteItems: {
-                changeNoteItem: {
-                  '@_systemNote': 'System note 1',
-                  '@_newValue': 'New value 1',
-                  '@_oldValue': 'Old value 1',
-                  '@_entity': 'Entity 1',
-                  '@_operation': 'Update',
-                  '@_field': 'Field 1'
-                }
-              }
-            },
+              systemNote: 'System note 1',
+              newValue: 'New value 1',
+              oldValue: 'Old value 1',
+              entity: 'Entity 1',
+              operation: 'Update',
+              field: 'Field 1'
+            }
+          ]
+        },
+        {
+          date: '2023-01-02',
+          userId: 'user2',
+          userNote: 'Test note 2',
+          changeNoteItems: [
             {
-              '@_date': '2023-01-02',
-              '@_userId': 'user2',
-              '@_userNote': 'Test note 2',
-              changeNoteItems: {
-                changeNoteItem: {
-                  '@_systemNote': 'System note 2',
-                  '@_newValue': 'New value 2',
-                  '@_oldValue': 'Old value 2',
-                  '@_entity': 'Entity 2',
-                  '@_operation': 'Insert',
-                  '@_field': 'Field 2'
-                }
-              }
+              systemNote: 'System note 2',
+              newValue: 'New value 2',
+              oldValue: 'Old value 2',
+              entity: 'Entity 2',
+              operation: 'Insert',
+              field: 'Field 2'
             }
           ]
         }
+        ]
       }
-      const result = toRDF(baseJson, xml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:changeNote>')
       expect(result).toContain('Date=2023-01-01')
       expect(result).toContain('Date=2023-01-02')
     })
 
     test('should handle changeNotes with no changeNoteItems', () => {
-      const xml = {
-        ...baseXml,
-        changeNotes: {
-          changeNote: {
-            '@_date': '2023-01-01',
-            '@_userId': 'user1',
-            '@_userNote': 'Test note'
-          }
-        }
+      const json = {
+        ...baseJson,
+        changeNotes: [{
+          date: '2023-01-01',
+          userId: 'user1',
+          userNote: 'Test note'
+        }]
       }
-      const result = toRDF(baseJson, xml)
+      const result = toRDF(json)
       expect(result).not.toContain('<skos:changeNote>')
     })
 
     test('should handle single changeNote item not in an array', () => {
-      const xml = {
-        ...baseXml,
-        changeNotes: {
-          changeNote: {
-            '@_date': '2023-01-01',
-            '@_userId': 'user1',
-            '@_userNote': 'Test note',
-            changeNoteItems: {
-              changeNoteItem: {
-                '@_systemNote': 'System note',
-                '@_newValue': 'New value',
-                '@_oldValue': 'Old value',
-                '@_entity': 'Entity',
-                '@_operation': 'Update',
-                '@_field': 'Field'
-              }
-            }
-          }
-        }
+      const json = {
+        ...baseJson,
+        changeNotes: [{
+          date: '2023-01-01',
+          userId: 'user1',
+          userNote: 'Test note',
+          changeNoteItems: [{
+            systemNote: 'System note',
+            newValue: 'New value',
+            oldValue: 'Old value',
+            entity: 'Entity',
+            operation: 'Update',
+            field: 'Field'
+          }]
+        }]
       }
-      const result = toRDF(baseJson, xml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:changeNote>')
       expect(result).toContain('Date=2023-01-01')
     })
@@ -154,32 +137,28 @@ describe('toRDF', () => {
         ...baseJson,
         prefLabel: ''
       }
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).not.toContain('<skos:prefLabel')
     })
 
     test('should remove empty skos:changeNote', () => {
-      const xml = {
-        ...baseXml,
-        changeNotes: {
-          changeNote: {
-            '@_date': '',
-            '@_userId': '',
-            '@_userNote': '',
-            changeNoteItems: {
-              changeNoteItem: {
-                '@_systemNote': '',
-                '@_newValue': '',
-                '@_oldValue': '',
-                '@_entity': '',
-                '@_operation': '',
-                '@_field': ''
-              }
-            }
-          }
-        }
+      const json = {
+        ...baseJson,
+        changeNotes: [{
+          date: '',
+          userId: '',
+          userNote: '',
+          changeNoteItems: [{
+            systemNote: '',
+            newValue: '',
+            oldValue: '',
+            entity: '',
+            operation: '',
+            field: ''
+          }]
+        }]
       }
-      const result = toRDF(baseJson, xml)
+      const result = toRDF(json)
       expect(result).not.toContain('<skos:changeNote')
     })
 
@@ -188,7 +167,7 @@ describe('toRDF', () => {
         ...baseJson,
         prefLabel: undefined
       }
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).not.toContain('<skos:prefLabel')
     })
   })
@@ -203,7 +182,7 @@ describe('toRDF', () => {
         }]
       }
 
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).toContain('<gcmd:reference gcmd:text="Test reference" xml:lang="en"/>')
     })
 
@@ -211,23 +190,15 @@ describe('toRDF', () => {
       const json = {
         uuid: 'test-uuid',
         prefLabel: 'Test Concept',
-        scheme: { shortName: 'testScheme' }
+        scheme: { shortName: 'testScheme' },
+        changeNotes: [{
+          date: '2023-01-01',
+          userId: 'user1',
+          userNote: 'Test note',
+          changeNoteItems: [{}]
+        }]
       }
-      const xml = {
-        changeNotes: {
-          changeNote: {
-            '@_date': '2023-01-01',
-            '@_userId': 'user1',
-            '@_userNote': 'Test note',
-            changeNoteItems: {
-              changeNoteItem: {
-                // All attributes are missing
-              }
-            }
-          }
-        }
-      }
-      const result = toRDF(json, xml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:changeNote>')
       expect(result).toContain('Date=2023-01-01')
       expect(result).toContain('User Id=user1')
@@ -244,28 +215,22 @@ describe('toRDF', () => {
       const json = {
         uuid: 'test-uuid',
         prefLabel: 'Test Concept',
-        scheme: { shortName: 'testScheme' }
+        scheme: { shortName: 'testScheme' },
+        changeNotes: [{
+          date: '2023-01-01',
+          userId: 'user1',
+          userNote: 'Test note',
+          changeNoteItems: [{
+            systemNote: '',
+            newValue: '',
+            oldValue: '',
+            entity: '',
+            operation: '',
+            field: ''
+          }]
+        }]
       }
-      const xml = {
-        changeNotes: {
-          changeNote: {
-            '@_date': '2023-01-01',
-            '@_userId': 'user1',
-            '@_userNote': 'Test note',
-            changeNoteItems: {
-              changeNoteItem: {
-                '@_systemNote': '',
-                '@_newValue': '',
-                '@_oldValue': '',
-                '@_entity': '',
-                '@_operation': '',
-                '@_field': ''
-              }
-            }
-          }
-        }
-      }
-      const result = toRDF(json, xml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:changeNote>')
       expect(result).toContain('Date=2023-01-01')
       expect(result).toContain('User Id=user1')
@@ -290,7 +255,7 @@ describe('toRDF', () => {
         }]
       }
 
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).toContain('<gcmd:hasInstrument rdf:resource="instrument-uuid"/>')
     })
 
@@ -304,7 +269,7 @@ describe('toRDF', () => {
         }]
       }
 
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).toContain('<gcmd:isOnPlatform rdf:resource="platform-uuid"/>')
     })
 
@@ -318,7 +283,7 @@ describe('toRDF', () => {
         }]
       }
 
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).toContain('<gcmd:hasSensor rdf:resource="sensor-uuid"/>')
     })
 
@@ -332,7 +297,7 @@ describe('toRDF', () => {
         }]
       }
 
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:related rdf:resource="other-uuid"/>')
     })
   })
@@ -347,7 +312,7 @@ describe('toRDF', () => {
         related: []
       }
 
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).not.toContain('<gcmd:altLabel')
       expect(result).not.toContain('<skos:broader')
       expect(result).not.toContain('<skos:narrower')
@@ -376,12 +341,7 @@ describe('toRDF', () => {
 
   describe('error handling', () => {
     test('should throw an error for invalid input', () => {
-      expect(() => toRDF(null, null)).toThrow()
-    })
-
-    test('should throw an error for invalid input', () => {
-      expect(() => toRDF(null, {})).toThrow('Invalid JSON input')
-      expect(() => toRDF({}, null)).toThrow('Invalid XML input')
+      expect(() => toRDF(null)).toThrow('Invalid JSON input')
     })
 
     test('should handle non-string values in decodeHtmlEntities', () => {
@@ -389,7 +349,7 @@ describe('toRDF', () => {
         ...baseJson,
         prefLabel: 123
       }
-      const result = toRDF(json, baseXml)
+      const result = toRDF(json)
       expect(result).toContain('<skos:prefLabel xml:lang="en">123</skos:prefLabel>')
     })
   })
