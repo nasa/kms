@@ -193,13 +193,14 @@ export const toRDF = (json) => {
       }
     })
 
-    let { changeNotes } = json
+    const { changeNotes } = json
     if (changeNotes) {
-      if (!Array.isArray(changeNotes)) {
-        changeNotes = [changeNotes]
-      }
-
-      const allNotes = changeNotes.flatMap((note) => createChangeNotes(note.date, note.userId, note.userNote, note.changeNoteItems))
+      const allNotes = changeNotes.flatMap((note) => createChangeNotes(
+        note.date,
+        note.userId,
+        note.userNote,
+        note.changeNoteItems
+      ))
 
       if (allNotes.length > 0) {
         concept['skos:changeNote'] = allNotes.map((note) => ({ '#text': note }))
