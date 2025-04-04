@@ -122,4 +122,17 @@ export bamboo_RDF4J_PASSWORD=[your rdfdb password]
 ```
 ./bin/deploy_bamboo.sh
 ```
+### Downloading the latest concepts from old KMS.
+#### If you want to refresh your database with the latest SKOS concepts from legacy KMS, do the following:
+```
+LEGACY_SERVER=https://gcmd.sit.earthdata.nasa.gov npm run download-data
+LEGACY_SERVER=https://gcmd.sit.earthdata.nasa.gov npm run create-rdf-files
+```
+This will download the latest JSON export from legacy KMS and turn them into RDF files.
+Then restart your local database, i.e.,
+```
+npm run rdf4j:stop
+npm run rdf4j:start
+npm run rddfj:setup
+```
 
