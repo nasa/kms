@@ -41,11 +41,7 @@ export const toRDF = (json) => {
     // It also adds attributes for easier parsing
     const createChangeNotes = (date, userId, userNote, changeNoteItems) => {
       if (changeNoteItems) {
-        const changeNoteItem = Array.isArray(changeNoteItems)
-          ? changeNoteItems
-          : [changeNoteItems]
-
-        return changeNoteItem.map((item) => {
+        return changeNoteItems.map((item) => {
           let changeNoteText = ''
           const {
             systemNote = '',
