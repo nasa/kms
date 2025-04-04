@@ -9,7 +9,7 @@
     "lint:fix": "eslint --fix \"serverless/src/**/*.{js,ts,jsx,tsx}\"",
     "preview": "vite preview",
     "test": "vitest",
-    "offline": "IS_OFFLINE=true RDF4J_SERVICE_URL=http://localhost:8080 serverless offline start",
+    "offline": "IS_OFFLINE=true SYNC_API_ENDPOINT=https://gcmd.sit.earthdata.nasa.gov SHOULD_SYNC=true RDF4J_SERVICE_URL=http://localhost:8080 serverless offline start",
     "rdf4j:build": "docker build -t rdf4j:latest ./infrastructure/rdfdb/cdk/docker",
     "rdf4j:start": "docker run -d -p 8080:8080 -e RDF4J_USER_NAME=$RDF4J_USER_NAME -e RDF4J_PASSWORD=$RDF4J_PASSWORD -e JAVA_OPTS='-Xms1g -Xmx8g' -v logs:/usr/local/tomcat/logs rdf4j:latest",
     "rdf4j:stop": "docker ps -q --filter ancestor=rdf4j:latest | xargs -r docker kill && docker ps -aq --filter ancestor=rdf4j:latest | xargs -r docker rm",
