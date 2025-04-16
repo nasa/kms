@@ -143,15 +143,6 @@ const custom = require('aws-cdk-lib/custom-resources')
         availabilityZones: [this.getEbsVolumeAz()]
       },
       userData,
-      blockDevices: [
-        {
-          deviceName: '/dev/xvda',
-          volume: autoscaling.BlockDeviceVolume.ebs(32, {
-            volumeType: autoscaling.EbsDeviceVolumeType.GP2,
-            deleteOnTermination: false
-          })
-        }
-      ],
       role: this.role
     })
 
