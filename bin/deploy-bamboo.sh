@@ -37,7 +37,6 @@ COPY . /build
 WORKDIR /build
 RUN npm ci --omit=dev && npm run build
 EOF
-export bamboo_STAGE_NAME=sit
 dockerTag=kms-$bamboo_STAGE_NAME
 docker build -t $dockerTag .
 
@@ -48,7 +47,7 @@ dockerRun() {
         --env "AWS_SECRET_ACCESS_KEY=$bamboo_AWS_SECRET_ACCESS_KEY" \
         --env "AWS_SESSION_TOKEN=$bamboo_AWS_SESSION_TOKEN" \
         --env "LAMBDA_TIMEOUT=$bamboo_LAMBDA_TIMEOUT" \
-        --env "NODE_ENV=sit" \
+        --env "NODE_ENV=$bamboo_STAGE_NAME" \
         --env "NODE_OPTIONS=--max_old_space_size=4096" \
         --env "SUBNET_ID_A=$bamboo_SUBNET_ID_A" \
         --env "SUBNET_ID_B=$bamboo_SUBNET_ID_B" \

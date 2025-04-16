@@ -10,8 +10,8 @@ create_repository() {
 
   if [ ! -d "${RDF4J_DATA_DIR}/server/repositories/kms" ]; then
     # Create the repository
-    echo "Repository 'kms' does not exist. Creating it..."
-    curl -u rdf4j:rdf4j -X PUT -H "Content-Type: application/x-turtle" --data-binary '
+    echo "Repository 'kms' does not exist. Creating it...   Using ${RDF4J_USER_NAME}:${RDF4J_PASSWORD}"
+    curl -u ${RDF4J_USER_NAME}:${RDF4J_PASSWORD} -X PUT -H "Content-Type: application/x-turtle" --data-binary '
 #
 # RDF4J configuration template for a main-memory repository
 #

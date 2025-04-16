@@ -14,13 +14,13 @@ REPO_URI=$(aws ecr describe-repositories --repository-names $REPO_NAME --region 
 # Authenticate Docker to ECR
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $REPO_URI
 
-# Build Docker image
-docker build -t $REPO_NAME $DOCKER_FILE_PATH
+# Set up a new builder instance
+docker buildx create --name amd64builder --use
 
-# Tag the image
-docker tag $REPO_NAME:latest $REPO_URI:latest
+# Build and push Docker image for amd64 architecture
+docker buildx build --platform=linux/amd64 -t $REPO_URI:latest --push $DOCKER_FILE_PATH
 
-# Push the image to ECR
-docker push $REPO_URI:latest
+echo "Docker image built and pushed to $REPO_URI:latest"
 
-echo "Docker image pushed to $REPO_URI:latest"
+# Clean up the builder
+docker buildx rm amd64builder
