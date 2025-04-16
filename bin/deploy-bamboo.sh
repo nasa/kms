@@ -10,7 +10,10 @@ set -eux
 config="`cat static.config.json`"
 
 # update keys for deployment
+config="`jq '.application.version = $newValue' --arg newValue ${RELEASE_VERSION} <<< $config`"
 config="`jq '.application.env = $newValue' --arg newValue $bamboo_STAGE_NAME <<< $config`"
+config="`jq '.edl.host = $newValue' --arg newValue $bamboo_EDL_HOST <<< $config`"
+config="`jq '.edl.uid = $newValue' --arg newValue $bamboo_EDL_UID <<< $config`"
 
 # overwrite static.config.json with new values
 echo $config > tmp.$$.json && mv tmp.$$.json static.config.json
