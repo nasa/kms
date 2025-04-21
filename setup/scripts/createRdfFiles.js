@@ -1,9 +1,8 @@
-/* eslint-disable no-restricted-syntax */
 /* eslint-disable no-await-in-loop */
+/* eslint-disable no-restricted-syntax */
 import { existsSync, promises as fs } from 'fs'
-import https from 'https'
 import path from 'path'
-import url from 'url'
+import { fileURLToPath } from 'url'
 
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 import fetch from 'node-fetch'
@@ -13,7 +12,30 @@ import { toRDF } from '../../serverless/src/shared/toRDF'
 
 import { fetchVersions } from './lib/fetchVersions'
 
-const LEGACY_SERVER = process.env.LEGACY_SERVER || 'https://gcmd.sit.earthdata.nasa.gov'
+const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
+
+const getCreationDateMap = async () => {
+  const versionsUrl = `${LEGACY_SERVER}/kms/concept_versions/all`
+  const versionsResponse = await fetch(versionsUrl)
+  const versionsXml = await versionsResponse.text()
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    textNodeName: 'value',
+    parseAttributeValue: false,
+    parseTagValue: false,
+    tagValueProcessor: (tagName, tagValue) => tagValue?.toString() || '',
+    attributeValueProcessor: (attrName, attrValue) => attrValue?.toString() || ''
+  })
+  const versionsJson = parser.parse(versionsXml)
+  const versionsArray = versionsJson.versions.version
+  const map = {}
+  versionsArray.forEach((versionInfo) => {
+    map[versionInfo.value] = versionInfo['@_creation_date']
+  })
+
+  return map
+}
 
 /**
  * Creates RDF files for concept schemes and concepts based on legacy JSON data.
@@ -51,10 +73,14 @@ const createRdfFiles = async () => {
       // Create output file handle
       let outputPath
       if (versionType === 'past_published') {
-        outputPath = path.join(__dirname, '..', 'data', `concepts_${version}.rdf`)
+        outputPath = path.join(__dirname, '..', 'data', 'export', 'rdf', `concepts_${version}.rdf`)
       } else {
-        outputPath = path.join(__dirname, '..', 'data', `concepts_${versionType}.rdf`)
+        outputPath = path.join(__dirname, '..', 'data', 'export', 'rdf', `concepts_${versionType}.rdf`)
       }
+
+      // Ensure the directory exists
+      const dir = path.dirname(outputPath)
+      await fs.mkdir(dir, { recursive: true })
 
       const fileHandle = await fs.open(outputPath, 'w')
 
@@ -91,6 +117,7 @@ const createRdfFiles = async () => {
           const json = jsonMap[uuid]
           if (json) {
             const conceptXml = toRDF(json)
+            // eslint-disable-next-line no-await-in-loop
             await fileHandle.writeFile(conceptXml)
           }
         } catch (error) {
@@ -127,10 +154,7 @@ const createRdfFiles = async () => {
     schemesUrl += addVersionParameter(version, versionType)
 
     try {
-      const httpsAgent = new https.Agent({
-        rejectUnauthorized: false
-      })
-      const response = await fetch(schemesUrl, { agent: httpsAgent })
+      const response = await fetch(schemesUrl)
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -146,7 +170,7 @@ const createRdfFiles = async () => {
   }
 
   // Creates an RDF file for the concept schemes of a specific version.
-  const createSchemes = async (version, versionType, xmlInput) => {
+  const createSchemes = async (version, versionType, xmlInput, creationDateMap) => {
     console.log('creating schemes for ', version, versionType)
     // Parse the input XML
     const parser = new XMLParser({
@@ -154,13 +178,6 @@ const createRdfFiles = async () => {
       attributeNamePrefix: '@_'
     })
     const parsedXml = parser.parse(xmlInput)
-
-    // Find the most recent update date
-    const mostRecentDate = parsedXml.schemes.scheme.reduce((maxDate, scheme) => {
-      const schemeDate = new Date(scheme['@_updateDate'])
-
-      return schemeDate > maxDate ? schemeDate : maxDate
-    }, new Date(0))
 
     // Prepare the RDF structure
     const rdfObject = {
@@ -173,13 +190,12 @@ const createRdfFiles = async () => {
         'gcmd:Version': {
           '@_rdf:about': 'https://gcmd.earthdata.nasa.gov/kms/version_metadata',
           'gcmd:versionName': version,
-          'gcmd:versionType': versionType,
-          'dcterms:modified': mostRecentDate.toISOString().split('T')[0], // Use the most recent date
-          'dcterms:created': mostRecentDate.toISOString().split('T')[0] // Also update the created date
+          'gcmd:versionType': versionType
         },
         'skos:ConceptScheme': []
       }
     }
+    rdfObject['rdf:RDF']['gcmd:Version']['dcterms:created'] = creationDateMap[version]
 
     // Process each scheme
     parsedXml.schemes.scheme.forEach((scheme) => {
@@ -214,10 +230,14 @@ const createRdfFiles = async () => {
     const rdf = builder.build(rdfObject)
     let outputPath
     if (versionType === 'past_published') {
-      outputPath = path.join(__dirname, '..', 'data', `schemes_v${version}.rdf`)
+      outputPath = path.join(__dirname, '..', 'data', 'export', 'rdf', `schemes_v${version}.rdf`)
     } else {
-      outputPath = path.join(__dirname, '..', 'data', `schemes_${versionType}.rdf`)
+      outputPath = path.join(__dirname, '..', 'data', 'export', 'rdf', `schemes_${versionType}.rdf`)
     }
+
+    // Ensure the directory exists
+    const dir = path.dirname(outputPath)
+    await fs.mkdir(dir, { recursive: true })
 
     const fileHandle = await fs.open(outputPath, 'w')
     await fileHandle.writeFile(rdf)
@@ -225,7 +245,9 @@ const createRdfFiles = async () => {
   }
 
   try {
-    const versionTypes = ['published', 'draft']
+    const creationDateMap = await getCreationDateMap()
+
+    const versionTypes = ['published', 'draft', 'past_published']
 
     for (const versionType of versionTypes) {
       const versions = await fetchVersions(LEGACY_SERVER, versionType)
@@ -233,15 +255,15 @@ const createRdfFiles = async () => {
       for (const version of versions) {
         console.log(`*********** fetching ${version} ${versionType} ***********`)
 
-        await createSchemes(version, versionType, await getXmlSchemes(version, versionType))
+        await createSchemes(version, versionType, await getXmlSchemes(version, versionType), creationDateMap)
 
         // eslint-disable-next-line no-underscore-dangle
-        const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
+        const __dirname = fileURLToPath(new URL('.', import.meta.url))
         let jsonInputPath
         if (versionType === 'past_published') {
-          jsonInputPath = path.join(__dirname, '..', 'data', `json_v${version}.json`)
+          jsonInputPath = path.join(__dirname, '..', 'data', 'export', 'json', `json_v${version}.json`)
         } else {
-          jsonInputPath = path.join(__dirname, '..', 'data', `json_${versionType}.json`)
+          jsonInputPath = path.join(__dirname, '..', 'data', 'export', 'json', `json_${versionType}.json`)
         }
 
         // Check if both files exist

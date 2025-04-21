@@ -65,12 +65,13 @@ export const getConceptVersions = async (event) => {
     })
 
     if (!response.ok) {
-      throw new Error(`SPARQL request failed with status ${response.status}`)
+      const errorText = await response.text()
+      throw new Error(`SPARQL request failed with status ${response.status}. Response: ${errorText}`)
     }
 
     const result = await response.json()
 
-    const graphData = result.results.bindings
+    const graphData = result.results.bindings.reverse()
 
     const versions = graphData.map((data) => {
       const creationDate = data.creationDate.value
@@ -93,6 +94,39 @@ export const getConceptVersions = async (event) => {
         '#text': versionName
       }
     }).filter(Boolean)
+
+    // Custom sorting function
+    const compareVersions = (a, b) => {
+      // Special cases
+      if (a['#text'] === 'draft') return -1
+      if (b['#text'] === 'draft') return 1
+      if (a['#text'] === 'Jun122012') return 1
+      if (b['#text'] === 'Jun122012') return -1
+
+      const aParts = a['#text'].split('.').map(Number)
+      const bParts = b['#text'].split('.').map(Number)
+
+      let retValue = 0
+
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+        const aPart = aParts[i] || 0
+        const bPart = bParts[i] || 0
+        if (aPart > bPart) {
+          retValue = -1
+          break
+        }
+
+        if (aPart < bPart) {
+          retValue = 1
+          break
+        }
+      }
+
+      return retValue
+    }
+
+    // Sort the versions
+    versions.sort(compareVersions)
 
     const xmlObj = {
       versions: {
