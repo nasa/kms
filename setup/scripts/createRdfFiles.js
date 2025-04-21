@@ -14,29 +14,6 @@ import { fetchVersions } from './lib/fetchVersions'
 
 const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
 
-const getCreationDateMap = async () => {
-  const versionsUrl = `${LEGACY_SERVER}/kms/concept_versions/all`
-  const versionsResponse = await fetch(versionsUrl)
-  const versionsXml = await versionsResponse.text()
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '@_',
-    textNodeName: 'value',
-    parseAttributeValue: false,
-    parseTagValue: false,
-    tagValueProcessor: (tagName, tagValue) => tagValue?.toString() || '',
-    attributeValueProcessor: (attrName, attrValue) => attrValue?.toString() || ''
-  })
-  const versionsJson = parser.parse(versionsXml)
-  const versionsArray = versionsJson.versions.version
-  const map = {}
-  versionsArray.forEach((versionInfo) => {
-    map[versionInfo.value] = versionInfo['@_creation_date']
-  })
-
-  return map
-}
-
 /**
  * Creates RDF files for concept schemes and concepts based on legacy JSON data.
  *
@@ -61,6 +38,29 @@ const getCreationDateMap = async () => {
  * createRdfFiles();
  */
 const createRdfFiles = async () => {
+  const getCreationDateMap = async () => {
+    const versionsUrl = `${LEGACY_SERVER}/kms/concept_versions/all`
+    const versionsResponse = await fetch(versionsUrl)
+    const versionsXml = await versionsResponse.text()
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      textNodeName: 'value',
+      parseAttributeValue: false,
+      parseTagValue: false,
+      tagValueProcessor: (tagName, tagValue) => tagValue?.toString() || '',
+      attributeValueProcessor: (attrName, attrValue) => attrValue?.toString() || ''
+    })
+    const versionsJson = parser.parse(versionsXml)
+    const versionsArray = versionsJson.versions.version
+    const map = {}
+    versionsArray.forEach((versionInfo) => {
+      map[versionInfo.value] = versionInfo['@_creation_date']
+    })
+
+    return map
+  }
+
   // Creates an RDF file by converting legacy JSON to RDF skos:Concept for all concepts of a specific version.
   const createRdfFile = async (version, versionType, jsonContent) => {
     try {

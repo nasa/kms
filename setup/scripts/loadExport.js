@@ -18,38 +18,38 @@ const username = process.env.RDF4J_USER_NAME || 'rdf4j'
 const password = process.env.RDF4J_PASSWORD || 'rdf4j'
 const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
 
-const loadRDFXMLToRDF4J = async (filePath, graphId) => {
-  try {
-    const xmlData = await fs.readFile(filePath, 'utf8')
-    console.log(`Read ${xmlData.length} bytes from file`)
-
-    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
-    const postUrl = new URL(rdf4jUrl)
-    postUrl.searchParams.append('context', `<${graphUri}>`)
-
-    const response = await fetch(postUrl, {
-      method: 'POST',
-      body: xmlData,
-      headers: {
-        'Content-Type': 'application/rdf+xml',
-        Authorization: `Basic ${base64Credentials}`
-      }
-    })
-
-    if (!response.ok) {
-      const responseText = await response.text()
-      console.log('Response text:', responseText)
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    console.log(`Successfully loaded ${filePath} into RDF4J`)
-  } catch (error) {
-    console.error(`Error loading ${filePath} into RDF4J:`, error)
-  }
-}
-
 /* eslint-disable no-restricted-syntax */
 const loadExport = async (downloadAll) => {
+  const loadRDFXMLToRDF4J = async (filePath, graphId) => {
+    try {
+      const xmlData = await fs.readFile(filePath, 'utf8')
+      console.log(`Read ${xmlData.length} bytes from file`)
+
+      const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
+      const postUrl = new URL(rdf4jUrl)
+      postUrl.searchParams.append('context', `<${graphUri}>`)
+
+      const response = await fetch(postUrl, {
+        method: 'POST',
+        body: xmlData,
+        headers: {
+          'Content-Type': 'application/rdf+xml',
+          Authorization: `Basic ${base64Credentials}`
+        }
+      })
+
+      if (!response.ok) {
+        const responseText = await response.text()
+        console.log('Response text:', responseText)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      console.log(`Successfully loaded ${filePath} into RDF4J`)
+    } catch (error) {
+      console.error(`Error loading ${filePath} into RDF4J:`, error)
+    }
+  }
+
   try {
     process.env.RDF4J_SERVICE_URL = 'http://localhost:8080'
 

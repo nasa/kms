@@ -37,67 +37,68 @@ const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
  * // Exports all versions including 'past_published'
  * exportData(true);
  */
-const addVersionParameter = (version, versionType) => {
-  if (versionType === 'past_published') {
-    return `&version=${version}`
-  }
-
-  if (versionType === 'draft') {
-    return `&version=${versionType}`
-  }
-
-  return ''
-}
-
-const fetchLegacyData = async (apiEndpoint, format, version, versionType) => {
-  let fetchUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?format=${format}&fetch=1`
-  fetchUrl += addVersionParameter(version, versionType)
-  console.log('calling ', fetchUrl)
-
-  const response = await fetch(fetchUrl)
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
-  }
-
-  return response.text()
-}
-
-/**
-   * Creates JSON file for all concepts in a specified version by exporting concept data from the GCMD API.
-   * This function orchestrates the export of raw JSON content used for building concept data.
-   */
-const createFiles = async (version, versionType) => {
-  // eslint-disable-next-line no-underscore-dangle
-  const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-  let jsonOutputPath
-  if (versionType === 'past_published') {
-    jsonOutputPath = path.join(__dirname, '..', 'data', 'export', 'json', `json_v${version}.json`)
-  } else {
-    jsonOutputPath = path.join(__dirname, '..', 'data', 'export', 'json', `json_${versionType}.json`)
-  }
-
-  // Ensure the directory exists
-  const dir = path.dirname(jsonOutputPath)
-  await fs.mkdir(dir, { recursive: true })
-
-  // Check if file already exists
-  if (fs.existsSync(jsonOutputPath)) {
-    console.log(`RDF File already exists for ${versionType} ${version}. Skipping...`)
-
-    return true // File exists, no export needed
-  }
-
-  const content = await fetchLegacyData(LEGACY_SERVER, 'json', version, versionType)
-  const jsonStream = fs.createWriteStream(jsonOutputPath)
-  jsonStream.write(content)
-  await jsonStream.close()
-  console.log(`Successfully created file for ${versionType} ${version}`)
-
-  return false // File didn't exist, export was needed
-}
 
 const exportData = async (exportAll) => {
+  const addVersionParameter = (version, versionType) => {
+    if (versionType === 'past_published') {
+      return `&version=${version}`
+    }
+
+    if (versionType === 'draft') {
+      return `&version=${versionType}`
+    }
+
+    return ''
+  }
+
+  const fetchLegacyData = async (apiEndpoint, format, version, versionType) => {
+    let fetchUrl = `${apiEndpoint}/kms/concepts_to_rdf_repo?format=${format}&fetch=1`
+    fetchUrl += addVersionParameter(version, versionType)
+    console.log('calling ', fetchUrl)
+
+    const response = await fetch(fetchUrl)
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return response.text()
+  }
+
+  /**
+     * Creates JSON file for all concepts in a specified version by exporting concept data from the GCMD API.
+     * This function orchestrates the export of raw JSON content used for building concept data.
+     */
+  const createFiles = async (version, versionType) => {
+    // eslint-disable-next-line no-underscore-dangle
+    const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
+    let jsonOutputPath
+    if (versionType === 'past_published') {
+      jsonOutputPath = path.join(__dirname, '..', 'data', 'export', 'json', `json_v${version}.json`)
+    } else {
+      jsonOutputPath = path.join(__dirname, '..', 'data', 'export', 'json', `json_${versionType}.json`)
+    }
+
+    // Ensure the directory exists
+    const dir = path.dirname(jsonOutputPath)
+    await fs.mkdir(dir, { recursive: true })
+
+    // Check if file already exists
+    if (fs.existsSync(jsonOutputPath)) {
+      console.log(`RDF File already exists for ${versionType} ${version}. Skipping...`)
+
+      return true // File exists, no export needed
+    }
+
+    const content = await fetchLegacyData(LEGACY_SERVER, 'json', version, versionType)
+    const jsonStream = fs.createWriteStream(jsonOutputPath)
+    jsonStream.write(content)
+    await jsonStream.close()
+    console.log(`Successfully created file for ${versionType} ${version}`)
+
+    return false // File didn't exist, export was needed
+  }
+
   const startTime = Date.now()
 
   try {

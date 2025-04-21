@@ -65,8 +65,7 @@ export const getConceptVersions = async (event) => {
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`SPARQL request failed with status ${response.status}. Response: ${errorText}`)
+      throw new Error(`SPARQL request failed with status ${response.status}`)
     }
 
     const result = await response.json()
@@ -108,7 +107,7 @@ export const getConceptVersions = async (event) => {
 
       let retValue = 0
 
-      for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+      for (let i = 0; i < Math.max(aParts.length, bParts.length); i += 1) {
         const aPart = aParts[i] || 0
         const bPart = bParts[i] || 0
         if (aPart > bPart) {
