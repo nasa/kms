@@ -1,5 +1,3 @@
-import https from 'https'
-
 import { XMLParser } from 'fast-xml-parser'
 import fetch from 'node-fetch'
 
@@ -42,12 +40,7 @@ import fetch from 'node-fetch'
  */
 export const fetchVersions = async (legacyServerEndpoint, versionType) => {
   try {
-    // Fetch the XML content
-    const httpsAgent = new https.Agent({
-      rejectUnauthorized: false
-    })
-
-    const response = await fetch(`${legacyServerEndpoint}/kms/concept_versions/version_type/${versionType}`, { agent: httpsAgent })
+    const response = await fetch(`${legacyServerEndpoint}/kms/concept_versions/version_type/${versionType}`)
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
@@ -57,7 +50,12 @@ export const fetchVersions = async (legacyServerEndpoint, versionType) => {
     // Parse the XML content
     const parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNamePrefix: '@_'
+      attributeNamePrefix: '@_',
+      textNodeName: 'value',
+      parseAttributeValue: false,
+      parseTagValue: false,
+      tagValueProcessor: (tagName, tagValue) => tagValue?.toString() || '',
+      attributeValueProcessor: (attrName, attrValue) => attrValue?.toString() || ''
     })
     const result = parser.parse(xmlContent)
 
@@ -65,7 +63,7 @@ export const fetchVersions = async (legacyServerEndpoint, versionType) => {
     // eslint-disable-next-line max-len
     const versionsArray = Array.isArray(result.versions) ? result.versions[0].version : result.versions.version
     const versions = (Array.isArray(versionsArray) ? versionsArray : [versionsArray])
-      .map((v) => (typeof v === 'string' ? v : v['#text']))
+      .map((v) => (typeof v === 'string' ? v : v.value))
 
     return versions
   } catch (error) {

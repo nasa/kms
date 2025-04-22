@@ -12,6 +12,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -127,12 +128,16 @@ export const getConcepts = async (event) => {
     // Handle different formats based on queryStringParameter 'format'
     if (format.toLowerCase() === 'json') {
       const conceptSchemeMap = await createConceptSchemeMap(event)
+
+      const versionInfo = await getVersionMetadata(version)
+      const keywordVersion = versionInfo?.versionName || 'n/a'
+
       const jsonResponse = {
         hits: totalConcepts,
         page_num: pageNum,
         page_size: pageSize,
         termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
-        keywordVersion: '20.8',
+        keywordVersion,
         viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
         concepts: conceptURIs.map((uri) => {
           const ntriples = [...nodes[uri]]
@@ -184,6 +189,9 @@ export const getConcepts = async (event) => {
         suppressEmptyNode: true
       })
 
+      const versionInfo = await getVersionMetadata(version)
+      const keywordVersion = versionInfo?.versionName || 'n/a'
+
       const xmlObj = {
         concepts: {
           '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
@@ -192,7 +200,7 @@ export const getConcepts = async (event) => {
           page_num: pageNum,
           page_size: pageSize,
           termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
-          keywordVersion: '20.8',
+          keywordVersion,
           viewer: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all',
           conceptBrief: conceptURIs.map((uri) => {
             const concept = toSkosJson(uri, [...nodes[uri]], bNodeMap)

@@ -65,6 +65,7 @@ export const getGcmdMetadata = async ({
   }
 
   const versionInfo = await getVersionMetadata(version)
+
   baseMetadata['gcmd:keywordVersion'] = {
     _text: versionInfo?.versionName || 'n/a'
   }

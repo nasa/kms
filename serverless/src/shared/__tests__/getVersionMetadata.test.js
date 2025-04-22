@@ -45,13 +45,12 @@ describe('getVersionMetadata', () => {
         versionName: '1.0',
         versionType: 'PUBLISHED',
         created: '2023-01-01T00:00:00Z',
-        modified: '2023-01-02T00:00:00Z',
         lastSynced: '2023-01-03T00:00:00Z'
       })
 
       expect(sparqlRequest).toHaveBeenCalledWith({
         method: 'POST',
-        body: expect.stringContaining('SELECT ?versionType ?versionName ?created ?modified ?lastSynced'),
+        body: expect.stringContaining('SELECT ?versionType ?versionName ?created ?lastSynced'),
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         version: '1.0'
@@ -82,7 +81,6 @@ describe('getVersionMetadata', () => {
         versionName: '1.0',
         versionType: 'PUBLISHED',
         created: '2023-01-01T00:00:00Z',
-        modified: '2023-01-02T00:00:00Z',
         lastSynced: null
       })
     })

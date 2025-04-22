@@ -14,7 +14,8 @@
     "rdf4j:start": "docker run -d -p 8080:8080 -e RDF4J_USER_NAME=$RDF4J_USER_NAME -e RDF4J_PASSWORD=$RDF4J_PASSWORD -e JAVA_OPTS='-Xms1g -Xmx8g' -v logs:/usr/local/tomcat/logs rdf4j:latest",
     "rdf4j:stop": "docker ps -q --filter ancestor=rdf4j:latest | xargs -r docker kill && docker ps -aq --filter ancestor=rdf4j:latest | xargs -r docker rm",
     "rdf4j:setup": "node setup/setupRdf4j.js",
-    "download-data": "vite-node --config vite.config.js setup/scripts/downloadData.js",
+    "export-data": "vite-node --config vite.config.js setup/scripts/exportData.js -all",
+    "load-export": "vite-node --config vite.config.js setup/scripts/loadExport.js -all",
     "create-rdf-files": "vite-node --config vite.config.js setup/scripts/createRdfFiles.js"
   },
   "dependencies": {

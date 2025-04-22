@@ -51,7 +51,6 @@ describe('updateVersionMetadata', () => {
       expect(sparqlCall.body).toContain('gcmd:versionName "1.0"')
       expect(sparqlCall.body).toContain('gcmd:versionType "PUBLISHED"')
       expect(sparqlCall.body).toContain('dcterms:created "2023-01-01"^^xsd:dateTime')
-      expect(sparqlCall.body).toContain('dcterms:modified "2023-01-02"^^xsd:dateTime')
       expect(sparqlCall.body).toContain('gcmd:lastSynced "2023-01-03"^^xsd:dateTime')
     })
   })

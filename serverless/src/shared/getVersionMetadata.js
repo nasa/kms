@@ -23,7 +23,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   //   versionName: '9.1.5',
  *   //   versionType: 'published',
  *   //   created: '2023-01-15T00:00:00Z',
- *   //   modified: '2023-06-30T12:34:56Z',
  *   //   lastSynced: '2023-07-01T10:00:00Z'
  *   // }
  * } catch (error) {
@@ -40,13 +39,12 @@ export const getVersionMetadata = async (version) => {
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
     PREFIX dcterms: <http://purl.org/dc/terms/>
 
-    SELECT ?versionType ?versionName ?created ?modified ?lastSynced
+    SELECT ?versionType ?versionName ?created ?lastSynced
     WHERE {
       <${versionUri}> a gcmd:Version ;
                       gcmd:versionName ?versionName ;
                       gcmd:versionType ?versionType ;
-                      dcterms:created ?created ;
-                      dcterms:modified ?modified .
+                      dcterms:created ?created .
       OPTIONAL { <${versionUri}> gcmd:lastSynced ?lastSynced }
     }
   `
@@ -78,7 +76,6 @@ export const getVersionMetadata = async (version) => {
       versionName: metadata.versionName.value.toString(),
       versionType: metadata.versionType.value,
       created: metadata.created.value,
-      modified: metadata.modified.value,
       lastSynced: metadata.lastSynced ? metadata.lastSynced.value : null
     }
   } catch (error) {
