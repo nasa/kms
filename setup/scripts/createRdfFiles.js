@@ -3,7 +3,6 @@
 import { existsSync, promises as fs } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { promisify } from 'util'
 
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 import fetch from 'node-fetch'
@@ -12,8 +11,6 @@ import { buildJsonMap } from '../../serverless/src/shared/buildJsonMap'
 import { toRDF } from '../../serverless/src/shared/toRDF'
 
 import { fetchVersions } from './lib/fetchVersions'
-
-const mkdir = promisify(fs.mkdir)
 
 const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
 
@@ -83,7 +80,7 @@ const createRdfFiles = async () => {
 
       // Ensure the directory exists
       const dir = path.dirname(outputPath)
-      await mkdir(dir, { recursive: true })
+      await fs.mkdir(dir, { recursive: true })
 
       const fileHandle = await fs.open(outputPath, 'w')
 
@@ -240,7 +237,7 @@ const createRdfFiles = async () => {
 
     // Ensure the directory exists
     const dir = path.dirname(outputPath)
-    await mkdir(dir, { recursive: true })
+    await fs.mkdir(dir, { recursive: true })
 
     const fileHandle = await fs.open(outputPath, 'w')
     await fileHandle.writeFile(rdf)
@@ -253,6 +250,7 @@ const createRdfFiles = async () => {
     const versionTypes = ['published', 'draft', 'past_published']
 
     for (const versionType of versionTypes) {
+      console.log('version type', versionType)
       const versions = await fetchVersions(LEGACY_SERVER, versionType)
 
       for (const version of versions) {
