@@ -5,7 +5,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * This function constructs and executes a SPARQL UPDATE query to modify the version metadata
  * of a specified graph. It can update the version name, version type, creation date,
- * modification date, and last synced date of the version metadata.
+ * and last synced date of the version metadata.
  *
  * @async
  * @function updateVersionMetadata
@@ -14,7 +14,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} [options.version] - The new version name to set.
  * @param {string} [options.versionType] - The new version type to set (e.g., 'published', 'draft').
  * @param {string} [options.createdDate] - The new creation date to set (in ISO 8601 format).
- * @param {string} [options.modifiedDate] - The new modification date to set (in ISO 8601 format).
  * @param {string} [options.lastSynced] - The new last synced date to set (in ISO 8601 format).
  * @returns {Promise<Response>} A promise that resolves to the response from the SPARQL endpoint.
  * @throws {Error} If the update operation fails or if there's an error in the SPARQL request.
@@ -26,7 +25,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *     graphId: 'published',
  *     version: '9.1.5',
  *     versionType: 'published',
- *     modifiedDate: new Date().toISOString(),
+ *     createdDate: new Date().toISOString(),
  *     lastSynced: new Date().toISOString()
  *   });
  *   console.log('Version metadata updated successfully');
@@ -43,7 +42,6 @@ export const updateVersionMetadata = async ({
   version,
   versionType,
   createdDate,
-  modifiedDate,
   lastSynced
 }) => {
   const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
@@ -65,11 +63,6 @@ export const updateVersionMetadata = async ({
   if (createdDate !== undefined) {
     deleteClause += `<${versionUri}> dcterms:created ?oldCreatedDate .\n`
     insertClause += `<${versionUri}> dcterms:created "${createdDate}"^^xsd:dateTime .\n`
-  }
-
-  if (modifiedDate !== undefined) {
-    deleteClause += `<${versionUri}> dcterms:modified ?oldModifiedDate .\n`
-    insertClause += `<${versionUri}> dcterms:modified "${modifiedDate}"^^xsd:dateTime .\n`
   }
 
   if (lastSynced !== undefined) {
