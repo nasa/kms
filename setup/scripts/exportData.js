@@ -1,4 +1,3 @@
-/* eslint-disable no-promise-executor-return */
 /* eslint-disable no-restricted-syntax */
 import fs from 'fs'
 import path from 'path'
