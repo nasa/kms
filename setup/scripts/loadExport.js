@@ -50,10 +50,16 @@ const loadExport = async (downloadAll) => {
     }
   }
 
+  // eslint-disable-next-line no-promise-executor-return
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
   try {
     process.env.RDF4J_SERVICE_URL = 'http://localhost:8080'
 
     await recreateDatabase()
+
+    console.log('Sleeping for 1 minute before starting...')
+    await sleep(60000)
 
     const versionTypes = ['published', 'draft']
     if (downloadAll) {

@@ -3,10 +3,13 @@
 import fs from 'fs'
 import path from 'path'
 import url from 'url'
+import { promisify } from 'util'
 
 import fetch from 'node-fetch'
 
 import { fetchVersions } from './lib/fetchVersions'
+
+const mkdir = promisify(fs.mkdir)
 
 /* eslint-disable no-await-in-loop */
 const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
@@ -81,7 +84,7 @@ const exportData = async (exportAll) => {
 
     // Ensure the directory exists
     const dir = path.dirname(jsonOutputPath)
-    await fs.mkdir(dir, { recursive: true })
+    await mkdir(dir, { recursive: true })
 
     // Check if file already exists
     if (fs.existsSync(jsonOutputPath)) {
