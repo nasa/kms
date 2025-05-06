@@ -58,7 +58,7 @@ export const buildFullPath = async (conceptId, version) => {
 
     return {
       prefLabel: triples[0].prefLabel.value,
-      broader: triples[0].broader.value
+      broader: triples[0].broader?.value
     }
   }
 
@@ -69,9 +69,13 @@ export const buildFullPath = async (conceptId, version) => {
       return []
     }
 
-    const parentPath = await buildPathRecursive(conceptInfo.broader)
+    if (conceptInfo.broader) {
+      const parentPath = await buildPathRecursive(conceptInfo.broader)
 
-    return [...parentPath, conceptInfo.prefLabel]
+      return [...parentPath, conceptInfo.prefLabel]
+    }
+
+    return [conceptInfo.prefLabel]
   }
 
   const path = await buildPathRecursive(`${baseUri}${conceptId}`)

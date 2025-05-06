@@ -65,7 +65,7 @@ export const filterKeywordTree = (node, filter) => {
       .filter((child) => child !== null)
     : []
 
-  if (matchesFilter(node.title, filter) || filteredChildren.length > 0) {
+  if (node.key === filter || matchesFilter(node.title, filter) || filteredChildren.length > 0) {
     return {
       ...node,
       children: filteredChildren
