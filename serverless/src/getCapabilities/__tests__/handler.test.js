@@ -11,7 +11,8 @@ import { getCapabilities } from '@/getCapabilities/handler'
 // Mock the getApplicationConfig function
 vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn(() => ({
-    defaultResponseHeaders: { 'X-Custom-Header': 'CustomValue' }
+    defaultResponseHeaders: { 'X-Custom-Header': 'CustomValue' },
+    version: '1.2.3'
   }))
 }))
 
@@ -43,7 +44,7 @@ describe('getCapabilities', () => {
       // Check that the XML is well-formed and contains expected elements
       expect(result.body).toContain('<capabilities version="0.5">')
       expect(result.body).toContain('<software>')
-      expect(result.body).toContain('<version>n/a</version>')
+      expect(result.body).toContain('<version>1.2.3</version>')
       expect(result.body).toContain('<documentation>')
       expect(result.body).toContain('<termsOfUse>')
       expect(result.body).toContain('<urls>')
