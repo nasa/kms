@@ -29,15 +29,14 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * // </capabilities>
  */
 export const getCapabilities = async () => {
-  const { defaultResponseHeaders } = getApplicationConfig()
+  const { defaultResponseHeaders, version } = getApplicationConfig()
 
   try {
     const capabilities = {
       capabilities: {
         ':@': { version: '0.5' },
         software: {
-          version: { '#text': '3.1.0' },
-          build: { '#text': 'KMS-24.4.8-5' }
+          version: { '#text': version ?? 'n/a' }
         },
         documentation: { '#text': 'https://wiki.earthdata.nasa.gov/display/ED/KMS+User%27s+Guide' },
         termsOfUse: { '#text': 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf' },

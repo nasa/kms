@@ -86,6 +86,22 @@ describe('buildFullPath', () => {
     })
   })
 
+  test('should handle a concept without a broader concept', async () => {
+    sparqlRequest.mockResolvedValueOnce({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [{
+            prefLabel: { value: 'TOP LEVEL CONCEPT' }
+          }]
+        }
+      })
+    })
+
+    const result = await buildFullPath('top-level-concept')
+    expect(result).toBe('TOP LEVEL CONCEPT')
+  })
+
   describe('when unsuccessful', () => {
     test('should throw error on HTTP failure', async () => {
       sparqlRequest.mockResolvedValue({

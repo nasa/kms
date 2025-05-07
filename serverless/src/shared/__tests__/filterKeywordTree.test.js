@@ -103,6 +103,56 @@ describe('filterKeywordTree', () => {
 
       expect(filterKeywordTree(treeWithoutChildren, 'Root')).toEqual(expected)
     })
+
+    describe('when filtering by uuid', () => {
+      const treeWithKeys = {
+        title: 'Root',
+        key: 'root-key',
+        children: [
+          {
+            title: 'Child 1',
+            key: 'child-1-key',
+            children: []
+          },
+          {
+            title: 'Child 2',
+            key: 'child-2-key',
+            children: [
+              {
+                title: 'Grandchild',
+                key: 'grandchild-key',
+                children: []
+              }
+            ]
+          }
+        ]
+      }
+
+      test('should filter tree based on node.key', () => {
+        const expected = {
+          title: 'Root',
+          key: 'root-key',
+          children: [
+            {
+              title: 'Child 2',
+              key: 'child-2-key',
+              children: [
+                {
+                  title: 'Grandchild',
+                  key: 'grandchild-key',
+                  children: []
+                }
+              ]
+            }
+          ]
+        }
+        expect(filterKeywordTree(treeWithKeys, 'grandchild-key')).toEqual(expected)
+      })
+
+      test('should return null when no keys match the filter', () => {
+        expect(filterKeywordTree(treeWithKeys, 'nonexistent-key')).toBeNull()
+      })
+    })
   })
 
   describe('When unsuccessful', () => {
