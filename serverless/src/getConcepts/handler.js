@@ -12,6 +12,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
+import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
@@ -105,19 +106,22 @@ export const getConcepts = async (event) => {
       triples = await getFilteredTriples({
         conceptScheme,
         pattern,
-        version
+        version,
+        pageNum,
+        pageSize
       })
     }
 
-    const { bNodeMap, nodes, conceptURIs: fullURIs } = processTriples(triples)
+    const { bNodeMap, nodes, conceptURIs } = processTriples(triples)
 
-    const totalConcepts = fullURIs.length
+    const totalConcepts = await getTotalConceptCount({
+      conceptScheme,
+      pattern,
+      version
+    })
     const totalPages = Math.ceil(totalConcepts / pageSize)
 
     // Calculate start and end indices for the current page
-    const startIndex = (pageNum - 1) * pageSize
-    const endIndex = Math.min(startIndex + pageSize, totalConcepts)
-    const conceptURIs = fullURIs.slice(startIndex, endIndex)
     const prefLabelMap = await createPrefLabelMap(version)
     // eslint-disable-next-line max-len
     const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)

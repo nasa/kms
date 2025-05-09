@@ -9,9 +9,11 @@ echo "RDF4J_DATA_DIR is set to: ${RDF4J_DATA_DIR}"
 echo "showing rdf4j data directory"
 ls -l /rdf4j-data
 
-export JAVA_OPTS="-Dorg.eclipse.rdf4j.appdata.basedir=${RDF4J_DATA_DIR}"
-export CATALINA_OPTS="-Dorg.eclipse.rdf4j.appdata.basedir=${RDF4J_DATA_DIR}"
-echo "JAVA_OPTS=\"\$JAVA_OPTS -Dorg.eclipse.rdf4j.appdata.basedir=${RDF4J_DATA_DIR}\"" >> /usr/local/tomcat/bin/setenv.sh
+# Set Java options
+export JAVA_OPTS="-Dorg.eclipse.rdf4j.appdata.basedir=${RDF4J_DATA_DIR} -Xmx3g -Xms1g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
+# Use JAVA_OPTS for Catalina as well
+export CATALINA_OPTS="${JAVA_OPTS}"
 
 # Start Web Application
 # Check the role and perform appropriate actions
