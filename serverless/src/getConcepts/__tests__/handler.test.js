@@ -17,6 +17,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
+import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
@@ -35,6 +36,8 @@ vi.mock('@/shared/createConceptSchemeMap')
 vi.mock('@/shared/createConceptToConceptSchemeShortNameMap')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/getVersionMetadata')
+vi.mock('@/shared/operations/queries/getTotalCountQuery')
+vi.mock('@/shared/getTotalConceptCount')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -148,6 +151,8 @@ describe('getConcepts', () => {
         }
       ]
       getFilteredTriples.mockResolvedValue(mockTriples)
+      getTotalConceptCount.mockResolvedValue(1)
+
       processTriples.mockReturnValue({
         bNodeMap: {},
         nodes: { uri1: new Set([mockTriples[0]]) },
@@ -165,6 +170,8 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
+        pageNum: 1,
+        pageSize: 2000,
         pattern: 'matching',
         conceptScheme: undefined,
         version: 'published'
@@ -200,12 +207,15 @@ describe('getConcepts', () => {
       })
 
       getGcmdMetadata.mockResolvedValue({})
+      getTotalConceptCount.mockResolvedValue(1)
 
       const event = { pathParameters: { conceptScheme: 'scheme1' } }
       const result = await getConcepts(event)
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
+        pageNum: 1,
+        pageSize: 2000,
         pattern: undefined,
         version: 'published'
       })
@@ -244,6 +254,7 @@ describe('getConcepts', () => {
         'skos:prefLabel': 'Matching Concept in Scheme 1'
       })
 
+      getTotalConceptCount.mockResolvedValue(1)
       getGcmdMetadata.mockResolvedValue({})
 
       const event = {
@@ -256,6 +267,8 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
+        pageNum: 1,
+        pageSize: 2000,
         pattern: 'matching',
         version: 'published'
       })
@@ -295,6 +308,7 @@ describe('getConcepts', () => {
       getGcmdMetadata.mockResolvedValue({ 'gcmd:keywordVersion': { _text: '1.0' } })
 
       const event = { path: '/concepts/root' }
+      getTotalConceptCount.mockResolvedValue(2)
       const result = await getConcepts(event)
 
       expect(getRootConcepts).toHaveBeenCalled()
@@ -305,90 +319,134 @@ describe('getConcepts', () => {
       expect(result.body).toContain('<skos:prefLabel>Root Concept rootUri1</skos:prefLabel>')
       expect(result.body).toContain('<skos:prefLabel>Root Concept rootUri2</skos:prefLabel>')
     })
+  })
 
-    describe('when paging', () => {
-      test('handles pagination correctly for different page sizes', async () => {
-        const mockTriples = Array(100).fill().map((_, i) => ({
-          s: { value: `uri${i}` },
-          p: { value: 'p1' },
-          o: { value: 'o1' }
-        }))
-        const mockProcessedTriples = {
-          bNodeMap: {},
-          nodes: Object.fromEntries(mockTriples.map((t) => [t.s.value, new Set([t])])),
-          conceptURIs: mockTriples.map((t) => t.s.value)
+  describe('when paginating', () => {
+    const allMockTriples = Array(100).fill().map((_, i) => ({
+      s: { value: `uri${i}` },
+      p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+      o: { value: `Concept ${i}` }
+    }))
+
+    beforeEach(() => {
+      vi.resetAllMocks()
+      getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+      getGcmdMetadata.mockResolvedValue({})
+      getTotalConceptCount.mockResolvedValue(100)
+      processTriples.mockImplementation((triples) => ({
+        bNodeMap: {},
+        nodes: Object.fromEntries(triples.map((t) => [t.s.value, new Set([t])])),
+        conceptURIs: triples.map((t) => t.s.value)
+      }))
+
+      toSkosJson.mockImplementation((uri) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': { _text: `Concept ${uri.split('uri')[1]}` }
+      }))
+    })
+
+    test('handles basic pagination case', async () => {
+      const event = {
+        queryStringParameters: {
+          page_num: '1',
+          page_size: '10',
+          format: 'rdf'
         }
+      }
 
-        getFilteredTriples.mockResolvedValue(mockTriples)
-        processTriples.mockReturnValue(mockProcessedTriples)
-        toSkosJson.mockImplementation((uri) => ({
-          '@rdf:about': uri,
-          'skos:prefLabel': { _text: `Concept ${uri}` }
-        }))
+      getFilteredTriples.mockResolvedValue(allMockTriples.slice(0, 10))
 
-        getGcmdMetadata.mockResolvedValue({})
+      const result = await getConcepts(event)
 
-        const testCases = [
-          {
-            pageNum: '1',
-            pageSize: '10',
-            expectedConceptCount: 10,
-            expectedTotalPages: '10'
-          },
-          {
-            pageNum: '2',
-            pageSize: '25',
-            expectedConceptCount: 25,
-            expectedTotalPages: '4'
-          },
-          {
-            pageNum: '2',
-            pageSize: '50',
-            expectedConceptCount: 50,
-            expectedTotalPages: '2'
-          }
-        ]
+      expect(result.headers['X-Total-Count']).toBe('100')
+      expect(result.headers['X-Page-Number']).toBe('1')
+      expect(result.headers['X-Page-Size']).toBe('10')
+      expect(result.headers['X-Total-Pages']).toBe('10')
 
-        await Promise.all(testCases.map(async ({
-          pageNum, pageSize, expectedConceptCount, expectedTotalPages
-        }) => {
-          const event = {
-            queryStringParameters: {
-              page_num: pageNum,
-              page_size: pageSize
-            }
-          }
+      const conceptMatches = result.body.match(/<skos:Concept/g) || []
+      expect(conceptMatches.length).toBe(10)
 
-          const result = await getConcepts(event)
+      for (let i = 0; i < 10; i += 1) {
+        expect(result.body).toContain(`<skos:Concept rdf:about="uri${i}">`)
+        expect(result.body).toContain(`<skos:prefLabel>Concept ${i}</skos:prefLabel>`)
+      }
 
-          expect(result.headers['X-Total-Count']).toBe('100')
-          expect(result.headers['X-Page-Number']).toBe(pageNum)
-          expect(result.headers['X-Page-Size']).toBe(pageSize)
-          expect(result.headers['X-Total-Pages']).toBe(expectedTotalPages)
+      expect(getFilteredTriples).toHaveBeenCalledWith({
+        conceptScheme: undefined,
+        pattern: undefined,
+        version: 'published',
+        pageNum: 1,
+        pageSize: 10
+      })
+    })
 
-          const conceptMatches = result.body.match(/<skos:Concept/g) || []
-          expect(conceptMatches.length).toBe(expectedConceptCount)
+    it('handles pagination for second page', async () => {
+      const event = {
+        queryStringParameters: {
+          page_num: '2',
+          page_size: '25',
+          format: 'rdf'
+        }
+      }
 
-          // Check that the correct range of concepts is included
-          const startIndex = (parseInt(pageNum, 10) - 1) * parseInt(pageSize, 10)
-          const endIndex = Math.min(startIndex + parseInt(pageSize, 10), 100)
-          const expectedConcepts = Array.from(
-            { length: endIndex - startIndex },
-            (_, i) => i + startIndex
-          )
+      getFilteredTriples.mockResolvedValue(allMockTriples.slice(25, 50))
 
-          expectedConcepts.forEach((i) => {
-            expect(result.body).toContain(`<skos:Concept rdf:about="uri${i}">`)
-            expect(result.body).toContain(`<skos:prefLabel>Concept uri${i}</skos:prefLabel>`)
-          })
+      const result = await getConcepts(event)
 
-          expect(getGcmdMetadata).toHaveBeenCalledWith({
-            pageNum: parseInt(pageNum, 10),
-            pageSize: parseInt(pageSize, 10),
-            gcmdHits: 100,
-            version: 'published'
-          })
-        }))
+      expect(result.headers['X-Total-Count']).toBe('100')
+      expect(result.headers['X-Page-Number']).toBe('2')
+      expect(result.headers['X-Page-Size']).toBe('25')
+      expect(result.headers['X-Total-Pages']).toBe('4')
+
+      const conceptMatches = result.body.match(/<skos:Concept/g) || []
+      expect(conceptMatches.length).toBe(25)
+
+      for (let i = 25; i < 50; i += 1) {
+        expect(result.body).toContain(`<skos:Concept rdf:about="uri${i}">`)
+        expect(result.body).toContain(`<skos:prefLabel>Concept ${i}</skos:prefLabel>`)
+      }
+
+      expect(getFilteredTriples).toHaveBeenCalledWith({
+        conceptScheme: undefined,
+        pattern: undefined,
+        version: 'published',
+        pageNum: 2,
+        pageSize: 25
+      })
+    })
+
+    it('handles pagination for last page with fewer items', async () => {
+      const event = {
+        queryStringParameters: {
+          page_num: '4',
+          page_size: '30',
+          format: 'rdf'
+        }
+      }
+
+      getFilteredTriples.mockResolvedValue(allMockTriples.slice(90, 100))
+
+      const result = await getConcepts(event)
+
+      expect(result.headers['X-Total-Count']).toBe('100')
+      expect(result.headers['X-Page-Number']).toBe('4')
+      expect(result.headers['X-Page-Size']).toBe('30')
+      expect(result.headers['X-Total-Pages']).toBe('4')
+
+      const conceptMatches = result.body.match(/<skos:Concept/g) || []
+      expect(conceptMatches.length).toBe(10)
+
+      for (let i = 90; i < 100; i += 1) {
+        expect(result.body).toContain(`<skos:Concept rdf:about="uri${i}">`)
+        expect(result.body).toContain(`<skos:prefLabel>Concept ${i}</skos:prefLabel>`)
+      }
+
+      expect(getFilteredTriples).toHaveBeenCalledWith({
+        conceptScheme: undefined,
+        pattern: undefined,
+        version: 'published',
+        pageNum: 4,
+        pageSize: 30
       })
     })
   })
@@ -437,6 +495,8 @@ describe('getConcepts', () => {
         ['http://example.com/concept1', 'SN'],
         ['http://example.com/concept2', 'SN']
       ]))
+
+      getTotalConceptCount.mockResolvedValue(2)
 
       toLegacyJSON.mockImplementation((concept) => ({
         uuid: concept['@rdf:about'],
@@ -518,6 +578,8 @@ describe('getConcepts', () => {
         ['http://example.com/concept2', 'SN2']
       ]))
 
+      getTotalConceptCount.mockResolvedValue(2)
+
       const event = {
         queryStringParameters: {
           format: 'xml'
@@ -578,6 +640,7 @@ describe('getConcepts', () => {
       })
 
       getGcmdMetadata.mockResolvedValue({})
+      getTotalConceptCount.mockResolvedValue(0)
 
       const event = {}
       const result = await getConcepts(event)
