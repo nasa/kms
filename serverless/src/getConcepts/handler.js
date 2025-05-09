@@ -112,9 +112,8 @@ export const getConcepts = async (event) => {
       })
     }
 
-    const { bNodeMap, nodes, conceptURIs: fullURIs } = processTriples(triples)
+    const { bNodeMap, nodes, conceptURIs } = processTriples(triples)
 
-    const conceptURIs = fullURIs
     const totalConcepts = await getTotalConceptCount({
       conceptScheme,
       pattern,
