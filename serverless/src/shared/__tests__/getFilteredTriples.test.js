@@ -103,6 +103,8 @@ describe('when fetching triples for a query', () => {
         'http://example.com/concept1',
         'http://example.com/concept2'
       ])
+
+      expect(getConceptDetailsQuery).toHaveBeenCalledTimes(1)
     })
   })
 

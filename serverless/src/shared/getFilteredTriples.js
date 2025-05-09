@@ -81,7 +81,7 @@ export const getFilteredTriples = async ({
     })
 
     if (!uriResponse.ok) {
-      throw new Error(`HTTP error! status: ${uriResponse.status}`)
+      throw new Error(`HTTP error! status: ${uriResponse.status} query=${uriQuery}`)
     }
 
     const uriJson = await uriResponse.json()
@@ -98,7 +98,7 @@ export const getFilteredTriples = async ({
     })
 
     if (!detailsResponse.ok) {
-      throw new Error(`HTTP error! status: ${detailsResponse.status}`)
+      throw new Error(`HTTP error! status: ${detailsResponse.status} query=${query}`)
     }
 
     const detailsJson = await detailsResponse.json()
