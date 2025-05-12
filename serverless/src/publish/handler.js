@@ -12,20 +12,23 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 /**
  * Performs the publication process for a new version of the keyword set.
  *
- * This function is invoked asynchronously by the triggerPublish Lambda function.
- * It is not called directly via HTTP requests, but rather as part of an internal process.
+ * This handles the process of publishing a new version of the keyword set, including
+ * managing graph transitions and updating metadata.
  *
  * The function performs the following steps:
- * 1. Validates the input to ensure a 'name' parameter is provided.
- * 2. If a 'published' version exists, it is moved to 'past_published'.
- * 3. The 'draft' version is copied to become the new 'published' version.
- * 4. Metadata for the new 'published' version is updated with the provided name and timestamp.
+ * 1. Validates the input to ensure a 'name' parameter is provided in the query string.
+ * 2. Starts a new SPARQL transaction.
+ * 3. If a 'published' version exists, it is moved to 'past_published'.
+ * 4. The 'draft' version is copied to become the new 'published' version.
+ * 5. Metadata for the new 'published' version is updated with the provided name and timestamp.
+ * 6. Commits the transaction if all operations are successful, or rolls back if an error occurs.
  *
  * @async
  * @function publish
- * @param {Object} event - The event object passed from the triggering Lambda function.
- * @param {string} event.name - The name of the version to be published.
- * @returns {Promise<Object>} A promise that resolves to an object containing the status code, headers, and response body.
+ * @param {Object} event - The event object passed from API Gateway.
+ * @param {Object} event.queryStringParameters - The query string parameters from the API request.
+ * @param {string} event.queryStringParameters.name - The name of the version to be published.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the response details.
  * @property {number} statusCode - The HTTP status code (200 for success, 400 for bad request, 500 for server error).
  * @property {Object} headers - The response headers, including CORS and content type settings.
  * @property {string} body - A JSON string containing the response message, version name, and publish date (for success) or error details (for failure).
@@ -34,7 +37,7 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  *
  * @example
  * // Successful invocation
- * const event = { name: 'v1.0.0' };
+ * const event = { queryStringParameters: { name: 'v1.0.0' } };
  * const result = await publish(event);
  * // result = {
  * //   statusCode: 200,
@@ -44,15 +47,14 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  *
  * @example
  * // Failed invocation (missing name)
- * const event = {};
+ * const event = { queryStringParameters: {} };
  * const result = await publish(event);
  * // result = {
  * //   statusCode: 400,
  * //   headers: { 'Content-Type': 'application/json', ... },
- * //   body: '{"message":"Error: \\"name\\" parameter is required in the request body"}'
+ * //   body: '{"message":"Error: \\"name\\" parameter is required in the query string"}'
  * // }
  */
-
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
@@ -64,7 +66,7 @@ export const publish = async (event) => {
     return {
       statusCode: 400,
       headers: defaultResponseHeaders,
-      body: JSON.stringify({ message: 'Error: "name" parameter is required in the request body' })
+      body: JSON.stringify({ message: 'Error: "name" parameter is required in the query string' })
     }
   }
 

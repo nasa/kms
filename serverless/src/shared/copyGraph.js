@@ -12,12 +12,17 @@ import { sparqlRequest } from './sparqlRequest'
  * @param {Object} params - The parameters for the copy operation.
  * @param {string} params.sourceGraphName - The name of the source graph to copy from.
  * @param {string} params.targetGraphName - The name of the target graph to copy to.
+ * @param {string} params.transactionUrl - The URL for the SPARQL transaction.
  * @throws {Error} If there's an error during the SPARQL request or graph copying process.
  *
  * @example
  * // Copy the 'draft' graph to a new 'published' graph
  * try {
- *   await copyGraph({ sourceGraphName: 'draft', targetGraphName: 'published' });
+ *   await copyGraph({
+ *     sourceGraphName: 'draft',
+ *     targetGraphName: 'published',
+ *     transactionUrl: 'http://example.com/sparql/transaction'
+ *   });
  *   console.log('Successfully copied draft to published');
  * } catch (error) {
  *   console.error('Error copying graph:', error);
@@ -26,7 +31,11 @@ import { sparqlRequest } from './sparqlRequest'
  * @example
  * // Create a backup of the 'published' graph
  * try {
- *   await copyGraph({ sourceGraphName: 'published', targetGraphName: 'backup_20230615' });
+ *   await copyGraph({
+ *     sourceGraphName: 'published',
+ *     targetGraphName: 'backup_20230615',
+ *     transactionUrl: 'http://example.com/sparql/transaction'
+ *   });
  *   console.log('Successfully created backup of published graph');
  * } catch (error) {
  *   console.error('Error creating backup:', error);

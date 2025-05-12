@@ -15,6 +15,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} [options.versionType] - The new version type to set (e.g., 'published', 'draft').
  * @param {string} [options.createdDate] - The new creation date to set (in ISO 8601 format).
  * @param {string} [options.lastSynced] - The new last synced date to set (in ISO 8601 format).
+ * @param {string} options.transactionUrl - The URL for the SPARQL transaction.
  * @returns {Promise<Response>} A promise that resolves to the response from the SPARQL endpoint.
  * @throws {Error} If the update operation fails or if there's an error in the SPARQL request.
  *
@@ -26,7 +27,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *     version: '9.1.5',
  *     versionType: 'published',
  *     createdDate: new Date().toISOString(),
- *     lastSynced: new Date().toISOString()
+ *     lastSynced: new Date().toISOString(),
+ *     transactionUrl: 'http://example.com/sparql/transaction'
  *   });
  *   console.log('Version metadata updated successfully');
  * } catch (error) {
@@ -36,7 +38,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @see Related function:
  * {@link sparqlRequest}
  */
-
 export const updateVersionMetadata = async ({
   graphId,
   version,

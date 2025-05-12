@@ -11,12 +11,17 @@ import { sparqlRequest } from './sparqlRequest'
  * @param {Object} params - The parameters for the rename operation.
  * @param {string} params.oldGraphName - The current name of the graph to be renamed.
  * @param {string} params.newGraphName - The new name to assign to the graph.
+ * @param {string} params.transactionUrl - The URL for the SPARQL transaction.
  * @throws {Error} If there's an error during the SPARQL request or graph renaming process.
  *
  * @example
  * // Rename the 'published' graph to '9.1.5'
  * try {
- *   await renameGraph({ oldGraphName: 'published', newGraphName: '9.1.5' });
+ *   await renameGraph({
+ *     oldGraphName: 'published',
+ *     newGraphName: '9.1.5',
+ *     transactionUrl: 'http://example.com/sparql/transaction'
+ *   });
  *   console.log('Successfully renamed graph from published to 9.1.5');
  * } catch (error) {
  *   console.error('Error renaming graph:', error);
@@ -25,7 +30,11 @@ import { sparqlRequest } from './sparqlRequest'
  * @example
  * // Rename a specific version graph
  * try {
- *   await renameGraph({ oldGraphName: '9.1.5-draft', newGraphName: '9.1.5' });
+ *   await renameGraph({
+ *     oldGraphName: '9.1.5-draft',
+ *     newGraphName: '9.1.5',
+ *     transactionUrl: 'http://example.com/sparql/transaction'
+ *   });
  *   console.log('Successfully renamed graph from 9.1.5-draft to 9.1.5');
  * } catch (error) {
  *   console.error('Error renaming graph:', error);
