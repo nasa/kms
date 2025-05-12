@@ -1,4 +1,3 @@
-import { getTriplesForConceptQuery } from '@/shared/operations/queries/getTriplesForConceptQuery'
 import {
   getDeleteTriplesForConceptQuery
 } from '@/shared/operations/updates/getDeleteTriplesForConceptQuery'
