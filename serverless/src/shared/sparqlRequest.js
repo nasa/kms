@@ -5,6 +5,8 @@
  * @module sparqlRequest
  */
 
+import { delay } from '@/shared/delay'
+
 /**
  * Sends a request to the SPARQL endpoint with the specified parameters.
  *
@@ -53,14 +55,21 @@
  * {@link addFromClause}
  * {@link addWithClause}
  */
+
+const MAX_RETRIES = 10
+const RETRY_DELAY = 1000 // 1 second
+
 export const sparqlRequest = async ({
-  path = '',
-  method,
+  accept = 'application/rdf+xml',
   body,
   contentType = 'application/rdf+xml',
-  accept = 'application/rdf+xml',
-  version
+  method,
+  path = '',
+  transaction = {},
+  version,
+  retryCount = 0
 }) => {
+  const { transactionUrl, action } = transaction
   /**
     * Constructs the SPARQL endpoint URL using environment variables.
     *
@@ -120,7 +129,7 @@ export const sparqlRequest = async ({
     return `${prefixes.join('\n')}\nWITH <${graphUri}>\n${rest.join('\n')}`
   }
 
-  const endpoint = getSparqlEndpoint()
+  const endpoint = transactionUrl || getSparqlEndpoint()
   const authHeader = getAuthHeader()
   const endpointUrl = new URL(`${endpoint}${path}`)
 
@@ -145,9 +154,61 @@ export const sparqlRequest = async ({
     }
   }
 
-  return fetch(endpointUrl.toString(), {
-    method,
-    headers,
-    body
-  })
+  let url = `${endpointUrl.toString()}`
+  if (action) {
+    url += `?action=${action}`
+  }
+
+  const startTime = performance.now()
+
+  console.log('sending fetch with ', body)
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body
+    })
+
+    const endTime = performance.now()
+    const duration = endTime - startTime
+
+    console.log(`SPARQL request completed in ${duration.toFixed(2)} ms`)
+    console.log(`Response status: ${response.status} ${response.statusText}`)
+    console.log(`Request ${url} body: ${body}`)
+
+    if (!response.ok) {
+      const responseText = await response.text()
+      console.error(`Error response body: ${responseText}`)
+      throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`)
+    }
+
+    return response
+  } catch (error) {
+    const endTime = performance.now()
+    const duration = endTime - startTime
+
+    console.error(`SPARQL request failed after ${duration.toFixed(2)} ms`)
+    console.log(`Request ${url} body: ${body}`)
+    console.error('Error:', error)
+
+    // Implement retry logic
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retrying request (attempt ${retryCount + 1} of ${MAX_RETRIES})`)
+      await delay(RETRY_DELAY)
+
+      return sparqlRequest({
+        accept,
+        body,
+        contentType,
+        method,
+        path,
+        transaction,
+        version,
+        retryCount: retryCount + 1
+      })
+    }
+
+    console.error(`Max retries (${MAX_RETRIES}) reached. Giving up.`)
+    throw error
+  }
 }

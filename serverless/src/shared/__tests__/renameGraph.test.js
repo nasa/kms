@@ -30,18 +30,23 @@ describe('renameGraph', () => {
 
       const oldGraphName = 'oldGraph'
       const newGraphName = 'newGraph'
+      const transactionUrl = 'transactionUrl'
 
       await renameGraph({
         oldGraphName,
-        newGraphName
+        newGraphName,
+        transactionUrl
       })
 
       // Check if sparqlRequest was called with correct parameters
       expect(sparqlRequest).toHaveBeenCalledWith({
-        path: '/statements',
-        method: 'POST',
+        method: 'PUT',
         body: expect.stringContaining(`MOVE <https://gcmd.earthdata.nasa.gov/kms/version/${oldGraphName}>`),
-        contentType: 'application/sparql-update'
+        contentType: 'application/sparql-update',
+        transaction: {
+          transactionUrl,
+          action: 'UPDATE'
+        }
       })
 
       // Check if success message was logged

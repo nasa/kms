@@ -9,13 +9,16 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @param {string} date - The new date in ISO format (YYYY-MM-DD).
  * @returns {Promise<boolean>} True if the update was successful, false otherwise.
  */
-export const updateModifiedDate = async (conceptId, version, date) => {
+export const updateModifiedDate = async (conceptId, version, date, transactionUrl) => {
   const response = await sparqlRequest({
-    method: 'POST',
-    path: '/statements',
+    method: 'PUT',
     body: getUpdateModifiedDateQuery(conceptId, date),
     contentType: 'application/sparql-update',
-    version
+    version,
+    transaction: {
+      transactionUrl,
+      action: 'UPDATE'
+    }
   })
 
   return response.ok

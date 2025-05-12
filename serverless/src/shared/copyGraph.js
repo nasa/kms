@@ -34,7 +34,7 @@ import { sparqlRequest } from './sparqlRequest'
  *
  * @see Related function {@link sparqlRequest} for the underlying SPARQL request mechanism.
  */
-export const copyGraph = async ({ sourceGraphName, targetGraphName }) => {
+export const copyGraph = async ({ sourceGraphName, targetGraphName, transactionUrl }) => {
   const copyQuery = `
     COPY <https://gcmd.earthdata.nasa.gov/kms/version/${sourceGraphName}>
     TO <https://gcmd.earthdata.nasa.gov/kms/version/${targetGraphName}>
@@ -42,8 +42,11 @@ export const copyGraph = async ({ sourceGraphName, targetGraphName }) => {
 
   try {
     await sparqlRequest({
-      path: '/statements',
-      method: 'POST',
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      },
+      method: 'PUT',
       body: copyQuery,
       contentType: 'application/sparql-update'
     })

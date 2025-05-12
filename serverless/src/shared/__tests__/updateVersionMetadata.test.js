@@ -33,18 +33,22 @@ describe('updateVersionMetadata', () => {
         versionType: 'PUBLISHED',
         createdDate: '2023-01-01',
         modifiedDate: '2023-01-02',
-        lastSynced: '2023-01-03'
+        lastSynced: '2023-01-03',
+        transactionUrl: 'transactionUrl'
       }
 
       const response = await updateVersionMetadata(params)
 
       expect(response.ok).toBe(true)
       expect(sparqlRequest).toHaveBeenCalledWith({
-        path: '/statements',
-        method: 'POST',
+        method: 'PUT',
         body: expect.stringContaining('INSERT {'),
         contentType: 'application/sparql-update',
-        accept: 'application/json'
+        accept: 'application/json',
+        transaction: {
+          action: 'UPDATE',
+          transactionUrl: 'transactionUrl'
+        }
       })
 
       const sparqlCall = sparqlRequest.mock.calls[0][0]

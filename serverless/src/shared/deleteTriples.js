@@ -43,41 +43,26 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * {@link getDeleteTriplesForConceptQuery}
  * {@link sparqlRequest}
  */
-export const deleteTriples = async (conceptIRI, version) => {
+export const deleteTriples = async (conceptIRI, version, transactionUrl) => {
   try {
-    // First, select all triples
-    const selectResponse = await sparqlRequest({
-      contentType: 'application/sparql-query',
-      accept: 'application/sparql-results+json',
-      method: 'POST',
-      body: getTriplesForConceptQuery(conceptIRI),
-      version
-    })
-    if (!selectResponse.ok) {
-      throw new Error(`HTTP error! select status: ${selectResponse.status}`)
-    }
-
-    const selectData = await selectResponse.json()
-    const deletedTriples = selectData.results.bindings
-
-    // Then, delete the triples
     const deleteResponse = await sparqlRequest({
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
       path: '/statements',
-      method: 'POST',
+      method: 'PUT',
       body: getDeleteTriplesForConceptQuery(conceptIRI),
-      version
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      }
     })
 
     if (!deleteResponse.ok) {
       throw new Error(`HTTP error! delete status: ${deleteResponse.status}`)
     }
 
-    return {
-      deletedTriples,
-      deleteResponse
-    }
+    return deleteResponse
   } catch (error) {
     console.error('Error deleting concept:', error)
     throw error

@@ -18,6 +18,7 @@ describe('updateModifiedDate', () => {
   const mockVersion = 'draft'
   const mockDate = '2023-05-15T10:30:00Z'
   const mockQuery = 'MOCK SPARQL UPDATE QUERY'
+  const transactionUrl = 'transactionUrl'
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -30,15 +31,18 @@ describe('updateModifiedDate', () => {
     }
     sparqlRequest.mockResolvedValue(mockResponse)
 
-    const result = await updateModifiedDate(mockConceptId, mockVersion, mockDate)
+    const result = await updateModifiedDate(mockConceptId, mockVersion, mockDate, transactionUrl)
 
     expect(getUpdateModifiedDateQuery).toHaveBeenCalledWith(mockConceptId, mockDate)
     expect(sparqlRequest).toHaveBeenCalledWith({
-      method: 'POST',
-      path: '/statements',
+      method: 'PUT',
       body: mockQuery,
       contentType: 'application/sparql-update',
-      version: mockVersion
+      version: mockVersion,
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      }
     })
 
     expect(result).toBe(true)

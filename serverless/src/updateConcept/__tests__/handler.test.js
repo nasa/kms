@@ -10,12 +10,16 @@ import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
-import { rollback } from '@/shared/rollback'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 import { updateModifiedDate } from '@/shared/updateModifiedDate'
 import { updateConcept } from '@/updateConcept/handler'
 
-// Mock the dependencies
+vi.mock('@/shared/transactionHelpers')
 vi.mock('@/shared/conceptIdExists')
 vi.mock('@/shared/deleteTriples')
 vi.mock('@/shared/rollback')
@@ -48,27 +52,46 @@ describe('updateConcept', () => {
       deleteResponse: { ok: true }
     })
 
-    rollback.mockResolvedValue()
+    startTransaction.mockResolvedValue('mock-transaction-url')
   })
 
   describe('when succesful', () => {
     test('should update concept and return 200 if concept exists and update succeeds', async () => {
+      // Mock successful responses for all steps
       conceptIdExists.mockResolvedValue(true)
+      startTransaction.mockResolvedValue('mock-transaction-url')
+      deleteTriples.mockResolvedValue({ ok: true })
       sparqlRequest.mockResolvedValue({ ok: true })
+      updateModifiedDate.mockResolvedValue(true)
+      commitTransaction.mockResolvedValue()
 
       const result = await updateConcept(mockEvent)
 
+      // Verify all steps were called with correct parameters
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
+      expect(conceptIdExists).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
+      expect(startTransaction).toHaveBeenCalled()
+      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft', 'mock-transaction-url')
       expect(sparqlRequest).toHaveBeenCalledWith({
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
         path: '/statements',
-        method: 'POST',
+        method: 'PUT',
         body: mockRdfXml,
-        version: 'draft'
+        version: 'draft',
+        transaction: {
+          transactionUrl: 'mock-transaction-url',
+          action: 'UPDATE'
+        }
       })
 
+      expect(updateModifiedDate).toHaveBeenCalledWith('123', 'draft', expect.any(String), 'mock-transaction-url')
+      expect(commitTransaction).toHaveBeenCalledWith('mock-transaction-url')
+
+      // Verify rollback was not called
+      expect(rollbackTransaction).not.toHaveBeenCalled()
+
+      // Check the final result
       expect(result).toEqual({
         statusCode: 200,
         body: JSON.stringify({ message: 'Successfully updated concept: 123' }),
@@ -78,6 +101,71 @@ describe('updateConcept', () => {
   })
 
   describe('when unsuccessful', () => {
+    test('should rollback transaction and return 500 if delete succeeds but insert fails', async () => {
+      conceptIdExists.mockResolvedValue(true)
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({
+        ok: false,
+        status: 500
+      })
+
+      const result = await updateConcept(mockEvent)
+
+      expect(startTransaction).toHaveBeenCalled()
+      expect(deleteTriples).toHaveBeenCalled()
+      expect(sparqlRequest).toHaveBeenCalled()
+      expect(rollbackTransaction).toHaveBeenCalledWith('mock-transaction-url')
+      expect(commitTransaction).not.toHaveBeenCalled()
+
+      expect(result.statusCode).toBe(500)
+    })
+
+    test('should handle error when rolling back transaction fails', async () => {
+      conceptIdExists.mockResolvedValue(true)
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({
+        ok: false,
+        status: 500
+      })
+
+      rollbackTransaction.mockRejectedValue(new Error('Rollback failed'))
+
+      const consoleErrorSpy = vi.spyOn(console, 'error')
+
+      const result = await updateConcept(mockEvent)
+
+      expect(startTransaction).toHaveBeenCalled()
+      expect(deleteTriples).toHaveBeenCalled()
+      expect(sparqlRequest).toHaveBeenCalled()
+      expect(rollbackTransaction).toHaveBeenCalledWith('mock-transaction-url')
+      expect(commitTransaction).not.toHaveBeenCalled()
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('HTTP error! insert status: 500')
+
+      // Check that both error messages were logged
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error inserting new data, rolling back:', expect.any(Error))
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error rolling back transaction:', expect.any(Error))
+
+      consoleErrorSpy.mockRestore()
+    })
+
+    test('should return 500 if starting transaction fails', async () => {
+      conceptIdExists.mockResolvedValue(true)
+      startTransaction.mockRejectedValue(new Error('Failed to start transaction'))
+
+      const result = await updateConcept(mockEvent)
+
+      expect(startTransaction).toHaveBeenCalled()
+      expect(deleteTriples).not.toHaveBeenCalled()
+      expect(sparqlRequest).not.toHaveBeenCalled()
+      expect(rollbackTransaction).not.toHaveBeenCalled()
+      expect(commitTransaction).not.toHaveBeenCalled()
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('Failed to start transaction')
+    })
+
     test('should return 404 if concept does not exist', async () => {
       conceptIdExists.mockResolvedValue(false)
 
@@ -107,7 +195,7 @@ describe('updateConcept', () => {
       })
     })
 
-    test('should handle getConceptId returning null', async () => {
+    test('should handle missing concept id in rdf/xml', async () => {
       getConceptId.mockReturnValue(null)
 
       const result = await updateConcept(mockEvent)
@@ -123,7 +211,7 @@ describe('updateConcept', () => {
       })
     })
 
-    test('should handle getConceptId throwing an error', async () => {
+    test('should handle invalid rdf/xml when getting concept id', async () => {
       getConceptId.mockImplementation(() => {
         throw new Error('Invalid XML')
       })
@@ -141,7 +229,7 @@ describe('updateConcept', () => {
       })
     })
 
-    test('should handle conceptIdExists throwing an error', async () => {
+    test('should handle database error', async () => {
       conceptIdExists.mockRejectedValue(new Error('Database error'))
 
       const result = await updateConcept(mockEvent)
@@ -158,106 +246,42 @@ describe('updateConcept', () => {
       })
     })
 
-    test('should return 500 if delete operation fails', async () => {
+    test('should return 500 when delete operation fails', async () => {
       conceptIdExists.mockResolvedValue(true)
       deleteTriples.mockResolvedValue({
-        deletedTriples: mockDeletedTriples,
-        deleteResponse: {
-          ok: false,
-          status: 500
-        }
+        ok: false,
+        status: 500
       })
 
       const result = await updateConcept(mockEvent)
 
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
+      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft', 'mock-transaction-url')
       expect(sparqlRequest).not.toHaveBeenCalled()
-      expect(rollback).not.toHaveBeenCalled()
 
       expect(result).toEqual({
         statusCode: 500,
         body: JSON.stringify({
           message: 'Error updating concept',
-          error: 'HTTP error! delete status: 500'
+          error: 'Failed to delete existing triples'
         }),
         headers: mockDefaultHeaders
       })
     })
 
-    test('should handle sparqlRequest throwing an error', async () => {
+    test('should handle error when sparql request fails', async () => {
       conceptIdExists.mockResolvedValue(true)
       sparqlRequest.mockRejectedValue(new Error('Network error'))
 
       const result = await updateConcept(mockEvent)
 
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
-      expect(sparqlRequest).toHaveBeenCalled()
-      expect(rollback).toHaveBeenCalledWith(mockDeletedTriples, 'draft')
+      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft', 'mock-transaction-url')
       expect(result).toEqual({
         statusCode: 500,
         body: JSON.stringify({
           message: 'Error updating concept',
-          error: 'Network error'
-        }),
-        headers: mockDefaultHeaders
-      })
-    })
-
-    test('should rollback and return 500 if delete succeeds but insert fails', async () => {
-      conceptIdExists.mockResolvedValue(true)
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500
-      })
-
-      const result = await updateConcept(mockEvent)
-
-      expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
-      expect(sparqlRequest).toHaveBeenCalledWith({
-        contentType: 'application/rdf+xml',
-        accept: 'application/rdf+xml',
-        path: '/statements',
-        method: 'POST',
-        body: mockRdfXml,
-        version: 'draft'
-      })
-
-      expect(rollback).toHaveBeenCalledWith(mockDeletedTriples, 'draft')
-
-      expect(result).toEqual({
-        statusCode: 500,
-        body: JSON.stringify({
-          message: 'Error updating concept',
-          error: 'HTTP error! insert status: 500'
-        }),
-        headers: mockDefaultHeaders
-      })
-    })
-
-    test('should return 500 if rollback fails', async () => {
-      conceptIdExists.mockResolvedValue(true)
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500
-      })
-
-      rollback.mockRejectedValue(new Error('Rollback failed'))
-
-      const result = await updateConcept(mockEvent)
-
-      expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
-      expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
-      expect(sparqlRequest).toHaveBeenCalled()
-      expect(rollback).toHaveBeenCalledWith(mockDeletedTriples, 'draft')
-
-      expect(result).toEqual({
-        statusCode: 500,
-        body: JSON.stringify({
-          message: 'Error updating concept',
-          error: 'Rollback failed'
+          error: 'Failed to delete existing triples'
         }),
         headers: mockDefaultHeaders
       })
@@ -270,11 +294,7 @@ describe('updateConcept', () => {
       vi.setSystemTime(new Date('2023-05-15T10:30:00.000Z'))
 
       conceptIdExists.mockResolvedValue(true)
-      deleteTriples.mockResolvedValue({
-        deletedTriples: mockDeletedTriples,
-        deleteResponse: { ok: true }
-      })
-
+      deleteTriples.mockResolvedValue({ ok: true })
       sparqlRequest.mockResolvedValue({ ok: true })
 
       // Add these lines to mock console methods
@@ -293,7 +313,7 @@ describe('updateConcept', () => {
 
       const result = await updateConcept(mockEvent)
 
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
       expect(result.statusCode).toBe(200)
       expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
       expect(console.log).toHaveBeenCalledWith(`Updated modified date to 2023-05-15T10:30:00.000Z for concept ${mockConceptId}`)
@@ -304,7 +324,7 @@ describe('updateConcept', () => {
 
       const result = await updateConcept(mockEvent)
 
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
       expect(result.statusCode).toBe(200)
       expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
       expect(console.warn).toHaveBeenCalledWith(`Failed to update modified date for concept ${mockConceptId}`)
@@ -315,7 +335,7 @@ describe('updateConcept', () => {
 
       const result = await updateConcept(mockEvent)
 
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
       expect(result.statusCode).toBe(200)
       expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
     })
@@ -329,7 +349,7 @@ describe('updateConcept', () => {
 
       await updateConcept(versionedEvent)
 
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'published', '2023-05-15T10:30:00.000Z')
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'published', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
     })
 
     test('should handle errors from updateModifiedDate', async () => {
@@ -337,7 +357,7 @@ describe('updateConcept', () => {
 
       const result = await updateConcept(mockEvent)
 
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z')
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
       expect(result.statusCode).toBe(500)
       expect(JSON.parse(result.body)).toEqual({
         message: 'Error updating concept',
@@ -348,8 +368,6 @@ describe('updateConcept', () => {
         'Error inserting new data, rolling back:',
         expect.objectContaining({ message: 'Failed to update modified date' })
       )
-
-      expect(rollback).toHaveBeenCalledWith(mockDeletedTriples, 'draft')
     })
 
     test('should not update modified date if concept update fails', async () => {
@@ -372,7 +390,7 @@ describe('updateConcept', () => {
 
       await updateConcept(mockEvent)
 
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', customDate.toISOString())
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', customDate.toISOString(), 'mock-transaction-url')
     })
   })
 })

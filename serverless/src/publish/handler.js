@@ -2,6 +2,11 @@ import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { renameGraph } from '@/shared/renameGraph'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
 
 /**
@@ -47,10 +52,12 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  * //   body: '{"message":"Error: \\"name\\" parameter is required in the request body"}'
  * // }
  */
+
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
-  const name = event.name || (event.body ? JSON.parse(event.body).name : null)
+  // Extract name from query parameters
+  const name = event.queryStringParameters?.name
 
   // Check if name is provided
   if (!name) {
@@ -61,39 +68,49 @@ export const publish = async (event) => {
     }
   }
 
+  let transactionUrl = null
+
   try {
-    // 1. Move published to past_published if it exists
+    // Start a new transaction
+    transactionUrl = await startTransaction()
+
+    // // 1. Move published to past_published if it exists
     const metadata = await getVersionMetadata('published')
     if (metadata) {
       const { versionName } = metadata
       await renameGraph({
         oldGraphName: 'published',
-        newGraphName: versionName
+        newGraphName: versionName,
+        transactionUrl
       })
 
       await updateVersionMetadata({
         graphId: versionName,
-        versionType: 'past_published'
+        versionType: 'past_published',
+        transactionUrl
       })
     }
 
     // 2. Copy draft to published.
     await copyGraph({
       sourceGraphName: 'draft',
-      targetGraphName: 'published'
+      targetGraphName: 'published',
+      transactionUrl
     })
 
-    // 3. Updated published graph with version info.
+    // // 3. Updated published graph with version info.
     const updateDate = new Date().toISOString()
     await updateVersionMetadata({
       graphId: 'published',
       version: name,
       versionType: 'published',
       createdDate: updateDate,
-      modifiedDate: updateDate
+      modifiedDate: updateDate,
+      transactionUrl
     })
 
-    console.log(`Published draft to ${name} successfully`)
+    // Commit the transaction
+    await commitTransaction(transactionUrl)
 
     // Return success response
     return {
@@ -107,6 +124,11 @@ export const publish = async (event) => {
     }
   } catch (error) {
     console.error('Error in publish process:', error)
+
+    // Rollback the transaction if an error occurred
+    if (transactionUrl) {
+      await rollbackTransaction(transactionUrl)
+    }
 
     // Return error response
     return {

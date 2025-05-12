@@ -7,6 +7,8 @@ import {
   vi
 } from 'vitest'
 
+import { delay } from '@/shared/delay'
+
 import { sparqlRequest } from '../sparqlRequest'
 
 global.fetch = vi.fn()
@@ -14,6 +16,11 @@ global.fetch = vi.fn()
 describe('sparqlRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mock('@/shared/delay', () => ({
+      delay: vi.fn(() => Promise.resolve())
+    }))
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     process.env.RDF4J_SERVICE_URL = 'http://test-server.com'
@@ -231,11 +238,145 @@ describe('sparqlRequest', () => {
     })
   })
 
+  describe('when using transactions', () => {
+    test('should handle sparql updates that include transaction', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      const transactionUrl = 'http://test-server.com/rdf4j-server/repositories/kms/transactions/123'
+      await sparqlRequest({
+        method: 'PUT',
+        body: 'UPDATE DATA { <http://example.org/s> <http://example.org/p> <http://example.org/o> }',
+        contentType: 'application/sparql-update',
+        transaction: {
+          transactionUrl,
+          action: 'UPDATE'
+        }
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${transactionUrl}?action=UPDATE`,
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/sparql-update'
+          }),
+          body: 'UPDATE DATA { <http://example.org/s> <http://example.org/p> <http://example.org/o> }'
+        })
+      )
+    })
+
+    test('should handle transaction commit', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      const transactionUrl = 'http://test-server.com/rdf4j-server/repositories/kms/transactions/123'
+      await sparqlRequest({
+        method: 'PUT',
+        transaction: {
+          transactionUrl,
+          action: 'COMMIT'
+        }
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${transactionUrl}?action=COMMIT`,
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/rdf+xml',
+            Accept: 'application/rdf+xml'
+          })
+        })
+      )
+    })
+
+    test('should handle transaction rollback', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      const transactionUrl = 'http://test-server.com/rdf4j-server/repositories/kms/transactions/123'
+      await sparqlRequest({
+        method: 'DELETE',
+        transaction: {
+          transactionUrl
+        }
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        transactionUrl,
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/rdf+xml',
+            Accept: 'application/rdf+xml'
+          })
+        })
+      )
+    })
+  })
+
   describe('when unsuccessful', () => {
     test('should throw an error if fetch fails', async () => {
       global.fetch.mockRejectedValue(new Error('Network error'))
 
       await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Network error')
+    })
+
+    test('should throw an error if response is not OK', async () => {
+      const errorResponse = {
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: () => Promise.resolve('Invalid SPARQL query')
+      }
+      global.fetch.mockResolvedValue(errorResponse)
+
+      await expect(sparqlRequest({
+        method: 'POST',
+        body: 'INVALID QUERY',
+        contentType: 'application/sparql-query'
+      })).rejects.toThrow('HTTP error! status: 400, body: Invalid SPARQL query')
+
+      expect(global.fetch).toHaveBeenCalledTimes(11) // 10 retries
+      expect(console.error).toHaveBeenCalledWith('Error response body: Invalid SPARQL query')
+    })
+
+    describe('when retrying', () => {
+      test('should handle retrying by fetching multiple times', async () => {
+        global.fetch
+          .mockRejectedValueOnce(new Error('Network error'))
+          .mockRejectedValueOnce(new Error('Network error'))
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({})
+          })
+
+        await expect(sparqlRequest({ method: 'GET' })).resolves.toBeDefined()
+
+        expect(global.fetch).toHaveBeenCalledTimes(3)
+        expect(delay).toHaveBeenCalledTimes(2)
+        expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
+      })
+
+      test('should retry MAX_RETRIES times and then throw an error', async () => {
+        global.fetch.mockRejectedValue(new Error('Persistent network error'))
+
+        await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Persistent network error')
+
+        expect(global.fetch).toHaveBeenCalledTimes(11) // Initial attempt + MAX_RETRIES (10)
+        expect(delay).toHaveBeenCalledTimes(10) // Called for each retry
+        expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
+      })
     })
   })
 })

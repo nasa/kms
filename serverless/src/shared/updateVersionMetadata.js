@@ -42,7 +42,8 @@ export const updateVersionMetadata = async ({
   version,
   versionType,
   createdDate,
-  lastSynced
+  lastSynced,
+  transactionUrl
 }) => {
   const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
   const versionUri = 'https://gcmd.earthdata.nasa.gov/kms/version_metadata'
@@ -90,8 +91,11 @@ export const updateVersionMetadata = async ({
 
   try {
     const response = await sparqlRequest({
-      path: '/statements',
-      method: 'POST',
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      },
+      method: 'PUT',
       body: query,
       contentType: 'application/sparql-update',
       accept: 'application/json'

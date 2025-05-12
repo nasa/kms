@@ -34,7 +34,7 @@ import { sparqlRequest } from './sparqlRequest'
  * @see Related function:
  * {@link sparqlRequest}
  */
-export const renameGraph = async ({ oldGraphName, newGraphName }) => {
+export const renameGraph = async ({ oldGraphName, newGraphName, transactionUrl }) => {
   const renameQuery = `
     MOVE <https://gcmd.earthdata.nasa.gov/kms/version/${oldGraphName}>
     TO <https://gcmd.earthdata.nasa.gov/kms/version/${newGraphName}>
@@ -42,8 +42,11 @@ export const renameGraph = async ({ oldGraphName, newGraphName }) => {
 
   try {
     await sparqlRequest({
-      path: '/statements',
-      method: 'POST',
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      },
+      method: 'PUT',
       body: renameQuery,
       contentType: 'application/sparql-update'
     })

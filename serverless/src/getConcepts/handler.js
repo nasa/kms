@@ -68,6 +68,8 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @throws {Error} If there's an error retrieving or processing the concepts.
  */
 export const getConcepts = async (event) => {
+  console.log('Fetching concepts!')
+
   const { defaultResponseHeaders } = getApplicationConfig()
   const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
@@ -121,16 +123,16 @@ export const getConcepts = async (event) => {
     })
     const totalPages = Math.ceil(totalConcepts / pageSize)
 
-    // Calculate start and end indices for the current page
-    const prefLabelMap = await createPrefLabelMap(version)
-    // eslint-disable-next-line max-len
-    const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
-
     let responseBody
     let contentType
 
     // Handle different formats based on queryStringParameter 'format'
     if (format.toLowerCase() === 'json') {
+      // Calculate start and end indices for the current page
+      const prefLabelMap = await createPrefLabelMap(version)
+      // eslint-disable-next-line max-len
+      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
+
       const conceptSchemeMap = await createConceptSchemeMap(event)
 
       const versionInfo = await getVersionMetadata(version)
@@ -185,6 +187,9 @@ export const getConcepts = async (event) => {
 
       return createCsvForScheme(conceptScheme, version)
     } else if (format.toLowerCase() === 'xml') {
+      // eslint-disable-next-line max-len
+      const conceptToConceptSchemeShortNameMap = await createConceptToConceptSchemeShortNameMap(version)
+
       const xmlBuilder = new XMLBuilder({
         format: true,
         ignoreAttributes: false,
