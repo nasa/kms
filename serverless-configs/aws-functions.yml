@@ -1,17 +1,14 @@
 edlAuthorizer:
   handler: serverless/src/edlAuthorizer/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
-triggerPublish:
-  handler: serverless/src/triggerPublish/handler.default
-  timeout: 900
+publishHandler:
+  handler: serverless/src/publish/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
   events:
     - http:
         path: publish
         method: post
-publishHandler:
-  handler: serverless/src/publish/handler.default
   provisionedConcurrency: 1
-  timeout: 900
 
 # This should not be called in production, only from the scheduler, otherwise
 # it will timeout in 30 seconds.
@@ -75,6 +72,10 @@ status:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: status
+    # Keep JVM for RDF4j from going idle.
+    - schedule:
+            rate: cron(*/5 * * * ? *)
+            enabled: true
 getConcepts:
   handler: serverless/src/getConcepts/handler.default
   provisionedConcurrency: 1

@@ -87,7 +87,6 @@ describe('importConceptData', () => {
     expect(sparqlRequest).toHaveBeenCalledWith({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
-      path: '/statements',
       method: 'POST',
       body: expect.stringContaining('<rdf:RDF'),
       version: '1.0'

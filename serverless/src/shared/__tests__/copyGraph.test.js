@@ -33,15 +33,20 @@ describe('copyGraph', () => {
 
       await copyGraph({
         sourceGraphName,
-        targetGraphName
+        targetGraphName,
+        transactionUrl: 'transactionUrl'
       })
 
       // Check if sparqlRequest was called with correct parameters
       expect(sparqlRequest).toHaveBeenCalledWith({
-        path: '/statements',
-        method: 'POST',
         body: expect.stringContaining(`COPY <https://gcmd.earthdata.nasa.gov/kms/version/${sourceGraphName}>`),
-        contentType: 'application/sparql-update'
+        contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json',
+        transaction: {
+          action: 'UPDATE',
+          transactionUrl: 'transactionUrl'
+        },
+        method: 'PUT'
       })
 
       // Check if success message was logged

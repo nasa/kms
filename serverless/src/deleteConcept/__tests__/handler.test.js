@@ -7,12 +7,14 @@ import {
 } from 'vitest'
 
 import { deleteConcept } from '@/deleteConcept/handler'
+import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { getApplicationConfig } from '@/shared/getConfig'
 
 // Mock the dependencies
 vi.mock('@/shared/deleteTriples')
 vi.mock('@/shared/getConfig')
+vi.mock('@/shared/conceptIdExists')
 
 describe('deleteConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
@@ -23,14 +25,14 @@ describe('deleteConcept', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(console, 'log').mockImplementation(() => {})
 
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
   })
 
   describe('when successful', () => {
     test('should successfully delete a concept', async () => {
-      deleteTriples.mockResolvedValue({ deleteResponse: { ok: true } })
+      conceptIdExists.mockResolvedValue(true)
+      deleteTriples.mockResolvedValue({ ok: true })
 
       const result = await deleteConcept(mockEvent)
 
@@ -43,6 +45,7 @@ describe('deleteConcept', () => {
     })
 
     test('should use correct conceptIRI format', async () => {
+      conceptIdExists.mockResolvedValue(true)
       deleteTriples.mockResolvedValue({ deleteResponse: { ok: true } })
 
       await deleteConcept(mockEvent)
@@ -52,9 +55,24 @@ describe('deleteConcept', () => {
   })
 
   describe('when unsuccessful', () => {
+    test('should return 404 if concept does not exist', async () => {
+      conceptIdExists.mockResolvedValue(false)
+
+      const result = await deleteConcept(mockEvent)
+
+      expect(conceptIdExists).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
+      expect(deleteTriples).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        statusCode: 404,
+        body: JSON.stringify({ message: 'Concept not found: 123' }),
+        headers: mockDefaultHeaders
+      })
+    })
+
     test('should return 500 if deleteTriples fails', async () => {
       const mockError = new Error('Delete failed')
       deleteTriples.mockRejectedValue(mockError)
+      conceptIdExists.mockResolvedValue(true)
 
       const result = await deleteConcept(mockEvent)
 
@@ -70,12 +88,12 @@ describe('deleteConcept', () => {
 
     test('should return 500 if deleteTriples returns non-ok response', async () => {
       deleteTriples.mockResolvedValue({
-        deleteResponse: {
-          ok: false,
-          status: 400,
-          text: () => Promise.resolve('Bad Request')
-        }
+        ok: false,
+        status: 400,
+        text: () => Promise.resolve('Bad Request')
       })
+
+      conceptIdExists.mockResolvedValue(true)
 
       const result = await deleteConcept(mockEvent)
 
@@ -92,6 +110,7 @@ describe('deleteConcept', () => {
     test('should handle missing conceptId', async () => {
       const eventWithoutConceptId = { pathParameters: {} }
 
+      conceptIdExists.mockResolvedValue(true)
       const result = await deleteConcept(eventWithoutConceptId)
 
       expect(result).toMatchObject({

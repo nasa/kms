@@ -45,6 +45,7 @@ describe('getConcepts', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'log').mockImplementation(() => {})
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
     createCsvForScheme.mockReset()
     createPrefLabelMap.mockResolvedValue(new Map())

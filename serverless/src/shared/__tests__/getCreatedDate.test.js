@@ -44,9 +44,9 @@ describe('getCreatedDate', () => {
     expect(getCreateDateQuery).toHaveBeenCalledWith(mockConceptId)
     expect(sparqlRequest).toHaveBeenCalledWith({
       method: 'POST',
-      path: '/query',
       body: mockQuery,
       accept: 'application/sparql-results+json',
+      contentType: 'application/sparql-query',
       version: mockVersion
     })
 

@@ -12,6 +12,7 @@ vi.mock('@/shared/sparqlRequest')
 describe('when fetching count', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   test('should return correct count', async () => {

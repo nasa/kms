@@ -11,9 +11,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const getCreatedDate = async (conceptId, version) => {
   const response = await sparqlRequest({
     method: 'POST',
-    path: '/query',
     body: getCreateDateQuery(conceptId),
     accept: 'application/sparql-results+json',
+    contentType: 'application/sparql-query',
     version
   })
 

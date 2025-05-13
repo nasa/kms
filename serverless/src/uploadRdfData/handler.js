@@ -65,7 +65,6 @@ export const uploadRdfData = async (event) => {
     const response = await sparqlRequest({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
-      path: '/statements',
       method: 'POST',
       body: rdfXml,
       version

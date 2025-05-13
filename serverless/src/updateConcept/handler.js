@@ -2,8 +2,12 @@ import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
-import { rollback } from '@/shared/rollback'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 import { updateModifiedDate } from '@/shared/updateModifiedDate'
 
 /**
@@ -83,6 +87,8 @@ export const updateConcept = async (event) => {
   const { body: rdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
 
+  let transactionUrl = null
+
   try {
     if (!rdfXml) {
       throw new Error('Missing RDF/XML data in request body')
@@ -104,41 +110,47 @@ export const updateConcept = async (event) => {
       }
     }
 
+    transactionUrl = await startTransaction()
+
     // Delete existing triples and get the deleted data
-    const { deletedTriples, deleteResponse } = await deleteTriples(conceptIRI, version)
+    const deleteResponse = await deleteTriples(conceptIRI, version, transactionUrl)
 
     if (!deleteResponse.ok) {
-      throw new Error(`HTTP error! delete status: ${deleteResponse.status}`)
+      throw new Error('Failed to delete existing triples')
     }
-
-    console.log(`Successfully deleted concept: ${conceptId}`)
 
     // Try to insert the new data
     try {
       const insertResponse = await sparqlRequest({
+        method: 'PUT',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
-        method: 'POST',
         body: rdfXml,
-        version
+        version,
+        transaction: {
+          transactionUrl,
+          action: 'ADD'
+        }
       })
 
       if (!insertResponse.ok) {
         throw new Error(`HTTP error! insert status: ${insertResponse.status}`)
       }
 
-      console.log(`Successfully updated concept: ${conceptId}`)
-
       // Update the modified date
       const today = new Date().toISOString()
-      const updateModifiedSuccess = await updateModifiedDate(conceptId, version, today)
+      const updateModifiedSuccess = await updateModifiedDate(
+        conceptId,
+        version,
+        today,
+        transactionUrl
+      )
 
       if (!updateModifiedSuccess) {
-        console.warn(`Failed to update modified date for concept ${conceptId}`)
-      } else {
-        console.log(`Updated modified date to ${today} for concept ${conceptId}`)
+        throw new Error('HTTP error! updating last modified date failed')
       }
+
+      await commitTransaction(transactionUrl)
 
       return {
         statusCode: 200,
@@ -148,8 +160,14 @@ export const updateConcept = async (event) => {
     } catch (insertError) {
       console.error('Error inserting new data, rolling back:', insertError)
 
-      // Rollback: reinsert the deleted triples
-      await rollback(deletedTriples, version)
+      // Rollback the transaction if an error occurred
+      if (transactionUrl) {
+        try {
+          await rollbackTransaction(transactionUrl)
+        } catch (rollbackError) {
+          console.error('Error rolling back transaction:', rollbackError)
+        }
+      }
 
       return {
         statusCode: 500,
