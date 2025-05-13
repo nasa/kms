@@ -315,28 +315,6 @@ describe('updateConcept', () => {
       expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
       expect(result.statusCode).toBe(200)
       expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
-      expect(console.log).toHaveBeenCalledWith(`Updated modified date to 2023-05-15T10:30:00.000Z for concept ${mockConceptId}`)
-    })
-
-    test('should log warning if updating modified date fails', async () => {
-      updateModifiedDate.mockResolvedValue(false)
-
-      const result = await updateConcept(mockEvent)
-
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
-      expect(result.statusCode).toBe(200)
-      expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
-      expect(console.warn).toHaveBeenCalledWith(`Failed to update modified date for concept ${mockConceptId}`)
-    })
-
-    test('should still return success if concept update succeeds but modified date update fails', async () => {
-      updateModifiedDate.mockResolvedValue(false)
-
-      const result = await updateConcept(mockEvent)
-
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
-      expect(result.statusCode).toBe(200)
-      expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
     })
 
     test('should use provided version for updating modified date', async () => {

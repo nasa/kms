@@ -111,7 +111,7 @@ export const publish = async (event) => {
       transactionUrl
     })
 
-    // // Commit the transaction
+    // Commit the transaction
     await commitTransaction(transactionUrl)
 
     // Return success response

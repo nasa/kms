@@ -187,7 +187,7 @@ export const sparqlRequest = async ({
 
     if (!response.ok) {
       const responseText = await response.text()
-      // Console.error(`Error response body: ${responseText}`)
+      console.error(`Error response body: ${responseText}`)
       throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`)
     }
 
@@ -197,7 +197,7 @@ export const sparqlRequest = async ({
     const duration = endTime - startTime
 
     console.error(`SPARQL request failed after ${duration.toFixed(2)} ms`)
-    console.log(`Request ${url} body: ${body}`)
+    console.error(`Request ${url} body: ${body}`)
     console.error('Error:', error)
 
     // Implement retry logic

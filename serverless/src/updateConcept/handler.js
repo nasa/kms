@@ -119,8 +119,6 @@ export const updateConcept = async (event) => {
       throw new Error('Failed to delete existing triples')
     }
 
-    console.log(`Successfully deleted concept: ${conceptId}`)
-
     // Try to insert the new data
     try {
       const insertResponse = await sparqlRequest({
@@ -139,8 +137,6 @@ export const updateConcept = async (event) => {
         throw new Error(`HTTP error! insert status: ${insertResponse.status}`)
       }
 
-      console.log(`Successfully updated concept: ${conceptId}`)
-
       // Update the modified date
       const today = new Date().toISOString()
       const updateModifiedSuccess = await updateModifiedDate(
@@ -151,14 +147,10 @@ export const updateConcept = async (event) => {
       )
 
       if (!updateModifiedSuccess) {
-        console.warn(`Failed to update modified date for concept ${conceptId}`)
-      } else {
-        console.log(`Updated modified date to ${today} for concept ${conceptId}`)
+        throw new Error('HTTP error! updating last modified date failed')
       }
 
-      console.log('comitting transaction')
       await commitTransaction(transactionUrl)
-      console.log('done comitting transaction')
 
       return {
         statusCode: 200,
@@ -172,7 +164,6 @@ export const updateConcept = async (event) => {
       if (transactionUrl) {
         try {
           await rollbackTransaction(transactionUrl)
-          console.log('Transaction rolled back due to error')
         } catch (rollbackError) {
           console.error('Error rolling back transaction:', rollbackError)
         }
