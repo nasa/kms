@@ -71,6 +71,10 @@ status:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: status
+    # Keep JVM for RDF4j from going idle.
+    - schedule:
+            rate: cron(*/5 * * * ? *)
+            enabled: true
 getConcepts:
   handler: serverless/src/getConcepts/handler.default
   provisionedConcurrency: 1

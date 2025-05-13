@@ -360,6 +360,25 @@ describe('updateConcept', () => {
       expect(JSON.parse(result.body).error).toBe('HTTP error! insert status: 500')
     })
 
+    test('should throw an error if updating modified date fails', async () => {
+      conceptIdExists.mockResolvedValue(true)
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({ ok: true })
+      updateModifiedDate.mockResolvedValue(false)
+
+      const result = await updateConcept(mockEvent)
+
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', expect.any(String), 'mock-transaction-url')
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body)).toEqual({
+        message: 'Error updating concept',
+        error: 'HTTP error! updating last modified date failed'
+      })
+
+      expect(rollbackTransaction).toHaveBeenCalledWith('mock-transaction-url')
+      expect(commitTransaction).not.toHaveBeenCalled()
+    })
+
     test('should use current date for updating modified date', async () => {
       const customDate = new Date('2024-01-01T00:00:00.000Z')
       vi.setSystemTime(customDate)

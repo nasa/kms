@@ -1,4 +1,5 @@
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getVersionNames } from '@/shared/getVersionNames'
 
 /**
  * Provides a status check for the RDF4J database connection.
@@ -46,13 +47,15 @@ export const status = async () => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
+    const conceptSchemes = await getVersionNames()
+
     return {
       statusCode: 200,
       headers: {
         ...defaultResponseHeaders,
         'Content-Type': 'text/plain' // Assuming the protocol endpoint returns XML
       },
-      body: 'Database connection healthy'
+      body: `Database connection healthy.  ${conceptSchemes.length} versions retrieved.`
     }
   } catch (error) {
     console.error('Error fetching RDF4J status:', error)
