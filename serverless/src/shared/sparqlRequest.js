@@ -8,20 +8,26 @@
 import { delay } from '@/shared/delay'
 
 /**
- * Sends a request to the SPARQL endpoint with the specified parameters.
+ * Sends a request to the SPARQL endpoint with the specified parameters, supporting RDF4J transactions.
  *
  * This function constructs and sends an HTTP request to the configured SPARQL endpoint,
- * handling authentication, content type specifications, and version-specific graph modifications.
+ * handling authentication, content type specifications, version-specific graph modifications,
+ * and RDF4J transactions.
  *
  * @async
  * @function sparqlRequest
  * @param {Object} options - The options for the SPARQL request.
  * @param {string} [options.path=''] - The path to append to the base SPARQL endpoint URL.
- * @param {string} options.method - The HTTP method to use for the request (e.g., 'GET', 'POST').
+ *                                     Usually determined by contentType, but can be overridden.
+ * @param {string} options.method - The HTTP method to use for the request (e.g., 'GET', 'POST', 'PUT').
  * @param {string|Object} [options.body] - The body of the request, if applicable.
- * @param {string} [options.contentType='application/rdf+xml'] - The Content-Type header for the request.
- * @param {string} [options.accept='application/rdf+xml'] - The Accept header for the request.
+ * @param {string} [options.contentType='application/sparql-query'] - The Content-Type header for the request.
+ * @param {string} [options.accept='application/sparql-results+json'] - The Accept header for the request.
  * @param {string} [options.version] - The version of the graph to query or update (e.g., 'published', 'draft', or a specific version number).
+ * @param {Object} [options.transaction] - Transaction details for RDF4J transactions.
+ * @param {string} [options.transaction.transactionUrl] - The URL of the active transaction.
+ * @param {string} [options.transaction.action] - The action to perform in the transaction (e.g., 'UPDATE', 'DELETE').
+ * @param {number} [options.retryCount=0] - The current retry attempt count.
  * @returns {Promise<Response>} A promise that resolves to the fetch Response object.
  *
  * @example
@@ -35,27 +41,48 @@ import { delay } from '@/shared/delay'
  * });
  *
  * @example
- * // Update the draft version
+ * // Update the draft version within a transaction
  * const response = await sparqlRequest({
- *   method: 'POST',
+ *   method: 'PUT',
  *   body: 'INSERT DATA { <http://example.com/subject> <http://example.com/predicate> "New Value" }',
- *   contentType: 'application/sparql-update',
- *   version: 'draft'
+ *   contentType: 'application/sparql-query',
+ *   accept: 'application/sparql-results+json',
+ *   version: 'draft',
+ *   transaction: {
+ *     transactionUrl: 'http://example.com/rdf4j-server/repositories/kms/transactions/1234',
+ *     action: 'ADD'
+ *   }
  * });
  *
- * @throws Will throw an error if the fetch operation fails.
+ * @throws Will throw an error if the fetch operation fails after max retries.
  *
  * @description
+ * The path for the request is typically determined by the contentType:
+ * - For 'application/sparql-update' or 'application/rdf+xml', the path is set to '/statements'.
+ * - For other content types, the default path is used.
+ * However, you can override this by explicitly setting the 'path' option.
+ *
  * When a version is specified, the function modifies the request as follows:
  * - For SPARQL queries, it adds a FROM clause to query the specific graph.
  * - For SPARQL updates, it adds a WITH clause to update the specific graph.
  * - For statement insertions/deletions, it adds a context parameter to the URL.
  *
+* For RDF4J transactions:
+ * - The `method` should be set to 'PUT' for transaction operations.
+ * - The `transaction.transactionUrl` should be provided with the active transaction URL.
+ * - The `transaction.action` should be specified (e.g., 'UPDATE', 'DELETE') for the operation.
+ * - When using transactions, the function will not append the `path` to the transaction URL.
+ * - Transactions require the use of the PUT method.
+ * - The `action` parameter is required for transaction operations and should be set, i.e, 'ADD', 'UPDATE'
+ * - When a transaction is active, the request is sent to the transaction URL instead of the regular endpoint.
+ *
+ * The function includes a retry mechanism for failed requests, with a maximum of 10 retries
+ * and a 1-second delay between retries.
+ *
  * @see Related functions:
  * {@link addFromClause}
  * {@link addWithClause}
  */
-
 const MAX_RETRIES = 10
 const RETRY_DELAY = 1000 // 1 second
 
