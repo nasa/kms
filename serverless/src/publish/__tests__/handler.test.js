@@ -8,6 +8,7 @@ import {
 import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { getVersionNames } from '@/shared/getVersionNames'
 import { renameGraph } from '@/shared/renameGraph'
 import {
   commitTransaction,
@@ -24,6 +25,7 @@ vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getVersionMetadata')
 vi.mock('@/shared/renameGraph')
 vi.mock('@/shared/updateVersionMetadata')
+vi.mock('@/shared/getVersionNames')
 
 vi.mock('@/shared/transactionHelpers', () => ({
   startTransaction: vi.fn(),
@@ -38,6 +40,7 @@ describe('publish handler', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
     startTransaction.mockResolvedValue('mock-transaction-url')
+    getVersionNames.mockResolvedValue([])
   })
 
   describe('when successful', () => {
@@ -46,6 +49,7 @@ describe('publish handler', () => {
       getVersionMetadata.mockResolvedValue(null)
       copyGraph.mockResolvedValue()
       updateVersionMetadata.mockResolvedValue()
+      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
 
       const result = await publish(event)
 
@@ -73,6 +77,7 @@ describe('publish handler', () => {
       renameGraph.mockResolvedValue()
       updateVersionMetadata.mockResolvedValue()
       copyGraph.mockResolvedValue()
+      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
 
       await publish(event)
 
@@ -101,9 +106,24 @@ describe('publish handler', () => {
       expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
     })
 
+    test('should return a 400 error when the version name already exists', async () => {
+      const event = { queryStringParameters: { name: 'existing_version' } }
+      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
+
+      const result = await publish(event)
+
+      expect(result.statusCode).toBe(400)
+      expect(JSON.parse(result.body).message).toBe('Error: Version name "existing_version" already exists')
+      expect(startTransaction).not.toHaveBeenCalled()
+      expect(copyGraph).not.toHaveBeenCalled()
+      expect(updateVersionMetadata).not.toHaveBeenCalled()
+      expect(commitTransaction).not.toHaveBeenCalled()
+    })
+
     test('should handle errors during the publish process', async () => {
       const event = { queryStringParameters: { name: 'new_version' } }
       getVersionMetadata.mockRejectedValue(new Error('Database error'))
+      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
 
       const result = await publish(event)
 
@@ -119,6 +139,7 @@ describe('publish handler', () => {
       const event = { queryStringParameters: { name: 'new_version' } }
       getVersionMetadata.mockResolvedValue(null)
       copyGraph.mockRejectedValue(new Error('Copy failed'))
+      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
 
       const result = await publish(event)
 

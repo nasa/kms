@@ -1,6 +1,7 @@
 import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { getVersionNames } from '@/shared/getVersionNames'
 import { renameGraph } from '@/shared/renameGraph'
 import {
   commitTransaction,
@@ -70,8 +71,18 @@ export const publish = async (event) => {
     }
   }
 
-  let transactionUrl = null
+  const versionNames = await getVersionNames()
 
+  // Check if the provided name already exists
+  if (versionNames.includes(name)) {
+    return {
+      statusCode: 400,
+      headers: defaultResponseHeaders,
+      body: JSON.stringify({ message: `Error: Version name "${name}" already exists` })
+    }
+  }
+
+  let transactionUrl = null
   try {
     // Start a new transaction
     transactionUrl = await startTransaction()
