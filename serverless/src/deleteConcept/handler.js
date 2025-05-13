@@ -1,3 +1,4 @@
+import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { getApplicationConfig } from '@/shared/getConfig'
 
@@ -39,11 +40,21 @@ export const deleteConcept = async (event) => {
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
   try {
-    const { deleteResponse: response } = await deleteTriples(conceptIRI, version)
+    // Check if the concept exists
+    const exists = await conceptIdExists(conceptIRI, version)
+
+    if (!exists) {
+      // Concept doesn't exist
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: `Concept not found: ${conceptId}` }),
+        headers: defaultResponseHeaders
+      }
+    }
+
+    const response = await deleteTriples(conceptIRI, version)
 
     if (!response.ok) {
-      const responseText = await response.text()
-      console.log('Response text:', responseText)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 

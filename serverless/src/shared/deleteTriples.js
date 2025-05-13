@@ -53,7 +53,7 @@ export const deleteTriples = async (conceptIRI, version, transactionUrl) => {
       contentType: 'application/sparql-update',
       accept: 'application/sparql-results+json',
       path: '/statements',
-      method: 'PUT',
+      method: transactionUrl ? 'PUT' : 'POST',
       body: getDeleteTriplesForConceptQuery(conceptIRI),
       version,
       transaction: {

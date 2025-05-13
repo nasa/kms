@@ -183,26 +183,6 @@ describe('sparqlRequest', () => {
       )
     })
 
-    test('should use default content type and accept headers if not provided', async () => {
-      const mockResponse = {
-        ok: true,
-        json: () => Promise.resolve({})
-      }
-      global.fetch.mockResolvedValue(mockResponse)
-
-      await sparqlRequest({ method: 'GET' })
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'Content-Type': 'application/rdf+xml',
-            Accept: 'application/rdf+xml'
-          })
-        })
-      )
-    })
-
     test('should append path to the endpoint URL if provided', async () => {
       const mockResponse = {
         ok: true,
@@ -288,11 +268,7 @@ describe('sparqlRequest', () => {
       expect(global.fetch).toHaveBeenCalledWith(
         `${transactionUrl}?action=COMMIT`,
         expect.objectContaining({
-          method: 'PUT',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/rdf+xml',
-            Accept: 'application/rdf+xml'
-          })
+          method: 'PUT'
         })
       )
     })
@@ -315,11 +291,7 @@ describe('sparqlRequest', () => {
       expect(global.fetch).toHaveBeenCalledWith(
         transactionUrl,
         expect.objectContaining({
-          method: 'DELETE',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/rdf+xml',
-            Accept: 'application/rdf+xml'
-          })
+          method: 'DELETE'
         })
       )
     })
@@ -348,7 +320,6 @@ describe('sparqlRequest', () => {
       })).rejects.toThrow('HTTP error! status: 400, body: Invalid SPARQL query')
 
       expect(global.fetch).toHaveBeenCalledTimes(11) // 10 retries
-      expect(console.error).toHaveBeenCalledWith('Error response body: Invalid SPARQL query')
     })
 
     describe('when retrying', () => {

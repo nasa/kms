@@ -61,7 +61,6 @@ describe('createConcept', () => {
       expect(sparqlRequest).toHaveBeenCalledWith({
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'POST',
         body: mockRdfXml,
         version: 'draft'

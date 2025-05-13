@@ -36,7 +36,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const updateModifiedDate = async (conceptId, version, date, transactionUrl) => {
   const response = await sparqlRequest({
-    method: 'PUT',
+    method: transactionUrl ? 'PUT' : 'POST',
     body: getUpdateModifiedDateQuery(conceptId, date),
     contentType: 'application/sparql-update',
     version,

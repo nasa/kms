@@ -51,13 +51,14 @@ export const copyGraph = async ({ sourceGraphName, targetGraphName, transactionU
 
   try {
     await sparqlRequest({
+      method: 'PUT',
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      body: copyQuery,
       transaction: {
         transactionUrl,
         action: 'UPDATE'
-      },
-      method: 'PUT',
-      body: copyQuery,
-      contentType: 'application/sparql-update'
+      }
     })
 
     console.log(`Successfully copied graph from ${sourceGraphName} to ${targetGraphName}`)

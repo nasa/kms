@@ -43,6 +43,7 @@ describe('renameGraph', () => {
         method: 'PUT',
         body: expect.stringContaining(`MOVE <https://gcmd.earthdata.nasa.gov/kms/version/${oldGraphName}>`),
         contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json',
         transaction: {
           transactionUrl,
           action: 'UPDATE'

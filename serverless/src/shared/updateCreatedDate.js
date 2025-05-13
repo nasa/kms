@@ -12,9 +12,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 export const updateCreatedDate = async (conceptId, version, date) => {
   const response = await sparqlRequest({
     method: 'POST',
-    path: '/statements',
     body: getUpdateCreatedDateQuery(conceptId, date),
     contentType: 'application/sparql-update',
+    accept: 'application/sparql-results+json',
     version
   })
 

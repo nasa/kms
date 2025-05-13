@@ -92,14 +92,14 @@ export const updateVersionMetadata = async ({
 
   try {
     const response = await sparqlRequest({
+      method: 'PUT',
+      contentType: 'application/sparql-update',
+      accept: 'application/json',
+      body: query,
       transaction: {
         transactionUrl,
         action: 'UPDATE'
-      },
-      method: 'PUT',
-      body: query,
-      contentType: 'application/sparql-update',
-      accept: 'application/json'
+      }
     })
 
     if (!response.ok) {

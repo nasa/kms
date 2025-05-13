@@ -60,11 +60,11 @@ const MAX_RETRIES = 10
 const RETRY_DELAY = 1000 // 1 second
 
 export const sparqlRequest = async ({
-  accept = 'application/rdf+xml',
-  body,
-  contentType = 'application/rdf+xml',
-  method,
   path = '',
+  accept,
+  body,
+  contentType,
+  method,
   transaction = {},
   version,
   retryCount = 0
@@ -129,9 +129,18 @@ export const sparqlRequest = async ({
     return `${prefixes.join('\n')}\nWITH <${graphUri}>\n${rest.join('\n')}`
   }
 
+  if (contentType === 'application/sparql-update'
+    || contentType === 'application/rdf+xml') {
+    path = '/statements'
+  }
+
   const endpoint = transactionUrl || getSparqlEndpoint()
   const authHeader = getAuthHeader()
-  const endpointUrl = new URL(`${endpoint}${path}`)
+
+  let endpointUrl = new URL(`${endpoint}${path}`)
+  if (transactionUrl) {
+    endpointUrl = new URL(`${endpoint}`) // Transactions should not include the path
+  }
 
   const headers = {
     'Content-Type': contentType,
@@ -146,22 +155,22 @@ export const sparqlRequest = async ({
     if (contentType === 'application/sparql-query') {
       body = addFromClause(body, graphUri)
     } else if (contentType === 'application/sparql-update') {
-    // Modify SPARQL updates to include WITH clause
+      // Modify SPARQL updates to include WITH clause
       body = addWithClause(body, graphUri)
     } else if (path.includes('/statements')) {
-    // For statements (insertions/deletions), use the context parameter
+      // For statements (insertions/deletions), use the context parameter
       endpointUrl.searchParams.append('context', `<${graphUri}>`)
     }
   }
 
-  let url = `${endpointUrl.toString()}`
-  if (action) {
-    url += `?action=${action}`
+  if (transactionUrl && action) {
+    endpointUrl.searchParams.append('action', action)
   }
+
+  const url = endpointUrl.toString()
 
   const startTime = performance.now()
 
-  console.log('sending fetch with ', body)
   try {
     const response = await fetch(url, {
       method,
@@ -178,7 +187,7 @@ export const sparqlRequest = async ({
 
     if (!response.ok) {
       const responseText = await response.text()
-      console.error(`Error response body: ${responseText}`)
+      // Console.error(`Error response body: ${responseText}`)
       throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`)
     }
 
@@ -200,7 +209,6 @@ export const sparqlRequest = async ({
         accept,
         body,
         contentType,
-        method,
         path,
         transaction,
         version,

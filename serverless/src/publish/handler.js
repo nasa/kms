@@ -76,7 +76,7 @@ export const publish = async (event) => {
     // Start a new transaction
     transactionUrl = await startTransaction()
 
-    // // 1. Move published to past_published if it exists
+    // 1. Move published to past_published if it exists
     const metadata = await getVersionMetadata('published')
     if (metadata) {
       const { versionName } = metadata
@@ -111,7 +111,7 @@ export const publish = async (event) => {
       transactionUrl
     })
 
-    // Commit the transaction
+    // // Commit the transaction
     await commitTransaction(transactionUrl)
 
     // Return success response

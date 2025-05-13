@@ -34,10 +34,10 @@ describe('removeGraph', () => {
 
       // Check if sparqlRequest was called with correct parameters
       expect(sparqlRequest).toHaveBeenCalledWith({
-        path: '/statements',
         method: 'POST',
         body: expect.stringContaining(`DROP GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/${graphName}>`),
-        contentType: 'application/sparql-update'
+        contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json'
       })
 
       // Check if success message was logged
@@ -86,10 +86,10 @@ describe('removeGraph', () => {
       await removeGraph(graphName)
 
       expect(sparqlRequest).toHaveBeenCalledWith({
-        path: '/statements',
         method: 'POST',
         body: expect.stringContaining(`DROP GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/${graphName}>`),
-        contentType: 'application/sparql-update'
+        contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json'
       })
     })
 
@@ -99,10 +99,10 @@ describe('removeGraph', () => {
       await removeGraph(graphName)
 
       expect(sparqlRequest).toHaveBeenCalledWith({
-        path: '/statements',
         method: 'POST',
         body: expect.stringContaining(`DROP GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/${graphName}>`),
-        contentType: 'application/sparql-update'
+        contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json'
       })
     })
   })

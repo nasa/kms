@@ -51,13 +51,14 @@ export const renameGraph = async ({ oldGraphName, newGraphName, transactionUrl }
 
   try {
     await sparqlRequest({
+      method: 'PUT',
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      body: renameQuery,
       transaction: {
         transactionUrl,
         action: 'UPDATE'
-      },
-      method: 'PUT',
-      body: renameQuery,
-      contentType: 'application/sparql-update'
+      }
     })
 
     console.log(`Successfully renamed graph from ${oldGraphName} to ${newGraphName}`)

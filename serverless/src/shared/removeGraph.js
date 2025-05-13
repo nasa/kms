@@ -40,10 +40,10 @@ export const removeGraph = async (graphName) => {
 
   try {
     await sparqlRequest({
-      path: '/statements',
       method: 'POST',
       body: removeQuery,
-      contentType: 'application/sparql-update'
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json'
     })
 
     console.log(`Successfully removed graph: ${graphName}`)

@@ -44,10 +44,10 @@ describe('getModifiedDate', () => {
     expect(getModifiedDateQuery).toHaveBeenCalledWith(mockConceptId)
     expect(sparqlRequest).toHaveBeenCalledWith({
       method: 'POST',
-      path: '/query',
       body: mockQuery,
       accept: 'application/sparql-results+json',
-      version: mockVersion
+      version: mockVersion,
+      contentType: 'application/sparql-query'
     })
 
     expect(result).toBe(mockModifiedDate)

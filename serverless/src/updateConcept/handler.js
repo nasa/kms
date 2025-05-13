@@ -124,15 +124,14 @@ export const updateConcept = async (event) => {
     // Try to insert the new data
     try {
       const insertResponse = await sparqlRequest({
+        method: 'PUT',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
-        method: 'PUT',
         body: rdfXml,
         version,
         transaction: {
           transactionUrl,
-          action: 'UPDATE'
+          action: 'ADD'
         }
       })
 
@@ -144,7 +143,12 @@ export const updateConcept = async (event) => {
 
       // Update the modified date
       const today = new Date().toISOString()
-      const updateModifiedSuccess = await updateModifiedDate(conceptId, version, today, transactionUrl)
+      const updateModifiedSuccess = await updateModifiedDate(
+        conceptId,
+        version,
+        today,
+        transactionUrl
+      )
 
       if (!updateModifiedSuccess) {
         console.warn(`Failed to update modified date for concept ${conceptId}`)
@@ -152,7 +156,9 @@ export const updateConcept = async (event) => {
         console.log(`Updated modified date to ${today} for concept ${conceptId}`)
       }
 
+      console.log('comitting transaction')
       await commitTransaction(transactionUrl)
+      console.log('done comitting transaction')
 
       return {
         statusCode: 200,

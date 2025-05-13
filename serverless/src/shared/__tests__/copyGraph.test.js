@@ -41,6 +41,7 @@ describe('copyGraph', () => {
       expect(sparqlRequest).toHaveBeenCalledWith({
         body: expect.stringContaining(`COPY <https://gcmd.earthdata.nasa.gov/kms/version/${sourceGraphName}>`),
         contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json',
         transaction: {
           action: 'UPDATE',
           transactionUrl: 'transactionUrl'

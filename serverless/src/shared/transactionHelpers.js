@@ -43,11 +43,11 @@ export const startTransaction = async () => {
  */
 export const commitTransaction = async (transactionUrl) => {
   await sparqlRequest({
+    method: 'PUT',
     transaction: {
       transactionUrl,
       action: 'COMMIT'
-    },
-    method: 'PUT'
+    }
   })
 }
 
@@ -69,9 +69,9 @@ export const commitTransaction = async (transactionUrl) => {
  */
 export const rollbackTransaction = async (transactionUrl) => {
   await sparqlRequest({
+    method: 'DELETE',
     transaction: {
       transactionUrl
-    },
-    method: 'DELETE'
+    }
   })
 }

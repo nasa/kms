@@ -75,13 +75,12 @@ describe('updateConcept', () => {
       expect(sparqlRequest).toHaveBeenCalledWith({
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        path: '/statements',
         method: 'PUT',
         body: mockRdfXml,
         version: 'draft',
         transaction: {
           transactionUrl: 'mock-transaction-url',
-          action: 'UPDATE'
+          action: 'ADD'
         }
       })
 
