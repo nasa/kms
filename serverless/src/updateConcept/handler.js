@@ -86,6 +86,13 @@ export const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+  const scheme = queryStringParameters?.scheme
+  const userNote = queryStringParameters?.userNote
+
+  console.log('rdfXml=', rdfXml)
+  console.log('userNote=', userNote)
+  console.log('version=', version)
+  console.log('scheme=', scheme)
 
   let transactionUrl = null
 
