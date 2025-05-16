@@ -19,6 +19,7 @@ COPY config/tomcat-users.xml /usr/local/tomcat/conf/tomcat-users.xml
 COPY scripts/setup.sh /usr/local/tomcat/setup.sh
 COPY scripts/setup_web_auth.sh /usr/local/tomcat/setup_web_auth.sh
 COPY scripts/create_repository.sh /usr/local/tomcat/create_repository.sh
+COPY config/config.ttl /usr/local/tomcat/config.ttl
 
 RUN chown -R tomcat:nogroup /usr/local/tomcat
 # Uncomment the line below to include rdf4j workbench, which is is a web-based 

@@ -133,7 +133,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     userData.addCommands(scriptWithVolume)
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
+      instanceType: ec2.InstanceType.of(ec2.InstanceClass.R5, ec2.InstanceSize.LARGE),
       machineImage: ec2.MachineImage.fromSsmParameter('/ngap/amis/image_id_ecs_al2023_x86'),
       minCapacity: 1,
       maxCapacity: 1,
@@ -240,7 +240,8 @@ const custom = require('aws-cdk-lib/custom-resources')
     const taskDef = new ecs.Ec2TaskDefinition(this, 'rdf4jTaskDefinition', {
       taskRole: this.role,
       executionRole: this.role,
-      networkMode: ecs.NetworkMode.AWS_VPC
+      networkMode: ecs.NetworkMode.AWS_VPC,
+      memory: '15360' // 15 GiB
     })
 
     return taskDef
@@ -252,7 +253,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     const container = taskDefinition.addContainer('rdf4jContainer', {
       image: ecs.ContainerImage.fromEcrRepository(this.repository, VERSION),
       user: 'root',
-      memoryLimitMiB: 3000,
+      memoryLimitMiB: 15360, // 15 GiB
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'rdf4j',
         logGroup: this.logGroup

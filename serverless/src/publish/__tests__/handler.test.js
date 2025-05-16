@@ -5,33 +5,19 @@ import {
   vi
 } from 'vitest'
 
-import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import { getVersionNames } from '@/shared/getVersionNames'
-import { renameGraph } from '@/shared/renameGraph'
-import {
-  commitTransaction,
-  rollbackTransaction,
-  startTransaction
-} from '@/shared/transactionHelpers'
-import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
+import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 import { publish } from '../handler'
 
 // Mock the imported functions
-vi.mock('@/shared/copyGraph')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/getVersionMetadata')
-vi.mock('@/shared/renameGraph')
-vi.mock('@/shared/updateVersionMetadata')
 vi.mock('@/shared/getVersionNames')
-
-vi.mock('@/shared/transactionHelpers', () => ({
-  startTransaction: vi.fn(),
-  commitTransaction: vi.fn(),
-  rollbackTransaction: vi.fn()
-}))
+vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
+vi.mock('@/shared/sparqlRequest')
 
 describe('publish handler', () => {
   beforeEach(() => {
@@ -39,61 +25,44 @@ describe('publish handler', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: {} })
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    startTransaction.mockResolvedValue('mock-transaction-url')
-    getVersionNames.mockResolvedValue([])
+    sparqlRequest.mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [
+            { versionName: { value: 'existing_version' } },
+            { versionName: { value: 'other_version' } }
+          ]
+        }
+      })
+    })
   })
 
   describe('when successful', () => {
-    test('should successfully publish a new version', async () => {
+    test('should successfully initiate the publish process for a new version', async () => {
       const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockResolvedValue(null)
-      copyGraph.mockResolvedValue()
-      updateVersionMetadata.mockResolvedValue()
-      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
+      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
+      getPublishUpdateQuery.mockReturnValue('mock query')
 
       const result = await publish(event)
 
-      expect(result.statusCode).toBe(200)
-      expect(JSON.parse(result.body).message).toBe('Publish process completed for version new_version')
-      expect(copyGraph).toHaveBeenCalledWith({
-        sourceGraphName: 'draft',
-        targetGraphName: 'published',
-        transactionUrl: 'mock-transaction-url'
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
+      expect(getPublishUpdateQuery).toHaveBeenCalledWith('new_version', expect.any(String), { versionName: 'old_version' })
+      expect(sparqlRequest).toHaveBeenCalledTimes(2)
+      expect(sparqlRequest).toHaveBeenNthCalledWith(1, {
+        method: 'POST',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json',
+        body: expect.any(String)
       })
 
-      expect(updateVersionMetadata).toHaveBeenCalledWith(expect.objectContaining({
-        graphId: 'published',
-        version: 'new_version',
-        versionType: 'published',
-        transactionUrl: 'mock-transaction-url'
-      }))
-
-      expect(commitTransaction).toHaveBeenCalledWith('mock-transaction-url')
-    })
-
-    test('should rename existing published graph when it exists', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
-      renameGraph.mockResolvedValue()
-      updateVersionMetadata.mockResolvedValue()
-      copyGraph.mockResolvedValue()
-      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
-
-      await publish(event)
-
-      expect(renameGraph).toHaveBeenCalledWith({
-        oldGraphName: 'published',
-        newGraphName: 'old_version',
-        transactionUrl: 'mock-transaction-url'
+      expect(sparqlRequest).toHaveBeenNthCalledWith(2, {
+        method: 'POST',
+        contentType: 'application/sparql-update',
+        accept: 'application/sparql-results+json',
+        body: 'mock query'
       })
-
-      expect(updateVersionMetadata).toHaveBeenCalledWith({
-        graphId: 'old_version',
-        versionType: 'past_published',
-        transactionUrl: 'mock-transaction-url'
-      })
-
-      expect(commitTransaction).toHaveBeenCalledWith('mock-transaction-url')
     })
   })
 
@@ -108,46 +77,62 @@ describe('publish handler', () => {
 
     test('should return a 400 error when the version name already exists', async () => {
       const event = { queryStringParameters: { name: 'existing_version' } }
-      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
 
       const result = await publish(event)
 
       expect(result.statusCode).toBe(400)
       expect(JSON.parse(result.body).message).toBe('Error: Version name "existing_version" already exists')
-      expect(startTransaction).not.toHaveBeenCalled()
-      expect(copyGraph).not.toHaveBeenCalled()
-      expect(updateVersionMetadata).not.toHaveBeenCalled()
-      expect(commitTransaction).not.toHaveBeenCalled()
+      expect(getPublishUpdateQuery).not.toHaveBeenCalled()
+      expect(sparqlRequest).toHaveBeenCalledTimes(1) // Called once for getVersionNames
     })
 
-    test('should handle errors during the publish process', async () => {
+    test('should handle errors during the publish process setup', async () => {
       const event = { queryStringParameters: { name: 'new_version' } }
       getVersionMetadata.mockRejectedValue(new Error('Database error'))
-      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
 
       const result = await publish(event)
 
       expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toBe('Error in publish process')
-      expect(console.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
-      expect(startTransaction).toHaveBeenCalled()
-      expect(rollbackTransaction).toHaveBeenCalledWith('mock-transaction-url')
-      expect(commitTransaction).not.toHaveBeenCalled()
+      expect(JSON.parse(result.body).message).toBe('Error in initiating publish process')
+      expect(JSON.parse(result.body).error).toBe('Database error')
+      expect(console.error).toHaveBeenCalledWith('Error in publish process setup:', expect.any(Error))
+      expect(getPublishUpdateQuery).not.toHaveBeenCalled()
+      expect(sparqlRequest).not.toHaveBeenCalledTimes(2)
     })
 
-    test('should rollback transaction if an error occurs during publish process', async () => {
+    test('should handle errors during the SPARQL request', async () => {
       const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockResolvedValue(null)
-      copyGraph.mockRejectedValue(new Error('Copy failed'))
-      getVersionNames.mockResolvedValue(['existing_version', 'other_version'])
+      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
+      getPublishUpdateQuery.mockReturnValue('mock query')
+
+      // Mock the first sparqlRequest call (for getVersionNames) to succeed
+      sparqlRequest.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          results: {
+            bindings: [
+              { versionName: { value: 'existing_version' } },
+              { versionName: { value: 'other_version' } }
+            ]
+          }
+        })
+      })
+
+      // Mock the second sparqlRequest call (for the actual publish operation) to fail
+      sparqlRequest.mockResolvedValueOnce(Promise.reject(new Error('SPARQL request failed')))
 
       const result = await publish(event)
 
-      expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toBe('Error in publish process')
-      expect(startTransaction).toHaveBeenCalled()
-      expect(rollbackTransaction).toHaveBeenCalledWith('mock-transaction-url')
-      expect(commitTransaction).not.toHaveBeenCalled()
+      // The publish function should still return a 202 status
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
+
+      // Use setImmediate to allow the asynchronous error handling to occur
+      // eslint-disable-next-line no-promise-executor-return
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(console.error).toHaveBeenCalledWith('Error in asynchronous publish process:', expect.any(Error))
+      expect(sparqlRequest).toHaveBeenCalledTimes(2)
     })
   })
 })
