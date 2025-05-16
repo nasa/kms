@@ -1,0 +1,20 @@
+#
+# RDF4J configuration template for a main-memory repository
+#
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix config: <tag:rdf4j.org,2023:config/>.
+
+[] a config:Repository ;
+   config:rep.id "kms" ;
+   rdfs:label "kms" ;
+   config:rep.impl [
+      config:rep.type "openrdf:SailRepository" ;
+      config:sail.impl [
+        config:sail.type "openrdf:NativeStore" ;
+          config:native.forceSync true ;
+          config:native.tripleIndexes "cspo,cpos,spoc,posc" ;
+          config:sail.memory "false" ;
+          config:sail.reindex "true" ;
+          config:sail.writeThrough "true" ;
+        ]
+   ].

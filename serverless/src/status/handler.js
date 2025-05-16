@@ -1,13 +1,14 @@
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getVersionNames } from '@/shared/getVersionNames'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Provides a status check for the RDF4J database connection.
+ * Provides a status check for the RDF4J database connection and reports the number of triples.
  *
- * This function attempts to connect to the RDF4J server's protocol endpoint
- * to verify that the database connection is healthy. It returns a success
- * response if the connection is established, or an error response if the
- * connection fails.
+ * This function performs two main operations:
+ * 1. Attempts to connect to the RDF4J server's protocol endpoint to verify that the database connection is healthy.
+ * 2. Executes a SPARQL query to count the total number of triples in the published version of the graph.
+ *
+ * It returns a success response if both operations are successful, or an error response if either fails.
  *
  * @async
  * @function status
@@ -19,7 +20,7 @@ import { getVersionNames } from '@/shared/getVersionNames'
  * // Output on success:
  * // {
  * //   statusCode: 200,
- * //   body: 'Database connection healthy',
+ * //   body: 'Database connection healthy. 1000000 triples in published version.',
  * //   headers: {
  * //     'Content-Type': 'text/plain',
  * //     ... other headers ...
@@ -32,6 +33,13 @@ import { getVersionNames } from '@/shared/getVersionNames'
  * //   body: '{"error":"Failed to fetch RDF4J status"}',
  * //   headers: { ... }
  * // }
+ *
+ * @throws Will log errors if the connection to RDF4J fails or if the SPARQL query fails.
+ *         These errors are caught and transformed into a 500 status response.
+ *
+ * @requires getApplicationConfig - Function to retrieve application configuration.
+ * @requires sparqlRequest - Function to make SPARQL requests to the RDF4J server.
+ * @requires RDF4J_SERVICE_URL - Environment variable containing the URL of the RDF4J service.
  */
 export const status = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
@@ -47,7 +55,24 @@ export const status = async () => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const conceptSchemes = await getVersionNames()
+    // SPARQL query to count triples in the published graph
+    const countQuery = `
+SELECT (COUNT(*) AS ?count)
+WHERE {
+    ?s ?p ?o
+}
+`
+
+    const countResponse = await sparqlRequest({
+      method: 'POST',
+      body: countQuery,
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
+      version: 'published'
+    })
+
+    const countData = await countResponse.json()
+    const tripleCount = countData.results.bindings[0].count.value
 
     return {
       statusCode: 200,
@@ -55,7 +80,7 @@ export const status = async () => {
         ...defaultResponseHeaders,
         'Content-Type': 'text/plain' // Assuming the protocol endpoint returns XML
       },
-      body: `Database connection healthy.  ${conceptSchemes.length} versions retrieved.`
+      body: `Database connection healthy.  ${tripleCount} triples in published version.`
     }
   } catch (error) {
     console.error('Error fetching RDF4J status:', error)

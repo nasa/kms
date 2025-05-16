@@ -1,28 +1,25 @@
-import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import { getVersionNames } from '@/shared/getVersionNames'
-import { renameGraph } from '@/shared/renameGraph'
-import {
-  commitTransaction,
-  rollbackTransaction,
-  startTransaction
-} from '@/shared/transactionHelpers'
-import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
+import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Performs the publication process for a new version of the keyword set.
+ * Initiates the publication process for a new version of the keyword set.
  *
- * This handles the process of publishing a new version of the keyword set, including
- * managing graph transitions and updating metadata.
- *
- * The function performs the following steps:
+ * This function handles the process of publishing a new version of the keyword set by
+ * initiating an asynchronous SPARQL update operation. It performs the following steps:
  * 1. Validates the input to ensure a 'name' parameter is provided in the query string.
- * 2. Starts a new SPARQL transaction.
- * 3. If a 'published' version exists, it is moved to 'past_published'.
- * 4. The 'draft' version is copied to become the new 'published' version.
- * 5. Metadata for the new 'published' version is updated with the provided name and timestamp.
- * 6. Commits the transaction if all operations are successful, or rolls back if an error occurs.
+ * 2. Checks if the provided version name already exists.
+ * 3. Retrieves metadata for the current published version.
+ * 4. Generates a SPARQL update query to perform the following operations:
+ *    - Move the current 'published' version to 'past_published' (if it exists).
+ *    - Copy the 'draft' version to become the new 'published' version.
+ *    - Update metadata for the new 'published' version with the provided name and timestamp.
+ * 5. Initiates the SPARQL update request asynchronously.
+ * 6. Returns immediately with a 202 (Accepted) status, indicating the process has been initiated.
+ *
+ * Note: The actual SPARQL update operation is performed asynchronously and its completion
+ * is not awaited by this function.
  *
  * @async
  * @function publish
@@ -30,20 +27,20 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  * @param {Object} event.queryStringParameters - The query string parameters from the API request.
  * @param {string} event.queryStringParameters.name - The name of the version to be published.
  * @returns {Promise<Object>} A promise that resolves to an object containing the response details.
- * @property {number} statusCode - The HTTP status code (200 for success, 400 for bad request, 500 for server error).
+ * @property {number} statusCode - The HTTP status code (202 for accepted, 400 for bad request, 500 for server error).
  * @property {Object} headers - The response headers, including CORS and content type settings.
- * @property {string} body - A JSON string containing the response message, version name, and publish date (for success) or error details (for failure).
+ * @property {string} body - A JSON string containing the response message, version name, and submission date.
  *
- * @throws {Error} If there's an issue with renaming graphs, copying data, or updating metadata.
+ * @throws {Error} If there's an issue with input validation, version name checking, or initiating the publish process.
  *
  * @example
  * // Successful invocation
  * const event = { queryStringParameters: { name: 'v1.0.0' } };
  * const result = await publish(event);
  * // result = {
- * //   statusCode: 200,
+ * //   statusCode: 202,
  * //   headers: { 'Content-Type': 'application/json', ... },
- * //   body: '{"message":"Publish process completed for version v1.0.0","version":"v1.0.0","publishDate":"2023-06-01T12:00:00.000Z"}'
+ * //   body: '{"message":"Publish process initiated for version v1.0.0","version":"v1.0.0","submissionDate":"2023-06-01T12:00:00.000Z"}'
  * // }
  *
  * @example
@@ -58,11 +55,42 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  */
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-
-  // Extract name from query parameters
   const name = event.queryStringParameters?.name
 
-  // Check if name is provided
+  const getVersionNames = async () => {
+    const query = `
+      PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
+  
+      SELECT DISTINCT ?versionName
+      WHERE {
+        GRAPH ?graph {
+          ?s gcmd:versionName ?versionName .
+        }
+      }
+      ORDER BY ?versionName
+    `
+
+    try {
+      const response = await sparqlRequest({
+        method: 'POST',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json',
+        body: query
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const results = await response.json()
+
+      return results.results.bindings.map((binding) => binding.versionName.value)
+    } catch (error) {
+      console.error('Error fetching version names:', error)
+      throw error
+    }
+  }
+
   if (!name) {
     return {
       statusCode: 400,
@@ -73,7 +101,6 @@ export const publish = async (event) => {
 
   const versionNames = await getVersionNames()
 
-  // Check if the provided name already exists
   if (versionNames.includes(name)) {
     return {
       statusCode: 400,
@@ -82,73 +109,52 @@ export const publish = async (event) => {
     }
   }
 
-  let transactionUrl = null
   try {
-    // Start a new transaction
-    transactionUrl = await startTransaction()
-
-    // 1. Move published to past_published if it exists
     const metadata = await getVersionMetadata('published')
-    if (metadata) {
-      const { versionName } = metadata
-      await renameGraph({
-        oldGraphName: 'published',
-        newGraphName: versionName,
-        transactionUrl
-      })
-
-      await updateVersionMetadata({
-        graphId: versionName,
-        versionType: 'past_published',
-        transactionUrl
-      })
-    }
-
-    // 2. Copy draft to published.
-    await copyGraph({
-      sourceGraphName: 'draft',
-      targetGraphName: 'published',
-      transactionUrl
-    })
-
-    // // 3. Updated published graph with version info.
     const updateDate = new Date().toISOString()
-    await updateVersionMetadata({
-      graphId: 'published',
-      version: name,
-      versionType: 'published',
-      createdDate: updateDate,
-      modifiedDate: updateDate,
-      transactionUrl
+
+    const publishQuery = getPublishUpdateQuery(name, updateDate, metadata)
+
+    // Launch the SPARQL update request asynchronously
+    sparqlRequest({
+      method: 'POST',
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      body: publishQuery
+    }).then((response) => {
+      if (!response.ok) {
+        console.error(`Failed to execute batch update: ${response.status} ${response.statusText}`)
+
+        return response.text()
+      }
+
+      console.log('Publish process completed successfully')
+
+      return null // Explicitly return null for the success case
+    }).then((errorText) => {
+      if (errorText) console.error(`Error details: ${errorText}`)
+    }).catch((error) => {
+      console.error('Error in asynchronous publish process:', error)
     })
 
-    // Commit the transaction
-    await commitTransaction(transactionUrl)
-
-    // Return success response
+    // Return immediately with a "job submitted" message
     return {
-      statusCode: 200,
+      statusCode: 202,
       headers: defaultResponseHeaders,
       body: JSON.stringify({
-        message: `Publish process completed for version ${name}`,
+        message: `Publish process initiated for version ${name}`,
         version: name,
-        publishDate: updateDate
+        submissionDate: updateDate
       })
     }
   } catch (error) {
-    console.error('Error in publish process:', error)
+    console.error('Error in publish process setup:', error)
 
-    // Rollback the transaction if an error occurred
-    if (transactionUrl) {
-      await rollbackTransaction(transactionUrl)
-    }
-
-    // Return error response
     return {
       statusCode: 500,
       headers: defaultResponseHeaders,
       body: JSON.stringify({
-        message: 'Error in publish process',
+        message: 'Error in initiating publish process',
         error: error.message
       })
     }
