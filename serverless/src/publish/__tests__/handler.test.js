@@ -134,5 +134,69 @@ describe('publish handler', () => {
       expect(console.error).toHaveBeenCalledWith('Error in asynchronous publish process:', expect.any(Error))
       expect(sparqlRequest).toHaveBeenCalledTimes(2)
     })
+
+    test('should throw an error when fetching version names returns a non-ok response', async () => {
+      const event = { queryStringParameters: { name: 'new_version' } }
+
+      // Mock the sparqlRequest to return a non-ok response
+      sparqlRequest.mockResolvedValueOnce({
+        ok: false,
+        status: 500
+      })
+
+      await expect(publish(event)).rejects.toThrow('HTTP error! status: 500')
+      expect(console.error).toHaveBeenCalledWith('Error fetching version names:', expect.any(Error))
+    })
+
+    test('should log and rethrow errors when fetching version names', async () => {
+      const event = { queryStringParameters: { name: 'new_version' } }
+
+      // Mock the sparqlRequest to throw an error
+      sparqlRequest.mockRejectedValueOnce(new Error('Network error'))
+
+      await expect(publish(event)).rejects.toThrow('Network error')
+      expect(console.error).toHaveBeenCalledWith('Error fetching version names:', expect.any(Error))
+    })
+
+    test('should handle errors during the batch update SPARQL request', async () => {
+      const event = { queryStringParameters: { name: 'new_version' } }
+      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
+      getPublishUpdateQuery.mockReturnValue('mock query')
+
+      // Mock the first sparqlRequest call (for getVersionNames) to succeed
+      sparqlRequest.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          results: {
+            bindings: [
+              { versionName: { value: 'existing_version' } },
+              { versionName: { value: 'other_version' } }
+            ]
+          }
+        })
+      })
+
+      // Mock the second sparqlRequest call (for the batch update) to fail
+      sparqlRequest.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: vi.fn().mockResolvedValue('Error details')
+      })
+
+      const result = await publish(event)
+
+      // The publish function should still return a 202 status
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
+
+      // Use setImmediate to allow the asynchronous error handling to occur
+      // eslint-disable-next-line no-promise-executor-return
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(console.error).toHaveBeenCalledWith('Failed to execute batch update: 500 Internal Server Error')
+      expect(console.error).toHaveBeenCalledWith('Error details: Error details')
+      expect(sparqlRequest).toHaveBeenCalledTimes(2)
+    })
   })
 })
