@@ -6,7 +6,6 @@ import {
 } from 'vitest'
 
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
@@ -14,8 +13,6 @@ import { publish } from '../handler'
 
 // Mock the imported functions
 vi.mock('@/shared/getConfig')
-vi.mock('@/shared/getVersionMetadata')
-vi.mock('@/shared/getVersionNames')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/sparqlRequest')
 
@@ -24,40 +21,23 @@ describe('publish handler', () => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: {} })
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    sparqlRequest.mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        results: {
-          bindings: [
-            { versionName: { value: 'existing_version' } },
-            { versionName: { value: 'other_version' } }
-          ]
-        }
-      })
-    })
   })
 
   describe('when successful', () => {
-    test('should successfully initiate the publish process for a new version', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
+    test('should successfully publish a new version', async () => {
+      const event = { queryStringParameters: { name: 'v1.0.0' } }
       getPublishUpdateQuery.mockReturnValue('mock query')
+      sparqlRequest.mockResolvedValue({ ok: true })
 
       const result = await publish(event)
 
-      expect(result.statusCode).toBe(202)
-      expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
-      expect(getPublishUpdateQuery).toHaveBeenCalledWith('new_version', expect.any(String), { versionName: 'old_version' })
-      expect(sparqlRequest).toHaveBeenCalledTimes(2)
-      expect(sparqlRequest).toHaveBeenNthCalledWith(1, {
-        method: 'POST',
-        contentType: 'application/sparql-query',
-        accept: 'application/sparql-results+json',
-        body: expect.any(String)
-      })
-
-      expect(sparqlRequest).toHaveBeenNthCalledWith(2, {
+      expect(result.statusCode).toBe(200)
+      const body = JSON.parse(result.body)
+      expect(body.message).toBe('Publish process completed for version v1.0.0')
+      expect(body.version).toBe('v1.0.0')
+      expect(body.publishDate).toBeDefined()
+      expect(getPublishUpdateQuery).toHaveBeenCalledWith('v1.0.0', expect.any(String))
+      expect(sparqlRequest).toHaveBeenCalledWith({
         method: 'POST',
         contentType: 'application/sparql-update',
         accept: 'application/sparql-results+json',
@@ -68,135 +48,44 @@ describe('publish handler', () => {
 
   describe('when unsuccessful', () => {
     test('should return a 400 error when name is not provided', async () => {
-      const event = {}
+      const event = { queryStringParameters: {} }
       const result = await publish(event)
 
       expect(result.statusCode).toBe(400)
       expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
     })
 
-    test('should return a 400 error when the version name already exists', async () => {
-      const event = { queryStringParameters: { name: 'existing_version' } }
-
-      const result = await publish(event)
-
-      expect(result.statusCode).toBe(400)
-      expect(JSON.parse(result.body).message).toBe('Error: Version name "existing_version" already exists')
-      expect(getPublishUpdateQuery).not.toHaveBeenCalled()
-      expect(sparqlRequest).toHaveBeenCalledTimes(1) // Called once for getVersionNames
-    })
-
-    test('should handle errors during the publish process setup', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockRejectedValue(new Error('Database error'))
+    test('should handle errors during the SPARQL request', async () => {
+      const event = { queryStringParameters: { name: 'v1.0.0' } }
+      getPublishUpdateQuery.mockReturnValue('mock query')
+      sparqlRequest.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error'
+      })
 
       const result = await publish(event)
 
       expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).message).toBe('Error in initiating publish process')
-      expect(JSON.parse(result.body).error).toBe('Database error')
-      expect(console.error).toHaveBeenCalledWith('Error in publish process setup:', expect.any(Error))
-      expect(getPublishUpdateQuery).not.toHaveBeenCalled()
-      expect(sparqlRequest).not.toHaveBeenCalledTimes(2)
+      const body = JSON.parse(result.body)
+      expect(body.message).toBe('Error in publish process')
+      expect(body.error).toBe('Failed to execute publish update: 500 Internal Server Error')
+      expect(console.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
     })
 
-    test('should handle errors during the SPARQL request', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
-      getPublishUpdateQuery.mockReturnValue('mock query')
-
-      // Mock the first sparqlRequest call (for getVersionNames) to succeed
-      sparqlRequest.mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          results: {
-            bindings: [
-              { versionName: { value: 'existing_version' } },
-              { versionName: { value: 'other_version' } }
-            ]
-          }
-        })
-      })
-
-      // Mock the second sparqlRequest call (for the actual publish operation) to fail
-      sparqlRequest.mockResolvedValueOnce(Promise.reject(new Error('SPARQL request failed')))
-
-      const result = await publish(event)
-
-      // The publish function should still return a 202 status
-      expect(result.statusCode).toBe(202)
-      expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
-
-      // Use setImmediate to allow the asynchronous error handling to occur
-      // eslint-disable-next-line no-promise-executor-return
-      await new Promise((resolve) => setImmediate(resolve))
-
-      expect(console.error).toHaveBeenCalledWith('Error in asynchronous publish process:', expect.any(Error))
-      expect(sparqlRequest).toHaveBeenCalledTimes(2)
-    })
-
-    test('should throw an error when fetching version names returns a non-ok response', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-
-      // Mock the sparqlRequest to return a non-ok response
-      sparqlRequest.mockResolvedValueOnce({
-        ok: false,
-        status: 500
-      })
-
-      await expect(publish(event)).rejects.toThrow('HTTP error! status: 500')
-      expect(console.error).toHaveBeenCalledWith('Error fetching version names:', expect.any(Error))
-    })
-
-    test('should log and rethrow errors when fetching version names', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-
-      // Mock the sparqlRequest to throw an error
-      sparqlRequest.mockRejectedValueOnce(new Error('Network error'))
-
-      await expect(publish(event)).rejects.toThrow('Network error')
-      expect(console.error).toHaveBeenCalledWith('Error fetching version names:', expect.any(Error))
-    })
-
-    test('should handle errors during the batch update SPARQL request', async () => {
-      const event = { queryStringParameters: { name: 'new_version' } }
-      getVersionMetadata.mockResolvedValue({ versionName: 'old_version' })
-      getPublishUpdateQuery.mockReturnValue('mock query')
-
-      // Mock the first sparqlRequest call (for getVersionNames) to succeed
-      sparqlRequest.mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          results: {
-            bindings: [
-              { versionName: { value: 'existing_version' } },
-              { versionName: { value: 'other_version' } }
-            ]
-          }
-        })
-      })
-
-      // Mock the second sparqlRequest call (for the batch update) to fail
-      sparqlRequest.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        text: vi.fn().mockResolvedValue('Error details')
+    test('should handle unexpected errors', async () => {
+      const event = { queryStringParameters: { name: 'v1.0.0' } }
+      getPublishUpdateQuery.mockImplementation(() => {
+        throw new Error('Unexpected error')
       })
 
       const result = await publish(event)
 
-      // The publish function should still return a 202 status
-      expect(result.statusCode).toBe(202)
-      expect(JSON.parse(result.body).message).toBe('Publish process initiated for version new_version')
-
-      // Use setImmediate to allow the asynchronous error handling to occur
-      // eslint-disable-next-line no-promise-executor-return
-      await new Promise((resolve) => setImmediate(resolve))
-
-      expect(console.error).toHaveBeenCalledWith('Failed to execute batch update: 500 Internal Server Error')
-      expect(console.error).toHaveBeenCalledWith('Error details: Error details')
-      expect(sparqlRequest).toHaveBeenCalledTimes(2)
+      expect(result.statusCode).toBe(500)
+      const body = JSON.parse(result.body)
+      expect(body.message).toBe('Error in publish process')
+      expect(body.error).toBe('Unexpected error')
+      expect(console.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
     })
   })
 })

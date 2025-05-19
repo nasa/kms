@@ -12,47 +12,30 @@ describe('getPublishUpdateQuery', () => {
   const name = 'v1.0.0'
   const updateDate = '2023-06-01T12:00:00Z'
 
-  describe('when published version exists', () => {
-    test('it should move published to past published and update metadata', () => {
-      const metadata = { versionName: 'v0.9.0' }
-      const query = getPublishUpdateQuery(name, updateDate, metadata)
+  test('it should generate the correct update query', () => {
+    const query = getPublishUpdateQuery(name, updateDate)
 
-      expect(query).toContain(prefixes)
-      expect(query).toContain('MOVE <https://gcmd.earthdata.nasa.gov/kms/version/published>')
-      expect(query).toContain(`TO <https://gcmd.earthdata.nasa.gov/kms/version/${metadata.versionName}>`)
-      expect(query).toContain('gcmd:versionType "past_published"')
-      expect(query).toContain(`gcmd:versionName "${name}"`)
-      expect(query).toContain(`dcterms:created "${updateDate}"^^xsd:dateTime`)
-    })
-  })
+    expect(query).toContain(prefixes)
 
-  describe('when published version does not exist', () => {
-    test('it should not include move operation', () => {
-      const query = getPublishUpdateQuery(name, updateDate, null)
+    // Check for dropping the existing published graph
+    expect(query).toContain('DROP SILENT GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/published>')
 
-      expect(query).toContain(prefixes)
-      expect(query).not.toContain('MOVE <https://gcmd.earthdata.nasa.gov/kms/version/published>')
-      expect(query).not.toContain('gcmd:versionType "past_published"')
-      expect(query).toContain(`gcmd:versionName "${name}"`)
-      expect(query).toContain(`dcterms:created "${updateDate}"^^xsd:dateTime`)
-    })
-  })
-
-  test('it should always copy draft to published', () => {
-    const query = getPublishUpdateQuery(name, updateDate, null)
-
+    // Check for copying draft to published
     expect(query).toContain('COPY <https://gcmd.earthdata.nasa.gov/kms/version/draft>')
     expect(query).toContain('TO <https://gcmd.earthdata.nasa.gov/kms/version/published>')
-  })
 
-  test('it should always update published metadata', () => {
-    const query = getPublishUpdateQuery(name, updateDate, null)
-
+    // Check for updating metadata
     expect(query).toContain('DELETE {')
     expect(query).toContain('INSERT {')
     expect(query).toContain('GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/published>')
     expect(query).toContain(`gcmd:versionName "${name}"`)
     expect(query).toContain('gcmd:versionType "published"')
     expect(query).toContain(`dcterms:created "${updateDate}"^^xsd:dateTime`)
+
+    // Check for WHERE clause
+    expect(query).toContain('WHERE {')
+    expect(query).toContain('OPTIONAL { <https://gcmd.earthdata.nasa.gov/kms/version_metadata> gcmd:versionName ?oldName }')
+    expect(query).toContain('OPTIONAL { <https://gcmd.earthdata.nasa.gov/kms/version_metadata> gcmd:versionType ?oldType }')
+    expect(query).toContain('OPTIONAL { <https://gcmd.earthdata.nasa.gov/kms/version_metadata> dcterms:created ?oldCreated }')
   })
 })

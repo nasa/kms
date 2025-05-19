@@ -196,21 +196,13 @@ export const sparqlRequest = async ({
 
   const url = endpointUrl.toString()
 
-  const startTime = performance.now()
-
   try {
+    console.log('fetching ', method, headers, body)
     const response = await fetch(url, {
       method,
       headers,
       body
     })
-
-    const endTime = performance.now()
-    const duration = endTime - startTime
-
-    console.log(`SPARQL request completed in ${duration.toFixed(2)} ms`)
-    console.log(`Response status: ${response.status} ${response.statusText}`)
-    console.log(`Request ${url} body: ${body}`)
 
     if (!response.ok) {
       const responseText = await response.text()
@@ -220,13 +212,6 @@ export const sparqlRequest = async ({
 
     return response
   } catch (error) {
-    const endTime = performance.now()
-    const duration = endTime - startTime
-
-    console.error(`SPARQL request failed after ${duration.toFixed(2)} ms`)
-    console.error(`Request ${url} body: ${body}`)
-    console.error('Error:', error)
-
     // Implement retry logic
     if (retryCount < MAX_RETRIES) {
       console.log(`Retrying request (attempt ${retryCount + 1} of ${MAX_RETRIES})`)

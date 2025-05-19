@@ -1,27 +1,25 @@
-import { getConceptDetailsQuery } from '@/shared/operations/queries/getConceptDetailsQuery'
-import { getConceptUrisQuery } from '@/shared/operations/queries/getConceptUrisQuery'
+import { getConceptsQuery } from '@/shared/operations/queries/getConceptsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Retrieves filtered triples from the configured SPARQL endpoint for a specific version.
  *
  * This function performs the following operations:
- * 1. Constructs a SPARQL query to fetch concept URIs based on the specified parameters.
- * 2. Sends a request to the SPARQL endpoint to get the concept URIs.
- * 3. Constructs another SPARQL query to fetch details for the retrieved concept URIs.
- * 4. Sends a second request to the SPARQL endpoint to get the concept details.
- * 5. Processes and returns the SPARQL query results.
+ * 1. Constructs a SPARQL query using the getConceptsQuery function based on the specified parameters.
+ * 2. Sends a POST request to the SPARQL endpoint with the constructed query.
+ * 3. Processes and returns the SPARQL query results.
  *
  * @async
  * @function getFilteredTriples
  * @param {Object} params - The parameters for filtering triples.
  * @param {string} [params.conceptScheme] - The concept scheme to filter by.
- * @param {string} [params.pattern] - The pattern to filter triples by.
+ * @param {string} [params.pattern] - The pattern to filter concepts by (e.g., to match against prefLabels).
  * @param {string} params.version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  * @param {number} params.pageNum - The page number for pagination.
  * @param {number} params.pageSize - The number of items per page.
- * @returns {Promise<Array>} A promise that resolves to an array of triple objects.
- *                           Each triple object contains 's' (subject), 'p' (predicate), and 'o' (object) properties.
+ * @returns {Promise<Array>} A promise that resolves to an array of binding objects from the SPARQL results.
+ *                           Each binding object contains 's', 'p', 'o', and potentially 'bn', 'bp', 'bo' properties,
+ *                           representing subjects, predicates, objects, and related blank node information.
  *
  * @throws {Error} If the HTTP request fails, if the response is not ok,
  *                 or if there's any error during the fetching or processing of the triples.
@@ -55,41 +53,17 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * }
  *
  * @see sparqlRequest - Used to make the SPARQL query requests.
- * @see getConceptUrisQuery - Used to generate the SPARQL query for fetching concept URIs.
- * @see getConceptDetailsQuery - Used to generate the SPARQL query for fetching concept details.
+ * @see getConceptsQuery - Used to generate the SPARQL query for fetching concepts and their related triples.
  */
 
 export const getFilteredTriples = async ({
   conceptScheme, pattern, version, pageNum, pageSize
 }) => {
-  const offset = (pageNum - 1) * pageSize
-
   try {
-    // Step 1: Fetch concept URIs
-    const uriQuery = getConceptUrisQuery({
-      conceptScheme,
-      pattern,
-      pageSize,
-      offset
-    })
-    const uriResponse = await sparqlRequest({
-      method: 'POST',
-      contentType: 'application/sparql-query',
-      accept: 'application/sparql-results+json',
-      body: uriQuery,
-      version
-    })
+    const offset = (pageNum - 1) * pageSize
+    const query = getConceptsQuery(conceptScheme, pattern, pageSize, offset)
 
-    if (!uriResponse.ok) {
-      throw new Error(`HTTP error! status: ${uriResponse.status} query=${uriQuery}`)
-    }
-
-    const uriJson = await uriResponse.json()
-    const conceptUris = uriJson.results.bindings.map((binding) => binding.s.value)
-
-    // Step 2: Fetch details for these concepts
-    const query = getConceptDetailsQuery(conceptUris)
-    const detailsResponse = await sparqlRequest({
+    const response = await sparqlRequest({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
@@ -97,13 +71,13 @@ export const getFilteredTriples = async ({
       version
     })
 
-    if (!detailsResponse.ok) {
-      throw new Error(`HTTP error! status: ${detailsResponse.status} query=${query}`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const detailsJson = await detailsResponse.json()
+    const results = await response.json()
 
-    return detailsJson.results.bindings
+    return results.results.bindings
   } catch (error) {
     console.error('Error fetching triples:', error)
     throw error
