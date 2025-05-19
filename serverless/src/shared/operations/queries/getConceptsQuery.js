@@ -2,7 +2,7 @@ import prefixes from '@/shared/constants/prefixes'
 
 export const getConceptsQuery = (conceptScheme, pattern, limit = 1000, offset = 0) => `
 ${prefixes}
-SELECT DISTINCT ?bn ?bp ?bo ?s ?p ?o 
+SELECT ?bn ?bp ?bo ?s ?p ?o 
 WHERE {
   {
     SELECT DISTINCT ?s

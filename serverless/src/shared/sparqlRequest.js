@@ -86,16 +86,21 @@ import { delay } from '@/shared/delay'
 const MAX_RETRIES = 10
 const RETRY_DELAY = 1000 // 1 second
 
-export const sparqlRequest = async ({
-  path = '',
-  accept,
-  body,
-  contentType,
-  method,
-  transaction = {},
-  version,
-  retryCount = 0
-}) => {
+export const sparqlRequest = async (props) => {
+  const {
+    accept,
+    contentType,
+    method,
+    transaction = {},
+    version,
+    retryCount = 0
+  } = props
+
+  let {
+    body,
+    path = ''
+  } = props
+
   const { transactionUrl, action } = transaction
   /**
     * Constructs the SPARQL endpoint URL using environment variables.
@@ -218,12 +223,7 @@ export const sparqlRequest = async ({
       await delay(RETRY_DELAY)
 
       return sparqlRequest({
-        accept,
-        body,
-        contentType,
-        path,
-        transaction,
-        version,
+        ...props,
         retryCount: retryCount + 1
       })
     }

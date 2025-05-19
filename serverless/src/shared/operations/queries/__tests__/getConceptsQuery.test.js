@@ -48,7 +48,7 @@ describe('getConceptsQuery', () => {
   test('should include prefixes, SELECT, and WHERE clauses', () => {
     const query = getConceptsQuery()
     expect(query).toContain(prefixes)
-    expect(query).toContain('SELECT DISTINCT ?bn ?bp ?bo ?s ?p ?o')
+    expect(query).toContain('SELECT ?bn ?bp ?bo ?s ?p ?o')
     expect(query).toContain('WHERE {')
   })
 
