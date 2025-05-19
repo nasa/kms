@@ -88,9 +88,7 @@ export const processTriples = (bindings) => {
     // Or as ?s ?p ?o where ?s.type === 'bnode'
     if (binding.bn) {
       processBNode(binding.bn.value, binding.bn, binding.bp, binding.bo)
-    }
-
-    if (binding.s.type === 'bnode') { //
+    } else if (binding.s.type === 'bnode') {
       processBNode(binding.s.value, binding.s, binding.p, binding.o)
     }
 
