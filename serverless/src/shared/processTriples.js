@@ -54,6 +54,19 @@ export const processTriples = (bindings) => {
     return true
   }
 
+  // Process for blank nodes
+  const processBNode = (key, s, p, o) => {
+    if (!bNodeMap[key]) {
+      bNodeMap[key] = []
+    }
+
+    bNodeMap[key].push({
+      s,
+      p,
+      o
+    })
+  }
+
   bindings.forEach((binding) => {
     const subject = binding.s.value
     const predicate = binding.p.value
@@ -71,16 +84,14 @@ export const processTriples = (bindings) => {
     }
 
     // Process for blank nodes
+    // Two different ways they can come in, from ?bn ?bp ?bo
+    // Or as ?s ?p ?o where ?s.type === 'bnode'
     if (binding.bn) {
-      if (!bNodeMap[binding.bn.value]) {
-        bNodeMap[binding.bn.value] = []
-      }
+      processBNode(binding.bn.value, binding.bn, binding.bp, binding.bo)
+    }
 
-      bNodeMap[binding.bn.value].push({
-        s: binding.bn,
-        p: binding.bp,
-        o: binding.bo
-      })
+    if (binding.s.type === 'bnode') { //
+      processBNode(binding.s.value, binding.s, binding.p, binding.o)
     }
 
     // Identify concepts
