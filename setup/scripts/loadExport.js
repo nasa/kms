@@ -19,7 +19,7 @@ const password = process.env.RDF4J_PASSWORD || 'rdf4j'
 const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
 
 /* eslint-disable no-restricted-syntax */
-const loadExport = async (downloadAll) => {
+const loadExport = async () => {
   const loadRDFXMLToRDF4J = async (filePath, graphId) => {
     try {
       const xmlData = await fs.readFile(filePath, 'utf8')
@@ -62,9 +62,6 @@ const loadExport = async (downloadAll) => {
     await sleep(60000)
 
     const versionTypes = ['published', 'draft']
-    if (downloadAll) {
-      versionTypes.push('past_published')
-    }
 
     for (const versionType of versionTypes) {
       const versions = await fetchVersions(LEGACY_SERVER, versionType)
@@ -95,9 +92,5 @@ const loadExport = async (downloadAll) => {
   }
 }
 
-// Parse command line arguments
-const args = process.argv.slice(2)
-const loadAll = args.includes('-all')
-
 // Run the main function
-loadExport(loadAll)
+loadExport()

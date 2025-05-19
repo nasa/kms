@@ -10,7 +10,7 @@ echo "showing rdf4j data directory"
 ls -l /rdf4j-data
 
 # Set Java options
-export JAVA_OPTS="-Dorg.eclipse.rdf4j.appdata.basedir=${RDF4J_DATA_DIR} -Xmx3g -Xms1g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+export JAVA_OPTS="-Xms8g -Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled -XX:+UseStringDeduplication -Djava.protocol.handler.pkgs=org.apache.catalina.webresources -Dsun.io.useCanonCaches=false -Dorg.apache.catalina.security.SecurityListener.UMASK=0027 -Dorg.eclipse.rdf4j.appdata.basedir=/rdf4j-data"
 
 # Use JAVA_OPTS for Catalina as well
 export CATALINA_OPTS="${JAVA_OPTS}"
@@ -18,4 +18,5 @@ export CATALINA_OPTS="${JAVA_OPTS}"
 # Start Web Application
 # Check the role and perform appropriate actions
 /usr/local/tomcat/create_repository.sh &
-catalina.sh run
+catalina.sh start
+tail -f /usr/local/tomcat/logs/catalina.out
