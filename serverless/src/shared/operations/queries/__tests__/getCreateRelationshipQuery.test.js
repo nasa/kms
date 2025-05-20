@@ -26,8 +26,12 @@ describe('createRelationshipQuery', () => {
       expect(result).toContain(prefixes)
     })
 
-    test('should include the INSERT DATA clause', () => {
-      expect(result).toContain('INSERT DATA {')
+    test('should include the INSERT clause', () => {
+      expect(result).toContain('INSERT {')
+    })
+
+    test('should include the WHERE clause', () => {
+      expect(result).toContain('WHERE {')
     })
 
     test('should generate correct triples for each target UUID', () => {
@@ -35,6 +39,17 @@ describe('createRelationshipQuery', () => {
         const expectedTriple = `<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> ${params.relationship} <https://gcmd.earthdata.nasa.gov/kms/concept/${params.sourceUuid}>`
         expect(result).toContain(expectedTriple)
       })
+    })
+
+    test('should include existence checks for source and target concepts', () => {
+      expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${params.sourceUuid}> a ?sourceType .`)
+      params.targetUuids.forEach((uuid) => {
+        expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> a ?targetType${uuid} .`)
+      })
+    })
+
+    test('should include FILTER NOT EXISTS clause', () => {
+      expect(result).toContain('FILTER NOT EXISTS {')
     })
   })
 
@@ -45,10 +60,10 @@ describe('createRelationshipQuery', () => {
       relationship: 'skos:broader'
     }
 
-    test('should generate a query with one triple', () => {
+    test('should generate a query with correct number of URI occurrences', () => {
       const result = createRelationshipQuery(params)
-      const tripleCount = (result.match(/https:\/\/gcmd\.earthdata\.nasa\.gov\/kms\/concept/g) || []).length
-      expect(tripleCount).toBe(2) // Two URIs in one triple
+      const uriCount = (result.match(/https:\/\/gcmd\.earthdata\.nasa\.gov\/kms\/concept/g) || []).length
+      expect(uriCount).toBe(6) // Two in INSERT, two in WHERE, two in FILTER NOT EXISTS
     })
   })
 
@@ -59,10 +74,10 @@ describe('createRelationshipQuery', () => {
       relationship: 'skos:broader'
     }
 
-    test('should generate a query with multiple triples', () => {
+    test('should generate a query with correct number of URI occurrences', () => {
       const result = createRelationshipQuery(params)
-      const tripleCount = (result.match(/https:\/\/gcmd\.earthdata\.nasa\.gov\/kms\/concept/g) || []).length
-      expect(tripleCount).toBe(6) // Two URIs per triple, three triples
+      const uriCount = (result.match(/https:\/\/gcmd\.earthdata\.nasa\.gov\/kms\/concept/g) || []).length
+      expect(uriCount).toBe(16)
     })
   })
 
@@ -76,6 +91,30 @@ describe('createRelationshipQuery', () => {
     test('should use the provided relationship in the query', () => {
       const result = createRelationshipQuery(params)
       expect(result).toContain('custom:relation')
+    })
+  })
+
+  describe('Query structure', () => {
+    const params = {
+      sourceUuid: '1234-5678-90ab-cdef',
+      targetUuids: ['abcd-efgh-ijkl-mnop', 'qrst-uvwx-yz12-3456'],
+      relationship: 'skos:broader'
+    }
+
+    const result = createRelationshipQuery(params)
+
+    test('should have the correct overall structure', () => {
+      expect(result).toMatch(/INSERT\s*{\s*.*\s*}\s*WHERE\s*{\s*.*\s*FILTER NOT EXISTS\s*{\s*.*\s*}\s*}/s)
+    })
+
+    test('should check existence of source concept', () => {
+      expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${params.sourceUuid}> a ?sourceType .`)
+    })
+
+    test('should check existence of all target concepts', () => {
+      params.targetUuids.forEach((uuid) => {
+        expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> a ?targetType${uuid} .`)
+      })
     })
   })
 })

@@ -1,5 +1,6 @@
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
+import { ensureReciprocalRelations } from '@/shared/ensureReciprocalRelations'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { sparqlRequest } from '@/shared/sparqlRequest'
@@ -23,6 +24,8 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * @param {string} event.body - The RDF/XML representation of the updated concept.
  * @param {Object} event.queryStringParameters - Query string parameters.
  * @param {string} [event.queryStringParameters.version='draft'] - The version to update (default is 'draft').
+ * @param {string} event.queryStringParameters.scheme - The scheme to which the concept belongs.
+ * @param {string} [event.queryStringParameters.userNote] - Optional user note for the update.
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
@@ -30,7 +33,11 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * const eventDraft = {
  *   body: '<rdf:RDF>...</rdf:RDF>',
  *   pathParameters: { conceptId: '123' },
- *   queryStringParameters: { version: 'draft' }
+ *   queryStringParameters: {
+ *     version: 'draft',
+ *     scheme: 'sciencekeywords',
+ *     userNote: 'Updated concept description'
+ *   }
  * };
  *
  * const resultDraft = await updateConcept(eventDraft);
@@ -47,7 +54,11 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * const eventPublished = {
  *   body: '<rdf:RDF>...</rdf:RDF>',
  *   pathParameters: { conceptId: '456' },
- *   queryStringParameters: { version: 'published' }
+ *   queryStringParameters: {
+ *     version: 'published',
+ *     scheme: 'instruments',
+ *     userNote: 'Updated instrument details'
+ *   }
  * };
  *
  * const resultPublished = await updateConcept(eventPublished);
@@ -59,15 +70,17 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * //   headers: { ... }
  * // }
  * @example
- * curl -X POST https://your-api-endpoint.com/upload-rdf \
+ * curl -X POST https://your-api-endpoint.com/update-concept \
  *   -H "Content-Type: application/xml" \
  *   -d @your-rdf-file.xml \
- *   -G --data-urlencode "version=draft"
+ *   -G --data-urlencode "version=draft" \
+ *   --data-urlencode "scheme=sciencekeywords" \
+ *   --data-urlencode "userNote=Updated concept description"
  *
  * // Response:
  * // {
  * //   "statusCode": 200,
- * //   "body": "{\"message\":\"Successfully loaded RDF data into RDF4J\"}",
+ * //   "body": "{\"message\":\"Successfully updated concept: 123\"}",
  * //   "headers": {
  * //     "Content-Type": "application/json",
  * //     "Access-Control-Allow-Origin": "*"
@@ -89,41 +102,66 @@ export const updateConcept = async (event) => {
   const scheme = queryStringParameters?.scheme
   const userNote = queryStringParameters?.userNote
 
-  console.log('rdfXml=', rdfXml)
   console.log('userNote=', userNote)
-  console.log('version=', version)
-  console.log('scheme=', scheme)
 
-  let transactionUrl = null
+  /**
+   * Checks if the rdfXml has a skos:inScheme element and adds it if not present.
+   *
+   * @param {string} rdfXml - The RDF/XML string to check and modify.
+   * @param {string} scheme - The scheme to use in the skos:inScheme element.
+   * @returns {string} The modified RDF/XML string.
+   */
+  const ensureInScheme = () => {
+    // Check if skos:inScheme is already present
+    if (rdfXml.includes('<skos:inScheme')) {
+      return rdfXml // Return original rdfXml if skos:inScheme is already present
+    }
+
+    // Find the position to insert the new element
+    const insertPosition = rdfXml.lastIndexOf('</skos:Concept>')
+
+    if (insertPosition === -1) {
+      throw new Error('Invalid RDF/XML: Missing </skos:Concept> closing tag')
+    }
+
+    // Create the new skos:inScheme element
+    const inSchemeElement = `<skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}"/>`
+
+    // Insert the new element
+    return rdfXml.slice(0, insertPosition) + inSchemeElement + rdfXml.slice(insertPosition)
+  }
 
   try {
     if (!rdfXml) {
       throw new Error('Missing RDF/XML data in request body')
     }
 
-    const conceptId = getConceptId(rdfXml)
+    if (!scheme) {
+      throw new Error('Missing scheme parameter')
+    }
+
+    // Ensure the skos:inScheme element is present
+    const updatedRdfXml = ensureInScheme(rdfXml, scheme)
+    // Check conceptId
+    const conceptId = getConceptId(updatedRdfXml)
     if (!conceptId) {
       throw new Error('Invalid or missing concept ID')
     }
 
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
-    const exists = await conceptIdExists(conceptIRI, version)
-    if (!exists) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: `Concept ${conceptIRI} not found` }),
-        headers: defaultResponseHeaders
+    const isUpdate = await conceptIdExists(conceptIRI, version)
+
+    // Start transaction
+    const transactionUrl = await startTransaction()
+
+    if (isUpdate) {
+      // Delete existing triples and get the deleted data
+      const deleteResponse = await deleteTriples(conceptIRI, version, transactionUrl)
+
+      if (!deleteResponse.ok) {
+        throw new Error('Failed to delete existing triples')
       }
-    }
-
-    transactionUrl = await startTransaction()
-
-    // Delete existing triples and get the deleted data
-    const deleteResponse = await deleteTriples(conceptIRI, version, transactionUrl)
-
-    if (!deleteResponse.ok) {
-      throw new Error('Failed to delete existing triples')
     }
 
     // Try to insert the new data
@@ -132,7 +170,7 @@ export const updateConcept = async (event) => {
         method: 'PUT',
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
-        body: rdfXml,
+        body: updatedRdfXml,
         version,
         transaction: {
           transactionUrl,
@@ -141,7 +179,17 @@ export const updateConcept = async (event) => {
       })
 
       if (!insertResponse.ok) {
-        throw new Error(`HTTP error! insert status: ${insertResponse.status}`)
+        throw new Error(`HTTP error! insert new data status: ${insertResponse.status}`)
+      }
+
+      const insertReciprocalRelationsResponse = await ensureReciprocalRelations({
+        rdfXml: updatedRdfXml,
+        conceptId,
+        version,
+        transactionUrl
+      })
+      if (!insertReciprocalRelationsResponse.ok) {
+        throw new Error(`HTTP error! insert reciprocal relations status: ${insertReciprocalRelationsResponse.status}`)
       }
 
       // Update the modified date
@@ -157,6 +205,7 @@ export const updateConcept = async (event) => {
         throw new Error('HTTP error! updating last modified date failed')
       }
 
+      // Commit transaction
       await commitTransaction(transactionUrl)
 
       return {
