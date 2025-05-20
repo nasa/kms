@@ -23,7 +23,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  *
  * This function fetches SKOS concepts from the RDF store based on the provided parameters,
  * processes them, and constructs a representation of the concepts in the requested format.
- * It supports pagination and various output formats.
+ * It supports pagination, various output formats, and performance tracking.
  *
  * @async
  * @function getConcepts
@@ -36,6 +36,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @param {string} [event.queryStringParameters.page_size='2000'] - The page size for pagination (max 2000).
  * @param {string} [event.queryStringParameters.format='rdf'] - The output format (rdf, json, xml, or csv).
  * @param {string} [event.queryStringParameters.version='published'] - The version of the concepts to retrieve.
+ * @param {string} [event.path] - The path of the API request.
  * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
  *
  * @example
@@ -66,9 +67,27 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * // }
  *
  * @throws {Error} If there's an error retrieving or processing the concepts.
+ *
+ * @description
+ * This function performs the following main operations:
+ * 1. Validates and processes input parameters.
+ * 2. Retrieves concepts based on the provided filters and pagination.
+ * 3. Processes the retrieved triples into a structured format.
+ * 4. Generates the response in the requested format (RDF, JSON, XML, or CSV).
+ * 5. Tracks performance metrics for various operations.
+ *
+ * Supported formats:
+ * - RDF (default): Returns concepts in RDF/XML format.
+ * - JSON: Returns a JSON object with concept details and metadata.
+ * - XML: Returns an XML representation of concepts.
+ * - CSV: Returns concepts in CSV format (requires conceptScheme parameter).
+ *
+ * Note: The CSV format has specific requirements and restrictions.
  */
+
 export const getConcepts = async (event) => {
-  console.log('Fetching concepts!')
+  const startTime = performance.now()
+  const performanceMetrics = {}
 
   const { defaultResponseHeaders } = getApplicationConfig()
   const { queryStringParameters } = event
@@ -105,6 +124,7 @@ export const getConcepts = async (event) => {
     if (event?.path === '/concepts/root') {
       triples = await getRootConcepts(version)
     } else {
+      const start = performance.now()
       triples = await getFilteredTriples({
         conceptScheme,
         pattern,
@@ -112,15 +132,25 @@ export const getConcepts = async (event) => {
         pageNum,
         pageSize
       })
+
+      const end = performance.now()
+      performanceMetrics.dbFetch = (end - start).toFixed(2)
     }
 
+    let start = performance.now()
     const { bNodeMap, nodes, conceptURIs } = processTriples(triples)
+    let end = performance.now()
+    performanceMetrics.processFetch = (end - start).toFixed(2)
 
+    start = performance.now()
     const totalConcepts = await getTotalConceptCount({
       conceptScheme,
       pattern,
       version
     })
+    end = performance.now()
+    performanceMetrics.fetchTotalCount = (end - start).toFixed(2)
+
     const totalPages = Math.ceil(totalConcepts / pageSize)
 
     let responseBody
@@ -226,6 +256,8 @@ export const getConcepts = async (event) => {
       responseBody = xmlBuilder.build(xmlObj)
       contentType = 'application/xml'
     } else {
+      start = performance.now()
+
       // Default case (including 'rdf')
       const builder = new XMLBuilder({
         format: true,
@@ -257,7 +289,13 @@ export const getConcepts = async (event) => {
 
       responseBody = builder.build(rdfJson)
       contentType = 'application/xml'
+      end = performance.now()
+      performanceMetrics.buildXml = (end - start).toFixed(2)
     }
+
+    const endTime = performance.now()
+    performanceMetrics.totalTime = (endTime - startTime).toFixed(2)
+    console.log('get concepts performance=', JSON.stringify(performanceMetrics))
 
     return {
       statusCode: 200,
@@ -272,7 +310,7 @@ export const getConcepts = async (event) => {
       }
     }
   } catch (error) {
-    console.error(`Error retrieving concepts, error=${error.toString()}`)
+    console.error(`Error retrieving concepts, error=${error}`)
 
     return {
       headers: defaultResponseHeaders,

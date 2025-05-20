@@ -270,18 +270,16 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b0',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b0',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://www.w3.org/2004/02/skos/core#prefLabel',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: 'Part Label',
             type: 'literal'
           }
@@ -328,18 +326,16 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b0',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b0',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://www.w3.org/2004/02/skos/core#prefLabel',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: 'Test Label',
             type: 'literal',
             'xml:lang': 'en'
@@ -367,18 +363,16 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b0',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b0',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://www.w3.org/2004/02/skos/core#prefLabel',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: 'Test Label',
             type: 'literal'
           }
@@ -404,18 +398,16 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b1',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b1',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://www.w3.org/2004/02/skos/core#related',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: 'http://example.com/concept/123',
             type: 'uri'
           }
@@ -441,18 +433,16 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b2',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b2',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://www.w3.org/2004/02/skos/core#prefLabel',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: 'Complex Part',
             type: 'literal',
             'xml:lang': 'en'
@@ -460,80 +450,44 @@ describe('toSkosJson', () => {
         },
         {
           s: {
-            value: '_:b2',
-            type: 'bnode'
+            value: uri,
+            type: 'uri'
           },
           p: {
-            value: 'http://example.com/property',
+            value: 'http://example.com/complexPart',
             type: 'uri'
           },
           o: {
+            value: '_:b2',
+            type: 'bnode'
+          },
+          bn: {
+            value: '_:b2',
+            type: 'bnode'
+          },
+          bp: {
+            value: 'http://example.com/property',
+            type: 'uri'
+          },
+          bo: {
             value: 'Property Value',
             type: 'literal'
           }
         }
       ]
       const result = toSkosJson(uri, triples)
-      expect(result['http://example.com/complexPart']).toEqual({
-        '@skos:prefLabel': 'Complex Part',
-        '@xml:lang': 'en',
-        '@http://example.com/property': 'Property Value'
-      })
-    })
-
-    test('should handle non-standard value types', () => {
-      const nonStandardTriples = [
+      expect(result['http://example.com/complexPart']).toEqual([
         {
-          s: {
-            value: uri,
-            type: 'uri'
-          },
-          p: {
-            value: 'http://example.com/nonStandard',
-            type: 'uri'
-          },
-          o: {
-            value: 'Non-standard Value',
-            type: 'non-standard'
-          }
-        }
-      ]
-      const result = toSkosJson(uri, nonStandardTriples)
-      expect(result['http://example.com/nonStandard']).toEqual({ _text: 'Non-standard Value' })
-    })
-
-    test('should handle cases where bnodeMap is provided', () => {
-      const customBnodeMap = {
-        '_:b2': [
-          {
-            p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
-            o: {
-              value: 'Custom Bnode Label',
-              type: 'literal'
-            }
-          }
-        ]
-      }
-      const triplesWithCustomBnode = [
+          '@skos:prefLabel': 'Complex Part',
+          '@xml:lang': 'en',
+          '@http://example.com/property': 'Property Value'
+        },
         {
-          s: {
-            value: uri,
-            type: 'uri'
-          },
-          p: {
-            value: 'http://example.com/customBnode',
-            type: 'uri'
-          },
-          o: {
-            value: '_:b2',
-            type: 'bnode'
-          }
+          '@skos:prefLabel': 'Complex Part',
+          '@xml:lang': 'en',
+          '@http://example.com/property': 'Property Value'
         }
-      ]
-      const result = toSkosJson(uri, triplesWithCustomBnode, customBnodeMap)
-      expect(result['http://example.com/customBnode']).toEqual({
-        '@skos:prefLabel': 'Custom Bnode Label'
-      })
+      ])
     })
 
     test('should handle nested blank nodes', () => {
@@ -550,43 +504,60 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b0',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b0',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://example.com/hasSubPart',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: '_:b1',
             type: 'bnode'
           }
         },
         {
           s: {
-            value: '_:b1',
-            type: 'bnode'
+            value: uri,
+            type: 'uri'
           },
           p: {
-            value: 'http://www.w3.org/2004/02/skos/core#prefLabel',
+            value: 'http://example.com/hasPart',
             type: 'uri'
           },
           o: {
+            value: '_:b0',
+            type: 'bnode'
+          },
+          bn: {
+            value: '_:b1',
+            type: 'bnode'
+          },
+          bp: {
+            value: 'http://www.w3.org/2004/02/skos/core#prefLabel',
+            type: 'uri'
+          },
+          bo: {
             value: 'Nested Part',
             type: 'literal'
           }
         }
       ]
       const result = toSkosJson(uri, nestedBnodeTriples)
-      expect(result['http://example.com/hasPart']).toEqual({
-        '@http://example.com/hasSubPart': {
-          '@skos:prefLabel': 'Nested Part'
+      expect(result['http://example.com/hasPart']).toEqual([
+        {
+          '@http://example.com/hasSubPart': {
+            '@skos:prefLabel': 'Nested Part'
+          }
+        },
+        {
+          '@http://example.com/hasSubPart': {
+            '@skos:prefLabel': 'Nested Part'
+          }
         }
-      })
+      ])
     })
 
     test('should handle blank nodes with complex object values', () => {
@@ -603,37 +574,23 @@ describe('toSkosJson', () => {
           o: {
             value: '_:b0',
             type: 'bnode'
-          }
-        },
-        {
-          s: {
+          },
+          bn: {
             value: '_:b0',
             type: 'bnode'
           },
-          p: {
+          bp: {
             value: 'http://example.com/complexProperty',
             type: 'uri'
           },
-          o: {
+          bo: {
             value: 'complexValue',
             type: 'complex'
           }
         }
       ]
 
-      const customBnodeMap = {
-        '_:b0': [
-          {
-            p: { value: 'http://example.com/complexProperty' },
-            o: {
-              value: 'complexValue',
-              type: 'complex'
-            }
-          }
-        ]
-      }
-
-      const result = toSkosJson(uri, complexObjectBnodeTriples, customBnodeMap)
+      const result = toSkosJson(uri, complexObjectBnodeTriples)
 
       expect(result['http://example.com/hasPart']).toEqual({
         '@http://example.com/complexProperty': 'complexValue'

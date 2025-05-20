@@ -91,20 +91,6 @@ const mockInput = [
   {
     p: {
       type: 'uri',
-      value: 'https://gcmd.earthdata.nasa.gov/kms#reference'
-    },
-    o: {
-      type: 'bnode',
-      value: '68e59f870786c032'
-    },
-    s: {
-      type: 'uri',
-      value: 'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3'
-    }
-  },
-  {
-    p: {
-      type: 'uri',
       value: 'http://www.w3.org/2004/02/skos/core#definition'
     },
     o: {
@@ -130,6 +116,33 @@ const mockInput = [
     s: {
       type: 'bnode',
       value: '68e59f870786c032'
+    }
+  },
+  {
+    s: {
+      type: 'uri',
+      value: 'https://gcmd.earthdata.nasa.gov/kms/concept/007cc0a7-cccf-47c9-a55d-af36592055b3'
+    },
+    p: {
+      type: 'uri',
+      value: 'https://gcmd.earthdata.nasa.gov/kms#reference'
+    },
+    o: {
+      type: 'bnode',
+      value: '68e59f870786c032'
+    },
+    bn: {
+      type: 'bnode',
+      value: '68e59f870786c032'
+    },
+    bp: {
+      type: 'uri',
+      value: 'https://gcmd.earthdata.nasa.gov/kms#text'
+    },
+    bo: {
+      type: 'literal',
+      'xml:lang': 'en',
+      value: 'International Commission on Stratigraphy (http://www.stratigraphy.org/)'
     }
   }
 ]

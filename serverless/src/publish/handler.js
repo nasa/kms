@@ -1,28 +1,21 @@
-import { copyGraph } from '@/shared/copyGraph'
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import { getVersionNames } from '@/shared/getVersionNames'
-import { renameGraph } from '@/shared/renameGraph'
-import {
-  commitTransaction,
-  rollbackTransaction,
-  startTransaction
-} from '@/shared/transactionHelpers'
-import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
+import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Performs the publication process for a new version of the keyword set.
+ * Initiates the publication process for a new version of the keyword set.
  *
- * This handles the process of publishing a new version of the keyword set, including
- * managing graph transitions and updating metadata.
- *
- * The function performs the following steps:
+ * This function handles the process of publishing a new version of the keyword set by
+ * performing a SPARQL update operation. It performs the following steps:
  * 1. Validates the input to ensure a 'name' parameter is provided in the query string.
- * 2. Starts a new SPARQL transaction.
- * 3. If a 'published' version exists, it is moved to 'past_published'.
- * 4. The 'draft' version is copied to become the new 'published' version.
- * 5. Metadata for the new 'published' version is updated with the provided name and timestamp.
- * 6. Commits the transaction if all operations are successful, or rolls back if an error occurs.
+ * 2. Generates a SPARQL update query to perform the following operations:
+ *    - Copy the 'draft' version to become the new 'published' version.
+ *    - Update metadata for the new 'published' version with the provided name and timestamp.
+ * 3. Executes the SPARQL update request.
+ * 4. Returns with a 200 (OK) status upon successful completion, or appropriate error status.
+ *
+ * Note: This function maintains only two versions: 'draft' and 'published'. The previous
+ * 'published' version is overwritten by this operation.
  *
  * @async
  * @function publish
@@ -32,9 +25,9 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  * @returns {Promise<Object>} A promise that resolves to an object containing the response details.
  * @property {number} statusCode - The HTTP status code (200 for success, 400 for bad request, 500 for server error).
  * @property {Object} headers - The response headers, including CORS and content type settings.
- * @property {string} body - A JSON string containing the response message, version name, and publish date (for success) or error details (for failure).
+ * @property {string} body - A JSON string containing the response message, version name, and publish date.
  *
- * @throws {Error} If there's an issue with renaming graphs, copying data, or updating metadata.
+ * @throws {Error} If there's an issue with input validation or executing the publish process.
  *
  * @example
  * // Successful invocation
@@ -58,11 +51,8 @@ import { updateVersionMetadata } from '@/shared/updateVersionMetadata'
  */
 export const publish = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-
-  // Extract name from query parameters
   const name = event.queryStringParameters?.name
 
-  // Check if name is provided
   if (!name) {
     return {
       statusCode: 400,
@@ -71,61 +61,21 @@ export const publish = async (event) => {
     }
   }
 
-  const versionNames = await getVersionNames()
-
-  // Check if the provided name already exists
-  if (versionNames.includes(name)) {
-    return {
-      statusCode: 400,
-      headers: defaultResponseHeaders,
-      body: JSON.stringify({ message: `Error: Version name "${name}" already exists` })
-    }
-  }
-
-  let transactionUrl = null
   try {
-    // Start a new transaction
-    transactionUrl = await startTransaction()
+    const updateDate = new Date().toISOString()
+    const publishQuery = getPublishUpdateQuery(name, updateDate)
 
-    // 1. Move published to past_published if it exists
-    const metadata = await getVersionMetadata('published')
-    if (metadata) {
-      const { versionName } = metadata
-      await renameGraph({
-        oldGraphName: 'published',
-        newGraphName: versionName,
-        transactionUrl
-      })
+    const response = await sparqlRequest({
+      method: 'POST',
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      body: publishQuery
+    })
 
-      await updateVersionMetadata({
-        graphId: versionName,
-        versionType: 'past_published',
-        transactionUrl
-      })
+    if (!response.ok) {
+      throw new Error(`Failed to execute publish update: ${response.status} ${response.statusText}`)
     }
 
-    // 2. Copy draft to published.
-    await copyGraph({
-      sourceGraphName: 'draft',
-      targetGraphName: 'published',
-      transactionUrl
-    })
-
-    // // 3. Updated published graph with version info.
-    const updateDate = new Date().toISOString()
-    await updateVersionMetadata({
-      graphId: 'published',
-      version: name,
-      versionType: 'published',
-      createdDate: updateDate,
-      modifiedDate: updateDate,
-      transactionUrl
-    })
-
-    // Commit the transaction
-    await commitTransaction(transactionUrl)
-
-    // Return success response
     return {
       statusCode: 200,
       headers: defaultResponseHeaders,
@@ -138,12 +88,6 @@ export const publish = async (event) => {
   } catch (error) {
     console.error('Error in publish process:', error)
 
-    // Rollback the transaction if an error occurred
-    if (transactionUrl) {
-      await rollbackTransaction(transactionUrl)
-    }
-
-    // Return error response
     return {
       statusCode: 500,
       headers: defaultResponseHeaders,

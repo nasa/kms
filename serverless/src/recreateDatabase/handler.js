@@ -1,3 +1,6 @@
+import fs from 'fs'
+import path from 'path'
+
 import { getApplicationConfig } from '@/shared/getConfig'
 
 /**
@@ -5,33 +8,33 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *
  * This function performs the following operations:
  * 1. Deletes the existing repository if it exists.
- * 2. Creates a new repository with the specified configuration.
+ * 2. Reads the repository configuration from a local 'config.ttl' file.
+ * 3. Creates a new repository with the configuration specified in the 'config.ttl' file.
  *
  * Environment Variables:
  * - RDF4J_SERVICE_URL: The base URL of the RDF4J service.
+ * - RDF4J_USER_NAME: Username for RDF4J service authentication.
+ * - RDF4J_PASSWORD: Password for RDF4J service authentication.
  *
  * @async
  * @function recreateDatabase
- * @returns {Object} An object containing:
+ * @returns {Promise<Object>} A promise that resolves to an object containing:
  *   - statusCode: HTTP status code (200 for success, 500 for error)
  *   - headers: Response headers
  *   - body: A JSON string containing a success message or error details
  *
  * @throws Will throw an error if:
  *   - The deletion of the existing repository fails (except for 404 Not Found)
+ *   - The 'config.ttl' file cannot be read
  *   - The creation of the new repository fails
  *
  * Repository Configuration:
- * - ID: 'kms'
- * - Type: Native Store
- * - Properties:
- *   - forceSync: true
- *   - memory: false
- *   - reindex: true
- *   - writeThrough: true
+ * The configuration is read from a 'config.ttl' file located at '../../../config/config.ttl'
+ * relative to this handler file. Ensure this file exists and contains valid RDF4J repository
+ * configuration in Turtle format.
  *
  * Authentication:
- * Uses Basic Authentication with username 'rdf4j' and password 'rdf4j'.
+ * Uses Basic Authentication with credentials specified in environment variables.
  *
  * Error Handling:
  * If any error occurs during the process, it logs the error details and returns a 500 status code
@@ -45,7 +48,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * curl -X POST https://your-api-endpoint.com/recreate-database \
  *   -H "Authorization: Bearer YOUR_AUTH_TOKEN"
  *
- * // Response:
+ * // Success Response:
  * // {
  * //   "statusCode": 200,
  * //   "headers": {
@@ -53,6 +56,16 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * //     "Access-Control-Allow-Origin": "*"
  * //   },
  * //   "body": "{\"message\":\"Successfully recreated repository 'kms'\"}"
+ * // }
+ *
+ * // Error Response:
+ * // {
+ * //   "statusCode": 500,
+ * //   "headers": {
+ * //     "Content-Type": "application/json",
+ * //     "Access-Control-Allow-Origin": "*"
+ * //   },
+ * //   "body": "{\"error\":\"Failed to recreate database\",\"details\":\"Error message\"}"
  * // }
  */
 export const recreateDatabase = async () => {
@@ -84,33 +97,15 @@ export const recreateDatabase = async () => {
 
     console.log(`Deleted repository '${repositoryId}' (if it existed)`)
 
-    // Step 2: Create new repository
-    const createConfig = `
-      #
-      # RDF4J configuration template for a main-memory repository
-      #
-      @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
-      @prefix config: <tag:rdf4j.org,2023:config/>.
+    // Step 2: Read config.ttl file
+    const configPath = path.join(__dirname, '..', '..', '..', 'infrastructure', 'rdfdb', 'cdk', 'docker', 'config', 'config.ttl')
+    const createConfig = fs.readFileSync(configPath, 'utf8')
 
-      [] a config:Repository ;
-         config:rep.id "${repositoryId}" ;
-         rdfs:label "${repositoryId}" ;
-         config:rep.impl [
-            config:rep.type "openrdf:SailRepository" ;
-            config:sail.impl [
-              config:sail.type "openrdf:NativeStore" ;
-              config:native.forceSync true ;
-              config:sail.memory "false" ;
-              config:sail.reindex "true" ;
-              config:sail.writeThrough "true" ;
-          ]
-         ].
-    `
-
+    // Step 3: Create new repository
     const createResponse = await fetch(`${baseUrl}/repositories/${repositoryId}`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/x-turtle',
+        'Content-Type': 'text/turtle',
         Authorization: getAuthHeader()
       },
       body: createConfig
