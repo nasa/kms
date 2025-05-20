@@ -8,6 +8,7 @@ import {
 
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
+import { ensureReciprocalRelations } from '@/shared/ensureReciprocalRelations'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { sparqlRequest } from '@/shared/sparqlRequest'
@@ -22,6 +23,7 @@ import { updateConcept } from '@/updateConcept/handler'
 vi.mock('@/shared/transactionHelpers')
 vi.mock('@/shared/conceptIdExists')
 vi.mock('@/shared/deleteTriples')
+vi.mock('@/shared/ensureReciprocalRelations')
 vi.mock('@/shared/rollback')
 vi.mock('@/shared/getConceptId')
 vi.mock('@/shared/getConfig')
@@ -30,8 +32,14 @@ vi.mock('@/shared/updateModifiedDate')
 
 describe('updateConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
-  const mockRdfXml = '<rdf:RDF>...</rdf:RDF>'
-  const mockEvent = { body: mockRdfXml }
+  const mockRdfXml = '<rdf:RDF><skos:Concept><skos:inScheme rdf:resource=\"https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords\"/></skos:Concept></rdf:RDF>'
+  const mockEvent = {
+    body: mockRdfXml,
+    queryStringParameters: {
+      scheme: 'sciencekeywords',
+      version: 'draft'
+    }
+  }
   const mockConceptId = '123'
   const mockDeletedTriples = [{
     s: { value: 'subject' },
@@ -53,11 +61,11 @@ describe('updateConcept', () => {
     })
 
     startTransaction.mockResolvedValue('mock-transaction-url')
+    ensureReciprocalRelations.mockResolvedValue({ ok: true })
   })
 
   describe('when succesful', () => {
     test('should update concept and return 200 if concept exists and update succeeds', async () => {
-      // Mock successful responses for all steps
       conceptIdExists.mockResolvedValue(true)
       startTransaction.mockResolvedValue('mock-transaction-url')
       deleteTriples.mockResolvedValue({ ok: true })
@@ -67,8 +75,7 @@ describe('updateConcept', () => {
 
       const result = await updateConcept(mockEvent)
 
-      // Verify all steps were called with correct parameters
-      expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+      expect(getConceptId).toHaveBeenCalledWith(expect.stringContaining('<skos:inScheme'))
       expect(conceptIdExists).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft')
       expect(startTransaction).toHaveBeenCalled()
       expect(deleteTriples).toHaveBeenCalledWith('https://gcmd.earthdata.nasa.gov/kms/concept/123', 'draft', 'mock-transaction-url')
@@ -76,7 +83,7 @@ describe('updateConcept', () => {
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
         method: 'PUT',
-        body: mockRdfXml,
+        body: expect.stringContaining('<skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"/>'),
         version: 'draft',
         transaction: {
           transactionUrl: 'mock-transaction-url',
@@ -84,13 +91,18 @@ describe('updateConcept', () => {
         }
       })
 
+      expect(ensureReciprocalRelations).toHaveBeenCalledWith({
+        rdfXml: expect.stringContaining('<skos:inScheme'),
+        conceptId: '123',
+        version: 'draft',
+        transactionUrl: 'mock-transaction-url'
+      })
+
       expect(updateModifiedDate).toHaveBeenCalledWith('123', 'draft', expect.any(String), 'mock-transaction-url')
       expect(commitTransaction).toHaveBeenCalledWith('mock-transaction-url')
 
-      // Verify rollback was not called
       expect(rollbackTransaction).not.toHaveBeenCalled()
 
-      // Check the final result
       expect(result).toEqual({
         statusCode: 200,
         body: JSON.stringify({ message: 'Successfully updated concept: 123' }),
@@ -119,6 +131,34 @@ describe('updateConcept', () => {
       expect(result.statusCode).toBe(500)
     })
 
+    test('should return 500 if scheme is missing', async () => {
+      const eventWithoutScheme = {
+        body: mockRdfXml,
+        queryStringParameters: { version: 'draft' }
+      }
+
+      const result = await updateConcept(eventWithoutScheme)
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('Missing scheme parameter')
+    })
+
+    test('should handle missing body in event', async () => {
+      const eventWithoutBody = { queryStringParameters: { scheme: 'sciencekeywords' } }
+
+      const result = await updateConcept(eventWithoutBody)
+
+      expect(getConceptId).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        statusCode: 500,
+        body: JSON.stringify({
+          message: 'Error updating concept',
+          error: 'Missing RDF/XML data in request body'
+        }),
+        headers: mockDefaultHeaders
+      })
+    })
+
     test('should handle error when rolling back transaction fails', async () => {
       conceptIdExists.mockResolvedValue(true)
       deleteTriples.mockResolvedValue({ ok: true })
@@ -140,7 +180,7 @@ describe('updateConcept', () => {
       expect(commitTransaction).not.toHaveBeenCalled()
 
       expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).error).toBe('HTTP error! insert status: 500')
+      expect(JSON.parse(result.body).error).toBe('HTTP error! insert new data status: 500')
 
       // Check that both error messages were logged
       expect(consoleErrorSpy).toHaveBeenCalledWith('Error inserting new data, rolling back:', expect.any(Error))
@@ -170,7 +210,7 @@ describe('updateConcept', () => {
 
       const result = await updateConcept(mockEvent)
 
-      expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
+      expect(getConceptId).toHaveBeenCalledWith('<rdf:RDF><skos:Concept><skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"/></skos:Concept></rdf:RDF>')
       expect(result).toEqual({
         statusCode: 404,
         body: JSON.stringify({ message: 'Concept https://gcmd.earthdata.nasa.gov/kms/concept/123 not found' }),
