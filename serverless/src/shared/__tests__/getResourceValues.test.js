@@ -56,32 +56,6 @@ describe('getResourceValues', () => {
     })
   })
 
-  describe('When given invalid XML', () => {
-    const invalidXml = `
-      <rdf:RDF>
-        <invalid>
-      </rdf:RDF>
-    `
-
-    it('should throw an error', () => {
-      expect(() => getResourceValues(invalidXml, 'skos:related')).toThrow('Error extracting resource values')
-    })
-  })
-
-  describe('When given XML without a skos:Concept element', () => {
-    const xmlWithoutConcept = `
-      <rdf:RDF>
-        <skos:NotConcept>
-          <skos:related rdf:resource="2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df"/>
-        </skos:NotConcept>
-      </rdf:RDF>
-    `
-
-    it('should throw an error', () => {
-      expect(() => getResourceValues(xmlWithoutConcept, 'skos:related')).toThrow('Invalid XML: skos:Concept element not found')
-    })
-  })
-
   describe('When given valid RDF/XML with a single element that has multiple attributes', () => {
     const validXml = `
       <rdf:RDF>
@@ -94,6 +68,24 @@ describe('getResourceValues', () => {
     it('should return an array with one resource value', () => {
       const result = getResourceValues(validXml, 'skos:related')
       expect(result).toEqual(['2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df'])
+    })
+  })
+
+  describe('When given valid RDF/XML without a skos:Concept element', () => {
+    const validXml = `
+      <rdf:RDF>
+        <some:OtherElement>
+          <skos:related rdf:resource="2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df"/>
+        </some:OtherElement>
+      </rdf:RDF>
+    `
+
+    it('should return an empty array and log a warning', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const result = getResourceValues(validXml, 'skos:related')
+      expect(result).toEqual([])
+      expect(consoleSpy).toHaveBeenCalledWith('No skos:Concept element found or invalid RDF/XML structure')
+      consoleSpy.mockRestore()
     })
   })
 

@@ -31,39 +31,36 @@ export const getResourceValues = (rdfXml, elementName) => {
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     allowBooleanAttributes: true,
-    parseAttributeValue: true
+    parseAttributeValue: true,
+    parseTagValue: false,
+    trimValues: true
   })
 
-  try {
-    const result = parser.parse(rdfXml)
-    const concept = result['rdf:RDF']['skos:Concept']
+  const result = parser.parse(rdfXml)
 
-    if (!concept) {
-      console.warn('No skos:Concept element found')
-
-      return []
-    }
-
-    const element = concept[elementName]
-
-    if (!element) {
-      return []
-    }
-
-    // Handle array of elements
-    if (Array.isArray(element)) {
-      return element.map((e) => e['@_rdf:resource']).filter(Boolean)
-    }
-
-    // Handle single element (object with @_rdf:resource)
-    if (typeof element === 'object' && '@_rdf:resource' in element) {
-      return [element['@_rdf:resource']]
-    }
-
-    return []
-  } catch (error) {
-    console.error(`Error parsing RDF/XML: ${error.message}`)
+  // Check if the parsed result has the expected structure
+  if (!result || !result['rdf:RDF'] || !result['rdf:RDF']['skos:Concept']) {
+    console.warn('No skos:Concept element found or invalid RDF/XML structure')
 
     return []
   }
+
+  const concept = result['rdf:RDF']['skos:Concept']
+  const element = concept[elementName]
+
+  if (!element) {
+    return []
+  }
+
+  // Handle array of elements
+  if (Array.isArray(element)) {
+    return element.map((e) => e['@_rdf:resource']).filter(Boolean)
+  }
+
+  // Handle single element (object with @_rdf:resource)
+  if (typeof element === 'object' && '@_rdf:resource' in element) {
+    return [element['@_rdf:resource']]
+  }
+
+  return []
 }
