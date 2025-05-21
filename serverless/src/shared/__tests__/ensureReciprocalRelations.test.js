@@ -230,8 +230,6 @@ describe('ensureReciprocalRelations', () => {
 
   describe('When logging errors', () => {
     test('should log errors to the console', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
       getResourceValues.mockReturnValue(['http://example.com/concept/abc-def-ghi'])
       sparqlRequest.mockRejectedValue(new Error('SPARQL request failed'))
 
