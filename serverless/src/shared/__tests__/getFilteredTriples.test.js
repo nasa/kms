@@ -7,15 +7,13 @@ import {
 } from 'vitest'
 
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
-import { getConceptDetailsQuery } from '@/shared/operations/queries/getConceptDetailsQuery'
-import { getConceptUrisQuery } from '@/shared/operations/queries/getConceptUrisQuery'
+import { getConceptsQuery } from '@/shared/operations/queries/getConceptsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
-vi.mock('../sparqlRequest')
-vi.mock('../operations/queries/getConceptUrisQuery')
-vi.mock('../operations/queries/getConceptDetailsQuery')
+vi.mock('@/shared/sparqlRequest')
+vi.mock('@/shared/operations/queries/getConceptsQuery')
 
-describe('when fetching triples for a query', () => {
+describe('getFilteredTriples', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -25,22 +23,11 @@ describe('when fetching triples for a query', () => {
       json: () => Promise.resolve({ results: { bindings: [] } })
     })
 
-    getConceptUrisQuery.mockReturnValue('MOCK_URI_QUERY')
-    getConceptDetailsQuery.mockReturnValue('MOCK_DETAILS_QUERY')
+    getConceptsQuery.mockReturnValue('MOCK_CONCEPTS_QUERY')
   })
 
   describe('when successful', () => {
-    test('should call sparqlRequest for both uri query and details query', async () => {
-      const mockUris = [
-        { s: { value: 'http://example.com/concept1' } },
-        { s: { value: 'http://example.com/concept2' } }
-      ]
-
-      sparqlRequest.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: { bindings: mockUris } })
-      })
-
+    test('should call sparqlRequest with correct parameters', async () => {
       await getFilteredTriples({
         conceptScheme: 'sciencekeywords',
         pattern: 'snow',
@@ -49,22 +36,17 @@ describe('when fetching triples for a query', () => {
         pageSize: 10
       })
 
-      expect(sparqlRequest).toHaveBeenCalledTimes(2)
-
-      // Check first call for URI query
-      expect(sparqlRequest).toHaveBeenNthCalledWith(1, expect.objectContaining({
-        body: 'MOCK_URI_QUERY',
+      expect(sparqlRequest).toHaveBeenCalledTimes(1)
+      expect(sparqlRequest).toHaveBeenCalledWith({
+        method: 'POST',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json',
+        body: 'MOCK_CONCEPTS_QUERY',
         version: 'published'
-      }))
-
-      // Check second call for details query
-      expect(sparqlRequest).toHaveBeenNthCalledWith(2, expect.objectContaining({
-        body: 'MOCK_DETAILS_QUERY',
-        version: 'published'
-      }))
+      })
     })
 
-    test('should use correct parameters for uris query', async () => {
+    test('should use correct parameters for concepts query', async () => {
       await getFilteredTriples({
         conceptScheme: 'sciencekeywords',
         pattern: 'snow',
@@ -73,43 +55,41 @@ describe('when fetching triples for a query', () => {
         pageSize: 20
       })
 
-      expect(getConceptUrisQuery).toHaveBeenCalledWith({
-        conceptScheme: 'sciencekeywords',
-        pattern: 'snow',
-        pageSize: 20,
-        offset: 20 // (pageNum - 1) * pageSize
-      })
+      expect(getConceptsQuery).toHaveBeenCalledWith('sciencekeywords', 'snow', 20, 20) // PageSize, offset
     })
 
-    test('should use fetched URIs for details query', async () => {
-      const mockUris = [
-        { s: { value: 'http://example.com/concept1' } },
-        { s: { value: 'http://example.com/concept2' } }
+    test('should return the bindings from the SPARQL response', async () => {
+      const mockBindings = [
+        {
+          s: { value: 'http://example.com/concept1' },
+          p: { value: 'predicate1' },
+          o: { value: 'object1' }
+        },
+        {
+          s: { value: 'http://example.com/concept2' },
+          p: { value: 'predicate2' },
+          o: { value: 'object2' }
+        }
       ]
 
       sparqlRequest.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ results: { bindings: mockUris } })
+        json: () => Promise.resolve({ results: { bindings: mockBindings } })
       })
 
-      await getFilteredTriples({
+      const result = await getFilteredTriples({
         conceptScheme: 'sciencekeywords',
         version: 'published',
         pageNum: 1,
         pageSize: 10
       })
 
-      expect(getConceptDetailsQuery).toHaveBeenCalledWith([
-        'http://example.com/concept1',
-        'http://example.com/concept2'
-      ])
-
-      expect(getConceptDetailsQuery).toHaveBeenCalledTimes(1)
+      expect(result).toEqual(mockBindings)
     })
   })
 
   describe('when unsuccessful', () => {
-    test('should handle error from uri query', async () => {
+    test('should handle error from SPARQL request', async () => {
       sparqlRequest.mockRejectedValueOnce(new Error('SPARQL request failed'))
 
       await expect(getFilteredTriples({
@@ -118,9 +98,11 @@ describe('when fetching triples for a query', () => {
         pageNum: 1,
         pageSize: 10
       })).rejects.toThrow('SPARQL request failed')
+
+      expect(console.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
     })
 
-    test('should handle non-ok response uri query', async () => {
+    test('should handle non-ok response from SPARQL request', async () => {
       sparqlRequest.mockResolvedValueOnce({
         ok: false,
         status: 500
@@ -132,33 +114,14 @@ describe('when fetching triples for a query', () => {
         pageNum: 1,
         pageSize: 10
       })).rejects.toThrow('HTTP error! status: 500')
+
+      expect(console.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
     })
 
-    test('should handle error from details query call', async () => {
+    test('should handle JSON parsing error', async () => {
       sparqlRequest.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ results: { bindings: [{ s: { value: 'http://example.com/concept1' } }] } })
-      })
-
-      sparqlRequest.mockRejectedValueOnce(new Error('SPARQL request failed'))
-
-      await expect(getFilteredTriples({
-        conceptScheme: 'sciencekeywords',
-        version: 'published',
-        pageNum: 1,
-        pageSize: 10
-      })).rejects.toThrow('SPARQL request failed')
-    })
-
-    test('should handle non-ok response from details query', async () => {
-      sparqlRequest.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ results: { bindings: [{ s: { value: 'http://example.com/concept1' } }] } })
-      })
-
-      sparqlRequest.mockResolvedValueOnce({
-        ok: false,
-        status: 500
+        json: () => Promise.reject(new Error('Invalid JSON'))
       })
 
       await expect(getFilteredTriples({
@@ -166,7 +129,30 @@ describe('when fetching triples for a query', () => {
         version: 'published',
         pageNum: 1,
         pageSize: 10
-      })).rejects.toThrow('HTTP error! status: 500')
+      })).rejects.toThrow('Invalid JSON')
+
+      expect(console.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
+    })
+
+    test('should calculate offset correctly', async () => {
+      await getFilteredTriples({
+        conceptScheme: 'sciencekeywords',
+        version: 'published',
+        pageNum: 3,
+        pageSize: 15
+      })
+
+      expect(getConceptsQuery).toHaveBeenCalledWith('sciencekeywords', undefined, 15, 30) // PageSize, offset
+    })
+
+    test('should handle missing optional parameters', async () => {
+      await getFilteredTriples({
+        version: 'published',
+        pageNum: 1,
+        pageSize: 10
+      })
+
+      expect(getConceptsQuery).toHaveBeenCalledWith(undefined, undefined, 10, 0)
     })
   })
 })

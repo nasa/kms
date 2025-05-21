@@ -10,29 +10,21 @@ create_repository() {
 
   if [ ! -d "${RDF4J_DATA_DIR}/server/repositories/kms" ]; then
     # Create the repository
-    echo "Repository 'kms' does not exist. Creating it...   Using ${RDF4J_USER_NAME}:${RDF4J_PASSWORD}"
-    curl -u ${RDF4J_USER_NAME}:${RDF4J_PASSWORD} -X PUT -H "Content-Type: application/x-turtle" --data-binary '
-#
-# RDF4J configuration template for a main-memory repository
-#
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
-@prefix config: <tag:rdf4j.org,2023:config/>.
+    echo "Repository 'kms' does not exist. Creating it... Using ${RDF4J_USER_NAME}:${RDF4J_PASSWORD}"
+    
+    # Use config.ttl file
+    curl -u ${RDF4J_USER_NAME}:${RDF4J_PASSWORD} \
+         -X PUT \
+         -H "Content-Type: text/turtle" \
+         --data-binary @/usr/local/tomcat/config.ttl \
+         http://localhost:8080/rdf4j-server/repositories/kms
 
-[] a config:Repository ;
-   config:rep.id "kms" ;
-   rdfs:label "kms" ;
-   config:rep.impl [
-      config:rep.type "openrdf:SailRepository" ;
-      config:sail.impl [
-        config:sail.type "openrdf:NativeStore" ;
-        config:native.forceSync true ;
-        config:sail.memory "false" ;
-        config:sail.reindex "true" ;
-        config:sail.writeThrough "true" ;
-    ]
-   ].
-    ' http://localhost:8080/rdf4j-server/repositories/kms
-    echo "Repository created successfully"
+    if [ $? -eq 0 ]; then
+      echo "Repository created successfully"
+    else
+      echo "Failed to create repository"
+      exit 1
+    fi
   else
     echo "Repository 'kms' already exists. Skipping creation."
   fi
