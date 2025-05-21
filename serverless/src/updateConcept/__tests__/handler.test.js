@@ -8,7 +8,7 @@ import {
 
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
-import { ensureReciprocalRelations } from '@/shared/ensureReciprocalRelations'
+import { ensureReciprocalRelations } from '@/shared/ensureReciprocalInsertions'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { sparqlRequest } from '@/shared/sparqlRequest'

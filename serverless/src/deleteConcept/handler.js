@@ -30,21 +30,28 @@ import { getApplicationConfig } from '@/shared/getConfig'
  * //   }
  * // }
  */
+import { conceptIdExists } from '@/shared/conceptIdExists'
+import { deleteTriples } from '@/shared/deleteTriples'
+import { getApplicationConfig } from '@/shared/getConfig'
+import { ensureReciprocal } from '@/shared/ensureReciprocal'
+import { getConceptById } from '@/shared/getConceptById'
+import { startTransaction, commitTransaction, rollbackTransaction } from '@/shared/transactionHelpers'
+
 export const deleteConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters, queryStringParameters } = event
   const { conceptId } = pathParameters
   const version = queryStringParameters?.version || 'draft'
 
-  // Construct the full IRI
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
+
+  let transactionUrl
 
   try {
     // Check if the concept exists
     const exists = await conceptIdExists(conceptIRI, version)
 
     if (!exists) {
-      // Concept doesn't exist
       return {
         statusCode: 404,
         body: JSON.stringify({ message: `Concept not found: ${conceptId}` }),
@@ -52,11 +59,30 @@ export const deleteConcept = async (event) => {
       }
     }
 
-    const response = await deleteTriples(conceptIRI, version)
+    // Start transaction
+    transactionUrl = await startTransaction()
+
+    // Get the existing concept data
+    const oldRdfXml = await getConceptById(conceptId, version)
+
+    // Ensure reciprocal relationships are handled
+    await ensureReciprocal({
+      oldRdfXml,
+      newRdfXml: null, // No new RDF/XML for deletion
+      conceptId,
+      version,
+      transactionUrl
+    })
+
+    // Delete the concept
+    const response = await deleteTriples(conceptIRI, version, transactionUrl)
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
+
+    // Commit transaction
+    await commitTransaction(transactionUrl)
 
     // Return success response
     return {
@@ -66,6 +92,15 @@ export const deleteConcept = async (event) => {
     }
   } catch (error) {
     console.error('Error deleting concept:', error)
+
+    // Rollback the transaction if an error occurred
+    if (transactionUrl) {
+      try {
+        await rollbackTransaction(transactionUrl)
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError)
+      }
+    }
 
     return {
       statusCode: 500,
@@ -77,5 +112,7 @@ export const deleteConcept = async (event) => {
     }
   }
 }
+
+export default deleteConcept
 
 export default deleteConcept

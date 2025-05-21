@@ -38,7 +38,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *   console.error('Error:', error);
  * }
  */
-export const ensureReciprocalRelations = async ({
+export const ensureReciprocalInsertions = async ({
   rdfXml, conceptId, version, transactionUrl
 }) => {
   const relationTypes = [
@@ -90,8 +90,10 @@ export const ensureReciprocalRelations = async ({
       const query = getCreateRelationshipQuery({
         sourceUuid: conceptId,
         targetUuids,
-        relationship: reciprocal
+        relationship: type,
+        inverseRelationship: reciprocal
       })
+      console.log('insertion query=', query)
 
       const response = await sparqlRequest({
         method: 'PUT',

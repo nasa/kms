@@ -1,9 +1,13 @@
 import { conceptIdExists } from '@/shared/conceptIdExists'
+import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getCreatedDate } from '@/shared/getCreatedDate'
-import { getModifiedDate } from '@/shared/getModifiedDate'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 import { updateCreatedDate } from '@/shared/updateCreatedDate'
 import { updateModifiedDate } from '@/shared/updateModifiedDate'
 
@@ -45,6 +49,8 @@ export const createConcept = async (event) => {
   const { body: rdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
 
+  let transactionUrl
+
   try {
     if (!rdfXml) {
       throw new Error('Missing RDF/XML data in request body')
@@ -66,12 +72,19 @@ export const createConcept = async (event) => {
       }
     }
 
+    // Start transaction
+    transactionUrl = await startTransaction()
+
     const response = await sparqlRequest({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
       method: 'POST',
       body: rdfXml,
-      version
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'ADD'
+      }
     })
 
     if (!response.ok) {
@@ -82,31 +95,38 @@ export const createConcept = async (event) => {
 
     console.log('Successfully loaded RDF XML into RDF4J')
 
-    // Check for creation date and add if not present
-    const createdDate = await getCreatedDate(conceptId, version)
-    const modifiedDate = await getModifiedDate(conceptId, version)
+    // Ensure reciprocal relationships
+    await ensureReciprocal({
+      oldRdfXml: null, // There's no old RDF/XML for a new concept
+      newRdfXml: rdfXml,
+      conceptId,
+      version,
+      transactionUrl
+    })
+
     const today = new Date().toISOString()
 
-    if (!createdDate) {
-      const createDateSuccess = await updateCreatedDate(conceptId, version, today)
-      if (!createDateSuccess) {
-        console.warn(`Failed to add creation date for concept ${conceptId}`)
-      } else {
-        console.log(`Added creation date ${today} for concept ${conceptId}`)
-      }
+    // Add creation date
+    const createDateSuccess = await updateCreatedDate(conceptId, version, today, transactionUrl)
+    if (!createDateSuccess) {
+      throw new Error(`Failed to add creation date for concept ${conceptId}`)
     }
 
-    if (!modifiedDate) {
-      const modifiedDateSuccess = await updateModifiedDate(conceptId, version, today)
-      if (!modifiedDateSuccess) {
-        console.warn(`Failed to update modified date for concept ${conceptId}`)
-      } else {
-        console.log(`Updated modified date ${today} for concept ${conceptId}`)
-      }
+    console.log(`Added creation date ${today} for concept ${conceptId}`)
+
+    // Add modified date
+    const modifiedDateSuccess = await updateModifiedDate(conceptId, version, today, transactionUrl)
+    if (!modifiedDateSuccess) {
+      throw new Error(`Failed to update modified date for concept ${conceptId}`)
     }
+
+    console.log(`Updated modified date ${today} for concept ${conceptId}`)
+
+    // Commit transaction
+    await commitTransaction(transactionUrl)
 
     return {
-      statusCode: 201, // Changed from 200 to 201 Created
+      statusCode: 201,
       body: JSON.stringify({
         message: 'Successfully created concept',
         conceptId
@@ -116,8 +136,17 @@ export const createConcept = async (event) => {
   } catch (error) {
     console.error('Error creating concept:', error)
 
+    // Rollback the transaction if an error occurred
+    if (transactionUrl) {
+      try {
+        await rollbackTransaction(transactionUrl)
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError)
+      }
+    }
+
     return {
-      statusCode: 400, // Changed from 500 to 400 for client errors
+      statusCode: 400,
       body: JSON.stringify({
         message: 'Error creating concept',
         error: error.message
