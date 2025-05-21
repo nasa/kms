@@ -8,6 +8,10 @@ publishHandler:
     - http:
         path: publish
         method: post
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
   provisionedConcurrency: 1
 
 # This should not be called in production, only from the scheduler, otherwise

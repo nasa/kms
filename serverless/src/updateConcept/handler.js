@@ -1,5 +1,6 @@
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
+import { ensureInScheme } from '@/shared/ensureInScheme'
 import { ensureReciprocalRelations } from '@/shared/ensureReciprocalRelations'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
@@ -103,33 +104,6 @@ export const updateConcept = async (event) => {
   const userNote = queryStringParameters?.userNote
 
   console.log('userNote=', userNote)
-
-  /**
-   * Checks if the rdfXml has a skos:inScheme element and adds it if not present.
-   *
-   * @param {string} rdfXml - The RDF/XML string to check and modify.
-   * @param {string} scheme - The scheme to use in the skos:inScheme element.
-   * @returns {string} The modified RDF/XML string.
-   */
-  const ensureInScheme = () => {
-    // Check if skos:inScheme is already present
-    if (rdfXml.includes('<skos:inScheme')) {
-      return rdfXml // Return original rdfXml if skos:inScheme is already present
-    }
-
-    // Find the position to insert the new element
-    const insertPosition = rdfXml.lastIndexOf('</skos:Concept>')
-
-    if (insertPosition === -1) {
-      throw new Error('Invalid RDF/XML: Missing </skos:Concept> closing tag')
-    }
-
-    // Create the new skos:inScheme element
-    const inSchemeElement = `<skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}"/>`
-
-    // Insert the new element
-    return rdfXml.slice(0, insertPosition) + inSchemeElement + rdfXml.slice(insertPosition)
-  }
 
   try {
     if (!rdfXml) {

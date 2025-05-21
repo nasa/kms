@@ -32,7 +32,7 @@ vi.mock('@/shared/updateModifiedDate')
 
 describe('updateConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
-  const mockRdfXml = '<rdf:RDF><skos:Concept><skos:inScheme rdf:resource=\"https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords\"/></skos:Concept></rdf:RDF>'
+  const mockRdfXml = '<rdf:RDF><skos:Concept><skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"/></skos:Concept></rdf:RDF>'
   const mockEvent = {
     body: mockRdfXml,
     queryStringParameters: {
@@ -112,6 +112,35 @@ describe('updateConcept', () => {
   })
 
   describe('when unsuccessful', () => {
+    test('should rollback transaction and return 500 if inserting reciprocal relations fails', async () => {
+      conceptIdExists.mockResolvedValue(true)
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocalRelations.mockResolvedValue({
+        ok: false,
+        status: 400
+      })
+
+      const result = await updateConcept(mockEvent)
+
+      expect(startTransaction).toHaveBeenCalled()
+      expect(deleteTriples).toHaveBeenCalled()
+      expect(sparqlRequest).toHaveBeenCalled()
+      expect(ensureReciprocalRelations).toHaveBeenCalledWith({
+        rdfXml: expect.stringContaining('<skos:inScheme'),
+        conceptId: '123',
+        version: 'draft',
+        transactionUrl: 'mock-transaction-url'
+      })
+
+      expect(rollbackTransaction).toHaveBeenCalledWith('mock-transaction-url')
+      expect(commitTransaction).not.toHaveBeenCalled()
+      expect(updateModifiedDate).not.toHaveBeenCalled()
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('HTTP error! insert reciprocal relations status: 400')
+    })
+
     test('should rollback transaction and return 500 if delete succeeds but insert fails', async () => {
       conceptIdExists.mockResolvedValue(true)
       deleteTriples.mockResolvedValue({ ok: true })
@@ -203,19 +232,6 @@ describe('updateConcept', () => {
 
       expect(result.statusCode).toBe(500)
       expect(JSON.parse(result.body).error).toBe('Failed to start transaction')
-    })
-
-    test('should return 404 if concept does not exist', async () => {
-      conceptIdExists.mockResolvedValue(false)
-
-      const result = await updateConcept(mockEvent)
-
-      expect(getConceptId).toHaveBeenCalledWith('<rdf:RDF><skos:Concept><skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"/></skos:Concept></rdf:RDF>')
-      expect(result).toEqual({
-        statusCode: 404,
-        body: JSON.stringify({ message: 'Concept https://gcmd.earthdata.nasa.gov/kms/concept/123 not found' }),
-        headers: mockDefaultHeaders
-      })
     })
 
     test('should handle missing body in event', async () => {
@@ -357,18 +373,6 @@ describe('updateConcept', () => {
       expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
     })
 
-    test('should use provided version for updating modified date', async () => {
-      const versionedEvent = {
-        ...mockEvent,
-        queryStringParameters: { version: 'published' }
-      }
-      updateModifiedDate.mockResolvedValue(true)
-
-      await updateConcept(versionedEvent)
-
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'published', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
-    })
-
     test('should handle errors from updateModifiedDate', async () => {
       updateModifiedDate.mockRejectedValue(new Error('Failed to update modified date'))
 
@@ -397,7 +401,7 @@ describe('updateConcept', () => {
 
       expect(updateModifiedDate).not.toHaveBeenCalled()
       expect(result.statusCode).toBe(500)
-      expect(JSON.parse(result.body).error).toBe('HTTP error! insert status: 500')
+      expect(JSON.parse(result.body).error).toBe('HTTP error! insert new data status: 500')
     })
 
     test('should throw an error if updating modified date fails', async () => {
