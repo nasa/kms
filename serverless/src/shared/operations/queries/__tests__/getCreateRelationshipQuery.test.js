@@ -6,7 +6,7 @@ import {
 
 import prefixes from '@/shared/constants/prefixes'
 
-import { createRelationshipQuery } from '../getCreateRelationshipQuery'
+import { getCreateRelationshipQuery } from '../getCreateRelationshipQuery'
 
 describe('createRelationshipQuery', () => {
   describe('When called with valid parameters', () => {
@@ -16,7 +16,7 @@ describe('createRelationshipQuery', () => {
       relationship: 'skos:broader'
     }
 
-    const result = createRelationshipQuery(params)
+    const result = getCreateRelationshipQuery(params)
 
     test('should return a string', () => {
       expect(typeof result).toBe('string')
@@ -43,8 +43,8 @@ describe('createRelationshipQuery', () => {
 
     test('should include existence checks for source and target concepts', () => {
       expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${params.sourceUuid}> a ?sourceType .`)
-      params.targetUuids.forEach((uuid) => {
-        expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> a ?targetType${uuid} .`)
+      params.targetUuids.forEach((uuid, index) => {
+        expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> a ?targetType${index + 1} .`)
       })
     })
 
@@ -61,7 +61,7 @@ describe('createRelationshipQuery', () => {
     }
 
     test('should generate a query with correct number of URI occurrences', () => {
-      const result = createRelationshipQuery(params)
+      const result = getCreateRelationshipQuery(params)
       const uriCount = (result.match(/https:\/\/gcmd\.earthdata\.nasa\.gov\/kms\/concept/g) || []).length
       expect(uriCount).toBe(6) // Two in INSERT, two in WHERE, two in FILTER NOT EXISTS
     })
@@ -75,7 +75,7 @@ describe('createRelationshipQuery', () => {
     }
 
     test('should generate a query with correct number of URI occurrences', () => {
-      const result = createRelationshipQuery(params)
+      const result = getCreateRelationshipQuery(params)
       const uriCount = (result.match(/https:\/\/gcmd\.earthdata\.nasa\.gov\/kms\/concept/g) || []).length
       expect(uriCount).toBe(16)
     })
@@ -89,7 +89,7 @@ describe('createRelationshipQuery', () => {
     }
 
     test('should use the provided relationship in the query', () => {
-      const result = createRelationshipQuery(params)
+      const result = getCreateRelationshipQuery(params)
       expect(result).toContain('custom:relation')
     })
   })
@@ -101,7 +101,7 @@ describe('createRelationshipQuery', () => {
       relationship: 'skos:broader'
     }
 
-    const result = createRelationshipQuery(params)
+    const result = getCreateRelationshipQuery(params)
 
     test('should have the correct overall structure', () => {
       expect(result).toMatch(/INSERT\s*{\s*.*\s*}\s*WHERE\s*{\s*.*\s*FILTER NOT EXISTS\s*{\s*.*\s*}\s*}/s)
@@ -112,8 +112,8 @@ describe('createRelationshipQuery', () => {
     })
 
     test('should check existence of all target concepts', () => {
-      params.targetUuids.forEach((uuid) => {
-        expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> a ?targetType${uuid} .`)
+      params.targetUuids.forEach((uuid, index) => {
+        expect(result).toContain(`<https://gcmd.earthdata.nasa.gov/kms/concept/${uuid}> a ?targetType${index + 1} .`)
       })
     })
   })

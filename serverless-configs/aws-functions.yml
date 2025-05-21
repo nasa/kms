@@ -8,6 +8,7 @@ publishHandler:
     - http:
         path: publish
         method: post
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         authorizer:
           name: edlAuthorizer
           type: request
