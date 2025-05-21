@@ -1,7 +1,3 @@
-import { conceptIdExists } from '@/shared/conceptIdExists'
-import { deleteTriples } from '@/shared/deleteTriples'
-import { getApplicationConfig } from '@/shared/getConfig'
-
 /**
  * Deletes a SKOS Concept from the RDF store based on its rdf:about identifier.
  *
@@ -32,10 +28,14 @@ import { getApplicationConfig } from '@/shared/getConfig'
  */
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
-import { getApplicationConfig } from '@/shared/getConfig'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
-import { startTransaction, commitTransaction, rollbackTransaction } from '@/shared/transactionHelpers'
+import { getApplicationConfig } from '@/shared/getConfig'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 
 export const deleteConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
@@ -112,7 +112,3 @@ export const deleteConcept = async (event) => {
     }
   }
 }
-
-export default deleteConcept
-
-export default deleteConcept
