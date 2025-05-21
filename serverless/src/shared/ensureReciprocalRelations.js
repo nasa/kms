@@ -71,20 +71,19 @@ export const ensureReciprocalRelations = async ({
   try {
     // Filter relation types to only those that exist in the rdfXml
     const existingRelationTypes = relationTypes.filter(({ type }) => {
-      try {
-        const values = getResourceValues(rdfXml, type)
+      const values = getResourceValues(rdfXml, type)
 
-        return values && values.length > 0
-      } catch (error) {
-        console.warn(`Error checking for relation type ${type}:`, error)
-
-        return false
-      }
+      return values && values.length > 0
     })
     await existingRelationTypes.reduce(async (previousPromise, { type, reciprocal }) => {
       await previousPromise
 
       const relatedConcepts = getResourceValues(rdfXml, type)
+
+      if (!relatedConcepts || relatedConcepts.length === 0) {
+        return undefined
+      }
+
       const targetUuids = relatedConcepts.map((uri) => uri.split('/').pop())
 
       const query = getCreateRelationshipQuery({
