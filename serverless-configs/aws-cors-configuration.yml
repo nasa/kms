@@ -1,4 +1,4 @@
-origin: ${env:KMS_HOST, 'http://localhost:5173'}
+origin: ${env:CORS_ORIGINS, '*.earthdata.nasa.gov,http://localhost:5173'}
 headers:
   - Access-Control-Allow-Origin
   - Access-Control-Allow-Credentials

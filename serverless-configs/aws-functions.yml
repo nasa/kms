@@ -7,7 +7,12 @@ publishHandler:
   events:
     - http:
         path: publish
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         method: post
+        authorizer: 
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
   provisionedConcurrency: 1
 
 # This should not be called in production, only from the scheduler, otherwise
