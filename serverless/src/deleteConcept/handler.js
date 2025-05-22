@@ -43,6 +43,14 @@ export const deleteConcept = async (event) => {
   const { conceptId } = pathParameters
   const version = queryStringParameters?.version || 'draft'
 
+  if (!conceptId) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'Missing conceptId in path parameters' }),
+      headers: defaultResponseHeaders
+    }
+  }
+
   const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
   let transactionUrl

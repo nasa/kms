@@ -22,6 +22,10 @@ describe('ensureReciprocal', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   describe('When oldRdfXml is provided', () => {

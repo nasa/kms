@@ -25,6 +25,10 @@ describe('ensureReciprocalInsertions', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   describe('When called with valid parameters', () => {
@@ -104,6 +108,36 @@ describe('ensureReciprocalInsertions', () => {
         expect.objectContaining({
           targetUuids: ['456', '789', '101']
         })
+      )
+    })
+  })
+
+  describe('When getResourceValues returns null or empty array', () => {
+    test('should skip creating relationships for that relation type', async () => {
+    // Mock getResourceValues to return null, then an empty array, then a value
+      getResourceValues
+        .mockReturnValueOnce(null)
+        .mockReturnValueOnce([])
+        .mockReturnValue(['http://example.com/456'])
+
+      getCreateRelationshipQuery.mockReturnValue('MOCK_QUERY')
+      sparqlRequest.mockResolvedValue({ ok: true })
+
+      await ensureReciprocalInsertions(mockParams)
+
+      // Check that getCreateRelationshipQuery and sparqlRequest are called
+      // only for the non-null, non-empty result
+      expect(getCreateRelationshipQuery).toHaveBeenCalledTimes(4)
+      expect(sparqlRequest).toHaveBeenCalledTimes(4)
+
+      // Check that for the first two calls (null and empty array),
+      // getCreateRelationshipQuery and sparqlRequest were not called
+      expect(getCreateRelationshipQuery).not.toHaveBeenCalledWith(
+        expect.objectContaining({ relationship: 'skos:broader' })
+      )
+
+      expect(getCreateRelationshipQuery).not.toHaveBeenCalledWith(
+        expect.objectContaining({ relationship: 'skos:narrower' })
       )
     })
   })

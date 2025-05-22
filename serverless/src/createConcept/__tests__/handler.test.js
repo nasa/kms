@@ -7,23 +7,27 @@ import {
 
 import { createConcept } from '@/createConcept/handler'
 import { conceptIdExists } from '@/shared/conceptIdExists'
+import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getCreatedDate } from '@/shared/getCreatedDate'
-import { getModifiedDate } from '@/shared/getModifiedDate'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 import { updateCreatedDate } from '@/shared/updateCreatedDate'
 import { updateModifiedDate } from '@/shared/updateModifiedDate'
 
 // Mock the dependencies
 vi.mock('@/shared/conceptIdExists')
+vi.mock('@/shared/ensureReciprocal')
 vi.mock('@/shared/getConceptId')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/sparqlRequest')
-vi.mock('@/shared/getCreatedDate')
-vi.mock('@/shared/getModifiedDate')
 vi.mock('@/shared/updateCreatedDate')
 vi.mock('@/shared/updateModifiedDate')
+vi.mock('@/shared/transactionHelpers')
 
 describe('createConcept', () => {
   const mockRdfXml = '<rdf:RDF>...</rdf:RDF>'
@@ -31,11 +35,13 @@ describe('createConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
   const mockConceptId = '123'
   const mockConceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`
+  const mockTransactionUrl = 'mock-transaction-url'
 
   beforeEach(() => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
     getConceptId.mockReturnValue(mockConceptId)
+    startTransaction.mockResolvedValue(mockTransactionUrl)
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -49,33 +55,71 @@ describe('createConcept', () => {
 
       conceptIdExists.mockResolvedValue(false)
       sparqlRequest.mockResolvedValue({ ok: true })
-      getCreatedDate.mockResolvedValue(null)
-      getModifiedDate.mockResolvedValue(null)
+      ensureReciprocal.mockResolvedValue({ ok: true })
       updateCreatedDate.mockResolvedValue(true)
       updateModifiedDate.mockResolvedValue(true)
+      commitTransaction.mockResolvedValue()
 
       const result = await createConcept(mockEvent)
 
       expect(getConceptId).toHaveBeenCalledWith(mockRdfXml)
       expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI, 'draft')
+      expect(startTransaction).toHaveBeenCalled()
       expect(sparqlRequest).toHaveBeenCalledWith({
         contentType: 'application/rdf+xml',
         accept: 'application/rdf+xml',
         method: 'POST',
         body: mockRdfXml,
-        version: 'draft'
+        version: 'draft',
+        transaction: {
+          transactionUrl: mockTransactionUrl,
+          action: 'ADD'
+        }
       })
 
-      expect(getCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(getModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate)
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate)
+      expect(ensureReciprocal).toHaveBeenCalledWith({
+        oldRdfXml: null,
+        newRdfXml: mockRdfXml,
+        conceptId: mockConceptId,
+        version: 'draft',
+        transactionUrl: mockTransactionUrl
+      })
+
+      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate, mockTransactionUrl)
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate, mockTransactionUrl)
+      expect(commitTransaction).toHaveBeenCalledWith(mockTransactionUrl)
 
       expect(result.statusCode).toBe(201)
       expect(JSON.parse(result.body)).toEqual({
         message: 'Successfully created concept',
         conceptId: mockConceptId
       })
+
+      vi.useRealTimers()
+    })
+  })
+
+  describe('when provding a version', () => {
+    test('should use provided version for queries', async () => {
+      const customVersion = 'custom-version'
+      const mockEventWithVersion = {
+        body: mockRdfXml,
+        queryStringParameters: { version: customVersion }
+      }
+
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      updateCreatedDate.mockResolvedValue(true)
+      updateModifiedDate.mockResolvedValue(true)
+
+      await createConcept(mockEventWithVersion)
+
+      expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI, customVersion)
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
+      expect(ensureReciprocal).toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
+      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, customVersion, expect.any(String), mockTransactionUrl)
+      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, customVersion, expect.any(String), mockTransactionUrl)
     })
   })
 
@@ -159,137 +203,101 @@ describe('createConcept', () => {
       })
 
       expect(console.log).toHaveBeenCalledWith('Response text:', 'Internal Server Error')
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
     })
 
-    test('should handle conceptIdExists throwing an error', async () => {
-      conceptIdExists.mockRejectedValue(new Error('Database error'))
-
-      const result = await createConcept(mockEvent)
-
-      expect(result).toEqual({
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Error creating concept',
-          error: 'Database error'
-        }),
-        headers: mockDefaultHeaders
-      })
-    })
-
-    test('should handle sparqlRequest throwing an error', async () => {
-      conceptIdExists.mockResolvedValue(false)
-      sparqlRequest.mockRejectedValue(new Error('Network error'))
-
-      const result = await createConcept(mockEvent)
-
-      expect(result).toEqual({
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Error creating concept',
-          error: 'Network error'
-        }),
-        headers: mockDefaultHeaders
-      })
-    })
-  })
-
-  describe('when updating created and modified dates', () => {
-    const mockDate = '2023-05-15T10:30:00.000Z'
-
-    beforeEach(() => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date(mockDate))
+    test('should handle ensureReciprocal failure', async () => {
       conceptIdExists.mockResolvedValue(false)
       sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockRejectedValue(new Error('Failed to ensure reciprocal relations'))
+
+      const result = await createConcept(mockEvent)
+
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: 'Failed to ensure reciprocal relations'
+        }),
+        headers: mockDefaultHeaders
+      })
+
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
     })
 
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    test('should add both creation and modified dates when neither exist', async () => {
-      getCreatedDate.mockResolvedValue(null)
-      getModifiedDate.mockResolvedValue(null)
-      updateCreatedDate.mockResolvedValue(true)
-      updateModifiedDate.mockResolvedValue(true)
-
-      await createConcept(mockEvent)
-
-      expect(getCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(getModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate)
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate)
-      expect(console.log).toHaveBeenCalledWith(`Added creation date ${mockDate} for concept ${mockConceptId}`)
-      expect(console.log).toHaveBeenCalledWith(`Updated modified date ${mockDate} for concept ${mockConceptId}`)
-    })
-
-    test('should add only creation date when it does not exist but modified date does', async () => {
-      getCreatedDate.mockResolvedValue(null)
-      getModifiedDate.mockResolvedValue('2023-05-14T10:30:00.000Z')
-      updateCreatedDate.mockResolvedValue(true)
-
-      await createConcept(mockEvent)
-
-      expect(getCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(getModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate)
-      expect(updateModifiedDate).not.toHaveBeenCalled()
-      expect(console.log).toHaveBeenCalledWith(`Added creation date ${mockDate} for concept ${mockConceptId}`)
-    })
-
-    test('should add only modified date when it does not exist but creation date does', async () => {
-      getCreatedDate.mockResolvedValue('2023-05-14T10:30:00.000Z')
-      getModifiedDate.mockResolvedValue(null)
-      updateModifiedDate.mockResolvedValue(true)
-
-      await createConcept(mockEvent)
-
-      expect(getCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(getModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateCreatedDate).not.toHaveBeenCalled()
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', mockDate)
-      expect(console.log).toHaveBeenCalledWith(`Updated modified date ${mockDate} for concept ${mockConceptId}`)
-    })
-
-    test('should not update any dates when both already exist', async () => {
-      const existingDate = '2023-05-14T10:30:00.000Z'
-      getCreatedDate.mockResolvedValue(existingDate)
-      getModifiedDate.mockResolvedValue(existingDate)
-
-      await createConcept(mockEvent)
-
-      expect(getCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(getModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateCreatedDate).not.toHaveBeenCalled()
-      expect(updateModifiedDate).not.toHaveBeenCalled()
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Added creation date'))
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Updated modified date'))
-    })
-
-    test('should handle failure to add creation date', async () => {
-      getCreatedDate.mockResolvedValue(null)
-      getModifiedDate.mockResolvedValue('2023-05-14T10:30:00.000Z')
+    test('should handle updateCreatedDate failure', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
       updateCreatedDate.mockResolvedValue(false)
 
-      await createConcept(mockEvent)
+      const result = await createConcept(mockEvent)
 
-      expect(getCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, 'draft', expect.any(String))
-      expect(console.warn).toHaveBeenCalledWith(`Failed to add creation date for concept ${mockConceptId}`)
-      expect(updateModifiedDate).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: `Failed to add creation date for concept ${mockConceptId}`
+        }),
+        headers: mockDefaultHeaders
+      })
+
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
     })
 
-    test('should handle failure to update modified date', async () => {
-      getCreatedDate.mockResolvedValue('2023-05-14T10:30:00.000Z')
-      getModifiedDate.mockResolvedValue(null)
+    test('should handle updateCreatedDate throwing an error', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      updateCreatedDate.mockRejectedValue(new Error(`Failed to add creation date for concept ${mockConceptId}`))
+
+      const result = await createConcept(mockEvent)
+
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: `Failed to add creation date for concept ${mockConceptId}`
+        }),
+        headers: mockDefaultHeaders
+      })
+
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
+    })
+
+    test('should handle updateModifiedDate failure', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      updateCreatedDate.mockResolvedValue(true)
       updateModifiedDate.mockResolvedValue(false)
+
+      const result = await createConcept(mockEvent)
+
+      expect(result).toEqual({
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Error creating concept',
+          error: `Failed to update modified date for concept ${mockConceptId}`
+        }),
+        headers: mockDefaultHeaders
+      })
+
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
+    })
+
+    test('should handle rollback failure', async () => {
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockRejectedValue(new Error('Failed to ensure reciprocal relations'))
+      rollbackTransaction.mockRejectedValue(new Error('Rollback failed'))
+
+      const consoleErrorSpy = vi.spyOn(console, 'error')
 
       await createConcept(mockEvent)
 
-      expect(getModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft')
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', expect.any(String))
-      expect(console.warn).toHaveBeenCalledWith(`Failed to update modified date for concept ${mockConceptId}`)
-      expect(updateCreatedDate).not.toHaveBeenCalled()
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Error rolling back transaction:', expect.any(Error))
     })
   })
 })

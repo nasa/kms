@@ -92,7 +92,6 @@ export const ensureReciprocalInsertions = async ({
         relationship: type,
         inverseRelationship: reciprocal
       })
-      console.log('insertion query=', query)
 
       const response = await sparqlRequest({
         method: 'PUT',

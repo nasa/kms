@@ -20,8 +20,9 @@ const originalConsoleError = console.error
 const originalConsoleLog = console.log
 
 beforeEach(() => {
-  console.error = vi.fn()
-  console.log = vi.fn()
+  vi.spyOn(console, 'log').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
 afterEach(() => {

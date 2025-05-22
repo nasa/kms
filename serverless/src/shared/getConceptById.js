@@ -25,6 +25,10 @@ import { getSkosConcept } from '@/shared/getSkosConcept'
  */
 export const getConceptById = async (conceptId, version = 'published') => {
   try {
+    if (!conceptId || typeof conceptId !== 'string' || conceptId.trim() === '') {
+      throw new Error('Invalid conceptId: conceptId must be a non-empty string')
+    }
+
     const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
 
     const concept = await getSkosConcept({
@@ -63,5 +67,3 @@ export const getConceptById = async (conceptId, version = 'published') => {
     throw error
   }
 }
-
-export default getConceptById

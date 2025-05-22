@@ -50,8 +50,6 @@ export const ensureReciprocalDeletions = async ({
           inverseRelationship: reciprocal
         })
 
-        console.log('deletion query=', query)
-
         const response = await sparqlRequest({
           method: 'PUT',
           contentType: 'application/sparql-update',

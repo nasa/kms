@@ -2,7 +2,7 @@
 
 import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
-import getConceptById from '@/shared/getConceptById'
+import { getConceptById } from '@/shared/getConceptById'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { sparqlRequest } from '@/shared/sparqlRequest'
