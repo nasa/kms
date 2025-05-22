@@ -57,6 +57,9 @@ vi.mocked(getVersionMetadata).mockResolvedValue({
 
 describe('getKeywordsTree', () => {
   beforeEach(() => {
+    vi.mocked(sortKeywordNodes).mockImplementation((arr) => arr)
+    vi.mocked(sortKeywordSchemes).mockImplementation(() => 0)
+
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -110,11 +113,6 @@ describe('getKeywordsTree', () => {
 
       vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
       vi.mocked(sortKeywordNodes).mockImplementation((arr) => arr)
-      vi.mocked(sortKeywordSchemes).mockImplementation((a, b) => {
-        const sequence = ['Earth Science', 'Other Keywords']
-
-        return sequence.indexOf(a.title) - sequence.indexOf(b.title)
-      })
 
       vi.mocked(toTitleCase).mockImplementation((str) => str)
 
@@ -144,10 +142,10 @@ describe('getKeywordsTree', () => {
 
     test('should handle missing queryStringParameters', async () => {
       vi.mocked(getNarrowersMap).mockResolvedValue({})
-      vi.mocked(getRootConceptForScheme).mockResolvedValue({
+      vi.mocked(getRootConceptForScheme).mockResolvedValue([{
         prefLabel: { value: 'Earth Science' },
         subject: { value: 'uri1' }
-      })
+      }])
 
       vi.mocked(buildKeywordsTree).mockResolvedValue({
         title: 'Earth Science',
@@ -278,10 +276,10 @@ describe('getKeywordsTree', () => {
 
     test('should handle "Earth Science" concept scheme correctly', async () => {
       vi.mocked(getNarrowersMap).mockResolvedValue({})
-      vi.mocked(getRootConceptForScheme).mockResolvedValue({
+      vi.mocked(getRootConceptForScheme).mockResolvedValue([{
         prefLabel: { value: 'Earth Science' },
         subject: { value: 'uri1' }
-      })
+      }])
 
       vi.mocked(buildKeywordsTree).mockResolvedValue({
         title: 'Earth Science',
@@ -324,7 +322,15 @@ describe('getKeywordsTree', () => {
 
       // Verify that filterScienceKeywordsTree was called
       expect(filterScienceKeywordsTree).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Earth Science' }),
+        {
+          title: 'Earth Science',
+          children: [
+            {
+              title: 'Atmosphere',
+              children: []
+            }
+          ]
+        },
         'Earth Science'
       )
 
@@ -338,10 +344,10 @@ describe('getKeywordsTree', () => {
 
     test('should handle "instruments" concept scheme correctly', async () => {
       vi.mocked(getNarrowersMap).mockResolvedValue({})
-      vi.mocked(getRootConceptForScheme).mockResolvedValue({
+      vi.mocked(getRootConceptForScheme).mockResolvedValue([{
         prefLabel: { value: 'Instruments' },
         subject: { value: 'uri1' }
-      })
+      }])
 
       vi.mocked(buildKeywordsTree).mockResolvedValue({
         title: 'Instruments',
@@ -395,10 +401,10 @@ describe('getKeywordsTree', () => {
       const filterPattern = 'atmosphere'
 
       vi.mocked(getNarrowersMap).mockResolvedValue({})
-      vi.mocked(getRootConceptForScheme).mockResolvedValue({
+      vi.mocked(getRootConceptForScheme).mockResolvedValue([{
         prefLabel: { value: 'Earth Science' },
         subject: { value: 'uri1' }
-      })
+      }])
 
       vi.mocked(buildKeywordsTree).mockResolvedValue({
         title: 'Earth Science',

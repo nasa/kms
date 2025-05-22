@@ -167,7 +167,6 @@ export const getKeywordsTree = async (event) => {
       }
 
       let tree = await buildKeywordsTree(node, narrowersMap)
-      // Console.log('tree=', JSON.stringify(tree, null, 2))
 
       // Apply special filtering for Earth Science schemes
       if (!isAllSchemes && (conceptScheme.toLowerCase() === 'earth science' || conceptScheme.toLowerCase() === 'earth science services')) {

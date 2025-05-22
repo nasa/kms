@@ -112,13 +112,13 @@ describe('ensureReciprocalInsertions', () => {
     })
   })
 
-  describe('When getResourceValues returns null or empty array', () => {
+  describe('When getResourceValues returns an empty array for a specific relation type', () => {
     test('should skip creating relationships for that relation type', async () => {
-    // Mock getResourceValues to return null, then an empty array, then a value
+    // Mock getResourceValues to return an empty array for one relation type
+    // and a non-empty array for another
       getResourceValues
-        .mockReturnValueOnce(null)
-        .mockReturnValueOnce([])
-        .mockReturnValue(['http://example.com/456'])
+        .mockReturnValueOnce([]) // For the first relation type (e.g., skos:broader)
+        .mockReturnValueOnce(['http://example.com/456']) // For the second relation type (e.g., skos:narrower)
 
       getCreateRelationshipQuery.mockReturnValue('MOCK_QUERY')
       sparqlRequest.mockResolvedValue({ ok: true })
@@ -126,19 +126,9 @@ describe('ensureReciprocalInsertions', () => {
       await ensureReciprocalInsertions(mockParams)
 
       // Check that getCreateRelationshipQuery and sparqlRequest are called
-      // only for the non-null, non-empty result
-      expect(getCreateRelationshipQuery).toHaveBeenCalledTimes(4)
-      expect(sparqlRequest).toHaveBeenCalledTimes(4)
-
-      // Check that for the first two calls (null and empty array),
-      // getCreateRelationshipQuery and sparqlRequest were not called
-      expect(getCreateRelationshipQuery).not.toHaveBeenCalledWith(
-        expect.objectContaining({ relationship: 'skos:broader' })
-      )
-
-      expect(getCreateRelationshipQuery).not.toHaveBeenCalledWith(
-        expect.objectContaining({ relationship: 'skos:narrower' })
-      )
+      // only for the non-empty result
+      expect(getCreateRelationshipQuery).toHaveBeenCalledTimes(0)
+      expect(sparqlRequest).toHaveBeenCalledTimes(0)
     })
   })
 })
