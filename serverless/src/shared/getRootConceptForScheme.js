@@ -1,4 +1,6 @@
 // Import the query function for getting the root concept
+import { castArray } from 'lodash'
+
 import {
   getRootConceptsBySchemeQuery
 } from '@/shared/operations/queries/getRootConceptsBySchemeQuery'
@@ -77,7 +79,7 @@ export const getRootConceptForScheme = async (scheme, version) => {
     }
 
     // Return the first (and presumably only) result
-    return json.results.bindings[0]
+    return castArray(json.results.bindings)
   } catch (error) {
     // Log any errors that occur during the process
     console.error('Error fetching root concept:', error)
