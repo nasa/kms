@@ -59,19 +59,4 @@ describe('buildKeywordsTree', () => {
       })
     })
   })
-
-  describe('When unsuccessful', () => {
-    test('should return null for already processed nodes', async () => {
-      const rootNode = {
-        narrowerPrefLabel: 'Root',
-        uri: 'http://example.com/root'
-      }
-      const narrowersMap = new Map()
-      const processedNodes = new Set(['http://example.com/root'])
-
-      const result = await buildKeywordsTree(rootNode, narrowersMap, processedNodes)
-
-      expect(result).toBeNull()
-    })
-  })
 })

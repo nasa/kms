@@ -54,7 +54,7 @@ describe('getRootConcept', () => {
     })
 
     expect(getRootConceptsBySchemeQuery).toHaveBeenCalledWith(mockScheme, 'published')
-    expect(result).toEqual({ concept: 'root concept' })
+    expect(result).toEqual([{ concept: 'root concept' }])
   })
 
   test('should throw an error when the response is not ok', async () => {

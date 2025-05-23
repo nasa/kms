@@ -155,7 +155,7 @@ export const getKeywordsTree = async (event) => {
       roots = roots.filter((root) => root?.prefLabel?.value.toLowerCase() !== 'trash can')
     } else {
       const root = await getRootConceptForScheme(derivedScheme, version)
-      roots = [root]
+      roots = root
     }
 
     // Use Promise.all to wait for all async operations to complete

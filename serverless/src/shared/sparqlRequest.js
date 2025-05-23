@@ -202,7 +202,6 @@ export const sparqlRequest = async (props) => {
   const url = endpointUrl.toString()
 
   try {
-    console.log('fetching ', method, headers, body)
     const response = await fetch(url, {
       method,
       headers,

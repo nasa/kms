@@ -89,7 +89,6 @@ export const syncConceptData = async (event) => {
 
     // Fetch JSON and XML content using fetchPagedConceptData
 
-    console.log('fetching json')
     const jsonContent = await fetchLegacyData(apiEndpoint, 'json', version)
 
     await importConceptData(jsonContent, version, versionType)
