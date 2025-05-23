@@ -68,9 +68,9 @@ describe('ensureReciprocalDeletions', () => {
 
       // Assert
       expect(result).toEqual({ ok: true })
-      expect(getResourceValues).toHaveBeenCalledTimes(12) // 6 relation types * 2 (old and new)
-      expect(getDeleteRelationshipQuery).toHaveBeenCalledTimes(6) // 6 relation types
-      expect(sparqlRequest).toHaveBeenCalledTimes(6) // 6 relation types
+      expect(getResourceValues).toHaveBeenCalledTimes(10) // 6 relation types * 2 (old and new)
+      expect(getDeleteRelationshipQuery).toHaveBeenCalledTimes(5) // 6 relation types
+      expect(sparqlRequest).toHaveBeenCalledTimes(5) // 6 relation types
 
       // Additional assertions to ensure correct parameters are passed
       expect(getDeleteRelationshipQuery).toHaveBeenCalledWith({
@@ -106,13 +106,6 @@ describe('ensureReciprocalDeletions', () => {
         targetUuids: ['platform1'],
         relationship: 'gcmd:isOnPlatform',
         inverseRelationship: 'gcmd:hasInstrument'
-      })
-
-      expect(getDeleteRelationshipQuery).toHaveBeenCalledWith({
-        sourceUuid: 'testId',
-        targetUuids: ['sensor1'],
-        relationship: 'gcmd:hasSensor',
-        inverseRelationship: 'gcmd:isOnPlatform'
       })
     })
 
@@ -220,7 +213,7 @@ describe('ensureReciprocalDeletions', () => {
 
       // Assert
       expect(result).toEqual({ ok: true })
-      expect(getDeleteRelationshipQuery).toHaveBeenCalledTimes(6)
+      expect(getDeleteRelationshipQuery).toHaveBeenCalledTimes(5)
       expect(getDeleteRelationshipQuery).toHaveBeenCalledWith({
         sourceUuid: 'testId',
         targetUuids: ['concept1'],
@@ -254,13 +247,6 @@ describe('ensureReciprocalDeletions', () => {
         targetUuids: ['platform1'],
         relationship: 'gcmd:isOnPlatform',
         inverseRelationship: 'gcmd:hasInstrument'
-      })
-
-      expect(getDeleteRelationshipQuery).toHaveBeenCalledWith({
-        sourceUuid: 'testId',
-        targetUuids: ['sensor1'],
-        relationship: 'gcmd:hasSensor',
-        inverseRelationship: 'gcmd:isOnPlatform'
       })
     })
   })

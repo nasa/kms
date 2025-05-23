@@ -1,8 +1,16 @@
 /**
- * Deletes a SKOS Concept from the RDF store based on its rdf:about identifier.
+ * Deletes a SKOS Concept from the RDF store based on its conceptId.
  *
- * This function constructs a SPARQL DELETE query to remove all triples where the
- * specified concept is the subject. It then sends this query to the SPARQL endpoint.
+ * This function performs the following steps:
+ * 1. Validates the input conceptId
+ * 2. Checks if the concept exists
+ * 3. Starts a transaction
+ * 4. Retrieves the existing concept data
+ * 5. Ensures reciprocal relationships are handled
+ * 6. Deletes all triples where the specified concept is the subject
+ * 7. Commits the transaction
+ *
+ * If any step fails, the transaction is rolled back.
  *
  * @async
  * @function deleteConcept
@@ -11,20 +19,32 @@
  * @param {string} event.pathParameters.conceptId - The ID of the concept to be deleted.
  * @param {Object} event.queryStringParameters - Query string parameters.
  * @param {string} [event.queryStringParameters.version='draft'] - The version of the concept to delete (default is 'draft').
- * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ * @returns {Promise<Object>} A promise that resolves to an object containing:
+ *   - statusCode: HTTP status code (200 for success, 400, 404, or 500 for failure)
+ *   - body: JSON string with a message (and error details for failure)
+ *   - headers: Response headers including CORS and content type
+ * @throws {Error} If there's an issue during the concept deletion process.
  *
  * @example
- * curl -X DELETE https://your-api-endpoint.com/concepts/123?version=draft
+ * // Successful response:
+ * {
+ *   statusCode: 200,
+ *   body: '{"message":"Successfully deleted concept: 123"}',
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *     "Access-Control-Allow-Origin": "*"
+ *   }
+ * }
  *
- * // Response:
- * // {
- * //   "statusCode": 200,
- * //   "body": "{\"message\":\"Successfully deleted concept: 123\"}",
- * //   "headers": {
- * //     "Content-Type": "application/json",
- * //     "Access-Control-Allow-Origin": "*"
- * //   }
- * // }
+ * // Error response:
+ * {
+ *   statusCode: 404,
+ *   body: '{"message":"Concept not found: 123"}',
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *     "Access-Control-Allow-Origin": "*"
+ *   }
+ * }
  */
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'

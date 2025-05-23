@@ -14,8 +14,16 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
 /**
  * Handles the creation of a new concept in the SPARQL endpoint.
  *
- * This function checks if the concept already exists, and if not, it adds the new concept
- * to the RDF store using the provided RDF/XML data.
+ * This function performs the following steps:
+ * 1. Validates the input RDF/XML data
+ * 2. Checks if the concept already exists
+ * 3. Starts a transaction
+ * 4. Adds the new concept to the RDF store
+ * 5. Ensures reciprocal relationships
+ * 6. Adds creation and modification dates
+ * 7. Commits the transaction
+ *
+ * If any step fails, the transaction is rolled back.
  *
  * @async
  * @function createConcept
@@ -23,26 +31,32 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * @param {string} event.body - The RDF/XML representation of the concept to be created.
  * @param {Object} event.queryStringParameters - Query string parameters.
  * @param {string} [event.queryStringParameters.version='draft'] - The version of the concept (default is 'draft').
- * @returns {Promise<Object>} A promise that resolves to an object containing the statusCode, body, and headers.
+ * @returns {Promise<Object>} A promise that resolves to an object containing:
+ *   - statusCode: HTTP status code (201 for success, 400 or 409 for failure)
+ *   - body: JSON string with a message and conceptId (for success) or error details (for failure)
+ *   - headers: Response headers including CORS and content type
+ * @throws {Error} If there's an issue during the concept creation process.
  *
  * @example
- * // Curl command to create a new concept
- * curl -X POST https://your-api-endpoint.com/concept?version=draft \
- *   -H "Content-Type: application/rdf+xml" \
- *   -d @concept.rdf
+ * // Successful response:
+ * {
+ *   statusCode: 201,
+ *   body: '{"message":"Successfully created concept","conceptId":"123"}',
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *     "Access-Control-Allow-Origin": "*"
+ *   }
+ * }
  *
- * // Where concept.rdf is a file containing the RDF/XML representation of the concept.
- * // The 'version' query parameter is optional and defaults to 'draft'.
- *
- * // Example response:
- * // {
- * //   "statusCode": 201,
- * //   "body": "{\"message\":\"Successfully created concept\",\"conceptId\":\"123\"}",
- * //   "headers": {
- * //     "Content-Type": "application/json",
- * //     "Access-Control-Allow-Origin": "*"
- * //   }
- * // }
+ * // Error response:
+ * {
+ *   statusCode: 400,
+ *   body: '{"message":"Error creating concept","error":"Invalid or missing concept ID"}',
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *     "Access-Control-Allow-Origin": "*"
+ *   }
+ * }
  */
 export const createConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()

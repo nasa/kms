@@ -115,11 +115,20 @@ describe('createConcept', () => {
 
       await createConcept(mockEventWithVersion)
 
-      expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI, customVersion)
-      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
-      expect(ensureReciprocal).toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
-      expect(updateCreatedDate).toHaveBeenCalledWith(mockConceptId, customVersion, expect.any(String), mockTransactionUrl)
-      expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, customVersion, expect.any(String), mockTransactionUrl)
+      expect(conceptIdExists)
+        .toHaveBeenCalledWith(mockConceptIRI, customVersion)
+
+      expect(sparqlRequest)
+        .toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
+
+      expect(ensureReciprocal)
+        .toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
+
+      expect(updateCreatedDate)
+        .toHaveBeenCalledWith(mockConceptId, customVersion, expect.any(String), mockTransactionUrl)
+
+      expect(updateModifiedDate)
+        .toHaveBeenCalledWith(mockConceptId, customVersion, expect.any(String), mockTransactionUrl)
     })
   })
 

@@ -3,19 +3,21 @@ import { getCreateRelationshipQuery } from '@/shared/operations/queries/getCreat
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
- * Ensures reciprocal relations are created for a given concept.
+ * Ensures reciprocal relationships are properly created when adding or updating a concept.
  *
- * This function takes an RDF/XML representation of a concept and creates reciprocal
- * relationships for specified relation types. It checks for existing relation types
- * in the RDF/XML and creates the corresponding reciprocal relationships.
+ * This function analyzes the RDF/XML of a concept to identify relationships that require
+ * reciprocal entries. It then generates and executes SPARQL queries to create the
+ * corresponding reciprocal relationships in related concepts.
  *
- * @param {Object} params - The parameters for the function.
+ * @async
+ * @function ensureReciprocalInsertions
+ * @param {Object} params - The parameters for ensuring reciprocal insertions.
  * @param {string} params.rdfXml - The RDF/XML representation of the concept.
- * @param {string} params.conceptId - The UUID of the concept.
- * @param {string} params.version - The version of the concept.
- * @param {string} params.transactionUrl - The URL for the transaction.
- * @returns {Promise<Object>} A promise that resolves to { ok: true } if successful.
- * @throws {Error} If there's an error creating reciprocal relationships.
+ * @param {string} params.conceptId - The UUID of the concept being modified.
+ * @param {string} params.version - The version of the concept being modified (e.g., 'draft', 'published').
+ * @param {string} params.transactionUrl - The URL of the current transaction.
+ * @returns {Promise<Object>} A promise that resolves to an object with an 'ok' property set to true if successful.
+ * @throws {Error} If there's an issue creating reciprocal relationships.
  *
  * @example
  * const rdfXml = `
@@ -27,16 +29,20 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * `;
  *
  * try {
- *   const result = await ensureReciprocalRelations({
+ *   const result = await ensureReciprocalInsertions({
  *     rdfXml,
  *     conceptId: '043dc242-1014-4e9a-91ee-c472b791b026',
- *     version: '1',
- *     transactionUrl: 'http://example.com/transaction'
+ *     version: 'draft',
+ *     transactionUrl: 'http://example.com/transaction/1'
  *   });
- *   console.log(result); // { ok: true }
+ *   console.log('Reciprocal insertions ensured successfully');
  * } catch (error) {
- *   console.error('Error:', error);
+ *   console.error('Failed to ensure reciprocal insertions:', error);
  * }
+ *
+ * @see {@link getResourceValues}
+ * @see {@link getCreateRelationshipQuery}
+ * @see {@link sparqlRequest}
  */
 export const ensureReciprocalInsertions = async ({
   rdfXml, conceptId, version, transactionUrl
@@ -61,10 +67,6 @@ export const ensureReciprocalInsertions = async ({
     {
       type: 'gcmd:isOnPlatform',
       reciprocal: 'gcmd:hasInstrument'
-    },
-    {
-      type: 'gcmd:hasSensor',
-      reciprocal: 'gcmd:isOnPlatform'
     }
   ]
 

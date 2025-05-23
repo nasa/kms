@@ -13,6 +13,65 @@ import {
 } from '@/shared/transactionHelpers'
 import { updateModifiedDate } from '@/shared/updateModifiedDate'
 
+/**
+ * Updates an existing SKOS Concept in the RDF store for a specific version.
+ *
+ * This function performs the following steps:
+ * 1. Validates the input RDF/XML data and conceptId
+ * 2. Retrieves the existing concept data
+ * 3. Starts a transaction
+ * 4. Deletes the existing concept (if it exists)
+ * 5. Inserts the updated concept
+ * 6. Ensures reciprocal relationships are handled
+ * 7. Updates the modification date
+ * 8. Commits the transaction
+ *
+ * If any step fails, the transaction is rolled back.
+ *
+ * @async
+ * @function updateConcept
+ * @param {Object} event - The Lambda event object.
+ * @param {string} event.body - The RDF/XML representation of the updated concept.
+ * @param {Object} event.queryStringParameters - Query string parameters.
+ * @param {string} [event.queryStringParameters.version='draft'] - The version to update (default is 'draft').
+ * @returns {Promise<Object>} A promise that resolves to an object containing:
+ *   - statusCode: HTTP status code (200 for success, 500 for failure)
+ *   - body: JSON string with a message (and error details for failure)
+ *   - headers: Response headers including CORS and content type
+ * @throws {Error} If there's an issue during the concept update process.
+ *
+ * @example
+ * // Successful response:
+ * {
+ *   statusCode: 200,
+ *   body: '{"message":"Successfully updated concept: 123"}',
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *     "Access-Control-Allow-Origin": "*"
+ *   }
+ * }
+ *
+ * @example
+ * // Error response:
+ * {
+ *   statusCode: 500,
+ *   body: '{"message":"Error updating concept","error":"Invalid or missing concept ID"}',
+ *   headers: {
+ *     "Content-Type": "application/json",
+ *     "Access-Control-Allow-Origin": "*"
+ *   }
+ * }
+ *
+ * @example
+ * // Curl command to update a concept
+ * curl -X PUT https://your-api-endpoint.com/concept/123?version=draft \
+ *   -H "Content-Type: application/rdf+xml" \
+ *   -d @updated_concept.rdf
+ *
+ * // Where updated_concept.rdf is a file containing the updated RDF/XML representation of the concept.
+ * // The 'version' query parameter is optional and defaults to 'draft'.
+ */
+
 export const updateConcept = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: newRdfXml, queryStringParameters } = event || {}
