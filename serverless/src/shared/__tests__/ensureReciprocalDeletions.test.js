@@ -68,9 +68,9 @@ describe('ensureReciprocalDeletions', () => {
 
       // Assert
       expect(result).toEqual({ ok: true })
-      expect(getResourceValues).toHaveBeenCalledTimes(10) // 6 relation types * 2 (old and new)
-      expect(getDeleteRelationshipQuery).toHaveBeenCalledTimes(5) // 6 relation types
-      expect(sparqlRequest).toHaveBeenCalledTimes(5) // 6 relation types
+      expect(getResourceValues).toHaveBeenCalledTimes(10) // 5 relation types * 2 (old and new)
+      expect(getDeleteRelationshipQuery).toHaveBeenCalledTimes(5) // 5 relation types
+      expect(sparqlRequest).toHaveBeenCalledTimes(5) // 5 relation types
 
       // Additional assertions to ensure correct parameters are passed
       expect(getDeleteRelationshipQuery).toHaveBeenCalledWith({
