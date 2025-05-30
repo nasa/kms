@@ -8,8 +8,8 @@ WHERE {
   ?scheme a skos:ConceptScheme ;
           skos:prefLabel ?prefLabel ;
           skos:notation ?notation ;
-          dcterms:modified ?modified ;
-          dcterms:created ?created .
+          dcterms:modified ?modified .
+  OPTIONAL { ?scheme dcterms:created ?created }
   OPTIONAL { ?scheme gcmd:csvHeaders ?csvHeaders }
   ${schemeName ? `FILTER(?notation = "${schemeName}")` : ''}
 }
