@@ -16,11 +16,12 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should return correct schemeId and schemePrefLabel', () => {
+    it('should return correct schemeId, schemePrefLabel, and null csvHeaders', () => {
       const result = getSchemeInfo(validRdfXml)
       expect(result).toEqual({
         schemeId: 'testscheme',
-        schemePrefLabel: 'Test Scheme'
+        schemePrefLabel: 'Test Scheme',
+        csvHeaders: null
       })
     })
   })
@@ -78,11 +79,52 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should return schemeId and null for schemePrefLabel', () => {
+    it('should return schemeId and null for schemePrefLabel and csvHeaders', () => {
       const result = getSchemeInfo(noPrefLabelRdfXml)
       expect(result).toEqual({
         schemeId: 'nolabel',
-        schemePrefLabel: null
+        schemePrefLabel: null,
+        csvHeaders: null
+      })
+    })
+  })
+
+  describe('When given valid RDF/XML with csvHeaders', () => {
+    const validRdfXml = `
+      <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#">
+        <skos:ConceptScheme rdf:about="https://example.com/scheme/testscheme">
+          <skos:prefLabel>Test Scheme</skos:prefLabel>
+          <gcmd:csvHeaders>Header1,Header2,Header3</gcmd:csvHeaders>
+        </skos:ConceptScheme>
+      </rdf:RDF>
+    `
+
+    it('should return correct schemeId, schemePrefLabel, and csvHeaders', () => {
+      const result = getSchemeInfo(validRdfXml)
+      expect(result).toEqual({
+        schemeId: 'testscheme',
+        schemePrefLabel: 'Test Scheme',
+        csvHeaders: 'Header1,Header2,Header3'
+      })
+    })
+  })
+
+  describe('When given RDF/XML with empty csvHeaders', () => {
+    const emptyHeadersRdfXml = `
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#">
+      <skos:ConceptScheme rdf:about="https://example.com/scheme/emptyheaders">
+        <skos:prefLabel>Empty Headers Scheme</skos:prefLabel>
+        <gcmd:csvHeaders></gcmd:csvHeaders>
+      </skos:ConceptScheme>
+    </rdf:RDF>
+  `
+
+    it('should return schemeId, schemePrefLabel, and null for csvHeaders', () => {
+      const result = getSchemeInfo(emptyHeadersRdfXml)
+      expect(result).toEqual({
+        schemeId: 'emptyheaders',
+        schemePrefLabel: 'Empty Headers Scheme',
+        csvHeaders: null
       })
     })
   })

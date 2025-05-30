@@ -1,14 +1,14 @@
 import { XMLParser } from 'fast-xml-parser'
 
 /**
- * Extracts the scheme ID and prefLabel from an RDF/XML string.
+ * Extracts the scheme ID, prefLabel, and csvHeaders from an RDF/XML string.
  *
  * This function parses the provided RDF/XML string and extracts the scheme ID
- * from the skos:ConceptScheme element's rdf:about attribute and the prefLabel
- * from the skos:prefLabel element.
+ * from the skos:ConceptScheme element's rdf:about attribute, the prefLabel
+ * from the skos:prefLabel element, and the csvHeaders from the gcmd:csvHeaders element.
  *
  * @param {string} rdfXml - The RDF/XML string to parse.
- * @returns {{schemeId: string|null, schemePrefLabel: string|null}} An object containing the extracted scheme ID and prefLabel.
+ * @returns {{schemeId: string|null, schemePrefLabel: string|null, csvHeaders: string|null}} An object containing the extracted scheme ID, prefLabel, and csvHeaders.
  * @throws {Error} If the XML is invalid or doesn't contain the expected structure.
  *
  * @example
@@ -24,9 +24,10 @@ import { XMLParser } from 'fast-xml-parser'
  * `;
  *
  * try {
- *   const { schemeId, schemePrefLabel } = getSchemeInfo(rdfXml);
+ *   const { schemeId, schemePrefLabel, csvHeaders } = getSchemeInfo(rdfXml);
  *   console.log(schemeId); // Output: "sciencekeywords"
  *   console.log(schemePrefLabel); // Output: "Science Keywords"
+ *   console.log(csvHeaders); // Output: "Category,Topic,Term,Variable_Level_1,Variable_Level_2,Variable_Level_3,Detailed_Variable,UUID"
  * } catch (error) {
  *   console.error(error.message);
  * }
@@ -70,10 +71,14 @@ export const getSchemeInfo = (rdfXml) => {
     // Extract the prefLabel
     const schemePrefLabel = scheme['skos:prefLabel'] || null
 
+    // Extract csvHeaders
+    const csvHeaders = scheme['gcmd:csvHeaders'] || null
+
     // Return an object with schemeId and schemePrefLabel
     return {
       schemeId,
-      schemePrefLabel
+      schemePrefLabel,
+      csvHeaders
     }
   } catch (error) {
     // Wrap and rethrow any errors

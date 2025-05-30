@@ -157,7 +157,19 @@ createConceptScheme:
         authorizer:
           name: edlAuthorizer
           type: request
-          resultTtlInSeconds: 0 
+          resultTtlInSeconds: 0
+updateConceptScheme:
+  handler: serverless/src/updateConceptScheme/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: put
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_scheme
+        authorizer: 
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
 getKeywordsTree:
   handler: serverless/src/getKeywordsTree/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
