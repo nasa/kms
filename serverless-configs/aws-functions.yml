@@ -137,7 +137,7 @@ getConceptScheme:
     - http:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
-        path: concept_scheme/{schemeId}
+        path: /concept_scheme/{schemeId}
 getConceptSchemes:
   handler: serverless/src/getConceptSchemes/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
