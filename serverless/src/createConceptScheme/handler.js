@@ -1,7 +1,8 @@
 import { addCreatedDateToConceptScheme } from '@/shared/addCreatedDateToConceptScheme'
+import { createRootConceptRdf } from '@/shared/createRootConceptRdf'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getSchemeId } from '@/shared/getSchemeId'
+import { getSchemeInfo } from '@/shared/getSchemeInfo'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import {
   commitTransaction,
@@ -61,17 +62,19 @@ import {
  */
 export const createConceptScheme = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const { body: rdfXml, queryStringParameters } = event || {}
+  const { body: schemeRdf, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
 
   let transactionUrl
 
   try {
-    if (!rdfXml) {
+    if (!schemeRdf) {
       throw new Error('Missing RDF/XML data in request body')
     }
 
-    const schemeId = getSchemeId(rdfXml)
+    const schemeInfo = getSchemeInfo(schemeRdf)
+    const { schemeId, schemePrefLabel } = schemeInfo
+
     if (!schemeId) {
       throw new Error('Invalid or missing scheme ID')
     }
@@ -89,7 +92,9 @@ export const createConceptScheme = async (event) => {
       }
     }
 
-    const processedRdfXml = addCreatedDateToConceptScheme(rdfXml)
+    const processedSchemeRdf = addCreatedDateToConceptScheme(schemeRdf)
+
+    console.log('scheme rdf to insert=', processedSchemeRdf)
 
     // Start transaction
     transactionUrl = await startTransaction()
@@ -98,7 +103,7 @@ export const createConceptScheme = async (event) => {
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
       method: 'POST',
-      body: processedRdfXml,
+      body: processedSchemeRdf,
       version,
       transaction: {
         transactionUrl,
@@ -110,6 +115,28 @@ export const createConceptScheme = async (event) => {
       const responseText = await response.text()
       console.log('Response text:', responseText)
       throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const rootConceptRdf = createRootConceptRdf(schemeId, schemePrefLabel)
+
+    console.log('root concept rdf to insert=', rootConceptRdf)
+
+    const rootConceptResponse = await sparqlRequest({
+      contentType: 'application/rdf+xml',
+      accept: 'application/rdf+xml',
+      method: 'POST',
+      body: rootConceptRdf,
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'ADD'
+      }
+    })
+
+    if (!rootConceptResponse.ok) {
+      const responseText = await rootConceptResponse.text()
+      console.log('Response text:', responseText)
+      throw new Error(`HTTP error! status: ${rootConceptResponse.status}`)
     }
 
     // Commit transaction

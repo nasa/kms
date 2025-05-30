@@ -1,13 +1,14 @@
 import { XMLParser } from 'fast-xml-parser'
 
 /**
- * Extracts the scheme ID from an RDF/XML string.
+ * Extracts the scheme ID and prefLabel from an RDF/XML string.
  *
  * This function parses the provided RDF/XML string and extracts the scheme ID
- * from the skos:ConceptScheme element's rdf:about attribute.
+ * from the skos:ConceptScheme element's rdf:about attribute and the prefLabel
+ * from the skos:prefLabel element.
  *
  * @param {string} rdfXml - The RDF/XML string to parse.
- * @returns {string|null} The extracted scheme ID, or null if not found.
+ * @returns {{schemeId: string|null, schemePrefLabel: string|null}} An object containing the extracted scheme ID and prefLabel.
  * @throws {Error} If the XML is invalid or doesn't contain the expected structure.
  *
  * @example
@@ -23,13 +24,14 @@ import { XMLParser } from 'fast-xml-parser'
  * `;
  *
  * try {
- *   const schemeId = getSchemeId(rdfXml);
+ *   const { schemeId, schemePrefLabel } = getSchemeInfo(rdfXml);
  *   console.log(schemeId); // Output: "sciencekeywords"
+ *   console.log(schemePrefLabel); // Output: "Science Keywords"
  * } catch (error) {
  *   console.error(error.message);
  * }
  */
-export const getSchemeId = (rdfXml) => {
+export const getSchemeInfo = (rdfXml) => {
   // Configure XML parser options
   const parser = new XMLParser({
     ignoreAttributes: false,
@@ -63,12 +65,18 @@ export const getSchemeId = (rdfXml) => {
     }
 
     // Extract the scheme ID using split and pop
-    const schemeId = aboutAttr.split('/').pop()
+    const schemeId = aboutAttr.split('/').pop() || null
 
-    // Return the scheme ID or null if it's empty
-    return schemeId || null
+    // Extract the prefLabel
+    const schemePrefLabel = scheme['skos:prefLabel'] || null
+
+    // Return an object with schemeId and schemePrefLabel
+    return {
+      schemeId,
+      schemePrefLabel
+    }
   } catch (error) {
     // Wrap and rethrow any errors
-    throw new Error(`Error extracting scheme ID: ${error.message}`)
+    throw new Error(`Error extracting scheme information: ${error.message}`)
   }
 }
