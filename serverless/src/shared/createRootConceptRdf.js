@@ -18,7 +18,8 @@ import { v4 as uuidv4 } from 'uuid'
  * // <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
  * //          xmlns:skos="http://www.w3.org/2004/02/skos/core#"
  * //          xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#"
- * //          xmlns:dcterms="http://purl.org/dc/terms/">
+ * //          xmlns:dcterms="http://purl.org/dc/terms/"
+ * //          xml:base="https://gcmd.earthdata.nasa.gov/kms/concept/">
  * //   <skos:Concept rdf:about="550e8400-e29b-41d4-a716-446655440000">
  * //     <skos:prefLabel xml:lang="en">Earth Science Keywords</skos:prefLabel>
  * //     <skos:inScheme rdf:resource="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/science_keywords"/>
@@ -44,6 +45,7 @@ export const createRootConceptRdf = (schemeId, schemePrefLabel) => {
       '@_xmlns:skos': 'http://www.w3.org/2004/02/skos/core#',
       '@_xmlns:gcmd': 'https://gcmd.earthdata.nasa.gov/kms#',
       '@_xmlns:dcterms': 'http://purl.org/dc/terms/',
+      '@_xml:base': 'https://gcmd.earthdata.nasa.gov/kms/concept/',
       'skos:Concept': {
         '@_rdf:about': uuid,
         'skos:prefLabel': {

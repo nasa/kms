@@ -68,23 +68,26 @@ export const createConceptScheme = async (event) => {
   let transactionUrl
 
   try {
+    // Validate that RDF/XML data is provided in the request body
     if (!schemeRdf) {
       throw new Error('Missing RDF/XML data in request body')
     }
 
+    // Extract scheme information from the provided RDF
     const schemeInfo = getSchemeInfo(schemeRdf)
     const { schemeId, schemePrefLabel } = schemeInfo
-
+    // Validate that a scheme ID is present
     if (!schemeId) {
       throw new Error('Invalid or missing scheme ID')
     }
 
-    // Fetch scheme to check if scheme exists
+    // Check if the scheme already exists
     const scheme = await getConceptSchemeDetails({
       schemeName: schemeId,
       version
     })
     if (scheme) {
+      // Return a conflict error if the scheme already exists
       return {
         statusCode: 409,
         body: JSON.stringify({ message: `Scheme ${schemeId} already exists.` }),
@@ -92,13 +95,12 @@ export const createConceptScheme = async (event) => {
       }
     }
 
+    // Add creation date to the concept scheme RDF
     const processedSchemeRdf = addCreatedDateToConceptScheme(schemeRdf)
 
-    console.log('scheme rdf to insert=', processedSchemeRdf)
-
-    // Start transaction
+    // Start a new transaction
     transactionUrl = await startTransaction()
-
+    // Send the processed scheme RDF to the triplestore
     const response = await sparqlRequest({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
@@ -110,16 +112,15 @@ export const createConceptScheme = async (event) => {
         action: 'ADD'
       }
     })
-
+    // Check if the request was successful
     if (!response.ok) {
       const responseText = await response.text()
       console.log('Response text:', responseText)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
+    // Create and add a root concept for the scheme
     const rootConceptRdf = createRootConceptRdf(schemeId, schemePrefLabel)
-
-    console.log('root concept rdf to insert=', rootConceptRdf)
 
     const rootConceptResponse = await sparqlRequest({
       contentType: 'application/rdf+xml',
@@ -132,18 +133,19 @@ export const createConceptScheme = async (event) => {
         action: 'ADD'
       }
     })
-
+    // Check if the root concept was added successfully
     if (!rootConceptResponse.ok) {
       const responseText = await rootConceptResponse.text()
       console.log('Response text:', responseText)
       throw new Error(`HTTP error! status: ${rootConceptResponse.status}`)
     }
 
-    // Commit transaction
+    // Commit the transaction
     await commitTransaction(transactionUrl)
 
     console.log('Successfully loaded RDF XML into RDF4J')
 
+    // Return a success response
     return {
       statusCode: 201,
       body: JSON.stringify({
