@@ -130,6 +130,14 @@ getKeyword:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /keyword/{conceptId}
+getConceptScheme:
+  handler: serverless/src/getConceptScheme/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: get
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: concept_scheme/{schemeId}
 getConceptSchemes:
   handler: serverless/src/getConceptSchemes/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
@@ -138,6 +146,18 @@ getConceptSchemes:
         method: get
         cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
         path: /concept_schemes
+createConceptScheme:
+  handler: serverless/src/createConceptScheme/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: post
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_scheme
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0 
 getKeywordsTree:
   handler: serverless/src/getKeywordsTree/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}
