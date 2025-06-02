@@ -28,7 +28,19 @@ import {
  *
  * // Example event object
  * const event = {
- *   body: '<rdf:RDF>...</rdf:RDF>',
+ *   body: `
+ *     <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ *              xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+ *              xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#"
+ *              xmlns:dcterms="http://purl.org/dc/terms/">
+ *       <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/schemeA">
+ *         <skos:prefLabel>schemeA long name</skos:prefLabel>
+ *         <skos:notation>schemeA</skos:notation>
+ *         <dcterms:modified>2025-03-31</dcterms:modified>
+ *         <gcmd:csvHeaders>Category,Topic,Term</gcmd:csvHeaders>
+ *       </skos:ConceptScheme>
+ *     </rdf:RDF>
+ *   `,
  *   queryStringParameters: {
  *     version: 'draft'
  *   }
@@ -39,7 +51,7 @@ import {
  *   statusCode: 201,
  *   body: JSON.stringify({
  *     message: 'Successfully created scheme',
- *     schemeId: 'example-scheme'
+ *     schemeId: 'a3'
  *   }),
  *   headers: {
  *     'Content-Type': 'application/json',

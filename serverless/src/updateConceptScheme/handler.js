@@ -17,6 +17,46 @@ import {
   startTransaction
 } from '@/shared/transactionHelpers'
 
+/**
+ * Updates a concept scheme based on the provided RDF data.
+ * Fields can be updated: 'skos:prefLabel' and 'gcmd:csvHeaders'
+ * @async
+ * @function updateConceptScheme
+ * @param {Object} event - The event object containing the request details
+ * @param {string} event.body - The RDF/XML data of the scheme to be updated
+ * @param {Object} event.queryStringParameters - The query string parameters
+ * @param {string} [event.queryStringParameters.version='draft'] - The version of the scheme to update
+ * @returns {Promise<Object>} The response object with status code, body, and headers
+ *
+ * @example
+ * // Usage example:
+ * const event = {
+ *   body: `<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ *                   xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+ *                   xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#"
+ *                   xmlns:dcterms="http://purl.org/dc/terms/">
+ *     <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/schemeA">
+ *       <skos:prefLabel>schemeA updated long name</skos:prefLabel>
+ *       <skos:notation>schemeA</skos:notation>
+ *       <dcterms:modified>2025-03-31</dcterms:modified>
+ *       <gcmd:csvHeaders>Category,Topic,Term,UpdatedColumn</gcmd:csvHeaders>
+ *     </skos:ConceptScheme>
+ *   </rdf:RDF>`,
+ *   queryStringParameters: { version: 'draft' }
+ * };
+ *
+ * try {
+ *   const result = await updateConceptScheme(event);
+ *   console.log(result);
+ *   // Expected output: {
+ *   //   statusCode: 201,
+ *   //   body: '{"message":"Successfully updated concept scheme","schemeId":"a3"}',
+ *   //   headers: {...}
+ *   // }
+ * } catch (error) {
+ *   console.error(error);
+ * }
+ */
 export const updateConceptScheme = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: schemeRdf, queryStringParameters } = event || {}
