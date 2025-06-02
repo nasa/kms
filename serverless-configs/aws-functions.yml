@@ -170,6 +170,18 @@ updateConceptScheme:
           name: edlAuthorizer
           type: request
           resultTtlInSeconds: 0
+deleteConceptScheme:
+  handler: serverless/src/deleteConceptScheme/handler.default
+  timeout: ${env:LAMBDA_TIMEOUT, '30'}
+  events:
+    - http:
+        method: delete
+        cors: ${file(./serverless-configs/${self:provider.name}-cors-configuration.yml)}
+        path: /concept_scheme/{schemeId}
+        authorizer:
+          name: edlAuthorizer
+          type: request
+          resultTtlInSeconds: 0
 getKeywordsTree:
   handler: serverless/src/getKeywordsTree/handler.default
   timeout: ${env:LAMBDA_TIMEOUT, '30'}

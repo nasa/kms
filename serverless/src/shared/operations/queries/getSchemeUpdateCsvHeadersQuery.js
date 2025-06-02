@@ -9,7 +9,6 @@ export const getSchemeUpdateCsvHeadersQuery = (schemeId, csvHeaders) => (`
       <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${schemeId}> gcmd:csvHeaders "${csvHeaders}" .
     }
     WHERE {
-      # <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${schemeId}> a skos:ConceptScheme .
       OPTIONAL {
         <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${schemeId}> gcmd:csvHeaders ?anyHeaders .
       }
