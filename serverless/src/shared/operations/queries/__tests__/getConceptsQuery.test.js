@@ -11,9 +11,9 @@ import { getConceptsQuery } from '../getConceptsQuery'
 describe('getConceptsQuery', () => {
   describe('when concept scheme is provided', () => {
     test('should include the concept scheme in the query', () => {
-      const conceptScheme = 'https://example.com/scheme'
+      const conceptScheme = 'scheme'
       const query = getConceptsQuery(conceptScheme)
-      expect(query).toContain(`?s skos:inScheme <${conceptScheme}>`)
+      expect(query).toContain('?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/scheme>')
     })
   })
 

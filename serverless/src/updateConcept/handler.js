@@ -1,5 +1,6 @@
-// Serverless/src/updateConcept/handler.js
-
+import { addChangeNotes } from '@/shared/addChangeNotes'
+import { captureRelations } from '@/shared/captureRelations'
+import { compareRelations } from '@/shared/compareRelations'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
@@ -20,11 +21,15 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * 1. Validates the input RDF/XML data and conceptId
  * 2. Retrieves the existing concept data
  * 3. Starts a transaction
- * 4. Deletes the existing concept (if it exists)
- * 5. Inserts the updated concept
- * 6. Ensures reciprocal relationships are handled
- * 7. Updates the modification date
- * 8. Commits the transaction
+ * 4. Captures existing relations
+ * 5. Deletes the existing concept (if it exists)
+ * 6. Inserts the updated concept
+ * 7. Ensures reciprocal relationships are handled
+ * 8. Captures updated relations
+ * 9. Compares before and after relations
+ * 10. Generates and adds change notes for modified relations
+ * 11. Updates the modification date
+ * 12. Commits the transaction
  *
  * If any step fails, the transaction is rolled back.
  *
@@ -94,6 +99,8 @@ export const updateConcept = async (event) => {
     // Start transaction
     const transactionUrl = await startTransaction()
 
+    const beforeRelations = await captureRelations(conceptId, version, transactionUrl)
+
     try {
       if (oldRdfXml) {
         // Remove existing concept
@@ -140,6 +147,17 @@ export const updateConcept = async (event) => {
 
       if (!updateModifiedSuccess) {
         throw new Error('HTTP error! updating last modified date failed')
+      }
+
+      // Capture relations after update
+      const afterRelations = await captureRelations(conceptId, version, transactionUrl)
+
+      // Compare before and after relations
+      const { addedRelations, removedRelations } = compareRelations(beforeRelations, afterRelations)
+
+      // Generate and add change notes
+      if (addedRelations.length > 0 || removedRelations.length > 0) {
+        await addChangeNotes(addedRelations, removedRelations, version, transactionUrl)
       }
 
       // Commit transaction

@@ -8,7 +8,7 @@ WHERE {
     SELECT DISTINCT ?s
     WHERE {
       ?s a skos:Concept .
-      ${conceptScheme ? `?s skos:inScheme <${conceptScheme}> .` : ''}
+      ${conceptScheme ? `?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${conceptScheme}> .` : ''}
       ${pattern ? `
       ?s skos:prefLabel ?prefLabel .
       FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${pattern}")))

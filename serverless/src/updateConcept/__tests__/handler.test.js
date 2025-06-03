@@ -7,6 +7,7 @@ import {
 } from 'vitest'
 
 // Import mocked functions
+import { captureRelations } from '@/shared/captureRelations'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
@@ -30,6 +31,7 @@ vi.mock('@/shared/getConfig')
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/transactionHelpers')
 vi.mock('@/shared/updateModifiedDate')
+vi.mock('@/shared/captureRelations')
 
 describe('updateConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
@@ -53,8 +55,30 @@ describe('updateConcept', () => {
     ensureReciprocal.mockResolvedValue({ ok: true })
     updateModifiedDate.mockResolvedValue(true)
     commitTransaction.mockResolvedValue()
+    captureRelations.mockResolvedValue([
+      {
+        from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+      },
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        relation: 'narrower',
+        to: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`
+      }
+    ])
 
-    vi.spyOn(console, 'log').mockImplementation(() => {})
+    sparqlRequest.mockImplementation((params) => {
+      if (params.body.includes('skos:changeNote')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200
+        })
+      }
+
+      return Promise.resolve({ ok: true })
+    })
+
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -488,6 +512,53 @@ describe('updateConcept', () => {
 
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         body: largeRdfXml
+      }))
+    })
+  })
+
+  describe('when capturing relations', () => {
+    test('should capture changes and log them as skos:changeNotes when changes occur', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after update)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if sparqlRequest was called to add skos:changeNote
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
+      }))
+
+      // Check if the change note includes the correct information
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Removed broader relation')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added broader relation')
+      }))
+
+      // Verify that the change notes are added to the correct concept
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining(`<https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}>`)
       }))
     })
   })

@@ -7,6 +7,9 @@ import {
 } from 'vitest'
 
 import { deleteConcept } from '@/deleteConcept/handler'
+import { addChangeNotes } from '@/shared/addChangeNotes'
+import { captureRelations } from '@/shared/captureRelations'
+import { compareRelations } from '@/shared/compareRelations'
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
@@ -25,6 +28,9 @@ vi.mock('@/shared/ensureReciprocal')
 vi.mock('@/shared/getConceptById')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/transactionHelpers')
+vi.mock('@/shared/captureRelations')
+vi.mock('@/shared/addChangeNotes')
+vi.mock('@/shared/compareRelations')
 
 describe('deleteConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
@@ -38,7 +44,6 @@ describe('deleteConcept', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -49,6 +54,26 @@ describe('deleteConcept', () => {
     deleteTriples.mockResolvedValue({ ok: true })
     ensureReciprocal.mockResolvedValue({ ok: true })
     commitTransaction.mockResolvedValue()
+
+    captureRelations.mockResolvedValue([
+      {
+        from: mockConceptIRI,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+      },
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        relation: 'narrower',
+        to: mockConceptIRI
+      }
+    ])
+
+    compareRelations.mockReturnValue({
+      addedRelations: [],
+      removedRelations: []
+    })
+
+    addChangeNotes.mockResolvedValue(true)
   })
 
   describe('when successful', () => {
@@ -259,6 +284,73 @@ describe('deleteConcept', () => {
       expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
       expect(result.statusCode).toBe(500)
       expect(JSON.parse(result.body).error).toBe('Failed to ensure reciprocal relations')
+    })
+  })
+
+  describe('when capturing relations', () => {
+    test('should capture relations and add change notes when deleting a concept', async () => {
+      const mockRelations = [
+        {
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        },
+        {
+          from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          relation: 'narrower',
+          to: mockConceptIRI
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations) // Relations before deletion
+        .mockResolvedValueOnce([]) // No relations after deletion
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      conceptIdExists.mockResolvedValue(true)
+      getConceptById.mockResolvedValue(mockOldRdfXml)
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      deleteTriples.mockResolvedValue({ ok: true })
+      addChangeNotes.mockResolvedValue(true)
+
+      await deleteConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after deletion)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if compareRelations was called with the correct arguments
+      expect(compareRelations).toHaveBeenCalledWith(mockRelations, [])
+
+      // Check if addChangeNotes was called with the correct arguments
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        mockRelations,
+        'draft',
+        mockTransactionUrl
+      )
+
+      // Verify that the change notes are added for the correct relations
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: mockConceptIRI,
+            relation: 'broader',
+            to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+          }),
+          expect.objectContaining({
+            from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+            relation: 'narrower',
+            to: mockConceptIRI
+          })
+        ]),
+        'draft',
+        mockTransactionUrl
+      )
     })
   })
 })

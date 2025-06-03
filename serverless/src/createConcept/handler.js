@@ -1,3 +1,6 @@
+import { addChangeNotes } from '@/shared/addChangeNotes'
+import { captureRelations } from '@/shared/captureRelations'
+import { compareRelations } from '@/shared/compareRelations'
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptId } from '@/shared/getConceptId'
@@ -89,6 +92,8 @@ export const createConcept = async (event) => {
     // Start transaction
     transactionUrl = await startTransaction()
 
+    const beforeRelations = await captureRelations(conceptId, version, transactionUrl)
+
     const response = await sparqlRequest({
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
@@ -103,11 +108,9 @@ export const createConcept = async (event) => {
 
     if (!response.ok) {
       const responseText = await response.text()
-      console.log('Response text:', responseText)
+      console.error('Response text:', responseText)
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-
-    console.log('Successfully loaded RDF XML into RDF4J')
 
     // Ensure reciprocal relationships
     await ensureReciprocal({
@@ -126,15 +129,22 @@ export const createConcept = async (event) => {
       throw new Error(`Failed to add creation date for concept ${conceptId}`)
     }
 
-    console.log(`Added creation date ${today} for concept ${conceptId}`)
-
     // Add modified date
     const modifiedDateSuccess = await updateModifiedDate(conceptId, version, today, transactionUrl)
     if (!modifiedDateSuccess) {
       throw new Error(`Failed to update modified date for concept ${conceptId}`)
     }
 
-    console.log(`Updated modified date ${today} for concept ${conceptId}`)
+    // Capture relations after update
+    const afterRelations = await captureRelations(conceptId, version, transactionUrl)
+
+    // Compare before and after relations
+    const { addedRelations, removedRelations } = compareRelations(beforeRelations, afterRelations)
+
+    // Generate and add change notes
+    if (addedRelations.length > 0 || removedRelations.length > 0) {
+      await addChangeNotes(addedRelations, removedRelations, version, transactionUrl)
+    }
 
     // Commit transaction
     await commitTransaction(transactionUrl)
