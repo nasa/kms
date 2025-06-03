@@ -31,7 +31,6 @@ describe('getConceptSchemeDetails', () => {
                 prefLabel: { value: 'Chained Operations' },
                 notation: { value: 'ChainedOperations' },
                 modified: { value: '2025-01-31' },
-                created: { value: '2023-01-01' },
                 csvHeaders: { value: 'Header1,Header2' }
               }
             ]
@@ -51,7 +50,6 @@ describe('getConceptSchemeDetails', () => {
         prefLabel: 'Chained Operations',
         notation: 'ChainedOperations',
         modified: '2025-01-31',
-        created: '2023-01-01',
         csvHeaders: 'Header1,Header2'
       })
 
@@ -74,7 +72,6 @@ describe('getConceptSchemeDetails', () => {
                 prefLabel: { value: 'Chained Operations' },
                 notation: { value: 'ChainedOperations' },
                 modified: { value: '2025-01-31' },
-                created: { value: '2023-01-01' },
                 csvHeaders: { value: 'Header1,Header2' }
               },
               {
@@ -82,7 +79,6 @@ describe('getConceptSchemeDetails', () => {
                 prefLabel: { value: 'Collection Data Type' },
                 notation: { value: 'CollectionDataType' },
                 modified: { value: '2025-01-31' },
-                created: { value: '2023-02-01' },
                 csvHeaders: null
               }
             ]
@@ -100,7 +96,6 @@ describe('getConceptSchemeDetails', () => {
           prefLabel: 'Chained Operations',
           notation: 'ChainedOperations',
           modified: '2025-01-31',
-          created: '2023-01-01',
           csvHeaders: 'Header1,Header2'
         },
         {
@@ -108,7 +103,6 @@ describe('getConceptSchemeDetails', () => {
           prefLabel: 'Collection Data Type',
           notation: 'CollectionDataType',
           modified: '2025-01-31',
-          created: '2023-02-01',
           csvHeaders: null
         }
       ])
@@ -121,7 +115,7 @@ describe('getConceptSchemeDetails', () => {
       }))
     })
 
-    test('should handle concept scheme without csvHeaders and created', async () => {
+    test('should handle concept scheme without csvHeaders', async () => {
       const mockResponse = {
         ok: true,
         json: vi.fn().mockResolvedValue({
@@ -150,7 +144,6 @@ describe('getConceptSchemeDetails', () => {
         prefLabel: 'Test Scheme',
         notation: 'TestScheme',
         modified: '2025-01-31',
-        created: null,
         csvHeaders: null
       })
     })

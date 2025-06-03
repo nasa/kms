@@ -71,7 +71,6 @@ export const getConceptSchemeDetails = async ({
       prefLabel: binding.prefLabel.value,
       notation: binding.notation.value,
       modified: binding.modified.value,
-      created: binding.created ? binding.created.value : null,
       csvHeaders: binding.csvHeaders ? binding.csvHeaders.value : null
     })
 

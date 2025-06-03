@@ -1,4 +1,3 @@
-import { addCreatedDateToConceptScheme } from '@/shared/addCreatedDateToConceptScheme'
 import { createRootConceptRdf } from '@/shared/createRootConceptRdf'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
@@ -107,9 +106,6 @@ export const createConceptScheme = async (event) => {
       }
     }
 
-    // Add creation date to the concept scheme RDF
-    const processedSchemeRdf = addCreatedDateToConceptScheme(schemeRdf)
-
     // Start a new transaction
     transactionUrl = await startTransaction()
     // Send the processed scheme RDF to the triplestore
@@ -117,7 +113,7 @@ export const createConceptScheme = async (event) => {
       contentType: 'application/rdf+xml',
       accept: 'application/rdf+xml',
       method: 'POST',
-      body: processedSchemeRdf,
+      body: schemeRdf,
       version,
       transaction: {
         transactionUrl,

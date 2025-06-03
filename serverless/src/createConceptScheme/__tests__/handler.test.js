@@ -28,6 +28,15 @@ describe('createConceptScheme', () => {
     })
   })
 
+  beforeAll(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterAll(() => {
+    vi.restoreAllMocks()
+  })
+
   afterEach(() => {
     vi.clearAllMocks()
   })
