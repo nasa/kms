@@ -1,21 +1,21 @@
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSchemeInfo } from '@/shared/getSchemeInfo'
+import { getSkosRootConcept } from '@/shared/getSkosRootConcept'
 import {
-  getSchemeUpdateCsvHeadersQuery
-} from '@/shared/operations/queries/getSchemeUpdateCsvHeadersQuery'
+  getDeleteTriplesForSchemeQuery
+} from '@/shared/operations/queries/getDeleteTriplesForSchemeQuery'
 import {
   getSchemeUpdateModifiedDateQuery
 } from '@/shared/operations/queries/getSchemeUpdateModifiedDateQuery'
-import {
-  getSchemeUpdatePrefLabelQuery
-} from '@/shared/operations/queries/getSchemeUpdatePrefLabelQuery'
+import { getUpdatePrefLabelQuery } from '@/shared/operations/updates/getUpdatePrefLabelQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import {
   commitTransaction,
   rollbackTransaction,
   startTransaction
 } from '@/shared/transactionHelpers'
+import { updateModifiedDate } from '@/shared/updateModifiedDate'
 
 /**
  * Updates a concept scheme based on the provided RDF data.
@@ -72,7 +72,7 @@ export const updateConceptScheme = async (event) => {
 
     // Extract scheme information from the provided RDF
     const schemeInfo = getSchemeInfo(schemeRdf)
-    const { schemeId, schemePrefLabel, csvHeaders } = schemeInfo
+    const { schemeId, schemePrefLabel } = schemeInfo
     // Validate that a scheme ID is present
     if (!schemeId) {
       throw new Error('Invalid or missing scheme ID')
@@ -92,16 +92,73 @@ export const updateConceptScheme = async (event) => {
       }
     }
 
-    let updated
-
     // Start a new transaction
     transactionUrl = await startTransaction()
 
+    // Get the root concept of the scheme
+    const skosRootConcept = await getSkosRootConcept(schemeId)
+    // Extract concept ID
+    const conceptId = skosRootConcept['@rdf:about']
+    // Construct scheme IRI
+    const schemeIRI = `https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${schemeId}`
+    // Today's date
+    const today = new Date().toISOString()
+
+    // Remove existing scheme
+    const deleteResponse = await sparqlRequest({
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      path: '/statements',
+      method: 'PUT',
+      body: getDeleteTriplesForSchemeQuery(schemeIRI),
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      }
+    })
+    if (!deleteResponse.ok) {
+      throw new Error('Failed to delete existing scheme')
+    }
+
+    // Insert updated scheme
+    const insertResponse = await sparqlRequest({
+      method: 'PUT',
+      contentType: 'application/rdf+xml',
+      accept: 'application/rdf+xml',
+      body: schemeRdf,
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'ADD'
+      }
+    })
+
+    if (!insertResponse.ok) {
+      throw new Error(`HTTP error! insert/update data status: ${insertResponse.status}`)
+    }
+
+    // Update scheme modified date
+    const updateResponse = await sparqlRequest({
+      method: 'PUT',
+      body: getSchemeUpdateModifiedDateQuery(schemeId, today),
+      contentType: 'application/sparql-update',
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      }
+    })
+    if (!updateResponse.ok) {
+      throw new Error('Failed to update scheme modified date')
+    }
+
+    // Check if prefLabel changed, if so, update root concept prefLabel
     if (schemePrefLabel && schemePrefLabel !== scheme.prefLabel) {
-      // Update scheme prefLabel
-      const response = await sparqlRequest({
+      // Update root concept prefLabel
+      const conceptUpdateResponse = await sparqlRequest({
         method: 'PUT',
-        body: getSchemeUpdatePrefLabelQuery(schemeId, schemePrefLabel),
+        body: getUpdatePrefLabelQuery(conceptId, schemePrefLabel),
         contentType: 'application/sparql-update',
         version,
         transaction: {
@@ -109,47 +166,20 @@ export const updateConceptScheme = async (event) => {
           action: 'UPDATE'
         }
       })
-      if (!response.ok) {
-        throw new Error('Failed to update scheme prefLabel')
+      if (!conceptUpdateResponse.ok) {
+        throw new Error('Failed to update root concept prefLabel')
       }
 
-      updated = true
-    }
-
-    if (csvHeaders && csvHeaders !== scheme.csvHeaders) {
-      // Update scheme csvHeaders
-      const response = await sparqlRequest({
-        method: 'PUT',
-        body: getSchemeUpdateCsvHeadersQuery(schemeId, csvHeaders),
-        contentType: 'application/sparql-update',
+      // Update root concept modified date
+      const updateConceptModifiedSuccess = await updateModifiedDate(
+        conceptId,
         version,
-        transaction: {
-          transactionUrl,
-          action: 'UPDATE'
-        }
-      })
-      if (!response.ok) {
-        throw new Error('Failed to update scheme csvHeaders')
-      }
+        today,
+        transactionUrl
+      )
 
-      updated = true
-    }
-
-    if (updated) {
-      // Update scheme modified date
-      const today = new Date().toISOString()
-      const response = await sparqlRequest({
-        method: 'PUT',
-        body: getSchemeUpdateModifiedDateQuery(schemeId, today),
-        contentType: 'application/sparql-update',
-        version,
-        transaction: {
-          transactionUrl,
-          action: 'UPDATE'
-        }
-      })
-      if (!response.ok) {
-        throw new Error('Failed to update scheme modified date')
+      if (!updateConceptModifiedSuccess) {
+        throw new Error('HTTP error! updating last modified date failed')
       }
     }
 
