@@ -47,7 +47,6 @@ export const getConceptSchemeDetails = async ({
 }) => {
   try {
     const query = getConceptSchemeDetailsQuery(schemeName)
-
     const response = await sparqlRequest({
       method: 'POST',
       body: query,
