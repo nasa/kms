@@ -6,6 +6,9 @@ import {
 } from 'vitest'
 
 import { createConcept } from '@/createConcept/handler'
+import { addChangeNotes } from '@/shared/addChangeNotes'
+import { captureRelations } from '@/shared/captureRelations'
+import { compareRelations } from '@/shared/compareRelations'
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptId } from '@/shared/getConceptId'
@@ -28,6 +31,9 @@ vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/updateCreatedDate')
 vi.mock('@/shared/updateModifiedDate')
 vi.mock('@/shared/transactionHelpers')
+vi.mock('@/shared/captureRelations')
+vi.mock('@/shared/addChangeNotes')
+vi.mock('@/shared/compareRelations')
 
 describe('createConcept', () => {
   const mockRdfXml = '<rdf:RDF>...</rdf:RDF>'
@@ -41,8 +47,31 @@ describe('createConcept', () => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
     getConceptId.mockReturnValue(mockConceptId)
+    captureRelations.mockResolvedValue([
+      {
+        from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      },
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        relation: 'narrower',
+        to: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+        fromPrefLabel: 'Concept C',
+        toPrefLabel: 'Concept A'
+      }
+    ])
+
+    compareRelations.mockReturnValue({
+      addedRelations: [],
+      removedRelations: []
+    })
+
+    addChangeNotes.mockResolvedValue(true)
+
     startTransaction.mockResolvedValue(mockTransactionUrl)
-    vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
@@ -211,7 +240,7 @@ describe('createConcept', () => {
         headers: mockDefaultHeaders
       })
 
-      expect(console.log).toHaveBeenCalledWith('Response text:', 'Internal Server Error')
+      expect(console.error).toHaveBeenCalledWith('Response text:', 'Internal Server Error')
       expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
     })
 
@@ -308,5 +337,238 @@ describe('createConcept', () => {
       expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
       expect(consoleErrorSpy).toHaveBeenCalledWith('Error rolling back transaction:', expect.any(Error))
     })
+  })
+
+  describe('when capturing relations', () => {
+    test('should capture relations and add change notes when creating a concept', async () => {
+      const mockRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce([]) // No relations before creation
+        .mockResolvedValueOnce(mockRelations) // Relations after creation
+
+      compareRelations.mockReturnValue({
+        addedRelations: mockRelations,
+        removedRelations: []
+      })
+
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      updateCreatedDate.mockResolvedValue(true)
+      updateModifiedDate.mockResolvedValue(true)
+      addChangeNotes.mockResolvedValue(true)
+
+      await createConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after creation)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if compareRelations was called with the correct arguments
+      expect(compareRelations).toHaveBeenCalledWith([], mockRelations)
+
+      // Check if addChangeNotes was called with the correct arguments
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        mockRelations,
+        [],
+        'draft',
+        mockTransactionUrl
+      )
+
+      // Verify that the change notes are added to the correct concept
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+            fromPrefLabel: 'Concept A',
+            toPrefLabel: 'Concept B'
+          })
+        ]),
+        [],
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should handle missing prefLabels when capturing relations', async () => {
+      const mockRelationsWithMissingLabels = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+          // FromPrefLabel and toPrefLabel are intentionally missing
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce([]) // No relations before creation
+        .mockResolvedValueOnce(mockRelationsWithMissingLabels) // Relations after creation
+
+      compareRelations.mockReturnValue({
+        addedRelations: mockRelationsWithMissingLabels,
+        removedRelations: []
+      })
+
+      conceptIdExists.mockResolvedValue(false)
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      updateCreatedDate.mockResolvedValue(true)
+      updateModifiedDate.mockResolvedValue(true)
+      addChangeNotes.mockResolvedValue(true)
+
+      await createConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after creation)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if compareRelations was called with the correct arguments
+      expect(compareRelations).toHaveBeenCalledWith([], mockRelationsWithMissingLabels)
+
+      // Check if addChangeNotes was called with the correct arguments
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        mockRelationsWithMissingLabels,
+        [],
+        'draft',
+        mockTransactionUrl
+      )
+
+      // Verify that the change notes are added to the correct concept
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`
+            // We're not expecting fromPrefLabel or toPrefLabel here
+          })
+        ]),
+        [],
+        'draft',
+        mockTransactionUrl
+      )
+    })
+  })
+
+  test('should handle empty prefLabels when capturing relations', async () => {
+    const mockRelationsWithEmptyLabels = [
+      {
+        from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: '',
+        toPrefLabel: ''
+      }
+    ]
+
+    captureRelations
+      .mockResolvedValueOnce([]) // No relations before creation
+      .mockResolvedValueOnce(mockRelationsWithEmptyLabels) // Relations after creation
+
+    compareRelations.mockReturnValue({
+      addedRelations: mockRelationsWithEmptyLabels,
+      removedRelations: []
+    })
+
+    conceptIdExists.mockResolvedValue(false)
+    sparqlRequest.mockResolvedValue({ ok: true })
+    ensureReciprocal.mockResolvedValue({ ok: true })
+    updateCreatedDate.mockResolvedValue(true)
+    updateModifiedDate.mockResolvedValue(true)
+    addChangeNotes.mockResolvedValue(true)
+
+    await createConcept(mockEvent)
+
+    // Check if captureRelations was called twice (before and after creation)
+    expect(captureRelations).toHaveBeenCalledTimes(2)
+
+    // Check if compareRelations was called with the correct arguments
+    expect(compareRelations).toHaveBeenCalledWith([], mockRelationsWithEmptyLabels)
+
+    // Check if addChangeNotes was called with the correct arguments
+    expect(addChangeNotes).toHaveBeenCalledWith(
+      mockRelationsWithEmptyLabels,
+      [],
+      'draft',
+      mockTransactionUrl
+    )
+
+    // Verify that the change notes are added to the correct concept
+    expect(addChangeNotes).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          fromPrefLabel: '',
+          toPrefLabel: ''
+        })
+      ]),
+      [],
+      'draft',
+      mockTransactionUrl
+    )
+  })
+
+  // Test for handling relations with special characters in prefLabels
+  test('should handle special characters in prefLabels when capturing relations', async () => {
+    const mockRelationsWithSpecialChars = [
+      {
+        from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept "A" & B',
+        toPrefLabel: 'Concept C > D'
+      }
+    ]
+
+    captureRelations
+      .mockResolvedValueOnce([]) // No relations before creation
+      .mockResolvedValueOnce(mockRelationsWithSpecialChars) // Relations after creation
+
+    compareRelations.mockReturnValue({
+      addedRelations: mockRelationsWithSpecialChars,
+      removedRelations: []
+    })
+
+    conceptIdExists.mockResolvedValue(false)
+    sparqlRequest.mockResolvedValue({ ok: true })
+    ensureReciprocal.mockResolvedValue({ ok: true })
+    updateCreatedDate.mockResolvedValue(true)
+    updateModifiedDate.mockResolvedValue(true)
+    addChangeNotes.mockResolvedValue(true)
+
+    await createConcept(mockEvent)
+
+    // Check if captureRelations was called twice (before and after creation)
+    expect(captureRelations).toHaveBeenCalledTimes(2)
+
+    // Check if compareRelations was called with the correct arguments
+    expect(compareRelations).toHaveBeenCalledWith([], mockRelationsWithSpecialChars)
+
+    // Check if addChangeNotes was called with the correct arguments
+    expect(addChangeNotes).toHaveBeenCalledWith(
+      mockRelationsWithSpecialChars,
+      [],
+      'draft',
+      mockTransactionUrl
+    )
+
+    // Verify that the change notes are added to the correct concept
+    expect(addChangeNotes).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          fromPrefLabel: 'Concept "A" & B',
+          toPrefLabel: 'Concept C > D'
+        })
+      ]),
+      [],
+      'draft',
+      mockTransactionUrl
+    )
   })
 })

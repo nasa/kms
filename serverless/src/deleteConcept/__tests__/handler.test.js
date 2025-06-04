@@ -7,6 +7,9 @@ import {
 } from 'vitest'
 
 import { deleteConcept } from '@/deleteConcept/handler'
+import { addChangeNotes } from '@/shared/addChangeNotes'
+import { captureRelations } from '@/shared/captureRelations'
+import { compareRelations } from '@/shared/compareRelations'
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
@@ -25,6 +28,9 @@ vi.mock('@/shared/ensureReciprocal')
 vi.mock('@/shared/getConceptById')
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/transactionHelpers')
+vi.mock('@/shared/captureRelations')
+vi.mock('@/shared/addChangeNotes')
+vi.mock('@/shared/compareRelations')
 
 describe('deleteConcept', () => {
   const mockDefaultHeaders = { 'Content-Type': 'application/json' }
@@ -38,7 +44,6 @@ describe('deleteConcept', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -49,6 +54,30 @@ describe('deleteConcept', () => {
     deleteTriples.mockResolvedValue({ ok: true })
     ensureReciprocal.mockResolvedValue({ ok: true })
     commitTransaction.mockResolvedValue()
+
+    captureRelations.mockResolvedValue([
+      {
+        from: mockConceptIRI,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      },
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        relation: 'narrower',
+        to: mockConceptIRI,
+        fromPrefLabel: 'Concept C',
+        toPrefLabel: 'Concept A'
+      }
+    ])
+
+    compareRelations.mockReturnValue({
+      addedRelations: [],
+      removedRelations: []
+    })
+
+    addChangeNotes.mockResolvedValue(true)
   })
 
   describe('when successful', () => {
@@ -259,6 +288,403 @@ describe('deleteConcept', () => {
       expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
       expect(result.statusCode).toBe(500)
       expect(JSON.parse(result.body).error).toBe('Failed to ensure reciprocal relations')
+    })
+  })
+
+  describe('when capturing relations', () => {
+    test('should capture relations and add change notes when deleting a concept', async () => {
+      const mockRelations = [
+        {
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        },
+        {
+          from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          relation: 'narrower',
+          to: mockConceptIRI,
+          fromPrefLabel: 'Concept C',
+          toPrefLabel: 'Concept A'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations) // Relations before deletion
+        .mockResolvedValueOnce([]) // No relations after deletion
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      conceptIdExists.mockResolvedValue(true)
+      getConceptById.mockResolvedValue(mockOldRdfXml)
+      ensureReciprocal.mockResolvedValue({ ok: true })
+      deleteTriples.mockResolvedValue({ ok: true })
+      addChangeNotes.mockResolvedValue(true)
+
+      await deleteConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after deletion)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if compareRelations was called with the correct arguments
+      expect(compareRelations).toHaveBeenCalledWith(mockRelations, [])
+
+      // Check if addChangeNotes was called with the correct arguments
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        mockRelations,
+        'draft',
+        mockTransactionUrl
+      )
+
+      // Verify that the change notes are added for the correct relations
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: mockConceptIRI,
+            relation: 'broader',
+            to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+            fromPrefLabel: 'Concept A',
+            toPrefLabel: 'Concept B'
+          }),
+          expect.objectContaining({
+            from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+            relation: 'narrower',
+            to: mockConceptIRI,
+            fromPrefLabel: 'Concept C',
+            toPrefLabel: 'Concept A'
+          })
+        ]),
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should handle missing prefLabels when capturing relations', async () => {
+      const mockRelations = [
+        {
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+          // Missing fromPrefLabel and toPrefLabel
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations) // Relations before deletion
+        .mockResolvedValueOnce([]) // No relations after deletion
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: mockConceptIRI,
+            relation: 'broader',
+            to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+            // No fromPrefLabel and toPrefLabel
+          })
+        ]),
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should handle empty prefLabels when capturing relations', async () => {
+      const mockRelations = [
+        {
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: '',
+          toPrefLabel: ''
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations)
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: mockConceptIRI,
+            relation: 'broader',
+            to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+            fromPrefLabel: '',
+            toPrefLabel: ''
+          })
+        ]),
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should handle special characters in prefLabels when capturing relations', async () => {
+      const mockRelations = [
+        {
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept "A" & B',
+          toPrefLabel: 'Concept C > D'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations)
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        expect.arrayContaining([
+          expect.objectContaining({
+            from: mockConceptIRI,
+            relation: 'broader',
+            to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+            fromPrefLabel: 'Concept "A" & B',
+            toPrefLabel: 'Concept C > D'
+          })
+        ]),
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should not add change notes when there are no relations to remove', async () => {
+      captureRelations
+        .mockResolvedValueOnce([]) // No relations before deletion
+        .mockResolvedValueOnce([]) // No relations after deletion
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: []
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(addChangeNotes).not.toHaveBeenCalled()
+    })
+
+    test('should handle multiple relations when capturing and adding change notes', async () => {
+      const mockRelations = [
+        {
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        },
+        {
+          from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          relation: 'narrower',
+          to: mockConceptIRI,
+          fromPrefLabel: 'Concept C',
+          toPrefLabel: 'Concept A'
+        },
+        {
+          from: mockConceptIRI,
+          relation: 'related',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/012',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept D'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations)
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        expect.arrayContaining(mockRelations),
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should handle failure in captureRelations', async () => {
+      captureRelations.mockRejectedValue(new Error('Failed to capture relations'))
+
+      const result = await deleteConcept(mockEvent)
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('Failed to capture relations')
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
+      expect(deleteTriples).not.toHaveBeenCalled()
+      expect(addChangeNotes).not.toHaveBeenCalled()
+    })
+
+    test('should handle failure in compareRelations', async () => {
+      captureRelations
+        .mockResolvedValueOnce([{
+          from: mockConceptIRI,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        }])
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockImplementation(() => {
+        throw new Error('Failed to compare relations')
+      })
+
+      const result = await deleteConcept(mockEvent)
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('Failed to compare relations')
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
+      expect(deleteTriples).toHaveBeenCalled() // Changed this line
+      expect(addChangeNotes).not.toHaveBeenCalled()
+    })
+
+    test('should handle failure in addChangeNotes', async () => {
+      const mockRelations = [{
+        from: mockConceptIRI,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      }]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations)
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      addChangeNotes.mockRejectedValue(new Error('Failed to add change notes'))
+
+      const result = await deleteConcept(mockEvent)
+
+      expect(result.statusCode).toBe(500)
+      expect(JSON.parse(result.body).error).toBe('Failed to add change notes')
+      expect(rollbackTransaction).toHaveBeenCalledWith(mockTransactionUrl)
+      expect(deleteTriples).toHaveBeenCalled()
+      expect(commitTransaction).not.toHaveBeenCalled()
+    })
+
+    test('should proceed with deletion even if there are no relations', async () => {
+      captureRelations
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: []
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(deleteTriples).toHaveBeenCalled()
+      expect(commitTransaction).toHaveBeenCalled()
+      expect(addChangeNotes).not.toHaveBeenCalled()
+    })
+
+    test('should handle case where relations exist after deletion (unexpected scenario)', async () => {
+      const mockRelationsBefore = [{
+        from: mockConceptIRI,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      }]
+
+      const mockRelationsAfter = [{
+        from: mockConceptIRI,
+        relation: 'narrower',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept C'
+      }]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelationsBefore)
+        .mockResolvedValueOnce(mockRelationsAfter)
+
+      compareRelations.mockReturnValue({
+        addedRelations: mockRelationsAfter,
+        removedRelations: mockRelationsBefore
+      })
+
+      await deleteConcept(mockEvent)
+
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        mockRelationsAfter,
+        mockRelationsBefore,
+        'draft',
+        mockTransactionUrl
+      )
+    })
+
+    test('should use the correct version when capturing relations and adding change notes', async () => {
+      const customVersion = 'published'
+      const eventWithCustomVersion = {
+        ...mockEvent,
+        queryStringParameters: { version: customVersion }
+      }
+
+      const mockRelations = [{
+        from: mockConceptIRI,
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      }]
+
+      captureRelations
+        .mockResolvedValueOnce(mockRelations)
+        .mockResolvedValueOnce([])
+
+      compareRelations.mockReturnValue({
+        addedRelations: [],
+        removedRelations: mockRelations
+      })
+
+      await deleteConcept(eventWithCustomVersion)
+
+      expect(captureRelations).toHaveBeenCalledWith('123', customVersion, mockTransactionUrl)
+      expect(addChangeNotes).toHaveBeenCalledWith(
+        [],
+        mockRelations,
+        customVersion,
+        mockTransactionUrl
+      )
     })
   })
 })
