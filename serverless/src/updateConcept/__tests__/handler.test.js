@@ -59,12 +59,16 @@ describe('updateConcept', () => {
       {
         from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       },
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
         relation: 'narrower',
-        to: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`
+        to: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+        fromPrefLabel: 'Concept C',
+        toPrefLabel: 'Concept A'
       }
     ])
 
@@ -522,14 +526,18 @@ describe('updateConcept', () => {
         {
           from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
           relation: 'broader',
-          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
         }
       ]
       const newRelations = [
         {
           from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
           relation: 'broader',
-          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789'
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept C'
         }
       ]
 
@@ -549,16 +557,308 @@ describe('updateConcept', () => {
 
       // Check if the change note includes the correct information
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-        body: expect.stringContaining('Removed broader relation')
+        body: expect.stringContaining('Removed broader relation from Concept A [123] to Concept B [456]')
       }))
 
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-        body: expect.stringContaining('Added broader relation')
+        body: expect.stringContaining('Added broader relation from Concept A [123] to Concept C [789]')
       }))
 
       // Verify that the change notes are added to the correct concept
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         body: expect.stringContaining(`<https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}>`)
+      }))
+    })
+
+    test('should handle missing prefLabels when capturing relations', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+          // Missing fromPrefLabel and toPrefLabel
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept C'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after update)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if sparqlRequest was called to add skos:changeNote
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
+      }))
+
+      // Check if the change note includes the correct information, handling missing prefLabels
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Removed broader relation from undefined [123] to undefined [456]')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added broader relation from Concept A [123] to Concept C [789]')
+      }))
+    })
+
+    test('should handle empty prefLabels when capturing relations', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: '',
+          toPrefLabel: ''
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept C'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after update)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if sparqlRequest was called to add skos:changeNote
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
+      }))
+
+      // Check if the change note includes the correct information, handling empty prefLabels
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Removed broader relation from  [123] to  [456]')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added broader relation from Concept A [123] to Concept C [789]')
+      }))
+    })
+
+    test('should handle special characters in prefLabels when capturing relations', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept "A" & B',
+          toPrefLabel: 'Concept C > D'
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          fromPrefLabel: 'Concept E < F',
+          toPrefLabel: 'Concept "G" & H'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after update)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check if sparqlRequest was called to add skos:changeNote
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
+      }))
+
+      // Check if the change note includes the correct information, handling special characters in prefLabels
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Removed broader relation from Concept "A" & B [123] to Concept C > D [456]')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added broader relation from Concept E < F [123] to Concept "G" & H [789]')
+      }))
+    })
+
+    test('should not add change notes when there are no relation changes', async () => {
+      const relations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(relations)
+        .mockResolvedValueOnce(relations)
+
+      await updateConcept(mockEvent)
+
+      expect(sparqlRequest).not.toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
+      }))
+    })
+
+    test('should handle multiple relation changes', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'narrower',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept C'
+        },
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'related',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/012',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept D'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Removed broader relation from Concept A [123] to Concept B [456]')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added narrower relation from Concept A [123] to Concept C [789]')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added related relation from Concept A [123] to Concept D [012]')
+      }))
+    })
+
+    test('should handle changes in relation type', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'narrower',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Removed broader relation from Concept A [123] to Concept B [456]')
+      }))
+
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('Added narrower relation from Concept A [123] to Concept B [456]')
+      }))
+    })
+
+    test('should handle changes in prefLabels without relation changes', async () => {
+      const oldRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+      const newRelations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A Updated',
+          toPrefLabel: 'Concept B Updated'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(oldRelations)
+        .mockResolvedValueOnce(newRelations)
+
+      await updateConcept(mockEvent)
+
+      // No change notes should be added for prefLabel changes only
+      expect(sparqlRequest).not.toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
+      }))
+    })
+
+    test('should handle no changes in relations', async () => {
+      const relations = [
+        {
+          from: `https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`,
+          relation: 'broader',
+          to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+          fromPrefLabel: 'Concept A',
+          toPrefLabel: 'Concept B'
+        }
+      ]
+
+      captureRelations
+        .mockResolvedValueOnce(relations)
+        .mockResolvedValueOnce(relations)
+
+      await updateConcept(mockEvent)
+
+      // Check if captureRelations was called twice (before and after update)
+      expect(captureRelations).toHaveBeenCalledTimes(2)
+
+      // Check that no change notes were added
+      expect(sparqlRequest).not.toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.stringContaining('skos:changeNote')
       }))
     })
   })

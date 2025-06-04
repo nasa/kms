@@ -29,7 +29,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       }
     ]
     const removedRelations = []
@@ -39,7 +41,7 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      body: expect.stringContaining('Date=2023-06-01 User Id=system System Note=Added broader relation from <123> to <456>')
+      body: expect.stringContaining('Date=2023-06-01 User Id=system System Note=Added broader relation from Concept A [123] to Concept B [456]')
     }))
   })
 
@@ -49,7 +51,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'related',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept C'
       }
     ]
 
@@ -58,7 +62,7 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      body: expect.stringContaining('Date=2023-06-01 User Id=system System Note=Removed related relation from <123> to <789>')
+      body: expect.stringContaining('Date=2023-06-01 User Id=system System Note=Removed related relation from Concept A [123] to Concept C [789]')
     }))
   })
 
@@ -67,14 +71,18 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       }
     ]
     const removedRelations = [
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'related',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept C'
       }
     ]
 
@@ -83,11 +91,11 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      body: expect.stringContaining('Added broader relation from <123> to <456>')
+      body: expect.stringContaining('Added broader relation from Concept A [123] to Concept B [456]')
     }))
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      body: expect.stringContaining('Removed related relation from <123> to <789>')
+      body: expect.stringContaining('Removed related relation from Concept A [123] to Concept C [789]')
     }))
   })
 
@@ -96,7 +104,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       }
     ]
     const removedRelations = []
@@ -123,7 +133,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       }
     ]
     const removedRelations = []
@@ -147,12 +159,14 @@ describe('addChangeNotes', () => {
     }))
   })
 
-  test('should correctly extract UUIDs from URIs', async () => {
+  test('should correctly extract UUIDs from URIs and include prefLabels', async () => {
     const addedRelations = [
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123-456-789',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/987-654-321'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/987-654-321',
+        fromPrefLabel: 'Concept X',
+        toPrefLabel: 'Concept Y'
       }
     ]
     const removedRelations = []
@@ -162,7 +176,7 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      body: expect.stringContaining('from <123-456-789> to <987-654-321>')
+      body: expect.stringContaining('from Concept X [123-456-789] to Concept Y [987-654-321]')
     }))
   })
 
@@ -171,19 +185,25 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       },
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
         relation: 'narrower',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/012'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/012',
+        fromPrefLabel: 'Concept C',
+        toPrefLabel: 'Concept D'
       }
     ]
     const removedRelations = [
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/345',
         relation: 'related',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/678'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/678',
+        fromPrefLabel: 'Concept E',
+        toPrefLabel: 'Concept F'
       }
     ]
 
@@ -192,9 +212,9 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     const sparqlCall = sparqlRequest.mock.calls[0][0]
-    expect(sparqlCall.body).toContain('Added broader relation from <123> to <456>')
-    expect(sparqlCall.body).toContain('Added narrower relation from <789> to <012>')
-    expect(sparqlCall.body).toContain('Removed related relation from <345> to <678>')
+    expect(sparqlCall.body).toContain('Added broader relation from Concept A [123] to Concept B [456]')
+    expect(sparqlCall.body).toContain('Added narrower relation from Concept C [789] to Concept D [012]')
+    expect(sparqlCall.body).toContain('Removed related relation from Concept E [345] to Concept F [678]')
   })
 
   test('should use the correct version in the SPARQL query', async () => {
@@ -202,7 +222,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       }
     ]
     const removedRelations = []
@@ -223,7 +245,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'has_part',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A & B',
+        toPrefLabel: 'Concept C > D'
       }
     ]
     const removedRelations = []
@@ -233,16 +257,18 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      body: expect.stringContaining('Added has_part relation from <123> to <456>')
+      body: expect.stringContaining('Added has_part relation from Concept A & B [123] to Concept C > D [456]')
     }))
   })
 
-  test('should escape double quotes in change notes', async () => {
+  test('should handle double quotes in change notes', async () => {
     const addedRelations = [
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456"with"quotes'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456"with"quotes',
+        fromPrefLabel: 'Concept "A"',
+        toPrefLabel: 'Concept "B"'
       }
     ]
     const removedRelations = []
@@ -253,7 +279,34 @@ describe('addChangeNotes', () => {
 
     expect(sparqlRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('Added broader relation from <123> to <456"with"quotes>')
+        body: expect.stringContaining('Added broader relation from Concept "A" [123] to Concept "B" [456"with"quotes]')
+      })
+    )
+  })
+
+  test('should generate correct SPARQL query with quotes', async () => {
+    const addedRelations = [
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456"with"quotes',
+        fromPrefLabel: 'Concept "A"',
+        toPrefLabel: 'Concept "B"'
+      }
+    ]
+    const removedRelations = []
+
+    sparqlRequest.mockResolvedValue({ ok: true })
+
+    await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
+
+    const expectedQueryPart = `
+    <https://gcmd.earthdata.nasa.gov/kms/concept/123> skos:changeNote "Date=2023-06-01 User Id=system System Note=Added broader relation from Concept "A" [123] to Concept "B" [456"with"quotes]" .
+  `.trim()
+
+    expect(sparqlRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining(expectedQueryPart)
       })
     )
   })
@@ -263,7 +316,9 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
       }
     ]
     const removedRelations = []
@@ -272,5 +327,48 @@ describe('addChangeNotes', () => {
 
     await expect(addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl))
       .rejects.toThrow('Network error')
+  })
+
+  test('should handle missing prefLabels', async () => {
+    const addedRelations = [
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456'
+      // Missing fromPrefLabel and toPrefLabel
+      }
+    ]
+    const removedRelations = []
+
+    sparqlRequest.mockResolvedValue({ ok: true })
+
+    await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
+
+    expect(sparqlRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('Added broader relation from undefined [123] to undefined [456]')
+      })
+    )
+  })
+
+  test('should handle empty prefLabels', async () => {
+    const addedRelations = [
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: '',
+        toPrefLabel: ''
+      }
+    ]
+    const removedRelations = []
+
+    sparqlRequest.mockResolvedValue({ ok: true })
+
+    await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
+
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('Added broader relation from  [123] to  [456]')
+    }))
   })
 })

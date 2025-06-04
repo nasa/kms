@@ -13,10 +13,22 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * @example
  * const addedRelations = [
- *   { from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123', relation: 'broader', to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456' }
+ *   {
+ *     from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+ *     relation: 'broader',
+ *     to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+ *     fromPrefLabel: 'Concept A',
+ *     toPrefLabel: 'Concept B'
+ *   }
  * ];
  * const removedRelations = [
- *   { from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123', relation: 'related', to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789' }
+ *   {
+ *     from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+ *     relation: 'related',
+ *     to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789',
+ *     fromPrefLabel: 'Concept A',
+ *     toPrefLabel: 'Concept C'
+ *   }
  * ];
  * await addChangeNotes(addedRelations, removedRelations, 'draft', 'http://example.com/transaction/1');
  *
@@ -29,10 +41,12 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * 3. Executes the SPARQL query within the specified transaction
  *
  * The change note format is:
- * "Date=YYYY-MM-DD User Id=system System Note=Added/Removed [relation] relation from <[fromUuid]> to <[toUuid]>"
+ * "Date=YYYY-MM-DD User Id=system System Note=Added/Removed [relation] relation from [fromPrefLabel] [fromUuid] to [toPrefLabel] [toUuid]"
  *
  * Note: This function assumes that the relations are represented by full URIs and extracts the UUID from these URIs for the change note.
+ * It also assumes that each relation object includes 'fromPrefLabel' and 'toPrefLabel' properties containing the preferred labels of the concepts.
  */
+
 export const addChangeNotes = async (addedRelations, removedRelations, version, transactionUrl) => {
   function extractUuid(uri) {
     return uri.split('/').pop()
@@ -43,11 +57,11 @@ export const addChangeNotes = async (addedRelations, removedRelations, version, 
   const changeNotes = [
     ...addedRelations.map((relation) => ({
       from: relation.from,
-      note: `Date=${currentDate} User Id=system System Note=Added ${relation.relation} relation from <${extractUuid(relation.from)}> to <${extractUuid(relation.to)}>`
+      note: `Date=${currentDate} User Id=system System Note=Added ${relation.relation} relation from ${relation.fromPrefLabel} [${extractUuid(relation.from)}] to ${relation.toPrefLabel} [${extractUuid(relation.to)}]`
     })),
     ...removedRelations.map((relation) => ({
       from: relation.from,
-      note: `Date=${currentDate} User Id=system System Note=Removed ${relation.relation} relation from <${extractUuid(relation.from)}> to <${extractUuid(relation.to)}>`
+      note: `Date=${currentDate} User Id=system System Note=Removed ${relation.relation} relation from ${relation.fromPrefLabel} [${extractUuid(relation.from)}] to ${relation.toPrefLabel} [${extractUuid(relation.to)}]`
     }))
   ]
 

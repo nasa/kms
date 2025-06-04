@@ -10,17 +10,17 @@
  *
  * @example
  * const beforeRelations = [
- *   { from: 'concept1', relation: 'broader', to: 'concept2' },
- *   { from: 'concept1', relation: 'related', to: 'concept3' }
+ *   { from: 'concept1', relation: 'broader', to: 'concept2', fromPrefLabel: 'Concept 1', toPrefLabel: 'Concept 2' },
+ *   { from: 'concept1', relation: 'related', to: 'concept3', fromPrefLabel: 'Concept 1', toPrefLabel: 'Concept 3' }
  * ];
  * const afterRelations = [
- *   { from: 'concept1', relation: 'broader', to: 'concept2' },
- *   { from: 'concept1', relation: 'narrower', to: 'concept4' }
+ *   { from: 'concept1', relation: 'broader', to: 'concept2', fromPrefLabel: 'Concept 1', toPrefLabel: 'Concept 2' },
+ *   { from: 'concept1', relation: 'narrower', to: 'concept4', fromPrefLabel: 'Concept 1', toPrefLabel: 'Concept 4' }
  * ];
  * const result = compareRelations(beforeRelations, afterRelations);
  * // result = {
- * //   addedRelations: [{ from: 'concept1', relation: 'narrower', to: 'concept4' }],
- * //   removedRelations: [{ from: 'concept1', relation: 'related', to: 'concept3' }]
+ * //   addedRelations: [{ from: 'concept1', relation: 'narrower', to: 'concept4', fromPrefLabel: 'Concept 1', toPrefLabel: 'Concept 4' }],
+ * //   removedRelations: [{ from: 'concept1', relation: 'related', to: 'concept3', fromPrefLabel: 'Concept 1', toPrefLabel: 'Concept 3' }]
  * // }
  *
  * @description
@@ -30,7 +30,9 @@
  *    If not, it's considered an added relation.
  * 2. Iterating through the 'before' relations and checking if each still exists in the 'after' set.
  *    If not, it's considered a removed relation.
- * The function assumes that each relation object has 'from', 'relation', and 'to' properties.
+ * The function assumes that each relation object has 'from', 'relation', 'to', 'fromPrefLabel',
+ * and 'toPrefLabel' properties. However, only 'from', 'relation', and 'to' are used for comparison.
+ * The 'fromPrefLabel' and 'toPrefLabel' are carried over in the results for informational purposes.
  */
 export const compareRelations = (beforeRelations, afterRelations) => {
   const addedRelations = []

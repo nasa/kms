@@ -21,7 +21,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * // {
  * //   from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123e4567-e89b-12d3-a456-426614174000',
  * //   relation: 'broader',
- * //   to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789a1234-b56c-78d9-e012-345678901234'
+ * //   to: 'https://gcmd.earthdata.nasa.gov/kms/concept/789a1234-b56c-78d9-e012-345678901234',
+ * //   fromPrefLabel: 'Concept A',
+ * //   toPrefLabel: 'Concept B'
  * // }
  *
  * @description
@@ -29,7 +31,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * related, hasInstrument, isOnPlatform) for the specified concept. It captures both outgoing
  * relations (where the concept is the subject) and incoming relations (where the concept is
  * the object). The function returns an array of relation objects, each containing 'from',
- * 'relation', and 'to' properties.
+ * 'relation', 'to', 'fromPrefLabel', and 'toPrefLabel' properties. The 'fromPrefLabel' and
+ * 'toPrefLabel' properties contain the preferred labels of the 'from' and 'to' concepts respectively.
  */
 export const captureRelations = async (conceptId, version, transactionUrl = null) => {
   function extractRelationName(uri) {
@@ -40,12 +43,14 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
     PREFIX gcmd: <http://gcmd.nasa.gov/schema/gcmd#>
     
-    SELECT ?from ?relation ?to
+    SELECT ?from ?relation ?to ?fromPrefLabel ?toPrefLabel
     WHERE {
       {
         # Outgoing relations
         <https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> ?relation ?to .
         BIND(<https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> AS ?from)
+        ?from skos:prefLabel ?fromPrefLabel .
+        ?to skos:prefLabel ?toPrefLabel .
         FILTER(?relation IN (skos:broader, skos:narrower, skos:related, gcmd:hasInstrument, gcmd:isOnPlatform))
       }
       UNION
@@ -53,6 +58,8 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
         # Incoming relations
         ?from ?relation <https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> .
         BIND(<https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> AS ?to)
+        ?from skos:prefLabel ?fromPrefLabel .
+        ?to skos:prefLabel ?toPrefLabel .
         FILTER(?relation IN (skos:broader, skos:narrower, skos:related, gcmd:hasInstrument, gcmd:isOnPlatform))
       }
     }
@@ -79,6 +86,8 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
   return data.results.bindings.map((binding) => ({
     from: binding.from.value,
     relation: extractRelationName(binding.relation.value),
-    to: binding.to.value
+    to: binding.to.value,
+    fromPrefLabel: binding.fromPrefLabel?.value,
+    toPrefLabel: binding.toPrefLabel?.value
   }))
 }
