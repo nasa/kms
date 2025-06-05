@@ -16,6 +16,7 @@ import {
   startTransaction
 } from '@/shared/transactionHelpers'
 import { updateModifiedDate } from '@/shared/updateModifiedDate'
+import { validateSchemeNotation } from '@/shared/validateSchemeNotation'
 
 /**
  * Updates a concept scheme based on the provided RDF data.
@@ -69,6 +70,10 @@ export const updateConceptScheme = async (event) => {
     if (!schemeRdf) {
       throw new Error('Missing RDF/XML data in request body')
     }
+
+    // Validate that skos:notation matches the schemeId. Validator throws error if
+    // checks fails
+    validateSchemeNotation(schemeRdf)
 
     // Extract scheme information from the provided RDF
     const schemeInfo = getSchemeInfo(schemeRdf)

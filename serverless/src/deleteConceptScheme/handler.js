@@ -67,42 +67,45 @@ export const deleteConceptScheme = async (event) => {
       }
     }
 
+    // Start a transaction
+    transactionUrl = await startTransaction()
+
     // Get the root concept of the scheme
     const skosRootConcept = await getSkosRootConcept(schemeId)
 
-    // Check if the root concept has any narrower concepts
-    const hasNarrowerEntries = Array.isArray(skosRootConcept['skos:narrower']) && skosRootConcept['skos:narrower'].length > 0
-    // If root concept has narrower concepts, return a 422 response
-    if (hasNarrowerEntries) {
-      return {
-        statusCode: 422, // Unprocessable Entity
-        headers: {
-          ...defaultResponseHeaders,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          error: "Scheme can't be deleted: Root concept has narrowers."
-        })
+    if (skosRootConcept) {
+      // Check if the root concept has any narrower concepts
+      const hasNarrowerEntries = Array.isArray(skosRootConcept['skos:narrower']) && skosRootConcept['skos:narrower'].length > 0
+      // If root concept has narrower concepts, return a 422 response
+      if (hasNarrowerEntries) {
+        return {
+          statusCode: 422, // Unprocessable Entity
+          headers: {
+            ...defaultResponseHeaders,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            error: "Scheme can't be deleted: Root concept has narrowers."
+          })
+        }
+      }
+
+      // Extract concept ID and construct IRIs for concept and scheme
+      const conceptId = skosRootConcept['@rdf:about']
+      const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
+      // Delete the root concept triples
+      const deleteResponse = await deleteTriples(conceptIRI, version, transactionUrl)
+      if (!deleteResponse.ok) {
+        throw new Error('Failed to delete existing root concept')
       }
     }
 
-    // Extract concept ID and construct IRIs for concept and scheme
-    const conceptId = skosRootConcept['@rdf:about']
-    const conceptIRI = `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}`
     const schemeIRI = `https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${schemeId}`
 
-    // Start a transaction
-    transactionUrl = await startTransaction()
     // Delete the scheme triples
-    let deleteResponse = await deleteTriples(schemeIRI, version, transactionUrl)
+    const deleteResponse = await deleteTriples(schemeIRI, version, transactionUrl)
     if (!deleteResponse.ok) {
       throw new Error('Failed to delete existing scheme')
-    }
-
-    // Delete the root concept triples
-    deleteResponse = await deleteTriples(conceptIRI, version, transactionUrl)
-    if (!deleteResponse.ok) {
-      throw new Error('Failed to delete existing root concept')
     }
 
     // Commit the transaction

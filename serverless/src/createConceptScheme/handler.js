@@ -8,6 +8,7 @@ import {
   rollbackTransaction,
   startTransaction
 } from '@/shared/transactionHelpers'
+import { validateSchemeNotation } from '@/shared/validateSchemeNotation'
 
 /**
  * Creates a new concept scheme in the RDF4J triplestore.
@@ -83,6 +84,10 @@ export const createConceptScheme = async (event) => {
     if (!schemeRdf) {
       throw new Error('Missing RDF/XML data in request body')
     }
+
+    // Validate that skos:notation matches the schemeId. Validator throws error if
+    // checks fails
+    validateSchemeNotation(schemeRdf)
 
     // Extract scheme information from the provided RDF
     const schemeInfo = getSchemeInfo(schemeRdf)

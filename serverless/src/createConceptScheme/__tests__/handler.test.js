@@ -11,6 +11,7 @@ import * as getConfigModule from '@/shared/getConfig'
 import * as getSchemeInfoModule from '@/shared/getSchemeInfo'
 import * as sparqlRequestModule from '@/shared/sparqlRequest'
 import * as transactionHelpersModule from '@/shared/transactionHelpers'
+import * as validateSchemeNotationModule from '@/shared/validateSchemeNotation'
 
 import { createConceptScheme } from '../handler'
 
@@ -19,6 +20,7 @@ vi.mock('@/shared/getSchemeInfo')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/transactionHelpers')
 vi.mock('@/shared/sparqlRequest')
+vi.mock('@/shared/validateSchemeNotation')
 
 describe('createConceptScheme', () => {
   beforeEach(() => {
@@ -39,6 +41,58 @@ describe('createConceptScheme', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  describe('When validating scheme notation', () => {
+    test('should proceed if validation is successful', async () => {
+      const mockEvent = {
+        body: '<rdf:RDF>...</rdf:RDF>',
+        queryStringParameters: { version: 'draft' }
+      }
+
+      validateSchemeNotationModule.validateSchemeNotation.mockReturnValue(true)
+      getSchemeInfoModule.getSchemeInfo.mockReturnValue({
+        schemeId: 'test-scheme',
+        schemePrefLabel: 'Test Scheme'
+      })
+
+      getConceptSchemeDetailsModule.getConceptSchemeDetails.mockResolvedValue(null)
+      transactionHelpersModule.startTransaction.mockResolvedValue('http://transaction-url')
+      sparqlRequestModule.sparqlRequest.mockResolvedValue({ ok: true })
+
+      const result = await createConceptScheme(mockEvent)
+
+      expect(validateSchemeNotationModule.validateSchemeNotation)
+        .toHaveBeenCalledWith(mockEvent.body)
+
+      expect(result.statusCode).toBe(201)
+      expect(JSON.parse(result.body)).toEqual({
+        message: 'Successfully created scheme',
+        schemeId: 'test-scheme'
+      })
+    })
+
+    test('should return a 400 error if validation fails', async () => {
+      const mockEvent = {
+        body: '<rdf:RDF>...</rdf:RDF>',
+        queryStringParameters: { version: 'draft' }
+      }
+
+      validateSchemeNotationModule.validateSchemeNotation.mockImplementation(() => {
+        throw new Error('Validation failed')
+      })
+
+      const result = await createConceptScheme(mockEvent)
+
+      expect(validateSchemeNotationModule.validateSchemeNotation)
+        .toHaveBeenCalledWith(mockEvent.body)
+
+      expect(result.statusCode).toBe(400)
+      expect(JSON.parse(result.body)).toEqual({
+        message: 'Error creating scheme',
+        error: 'Validation failed'
+      })
+    })
   })
 
   describe('When called with valid input', () => {
