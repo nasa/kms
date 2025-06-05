@@ -13,6 +13,7 @@ import * as getSkosRootConcept from '@/shared/getSkosRootConcept'
 import * as sparqlRequest from '@/shared/sparqlRequest'
 import * as transactionHelpers from '@/shared/transactionHelpers'
 import * as updateModifiedDate from '@/shared/updateModifiedDate'
+import * as validateSchemeNotationModule from '@/shared/validateSchemeNotation'
 
 import { updateConceptScheme } from '../handler'
 
@@ -22,6 +23,7 @@ vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/transactionHelpers')
 vi.mock('@/shared/updateModifiedDate')
 vi.mock('@/shared/getSchemeInfo')
+vi.mock('@/shared/validateSchemeNotation')
 
 describe('updateConceptScheme', () => {
   const mockEvent = {
@@ -79,6 +81,33 @@ describe('updateConceptScheme', () => {
 
     expect(result.statusCode).toBe(201)
     expect(JSON.parse(result.body).message).toBe('Successfully updated concept scheme')
+  })
+
+  test('When scheme notation is invalid, should return an error', async () => {
+    const invalidNotationEvent = {
+      ...mockEvent,
+      body: `<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                     xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+                     xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#"
+                     xmlns:dcterms="http://purl.org/dc/terms/">
+        <skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/schemeA">
+          <skos:prefLabel>schemeA updated long name</skos:prefLabel>
+          <skos:notation>invalidNotation</skos:notation>
+          <dcterms:modified>2025-03-31</dcterms:modified>
+          <gcmd:csvHeaders>Category,Topic,Term,UpdatedColumn</gcmd:csvHeaders>
+        </skos:ConceptScheme>
+      </rdf:RDF>`
+    }
+
+    vi.mocked(validateSchemeNotationModule.validateSchemeNotation).mockImplementation(() => {
+      throw new Error('Mismatch: rdf:about (schemeA) does not match skos:notation (invalidNotation)')
+    })
+
+    const result = await updateConceptScheme(invalidNotationEvent)
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body).message).toBe('Error updating scheme')
+    expect(JSON.parse(result.body).error).toBe('Mismatch: rdf:about (schemeA) does not match skos:notation (invalidNotation)')
   })
 
   test('When RDF data is missing, should return an error', async () => {
