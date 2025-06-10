@@ -14,6 +14,7 @@ import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -85,7 +86,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * Note: The CSV format has specific requirements and restrictions.
  */
 
-export const getConcepts = async (event) => {
+export const getConcepts = async (event, context) => {
   const startTime = performance.now()
   const performanceMetrics = {}
 
@@ -98,6 +99,12 @@ export const getConcepts = async (event) => {
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
   const pageSize = parseInt(pageSizeStr, 10)
+
+  logAnalyticsData({
+    event,
+    context,
+    action: 'GET'
+  })
 
   // Validate page_num and page_size
   if (Number.isNaN(pageNum) || pageNum < 1

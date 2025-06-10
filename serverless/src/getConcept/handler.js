@@ -11,6 +11,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
 
@@ -66,13 +67,19 @@ import { toLegacyXML } from '@/shared/toLegacyXML'
  *
  * @throws {Error} If there's an error retrieving or processing the concept.
  */
-export const getConcept = async (event) => {
+export const getConcept = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
   const { conceptId, shortName, altLabel } = pathParameters
   const { queryStringParameters } = event
   const { scheme, format = 'rdf' } = queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
+
+  logAnalyticsData({
+    event,
+    context,
+    action: 'GET'
+  })
 
   try {
     const decode = (str) => {
