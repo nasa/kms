@@ -143,4 +143,31 @@ describe('logAnalyticsData', () => {
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"concept":"123"'))
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"userAgent":"TestAgent"'))
   })
+
+  test('should not include query string in URL when queryStringParameters is empty', () => {
+    const event = {
+      queryStringParameters: {},
+      pathParameters: { conceptId: '123' },
+      headers: {
+        'x-forwarded-for': '127.0.0.1',
+        'client-id': 'test-client',
+        'user-agent': 'TestAgent',
+        'x-forwarded-proto': 'http'
+      },
+      requestContext: {
+        domainName: 'example.com',
+        path: '/test',
+        httpMethod: 'GET'
+      }
+    }
+    const context = { functionName: 'testFunction' }
+
+    logAnalyticsData({
+      event,
+      context
+    })
+
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"url":"http://example.com/test"'))
+    expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('http://example.com/test?'))
+  })
 })
