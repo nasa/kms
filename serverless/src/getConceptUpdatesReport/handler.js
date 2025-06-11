@@ -1,6 +1,7 @@
 import { createChangeNoteItem } from '@/shared/createChangeNoteItem'
 import { getConceptChangeNoteTriples } from '@/shared/getConceptChangeNoteTriples'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 
 /**
  * Creates a CSV report from processed change notes.
@@ -159,7 +160,7 @@ export const createCsvReport = ({
  * //   headers: { ... }
  * // }
  */
-export const getConceptUpdatesReport = async (event) => {
+export const getConceptUpdatesReport = async (event, context) => {
   // Extract configuration and parameters
   const { defaultResponseHeaders } = getApplicationConfig()
   const queryStringParameters = event.queryStringParameters || {}
@@ -169,6 +170,11 @@ export const getConceptUpdatesReport = async (event) => {
 
   // Optional parameters
   const { scheme, userId } = queryStringParameters
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   // Validate mandatory parameters
   if (!version || !startDate || !endDate) {

@@ -103,7 +103,7 @@ export const getConcepts = async (event, context) => {
   logAnalyticsData({
     event,
     context,
-    action: 'GET'
+    search: pattern
   })
 
   // Validate page_num and page_size

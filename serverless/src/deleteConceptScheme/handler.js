@@ -2,6 +2,7 @@ import { deleteTriples } from '@/shared/deleteTriples'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSkosRootConcept } from '@/shared/getSkosRootConcept'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import {
   commitTransaction,
   rollbackTransaction,
@@ -39,11 +40,16 @@ import {
  *   }
  * };
  */
-export const deleteConceptScheme = async (event) => {
+export const deleteConceptScheme = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters, queryStringParameters } = event
   const { schemeId } = pathParameters
   const version = queryStringParameters?.version || 'draft'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   let transactionUrl
   try {

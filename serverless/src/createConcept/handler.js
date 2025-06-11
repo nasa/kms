@@ -5,6 +5,7 @@ import { conceptIdExists } from '@/shared/conceptIdExists'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import {
   commitTransaction,
@@ -61,10 +62,15 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  *   }
  * }
  */
-export const createConcept = async (event) => {
+export const createConcept = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   let transactionUrl
 

@@ -1,33 +1,40 @@
-import { buildFullPath } from '@/shared/buildFullPath'
+import { downcaseKeys } from '@/shared/downcaseKeys'
 import { removeEmpty } from '@/shared/removeEmpty'
 
 export const logAnalyticsData = ({
-  event,
-  context,
-  action
+  event = {},
+  context = {},
+  search = null
 }) => {
-  const { queryStringParameters } = event
-  const { pathParameters } = event
-  const { conceptId, shortName, altLabel } = pathParameters || {}
-  const { scheme, format = 'rdf' } = queryStringParameters || {}
-  const version = queryStringParameters?.version || 'published'
-  const clientIp = event.headers['X-Forwarded-For']
-  const clientId = event.headers['Client-Id']
-  const domain = event.requestContext.domainName
-  const { path } = event.requestContext
-  const protocol = event.headers['X-Forwarded-Proto'] || 'https'
+  const {
+    queryStringParameters = {},
+    pathParameters = {},
+    headers: rawHeaders = {},
+    requestContext = {}
+  } = event
 
-  const queryString = event.queryStringParameters
-    ? `?${new URLSearchParams(event.queryStringParameters).toString()}`
-    : ''
-  const fullUrl = `${protocol}://${domain}${path}${queryString}`
-  const { functionName } = context
-  const userAgent = event.headers['User-Agent'] || event.headers['user-agent']
+  const headers = downcaseKeys(rawHeaders)
 
-  let fullPath
-  if (conceptId) {
-    fullPath = buildFullPath(conceptId, version)
+  const { conceptId, shortName, altLabel } = pathParameters
+  const { scheme, format } = queryStringParameters
+  const version = queryStringParameters?.version
+  const clientIp = headers['x-forwarded-for']
+  const clientId = headers['client-id']
+  const { domainName } = requestContext
+  const { path } = requestContext
+  const protocol = headers['x-forwarded-proto'] || 'https'
+  const action = requestContext.httpMethod
+
+  if (!clientIp || !domainName || !path || !protocol || !action) {
+    return
   }
+
+  const queryString = Object.keys(queryStringParameters).length > 0
+    ? `?${new URLSearchParams(queryStringParameters).toString()}`
+    : ''
+  const fullUrl = `${protocol}://${domainName}${path}${queryString}`
+  const { functionName = '' } = context
+  const userAgent = headers['user-agent']
 
   let logObject = {
     analytics: {
@@ -39,8 +46,8 @@ export const logAnalyticsData = ({
       format,
       version,
       scheme,
-      fullPath,
       concept: conceptId ?? shortName ?? altLabel,
+      search,
       userAgent
     }
   }

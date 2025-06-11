@@ -2,6 +2,7 @@ import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSchemeInfo } from '@/shared/getSchemeInfo'
 import { getSkosRootConcept } from '@/shared/getSkosRootConcept'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import {
   getDeleteTriplesForSchemeQuery
 } from '@/shared/operations/queries/getDeleteTriplesForSchemeQuery'
@@ -58,10 +59,15 @@ import { validateSchemeNotation } from '@/shared/validateSchemeNotation'
  *   console.error(error);
  * }
  */
-export const updateConceptScheme = async (event) => {
+export const updateConceptScheme = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: schemeRdf, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   let transactionUrl
 

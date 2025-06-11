@@ -9,6 +9,7 @@ import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -99,7 +100,7 @@ import { toTitleCase } from '@/shared/toTitleCase'
  *
  * @throws Will throw an error if there's a problem retrieving or processing the keywords.
  */
-export const getKeywordsTree = async (event) => {
+export const getKeywordsTree = async (event, context) => {
   // Extract configuration and parameters
   const { defaultResponseHeaders } = getApplicationConfig()
 
@@ -121,6 +122,12 @@ export const getKeywordsTree = async (event) => {
   const encodedConceptScheme = event.pathParameters.conceptScheme
   const conceptScheme = decodeURIComponent(encodedConceptScheme)
   const version = queryStringParameters?.version || 'published'
+
+  logAnalyticsData({
+    event,
+    context,
+    search: filter
+  })
 
   if (!event.pathParameters || !event.pathParameters.conceptScheme) {
     console.error('Missing conceptScheme parameter')

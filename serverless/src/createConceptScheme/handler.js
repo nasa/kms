@@ -2,6 +2,7 @@ import { createRootConceptRdf } from '@/shared/createRootConceptRdf'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSchemeInfo } from '@/shared/getSchemeInfo'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import {
   commitTransaction,
@@ -72,12 +73,17 @@ import { validateSchemeNotation } from '@/shared/validateSchemeNotation'
  *   }
  * }
  */
-export const createConceptScheme = async (event) => {
+export const createConceptScheme = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: schemeRdf, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
 
   let transactionUrl
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     // Validate that RDF/XML data is provided in the request body

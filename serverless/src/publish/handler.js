@@ -1,4 +1,5 @@
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
@@ -49,9 +50,14 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * //   body: '{"message":"Error: \\"name\\" parameter is required in the query string"}'
  * // }
  */
-export const publish = async (event) => {
+export const publish = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const name = event.queryStringParameters?.name
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   if (!name) {
     return {

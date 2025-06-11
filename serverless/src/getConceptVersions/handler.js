@@ -1,6 +1,7 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -33,10 +34,15 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *
  * @throws Will throw an error if there's a problem fetching or processing the concept versions.
  */
-export const getConceptVersions = async (event) => {
+export const getConceptVersions = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
   const { versionType } = pathParameters
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     // Updated SPARQL query to get graph names and creation dates

@@ -77,8 +77,7 @@ export const getConcept = async (event, context) => {
 
   logAnalyticsData({
     event,
-    context,
-    action: 'GET'
+    context
   })
 
   try {
