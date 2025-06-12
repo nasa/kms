@@ -1,6 +1,7 @@
 import { buildFullPath } from '@/shared/buildFullPath'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionNames } from '@/shared/getVersionNames'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 
 /**
  * Retrieves the full path history for a keyword across different versions.
@@ -48,9 +49,15 @@ import { getVersionNames } from '@/shared/getVersionNames'
  *   headers: { ... }
  * }
  */
-export const getKeywordFullPathHistory = async (event) => {
+export const getKeywordFullPathHistory = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { uuid } = event.pathParameters
+
+  logAnalyticsData({
+    event,
+    context
+  })
+
   try {
     const versionNames = await getVersionNames()
     const createVersionObjects = async (arr) => {

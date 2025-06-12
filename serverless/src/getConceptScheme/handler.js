@@ -4,6 +4,7 @@ import { namespaces } from '@/shared/constants/namespaces'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 
 /**
  * Retrieves and formats concept scheme details as XML.
@@ -27,7 +28,7 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
  * const response = await getConceptScheme(event);
  * // response will contain the XML representation of the concept scheme
  */
-export const getConceptScheme = async (event) => {
+export const getConceptScheme = async (event, context) => {
   // Get default response headers from application config
   const { defaultResponseHeaders } = getApplicationConfig()
 
@@ -36,6 +37,11 @@ export const getConceptScheme = async (event) => {
   const { schemeId } = pathParameters
   const { queryStringParameters } = event
   const version = queryStringParameters?.version || 'published'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     // Fetch concept scheme details

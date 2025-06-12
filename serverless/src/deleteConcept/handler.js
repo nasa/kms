@@ -54,17 +54,23 @@ import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import {
   commitTransaction,
   rollbackTransaction,
   startTransaction
 } from '@/shared/transactionHelpers'
 
-export const deleteConcept = async (event) => {
+export const deleteConcept = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters, queryStringParameters } = event
   const { conceptId } = pathParameters
   const version = queryStringParameters?.version || 'draft'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   if (!conceptId) {
     return {

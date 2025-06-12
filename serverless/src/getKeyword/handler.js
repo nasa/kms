@@ -1,14 +1,20 @@
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { toKeywordJson } from '@/shared/toKeywordJson'
 
-const getKeyword = async (event) => {
+const getKeyword = async (event, context) => {
   // Extract configuration and parameters
   const { defaultResponseHeaders } = getApplicationConfig()
   const queryStringParameters = event.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
   const { conceptId } = event.pathParameters
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     const concept = await getSkosConcept({

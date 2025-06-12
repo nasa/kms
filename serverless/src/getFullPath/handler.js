@@ -2,6 +2,7 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { buildFullPath } from '@/shared/buildFullPath'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 
 /**
  * Fetches the full hierarchical path to a concept and returns it as XML.
@@ -41,12 +42,17 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *
  * @see Related function {@link buildFullPath} for details on path construction.
  */
-export const getFullPath = async (event) => {
+export const getFullPath = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
   const { conceptId } = pathParameters
   const { queryStringParameters } = event
   const version = queryStringParameters?.version || 'published'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     const builder = new XMLBuilder({

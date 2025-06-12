@@ -6,6 +6,7 @@ import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import {
   commitTransaction,
@@ -77,10 +78,15 @@ import { updateModifiedDate } from '@/shared/updateModifiedDate'
  * // The 'version' query parameter is optional and defaults to 'draft'.
  */
 
-export const updateConcept = async (event) => {
+export const updateConcept = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: newRdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     if (!newRdfXml) {

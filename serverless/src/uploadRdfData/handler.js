@@ -1,4 +1,5 @@
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -45,10 +46,15 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * result in duplicate or conflicting information if not managed carefully. To completely
  * replace existing data, consider using a separate delete operation before uploading new data.
  */
-export const uploadRdfData = async (event) => {
+export const uploadRdfData = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: rdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   if (!rdfXml || typeof rdfXml !== 'string') {
     return {

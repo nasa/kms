@@ -2,6 +2,7 @@ import { XMLBuilder } from 'fast-xml-parser'
 
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { logAnalyticsData } from '@/shared/logAnalyticsData'
 
 /**
  * Retrieves and formats concept schemes as XML.
@@ -32,10 +33,15 @@ import { getApplicationConfig } from '@/shared/getConfig'
  *
  * @throws Will throw an error if there's a problem fetching or processing the concept schemes.
  */
-export const getConceptSchemes = async (event) => {
+export const getConceptSchemes = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'published'
+
+  logAnalyticsData({
+    event,
+    context
+  })
 
   try {
     const conceptSchemes = await getConceptSchemeDetails({ version })
