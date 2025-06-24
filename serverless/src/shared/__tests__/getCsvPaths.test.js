@@ -28,10 +28,16 @@ describe('getCsvPaths', () => {
   describe('when successful', () => {
     test('should return reversed keywords array', async () => {
       // Mock the imported functions
-      getRootConceptForScheme.mockResolvedValue({
-        prefLabel: { value: 'Root' },
-        subject: { value: 'http://example.com/root' }
-      })
+      getRootConceptForScheme.mockResolvedValue([
+        {
+          prefLabel: { value: 'Root1' },
+          subject: { value: 'http://example.com/root1' }
+        },
+        {
+          prefLabel: { value: 'Root2' },
+          subject: { value: 'http://example.com/root2' }
+        }
+      ])
 
       getNarrowersMap.mockResolvedValue({})
       getLongNamesMap.mockResolvedValue({})
@@ -43,19 +49,61 @@ describe('getCsvPaths', () => {
 
       const result = await getCsvPaths('testScheme', 3, 'draft')
 
-      expect(result).toEqual(['Keyword3', 'Keyword2', 'Keyword1'])
+      expect(result).toEqual(['Keyword3', 'Keyword2', 'Keyword1', 'Keyword3', 'Keyword2', 'Keyword1'])
       expect(getRootConceptForScheme).toHaveBeenCalledWith('testScheme', 'draft')
       expect(getNarrowersMap).toHaveBeenCalledWith('testScheme', 'draft')
       expect(getLongNamesMap).toHaveBeenCalledWith('testScheme', 'draft')
       expect(getProviderUrlsMap).not.toHaveBeenCalled()
-      expect(buildHierarchicalCsvPaths).toHaveBeenCalled()
+      expect(buildHierarchicalCsvPaths).toHaveBeenCalledTimes(2)
+    })
+
+    test('should handle multiple roots correctly', async () => {
+      getRootConceptForScheme.mockResolvedValue([
+        {
+          prefLabel: { value: 'Root1' },
+          subject: { value: 'http://example.com/root1' }
+        },
+        {
+          prefLabel: { value: 'Root2' },
+          subject: { value: 'http://example.com/root2' }
+        },
+        {
+          prefLabel: { value: 'Root3' },
+          subject: { value: 'http://example.com/root3' }
+        }
+      ])
+
+      getNarrowersMap.mockResolvedValue({})
+      getLongNamesMap.mockResolvedValue({})
+      getProviderUrlsMap.mockResolvedValue({})
+
+      buildHierarchicalCsvPaths.mockImplementation((params) => {
+        if (params.n.prefLabel === 'Root1') {
+          params.paths.push('KeywordA1', 'KeywordA2')
+        } else if (params.n.prefLabel === 'Root2') {
+          params.paths.push('KeywordB1', 'KeywordB2')
+        } else if (params.n.prefLabel === 'Root3') {
+          params.paths.push('KeywordC1', 'KeywordC2')
+        }
+      })
+
+      const result = await getCsvPaths('testScheme', 3, 'draft')
+
+      expect(result).toEqual(['KeywordC2', 'KeywordC1', 'KeywordB2', 'KeywordB1', 'KeywordA2', 'KeywordA1'])
+      expect(getRootConceptForScheme).toHaveBeenCalledWith('testScheme', 'draft')
+      expect(getNarrowersMap).toHaveBeenCalledWith('testScheme', 'draft')
+      expect(getLongNamesMap).toHaveBeenCalledWith('testScheme', 'draft')
+      expect(getProviderUrlsMap).not.toHaveBeenCalled()
+      expect(buildHierarchicalCsvPaths).toHaveBeenCalledTimes(3)
     })
 
     test('should call getProviderUrlsMap when scheme is "providers"', async () => {
-      getRootConceptForScheme.mockResolvedValue({
-        prefLabel: { value: 'Root' },
-        subject: { value: 'http://example.com/root' }
-      })
+      getRootConceptForScheme.mockResolvedValue([
+        {
+          prefLabel: { value: 'Root' },
+          subject: { value: 'http://example.com/root' }
+        }
+      ])
 
       getNarrowersMap.mockResolvedValue({})
       getLongNamesMap.mockResolvedValue({})

@@ -55,8 +55,6 @@ export const getCsvPaths = async (scheme, csvHeadersCount, version) => {
   const keywords = []
   const roots = await getRootConceptForScheme(scheme, version)
 
-  console.log('roots=', roots)
-
   const narrowersMap = await getNarrowersMap(scheme, version)
   const longNamesMap = await getLongNamesMap(scheme, version)
 
