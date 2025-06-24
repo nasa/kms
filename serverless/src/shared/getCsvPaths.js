@@ -52,42 +52,37 @@ import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
  * {@link buildHierarchicalCsvPaths}
  */
 export const getCsvPaths = async (scheme, csvHeadersCount, version) => {
-  // Get the root concept for the scheme
-  const root = await getRootConceptForScheme(scheme, version)
+  const keywords = []
+  const roots = await getRootConceptForScheme(scheme, version)
 
-  // Create a node object with root concept information
-  const node = {
-    prefLabel: root?.prefLabel?.value,
-    narrowerPrefLabel: root?.prefLabel?.value,
-    uri: root?.subject?.value
-  }
+  console.log('roots=', roots)
 
-  // Get maps for narrowers and long names
   const narrowersMap = await getNarrowersMap(scheme, version)
   const longNamesMap = await getLongNamesMap(scheme, version)
 
-  // Initialize providerUrlsMap
   let providerUrlsMap = []
-  // If the scheme is 'providers', get the provider URLs map
   if (scheme === 'providers') {
     providerUrlsMap = await getProviderUrlsMap(scheme, version)
   }
 
-  // Initialize an array to store keywords
-  const keywords = []
+  await Promise.all(roots.map(async (root) => {
+    const node = {
+      prefLabel: root?.prefLabel?.value,
+      narrowerPrefLabel: root?.prefLabel?.value,
+      uri: root?.subject?.value
+    }
 
-  // Traverse the graph to populate keywords
-  await buildHierarchicalCsvPaths({
-    csvHeadersCount,
-    providerUrlsMap,
-    longNamesMap,
-    scheme,
-    n: node,
-    map: narrowersMap,
-    path: [],
-    paths: keywords
-  })
+    await buildHierarchicalCsvPaths({
+      csvHeadersCount,
+      providerUrlsMap,
+      longNamesMap,
+      scheme,
+      n: node,
+      map: narrowersMap,
+      path: [],
+      paths: keywords
+    })
+  }))
 
-  // Return the reversed keywords array
   return keywords.reverse()
 }
