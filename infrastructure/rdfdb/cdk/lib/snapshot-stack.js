@@ -1,10 +1,26 @@
-// Snapshot-stack.js
-
 const { Stack, Duration } = require('aws-cdk-lib')
 const backup = require('aws-cdk-lib/aws-backup')
 const events = require('aws-cdk-lib/aws-events')
 
+/**
+ * SnapshotStack creates an AWS Backup configuration for an EBS volume using AWS CDK.
+ *
+ * This stack sets up an automated backup system for a specified EBS volume. It creates
+ * a backup vault, defines a backup plan with a customizable schedule, and selects the
+ * EBS volume as the resource to be backed up.
+ *
+ * @class
+ * @extends {Stack}
+ */
 class SnapshotStack extends Stack {
+  /**
+   * Constructs a new instance of SnapshotStack.
+   *
+   * @param {Construct} scope - The scope in which to define this construct.
+   * @param {string} id - The scoped construct ID.
+   * @param {object} props - Initialization properties.
+   * @param {string} props.ebsVolumeId - The ID of the EBS volume to be backed up.
+   */
   constructor(scope, id, props) {
     super(scope, id, props)
 
