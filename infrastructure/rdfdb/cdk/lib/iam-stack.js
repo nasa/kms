@@ -17,6 +17,7 @@ class IamStack extends Stack {
     this.addEbsVolumePermissions(this.role)
     this.addEcrAndElbPermissions(this.role)
     this.addSsmPermissions(this.role)
+    this.addAwsBackupPermissions(this.role)
     this.addOutputs()
   }
 
@@ -33,7 +34,8 @@ class IamStack extends Stack {
       roleName: 'rdf4jRole',
       assumedBy: new iam.CompositePrincipal(
         new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-        new iam.ServicePrincipal('ec2.amazonaws.com')
+        new iam.ServicePrincipal('ec2.amazonaws.com'),
+        new iam.ServicePrincipal('backup.amazonaws.com')
       ),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
@@ -56,6 +58,42 @@ class IamStack extends Stack {
         'ec2:DescribeVolumeAttribute',
         'ec2:DescribeVolumesModifications',
         'ec2:ModifyVolume'
+      ],
+      resources: ['*']
+    }))
+  }
+
+  addAwsBackupPermissions(role) {
+    role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSBackupServiceRolePolicyForBackup'))
+    role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSBackupServiceRolePolicyForRestores'))
+
+    role.addToPolicy(new iam.PolicyStatement({
+      actions: [
+        'backup:CreateBackupPlan',
+        'backup:CreateBackupSelection',
+        'backup:CreateBackupVault',
+        'backup:DeleteBackupPlan',
+        'backup:DeleteBackupSelection',
+        'backup:DeleteBackupVault',
+        'backup:DescribeBackupJob',
+        'backup:DescribeBackupVault',
+        'backup:DescribeProtectedResource',
+        'backup:DescribeRecoveryPoint',
+        'backup:GetBackupPlan',
+        'backup:GetBackupSelection',
+        'backup:ListBackupJobs',
+        'backup:ListBackupPlans',
+        'backup:ListBackupSelections',
+        'backup:ListBackupVaults',
+        'backup:ListProtectedResources',
+        'backup:ListRecoveryPointsByBackupVault',
+        'backup:ListRecoveryPointsByResource',
+        'backup:ListTags',
+        'backup:PutBackupVaultAccessPolicy',
+        'backup:StartBackupJob',
+        'backup:TagResource',
+        'backup:UntagResource',
+        'backup:UpdateBackupPlan'
       ],
       resources: ['*']
     }))
