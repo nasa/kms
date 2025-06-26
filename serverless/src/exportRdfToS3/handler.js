@@ -6,6 +6,7 @@ import {
 } from '@aws-sdk/client-s3'
 
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -41,6 +42,8 @@ export const handler = async (event) => {
       version
     })
 
+    const { versionName } = getVersionMetadata(version)
+
     if (!response.ok) {
       console.log('error fetching rdfxml for ', version)
       throw new Error(`HTTP error! status: ${response.status}`)
@@ -49,11 +52,17 @@ export const handler = async (event) => {
     const rdfData = await response.text()
 
     // Generate the S3 key based on the current date and version
-    const currentDate = new Date()
-    const year = currentDate.getUTCFullYear()
-    const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(currentDate.getUTCDate()).padStart(2, '0')
-    const s3Key = `${version}/${year}/${month}/${day}/rdf.xml`
+
+    let s3Key
+    if (version === 'published') {
+      s3Key = `${versionName}/rdf.xml`
+    } else {
+      const currentDate = new Date()
+      const year = currentDate.getUTCFullYear()
+      const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(currentDate.getUTCDate()).padStart(2, '0')
+      s3Key = `${version}/${year}/${month}/${day}/rdf.xml`
+    }
 
     // Check if bucket exists
     try {
