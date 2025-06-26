@@ -12,19 +12,31 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
 /**
  * Handler for exporting RDF data to Amazon S3.
  *
- * This function is designed to be invoked on a schedule. It initiates the export process
- * asynchronously.
+ * This function is designed to be invoked on a schedule or on-demand. It exports RDF data
+ * to an S3 bucket, with different behaviors for 'published' and other versions.
+ *
+ * For 'published' version:
+ * - Creates a file at `{versionName}/rdf.xml`
+ * - Overwrites existing file if present
+ *
+ * For 'draft' version:
+ * - Creates a new file with a date-based path: `draft/{year}/{month}/{day}/rdf.xml`
+ * - A new file is created each time, preserving historical versions
+ *
+ * The function will create the S3 bucket if it doesn't exist.
  *
  * Environment Variables:
  * - RDF_BUCKET_NAME: The name of the S3 bucket to use. Defaults to 'kms-rdf-backup' if not set.
  *
  * @async
  * @function handler
- * @param {Object} event - The event object containing the schedule information.
- * @param {string} event.version - The version of the RDF data to export (e.g., 'published', 'draft').
+ * @param {Object} event - The event object containing the export information.
+ * @param {string} [event.version='published'] - The version of the RDF data to export (e.g., 'published', 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing:
- *   - statusCode: HTTP status code (202 for accepted)
- *   - body: A JSON string with a message indicating the export process has been initiated
+ *   - statusCode: HTTP status code (200 for success, 500 for error)
+ *   - headers: Response headers
+ *   - body: A JSON string with a message indicating the result of the export process
+ * @throws Will throw an error if the RDF data fetch fails or if there are issues with S3 operations.
  */
 export const handler = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
@@ -42,8 +54,6 @@ export const handler = async (event) => {
       version
     })
 
-    const { versionName } = getVersionMetadata(version)
-
     if (!response.ok) {
       console.log('error fetching rdfxml for ', version)
       throw new Error(`HTTP error! status: ${response.status}`)
@@ -55,6 +65,7 @@ export const handler = async (event) => {
 
     let s3Key
     if (version === 'published') {
+      const { versionName } = await getVersionMetadata(version)
       s3Key = `${versionName}/rdf.xml`
     } else {
       const currentDate = new Date()
