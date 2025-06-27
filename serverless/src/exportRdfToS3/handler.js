@@ -5,6 +5,7 @@ import {
   S3Client
 } from '@aws-sdk/client-s3'
 
+import { ensureBucketAndLifecycleRule } from '@/shared/ensureBucketAndLifeCycleRule'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sparqlRequest } from '@/shared/sparqlRequest'
@@ -45,6 +46,9 @@ export const handler = async (event) => {
   try {
     const s3BucketName = process.env.RDF_BUCKET_NAME || 'kms-rdf-backup'
     const s3Client = new S3Client({})
+
+    // Ensure bucket exists and lifecycle rule is set
+    await ensureBucketAndLifecycleRule(s3Client, s3BucketName, 30, 'draft/') // Expire after 30 days
 
     // Fetch RDF data from the repository using sparqlRequest
     const response = await sparqlRequest({
