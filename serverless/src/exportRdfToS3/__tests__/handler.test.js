@@ -12,6 +12,7 @@ import {
 } from 'vitest'
 
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 import { handler } from '../handler'
@@ -20,6 +21,7 @@ import { handler } from '../handler'
 vi.mock('@/shared/getConfig')
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@aws-sdk/client-s3')
+vi.mock('@/shared/getVersionMetadata')
 
 describe('exportRdfToS3 handler', () => {
   beforeEach(() => {
@@ -32,6 +34,8 @@ describe('exportRdfToS3 handler', () => {
     getApplicationConfig.mockReturnValue({
       defaultResponseHeaders: { 'Content-Type': 'application/json' }
     })
+
+    getVersionMetadata.mockReturnValue({ versionName: '21.4' })
 
     sparqlRequest.mockResolvedValue({
       ok: true,
@@ -64,11 +68,40 @@ describe('exportRdfToS3 handler', () => {
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('RDF data for version published exported successfully'))
     })
 
+    test('should use versionName as S3 key for published version', async () => {
+      const result = await handler({ version: 'published' })
+
+      expect(result.statusCode).toBe(200)
+      expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
+        Bucket: 'test-bucket',
+        Key: '21.4/rdf.xml',
+        Body: expect.any(String),
+        ContentType: 'application/rdf+xml'
+      }))
+    })
+
+    test('should use date-based S3 key for non-published versions', async () => {
+      vi.setSystemTime(new Date('2023-06-01T12:00:00Z'))
+
+      const result = await handler({ version: 'draft' })
+
+      expect(result.statusCode).toBe(200)
+      expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
+        Bucket: 'test-bucket',
+        Key: 'draft/2023/06/01/rdf.xml',
+        Body: expect.any(String),
+        ContentType: 'application/rdf+xml'
+      }))
+    })
+
     test('should use default version if not provided', async () => {
       const result = await handler({})
 
       expect(result.statusCode).toBe(200)
       expect(JSON.parse(result.body).message).toBe('RDF export process complete for version published')
+      expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
+        Key: '21.4/rdf.xml'
+      }))
     })
 
     test('should create S3 bucket if it does not exist', async () => {
@@ -139,7 +172,7 @@ describe('exportRdfToS3 handler', () => {
       expect(HeadBucketCommand).toHaveBeenCalledWith({ Bucket: 'kms-rdf-backup' })
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
         Bucket: 'kms-rdf-backup',
-        Key: expect.stringMatching(/^published\/\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/),
+        Key: '21.4/rdf.xml',
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
       }))
@@ -150,7 +183,7 @@ describe('exportRdfToS3 handler', () => {
 
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
         Bucket: 'test-bucket',
-        Key: expect.stringMatching(/^published\/\d{4}\/\d{2}\/\d{2}\/rdf\.xml$/),
+        Key: '21.4/rdf.xml',
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
       }))
