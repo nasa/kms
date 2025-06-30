@@ -49,20 +49,13 @@ class SnapshotStack extends Stack {
     }))
 
     // Select the resources to backup
-    const backupSelection = new backup.BackupSelection(this, 'RDF4JVolumeSelection', {
+    // eslint-disable-next-line no-new
+    new backup.BackupSelection(this, 'RDF4JVolumeSelection', {
       backupPlan: plan,
       resources: [
         backup.BackupResource.fromArn(`arn:aws:ec2:${this.region}:${this.account}:volume/${ebsVolumeId}`)
       ]
     })
-
-    console.log('Backup Configuration Created:')
-    console.log(`  Backup Selection Logical ID: ${backupSelection.node.id}`)
-    console.log(`  Resource Count: ${backupSelection.resources.length}`)
-    console.log(`  First Resource ARN: ${backupSelection.resources[0].toString()}`)
-    console.log(`  Backup Plan Name: ${plan.backupPlanName}`)
-    console.log(`  Backup Vault Name: ${backupVault.backupVaultName}`)
-    console.log(`  Backup Schedule: ${cronExpression}`)
   }
 }
 
