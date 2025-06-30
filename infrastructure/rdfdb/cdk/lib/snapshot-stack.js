@@ -49,7 +49,6 @@ class SnapshotStack extends Stack {
     }))
 
     // Select the resources to backup
-    // Select the resources to backup
     const backupSelection = new backup.BackupSelection(this, 'RDF4JVolumeSelection', {
       backupPlan: plan,
       resources: [

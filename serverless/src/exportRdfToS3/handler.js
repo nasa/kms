@@ -14,7 +14,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * Handler for exporting RDF data to Amazon S3.
  *
  * This function is designed to be invoked on a schedule or on-demand. It exports RDF data
- * to an S3 bucket, with different behaviors for 'published' and other versions.
+ * to an S3 bucket, with different behaviors for 'published' and 'draft' version.
  *
  * For 'published' version:
  * - Creates a file at `{versionName}/rdf.xml`
