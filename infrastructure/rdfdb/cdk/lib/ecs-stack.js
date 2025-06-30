@@ -119,6 +119,13 @@ const custom = require('aws-cdk-lib/custom-resources')
     return iam.Role.fromRoleArn(this, 'ImportedRole', Fn.importValue('rdf4jRoleArn'))
   }
 
+  getInstanceType() {
+    const instanceType = process.env.RDF4J_INSTANCE_TYPE || 'R5.LARGE'
+    const [instanceClass, instanceSize] = instanceType.split('.')
+
+    return ec2.InstanceType.of(ec2.InstanceClass[instanceClass], ec2.InstanceSize[instanceSize])
+  }
+
   createEcsCluster() {
     const { ebsVolumeId } = this
 
@@ -133,7 +140,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     userData.addCommands(scriptWithVolume)
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.R5, ec2.InstanceSize.LARGE),
+      instanceType: this.getInstanceType(),
       machineImage: ec2.MachineImage.fromSsmParameter('/ngap/amis/image_id_ecs_al2023_x86'),
       minCapacity: 1,
       maxCapacity: 1,
