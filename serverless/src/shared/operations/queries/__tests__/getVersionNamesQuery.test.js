@@ -5,6 +5,8 @@ import { getVersionNamesQuery } from '../getVersionNamesQuery'
 describe('getVersionNamesQuery', () => {
   test('should return the correct SPARQL query string', () => {
     const expectedQuery = `
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 SELECT DISTINCT ?versionName
@@ -27,7 +29,8 @@ ORDER BY DESC(?creationDate)
 
   test('should include necessary prefixes', () => {
     const result = getVersionNamesQuery()
-
+    expect(result).toContain('PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>')
+    expect(result).toContain('PREFIX skos: <http://www.w3.org/2004/02/skos/core#>')
     expect(result).toContain('PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>')
     expect(result).toContain('PREFIX dcterms: <http://purl.org/dc/terms/>')
   })

@@ -1,6 +1,7 @@
+import prefixes from '@/shared/constants/prefixes'
+
 export const getVersionNamesQuery = () => `
-PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-PREFIX dcterms: <http://purl.org/dc/terms/>
+${prefixes}
 SELECT DISTINCT ?versionName
 WHERE {
   GRAPH ?graph {
