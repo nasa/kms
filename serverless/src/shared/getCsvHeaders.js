@@ -59,10 +59,7 @@ export const getCsvHeaders = async (scheme, version) => {
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      body: getConceptSchemeDetailsQuery({
-        scheme,
-        version
-      }),
+      body: getConceptSchemeDetailsQuery(scheme),
       version
     })
 

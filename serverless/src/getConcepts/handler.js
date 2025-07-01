@@ -127,6 +127,27 @@ export const getConcepts = async (event, context) => {
   }
 
   try {
+    // CSV case
+    if (format.toLowerCase() === 'csv') {
+      if (!conceptScheme) {
+        return {
+          headers: defaultResponseHeaders,
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
+        }
+      }
+
+      if (pattern) {
+        return {
+          headers: defaultResponseHeaders,
+          statusCode: 400,
+          body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
+        }
+      }
+
+      return createCsvForScheme(conceptScheme, version)
+    }
+
     let triples
     if (event?.path === '/concepts/root') {
       triples = await getRootConcepts(version)
@@ -204,24 +225,6 @@ export const getConcepts = async (event, context) => {
       }
       responseBody = JSON.stringify(jsonResponse, null, 2)
       contentType = 'application/json'
-    } else if (format.toLowerCase() === 'csv') {
-      if (!conceptScheme) {
-        return {
-          headers: defaultResponseHeaders,
-          statusCode: 400,
-          body: JSON.stringify({ error: 'Scheme parameter is required for CSV format' })
-        }
-      }
-
-      if (pattern) {
-        return {
-          headers: defaultResponseHeaders,
-          statusCode: 400,
-          body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
-        }
-      }
-
-      return createCsvForScheme(conceptScheme, version)
     } else if (format.toLowerCase() === 'xml') {
       const conceptToConceptSchemeShortNameMap = await
       createConceptToConceptSchemeShortNameMap(version)
