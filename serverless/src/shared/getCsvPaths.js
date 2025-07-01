@@ -59,7 +59,7 @@ export const getCsvPaths = async (scheme, csvHeadersCount, version) => {
   const longNamesMap = await getLongNamesMap(scheme, version)
 
   let providerUrlsMap = []
-  if (scheme === 'providers') {
+  if (scheme.toLowerCase() === 'providers') {
     providerUrlsMap = await getProviderUrlsMap(scheme, version)
   }
 
