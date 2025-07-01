@@ -8,7 +8,8 @@ export const getNarrowerConceptsQuery = (scheme) => `
     ?subject skos:narrower ?narrower .
     ?narrower skos:prefLabel ?narrowerPrefLabel .
     ${scheme ? `
-    ?subject skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .
+    ?subject skos:inScheme ?schemeUri .
+    FILTER(LCASE(STR(?schemeUri)) = LCASE(STR(<https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}>)))
     ` : ''}
   }
 `

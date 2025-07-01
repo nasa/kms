@@ -10,15 +10,16 @@ describe('getRootConceptsBySchemeQuery', () => {
   test('should generate a query without scheme filter when no scheme is provided', () => {
     const query = getRootConceptsBySchemeQuery()
     expect(query).toContain('SELECT ?subject ?prefLabel')
-    expect(query).not.toContain('?subject skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/')
+    expect(query).not.toContain('?subject skos:inScheme ?schemeUri')
     expect(query).toContain('FILTER EXISTS {\n        ?subject skos:inScheme ?scheme .\n      }')
   })
 
-  test('should generate a query with scheme filter when a scheme is provided', () => {
+  test('should generate a query with case-insensitive scheme filter when a scheme is provided', () => {
     const scheme = 'testScheme'
     const query = getRootConceptsBySchemeQuery(scheme)
     expect(query).toContain('SELECT ?subject ?prefLabel')
-    expect(query).toContain(`?subject skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}>`)
+    expect(query).toContain('?subject skos:inScheme ?schemeUri')
+    expect(query).toContain(`FILTER(LCASE(STR(?schemeUri)) = LCASE(STR(<https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}>)))`)
     expect(query).not.toContain('FILTER EXISTS {\n        ?subject skos:inScheme ?scheme .\n      }')
   })
 

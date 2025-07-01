@@ -6,7 +6,8 @@ export const getRootConceptsBySchemeQuery = (scheme) => `
   WHERE {
     ?subject skos:prefLabel ?prefLabel .
     ${scheme ? `
-      ?subject skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .
+      ?subject skos:inScheme ?schemeUri .
+      FILTER(LCASE(STR(?schemeUri)) = LCASE(STR(<https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}>)))
     ` : ''}
     FILTER NOT EXISTS {
       ?subject skos:broader ?broaderConcept .

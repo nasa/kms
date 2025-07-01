@@ -32,7 +32,7 @@
  */
 export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
   // Handle 'platforms', 'instruments', and 'projects' schemes
-  if (['platforms', 'instruments', 'projects'].includes(scheme)) {
+  if (['platforms', 'instruments', 'projects'].includes(scheme.toLowerCase())) {
     const maxLevel = csvHeadersCount - 2
 
     // Return if path length matches maxLevel
@@ -58,7 +58,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
   }
 
   // Handle 'sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', and 'measurementname' schemes
-  if (['sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', 'measurementname'].includes(scheme)) {
+  if (['sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', 'measurementname'].includes(scheme.toLowerCase())) {
     const maxLevel = csvHeadersCount - 1
 
     // Return if path length matches maxLevel
@@ -77,7 +77,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
   }
 
   // Handle 'providers' scheme
-  if (['providers'].includes(scheme)) {
+  if (['providers'].includes(scheme.toLowerCase())) {
     const maxLevel = csvHeadersCount - 3
 
     // Return if path length matches maxLevel
