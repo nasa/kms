@@ -5,25 +5,39 @@ import {
   S3Client
 } from '@aws-sdk/client-s3'
 
+import { ensureBucketAndLifecycleRule } from '@/shared/ensureBucketAndLifeCycleRule'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Handler for exporting RDF data to Amazon S3.
  *
- * This function is designed to be invoked on a schedule. It initiates the export process
- * asynchronously.
+ * This function is designed to be invoked on a schedule or on-demand. It exports RDF data
+ * to an S3 bucket, with different behaviors for 'published' and 'draft' version.
+ *
+ * For 'published' version:
+ * - Creates a file at `{versionName}/rdf.xml`
+ * - Overwrites existing file if present
+ *
+ * For 'draft' version:
+ * - Creates a new file with a date-based path: `draft/{year}/{month}/{day}/rdf.xml`
+ * - A new file is created each time, preserving historical versions
+ *
+ * The function will create the S3 bucket if it doesn't exist.
  *
  * Environment Variables:
  * - RDF_BUCKET_NAME: The name of the S3 bucket to use. Defaults to 'kms-rdf-backup' if not set.
  *
  * @async
  * @function handler
- * @param {Object} event - The event object containing the schedule information.
- * @param {string} event.version - The version of the RDF data to export (e.g., 'published', 'draft').
+ * @param {Object} event - The event object containing the export information.
+ * @param {string} [event.version='published'] - The version of the RDF data to export (e.g., 'published', 'draft').
  * @returns {Promise<Object>} A promise that resolves to an object containing:
- *   - statusCode: HTTP status code (202 for accepted)
- *   - body: A JSON string with a message indicating the export process has been initiated
+ *   - statusCode: HTTP status code (200 for success, 500 for error)
+ *   - headers: Response headers
+ *   - body: A JSON string with a message indicating the result of the export process
+ * @throws Will throw an error if the RDF data fetch fails or if there are issues with S3 operations.
  */
 export const handler = async (event) => {
   const { defaultResponseHeaders } = getApplicationConfig()
@@ -32,6 +46,9 @@ export const handler = async (event) => {
   try {
     const s3BucketName = process.env.RDF_BUCKET_NAME || 'kms-rdf-backup'
     const s3Client = new S3Client({})
+
+    // Ensure bucket exists and lifecycle rule is set
+    await ensureBucketAndLifecycleRule(s3Client, s3BucketName, 30, 'draft/') // Expire after 30 days
 
     // Fetch RDF data from the repository using sparqlRequest
     const response = await sparqlRequest({
@@ -49,11 +66,18 @@ export const handler = async (event) => {
     const rdfData = await response.text()
 
     // Generate the S3 key based on the current date and version
-    const currentDate = new Date()
-    const year = currentDate.getUTCFullYear()
-    const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(currentDate.getUTCDate()).padStart(2, '0')
-    const s3Key = `${version}/${year}/${month}/${day}/rdf.xml`
+
+    let s3Key
+    if (version === 'published') {
+      const { versionName } = await getVersionMetadata(version)
+      s3Key = `${versionName}/rdf.xml`
+    } else {
+      const currentDate = new Date()
+      const year = currentDate.getUTCFullYear()
+      const month = String(currentDate.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(currentDate.getUTCDate()).padStart(2, '0')
+      s3Key = `${version}/${year}/${month}/${day}/rdf.xml`
+    }
 
     // Check if bucket exists
     try {

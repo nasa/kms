@@ -78,6 +78,7 @@ export VPC_ID={your vpc id}
 ```
 export RDF4J_USER_NAME=[your rdfdb user name]
 export RDF4J_PASSWORD=[your rdfdb password]
+export RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 ```
 
 #### Deploy Docker Container to Registry
@@ -89,6 +90,11 @@ cd infrastructure/rdfdb/cdk/bin
 #### Deploy ECS Service to AWS
 #### Deploy IAM, EBS, LB, and ECS stacks
 ```
+export RDF4J_USER_NAME=[your rdfdb user name]
+export RDF4J_PASSWORD=[your rdfdb password]
+export RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
+export RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
+
 cd infrastructure/rdfdb/cdk
 cdk deploy rdf4jIamStack
 cdk deploy rdf4jEbsStack

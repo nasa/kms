@@ -59,6 +59,10 @@ Resources:
                   - s3:PutObject
                   - s3:GetObject
                   - s3:ListBucket
+                  - s3:PutLifecycleConfiguration 
+                  - s3:GetBucketLocation
+                  - s3:ListAllMyBuckets
+                  - s3:HeadBucket 
                 Resource:
                   - arn:aws:s3:::kms-rdf-backup
                   - arn:aws:s3:::kms-rdf-backup/*      

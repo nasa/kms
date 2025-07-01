@@ -119,6 +119,13 @@ const custom = require('aws-cdk-lib/custom-resources')
     return iam.Role.fromRoleArn(this, 'ImportedRole', Fn.importValue('rdf4jRoleArn'))
   }
 
+  getInstanceType() {
+    const instanceType = process.env.RDF4J_INSTANCE_TYPE || 'R5.LARGE'
+    const [instanceClass, instanceSize] = instanceType.split('.')
+
+    return ec2.InstanceType.of(ec2.InstanceClass[instanceClass], ec2.InstanceSize[instanceSize])
+  }
+
   createEcsCluster() {
     const { ebsVolumeId } = this
 
@@ -133,7 +140,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     userData.addCommands(scriptWithVolume)
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.R5, ec2.InstanceSize.LARGE),
+      instanceType: this.getInstanceType(),
       machineImage: ec2.MachineImage.fromSsmParameter('/ngap/amis/image_id_ecs_al2023_x86'),
       minCapacity: 1,
       maxCapacity: 1,
@@ -236,12 +243,17 @@ const custom = require('aws-cdk-lib/custom-resources')
     this.ecsService.attachToApplicationTargetGroup(this.targetGroup)
   }
 
+  getContainerMemoryLimit() {
+  // Default to 14336 (14 GiB) if not specified
+    return parseInt(process.env.RDF4J_CONTAINER_MEMORY_LIMIT || '14336', 10)
+  }
+
   createTaskDefinition() {
     const taskDef = new ecs.Ec2TaskDefinition(this, 'rdf4jTaskDefinition', {
       taskRole: this.role,
       executionRole: this.role,
       networkMode: ecs.NetworkMode.AWS_VPC,
-      memory: '15360' // 15 GiB
+      memory: this.getContainerMemoryLimit()
     })
 
     return taskDef
@@ -253,7 +265,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     const container = taskDefinition.addContainer('rdf4jContainer', {
       image: ecs.ContainerImage.fromEcrRepository(this.repository, VERSION),
       user: 'root',
-      memoryLimitMiB: 15360, // 15 GiB
+      memoryLimitMiB: this.getContainerMemoryLimit(),
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'rdf4j',
         logGroup: this.logGroup
@@ -263,7 +275,8 @@ const custom = require('aws-cdk-lib/custom-resources')
         REGION: process.env.CDK_DEFAULT_REGION,
         RDF4J_DATA_DIR: '/rdf4j-data',
         RDF4J_USER_NAME: process.env.RDF4J_USER_NAME,
-        RDF4J_PASSWORD: process.env.RDF4J_PASSWORD
+        RDF4J_PASSWORD: process.env.RDF4J_PASSWORD,
+        RDF4J_CONTAINER_MEMORY_LIMIT: this.getContainerMemoryLimit().toString()
       }
     })
 
