@@ -33,15 +33,10 @@
     "install": "^0.13.0",
     "lodash": "^4.17.21",
     "node-fetch": "^2.7.0",
-    "prop-types": "^15.8.1",
-    "react": "^18.2.0",
-    "react-bootstrap": "^2.9.1",
-    "react-dom": "^18.2.0",
-    "react-router": "^6.18.0",
-    "react-router-dom": "^6.18.0",
     "remove": "^0.1.5",
-    "request": "^2.88.2",
     "stream": "^0.0.3",
+    "uuid": "^11.1.0",
+    "vite": "^4.5.5",
     "xpath": "^0.0.34"
   },
   "devDependencies": {
@@ -53,8 +48,6 @@
     "@testing-library/jest-dom": "^6.1.4",
     "@testing-library/react": "^14.1.2",
     "@testing-library/user-event": "^14.5.1",
-    "@types/react": "^18.2.15",
-    "@types/react-dom": "^18.2.7",
     "@vitest/coverage-istanbul": "^1.4.0",
     "@vitejs/plugin-react": "^4.1.0",
     "aws-cdk-lib": "^2.177.0",
@@ -71,9 +64,6 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-testing-library": "^6.2.2",
-    "express": "^4.18.2",
-    "http": "^0.0.1-security",
-    "http-proxy": "^1.18.1",
     "jsdom": "^22.1.0",
     "postcss-scss": "^4.0.9",
     "rollup-plugin-polyfill-node": "^0.12.0",
@@ -89,9 +79,6 @@
     "stylelint-config-idiomatic-order": "^9.0.0",
     "stylelint-config-standard": "^34.0.0",
     "stylelint-scss": "^5.2.1",
-    "uuid": "^11.1.0",
-    "vite": "^4.5.5",
-    "vite-plugin-ejs": "^1.6.4",
     "vitest": "^1.4.0"
   }
 }
