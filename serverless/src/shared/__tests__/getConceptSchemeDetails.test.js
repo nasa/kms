@@ -55,7 +55,7 @@ describe('getConceptSchemeDetails', () => {
 
       expect(sparqlRequestModule.sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         method: 'POST',
-        body: expect.stringContaining('FILTER(?notation = "ChainedOperations")'),
+        body: expect.stringContaining('FILTER(LCASE(STR(?notation)) = LCASE("ChainedOperations"))'),
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json'
       }))

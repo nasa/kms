@@ -128,7 +128,7 @@ describe('createCsvForScheme', () => {
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
       expect(getCsvPaths).toHaveBeenCalledWith(scheme, 0, version) // Called with 0 since initial headers were empty
       expect(getMaxLengthOfSubArray).toHaveBeenCalledWith(mockPaths)
-      expect(generateCsvHeaders).toHaveBeenCalledWith(scheme, 3)
+      expect(generateCsvHeaders).toHaveBeenCalledWith(scheme, version, 3)
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockGeneratedHeaders, mockPaths)
     })
   })
