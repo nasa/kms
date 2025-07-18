@@ -53,11 +53,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * {@link sparqlRequest}
  */
 export const getCsvMetadata = async (scheme, version) => {
-  if (scheme.toLowerCase() === 'granuledataformat') {
-    // eslint-disable-next-line no-param-reassign
-    scheme = 'dataformat'
-  }
-
   let updateDate = 'N/A'
   try {
     // Make a SPARQL request to fetch concept scheme details

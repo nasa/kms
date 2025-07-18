@@ -35,6 +35,11 @@ import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
 export const createCsvForScheme = async (scheme, version) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   try {
+    if (scheme.toLowerCase() === 'granuledataformat') {
+    // eslint-disable-next-line no-param-reassign
+      scheme = 'dataformat'
+    }
+
     // Get CSV output metadata
     const csvMetadata = await getCsvMetadata(scheme, version)
     // Get CSV headers

@@ -70,37 +70,6 @@ describe('getCsvMetadata', () => {
 
       expect(result[1]).toBe('Revision: undefined')
     })
-
-    test('should handle case when scheme is granuledataformat', async () => {
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          results: {
-            bindings: [
-              {
-                modified: { value: '2023-06-14' }
-              }
-            ]
-          }
-        })
-      }
-      sparqlRequest.mockResolvedValue(mockResponse)
-
-      const result = await getCsvMetadata('granuledataformat', 'published')
-
-      expect(result).toEqual([
-        'Keyword Version: N',
-        'Revision: 2023-06-14',
-        `Timestamp: ${format(new Date('2023-06-15T12:00:00Z'), 'yyyy-MM-dd HH:mm:ss')}`,
-        'Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
-        'The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/dataformat/?format=xml'
-      ])
-
-      // Check if sparqlRequest was called with 'dataformat' instead of 'granuledataformat'
-      expect(result).toEqual(expect.arrayContaining([
-        expect.stringContaining('concept_scheme/dataformat/?format=xml')
-      ]))
-    })
   })
 
   describe('when unsuccessful', () => {
