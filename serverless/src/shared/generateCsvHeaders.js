@@ -1,3 +1,8 @@
+import {
+  getConceptSchemeDetailsQuery
+} from '@/shared/operations/queries/getConceptSchemeDetailsQuery'
+import { sparqlRequest } from '@/shared/sparqlRequest'
+
 /**
  * Generates CSV headers based on the provided scheme and maximum number of columns.
  *
@@ -23,22 +28,50 @@
  * console.log(headers3);
  * // Output: ['TestScheme', 'Level1', 'UUID']
  */
-export const generateCsvHeaders = (scheme, maxColumns) => {
+export const generateCsvHeaders = async (scheme, version, maxColumns) => {
   const uuid = 'UUID'
 
-  if (maxColumns === 2) {
-    return [scheme, uuid]
+  try {
+    // Make a SPARQL request to fetch concept scheme details
+    const response = await sparqlRequest({
+      method: 'POST',
+      contentType: 'application/sparql-query',
+      accept: 'application/sparql-results+json',
+      body: getConceptSchemeDetailsQuery(scheme),
+      version
+    })
+
+    // Check if the response is successful
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    // Parse the JSON response
+    const json = await response.json()
+
+    // Extract the triples from the response
+    const triples = json.results.bindings
+    // Get the CSV headers string from the first triple
+    const notation = triples[0]?.notation.value
+
+    if (maxColumns === 2) {
+      return [notation, uuid]
+    }
+
+    const headers = [notation]
+    const levelCount = maxColumns - 2
+
+    // eslint-disable-next-line no-plusplus
+    for (let i = 1; i <= levelCount; i++) {
+      headers.push(`Level${i}`)
+    }
+
+    headers.push(uuid)
+
+    return headers
+  } catch (error) {
+    // Log and re-throw any errors that occur during the process
+    console.error('Error fetching triples:', error)
+    throw error
   }
-
-  const headers = [scheme]
-  const levelCount = maxColumns - 2
-
-  // eslint-disable-next-line no-plusplus
-  for (let i = 1; i <= levelCount; i++) {
-    headers.push(`Level${i}`)
-  }
-
-  headers.push(uuid)
-
-  return headers
 }

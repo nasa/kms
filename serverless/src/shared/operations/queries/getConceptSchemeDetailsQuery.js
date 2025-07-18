@@ -10,6 +10,6 @@ WHERE {
           skos:notation ?notation ;
           dcterms:modified ?modified .
   OPTIONAL { ?scheme gcmd:csvHeaders ?csvHeaders }
-  ${schemeName ? `FILTER(?notation = "${schemeName}")` : ''}
+  ${schemeName ? `FILTER(LCASE(STR(?notation)) = LCASE("${schemeName}"))` : ''}
 }
 `
