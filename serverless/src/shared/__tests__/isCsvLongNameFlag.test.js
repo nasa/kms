@@ -3,7 +3,7 @@ import { isCsvLongNameFlag } from '../isCsvLongNameFlag'
 describe('longNameFlag', () => {
   describe('when successful', () => {
     test('returns true for schemes that require long names', () => {
-      const schemesWithLongNames = ['platforms', 'instruments', 'projects', 'providers', 'idnnode']
+      const schemesWithLongNames = ['platforms', 'instruments', 'projects', 'providers', 'idnnode', 'dataformat']
 
       schemesWithLongNames.forEach((scheme) => {
         expect(isCsvLongNameFlag(scheme)).toBe(true)
