@@ -63,6 +63,7 @@ dockerRun() {
         --env "SYNC_API_ENDPOINT=$bamboo_SYNC_API_ENDPOINT" \
         --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
+        --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
         $dockerTag "$@"
 }
 
