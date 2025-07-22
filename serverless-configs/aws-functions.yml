@@ -42,6 +42,8 @@ syncConceptData:
 exportRdfToS3:
   handler: serverless/src/exportRdfToS3/handler.default
   timeout: 900
+  environment:
+    RDF_BUCKET_NAME: ${env:RDF_BUCKET_NAME, 'kms-rdf-backup'}
   events:
     - schedule:
         name: exportRdfToS3ForPublished
