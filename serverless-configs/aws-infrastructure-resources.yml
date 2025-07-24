@@ -64,8 +64,12 @@ Resources:
                   - s3:ListAllMyBuckets
                   - s3:HeadBucket 
                 Resource:
-                  - arn:aws:s3:::kms-rdf-backup
-                  - arn:aws:s3:::kms-rdf-backup/*      
+                  - arn:aws:s3:::kms-rdf-backup-sit
+                  - arn:aws:s3:::kms-rdf-backup-sit/*
+                  - arn:aws:s3:::kms-rdf-backup-uat
+                  - arn:aws:s3:::kms-rdf-backup-uat/*
+                  - arn:aws:s3:::kms-rdf-backup-ops
+                  - arn:aws:s3:::kms-rdf-backup-ops/*
         - PolicyName: KMSLambdaBase
           PolicyDocument:
             Version: '2012-10-17'
