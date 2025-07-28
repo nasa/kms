@@ -33,28 +33,22 @@
 export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
   // Handle 'platforms', 'instruments', and 'projects' schemes
   if (['platforms', 'instruments', 'projects'].includes(scheme.toLowerCase())) {
-    const maxLevel = csvHeadersCount - 2
+    const maxLevel = csvHeadersCount - 2 // Max level up to long name, uuid
 
     // Return if path length matches maxLevel
     if (maxLevel === path.length) {
       return path
     }
 
-    // Add spaces to non-leaf nodes if path is shorter than maxLevel
-    if ((maxLevel > path.length) && !isLeaf) {
-      while (maxLevel > path.length) {
-        path.push(' ')
+    while (maxLevel > path.length) {
+      if (!isLeaf) {
+        path.push(' ') // Add space to end
+      } else {
+        path.splice(path.length - 1, 0, ' ') // Add space before short name
       }
-
-      return path
     }
 
-    // Insert a space for leaf nodes if path is shorter than maxLevel
-    if ((maxLevel > path.length) && isLeaf) {
-      path.splice(maxLevel - 2, 0, ' ')
-
-      return path
-    }
+    return path
   }
 
   // Handle 'sciencekeywords', 'chronounits', 'locations', 'discipline', 'rucontenttype', and 'measurementname' schemes

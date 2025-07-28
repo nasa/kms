@@ -18,14 +18,14 @@ describe('formatPath', () => {
             expect(result).toEqual(['a', 'b', 'c'])
           })
 
-          test('should pad the path with spaces when path length is less than maxLevel and not a leaf', () => {
-            const result = formatCsvPath(scheme, 6, ['a', 'b'], false)
-            expect(result).toEqual(['a', 'b', ' ', ' '])
+          test('should pad spaces to the end when path is shorter than maxLevel and not a leaf', () => {
+            const result = formatCsvPath('instruments', 6, ['Instrument1'], false)
+            expect(result).toEqual(['Instrument1', ' ', ' ', ' '])
           })
 
-          test('should insert a space at maxLevel - 2 when path length is less than maxLevel and is a leaf', () => {
-            const result = formatCsvPath(scheme, 6, ['a', 'b', 'c'], true)
-            expect(result).toEqual(['a', 'b', ' ', 'c'])
+          test('should pad spaces before short name when path is shorter than maxLevel and is a leaf', () => {
+            const result = formatCsvPath('instruments', 6, ['Instrument1', 'ShortName'], true)
+            expect(result).toEqual(['Instrument1', ' ', ' ', 'ShortName'])
           })
         })
       })
