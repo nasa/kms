@@ -46,7 +46,11 @@ describe('getConcepts', () => {
     vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    getApplicationConfig.mockReturnValue({
+      defaultResponseHeaders: mockDefaultHeaders,
+      maxTotalConceptsLimit: 50000
+    })
+
     createCsvForScheme.mockReset()
     createPrefLabelMap.mockResolvedValue(new Map())
     createConceptSchemeMap.mockResolvedValue(new Map())
@@ -609,6 +613,21 @@ describe('getConcepts', () => {
       expect(result.statusCode).toBe(400)
       expect(JSON.parse(result.body)).toEqual({
         error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+      })
+    })
+
+    test('returns 400 when requested number of concepts exceeds maximum', async () => {
+      const event = {
+        queryStringParameters: {
+          page_num: '26',
+          page_size: '2000'
+        }
+      }
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(400)
+      expect(JSON.parse(result.body)).toEqual({
+        error: 'Invalid page_size/page_num parameters (52000) exceeds the maximum allowed (50000).'
       })
     })
 

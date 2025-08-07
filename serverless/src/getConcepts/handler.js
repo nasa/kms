@@ -90,7 +90,7 @@ export const getConcepts = async (event, context) => {
   const startTime = performance.now()
   const performanceMetrics = {}
 
-  const { defaultResponseHeaders } = getApplicationConfig()
+  const { defaultResponseHeaders, maxTotalConceptsLimit = 50000 } = getApplicationConfig()
   const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
@@ -123,6 +123,18 @@ export const getConcepts = async (event, context) => {
       headers: defaultResponseHeaders,
       statusCode: 400,
       body: JSON.stringify({ error: 'Invalid page_size parameter. Must be between 1 and 2000.' })
+    }
+  }
+
+  // Discourage inefficient API usage patterns, such as aggressive looping through pages
+  // which results in costs associated with calculating total count for each request.
+  if (pageSize * pageNum > maxTotalConceptsLimit) {
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 400,
+      body: JSON.stringify({
+        error: `Invalid page_size/page_num parameters (${pageSize * pageNum}) exceeds the maximum allowed (${maxTotalConceptsLimit}).`
+      })
     }
   }
 
