@@ -176,7 +176,7 @@ describe('getConcepts', () => {
 
       expect(getFilteredTriples).toHaveBeenCalledWith({
         pageNum: 1,
-        pageSize: 2000,
+        pageSize: 1000,
         pattern: 'matching',
         conceptScheme: undefined,
         version: 'published'
@@ -220,7 +220,7 @@ describe('getConcepts', () => {
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
         pageNum: 1,
-        pageSize: 2000,
+        pageSize: 1000,
         pattern: undefined,
         version: 'published'
       })
@@ -273,7 +273,7 @@ describe('getConcepts', () => {
       expect(getFilteredTriples).toHaveBeenCalledWith({
         conceptScheme: 'scheme1',
         pageNum: 1,
-        pageSize: 2000,
+        pageSize: 1000,
         pattern: 'matching',
         version: 'published'
       })
@@ -531,7 +531,7 @@ describe('getConcepts', () => {
       const body = JSON.parse(result.body)
       expect(body).toHaveProperty('hits', 2)
       expect(body).toHaveProperty('page_num', 1)
-      expect(body).toHaveProperty('page_size', 2000)
+      expect(body).toHaveProperty('page_size', 1000)
       expect(body).toHaveProperty('concepts')
       expect(body.concepts).toHaveLength(2)
       expect(body.concepts[0]).toEqual({
@@ -612,15 +612,15 @@ describe('getConcepts', () => {
 
       expect(result.statusCode).toBe(400)
       expect(JSON.parse(result.body)).toEqual({
-        error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+        error: 'Invalid page_size parameter. Must be between 1 and 1000.'
       })
     })
 
     test('returns 400 when requested number of concepts exceeds maximum', async () => {
       const event = {
         queryStringParameters: {
-          page_num: '26',
-          page_size: '2000'
+          page_num: '52',
+          page_size: '1000'
         }
       }
       const result = await getConcepts(event)
@@ -667,7 +667,7 @@ describe('getConcepts', () => {
 
       expect(result.headers['X-Total-Count']).toBe('0')
       expect(result.headers['X-Page-Number']).toBe('1')
-      expect(result.headers['X-Page-Size']).toBe('2000')
+      expect(result.headers['X-Page-Size']).toBe('1000')
       expect(result.headers['X-Total-Pages']).toBe('0')
       expect(result.body).not.toContain('<skos:Concept')
     })
@@ -712,7 +712,7 @@ describe('getConcepts', () => {
 
       expect(result.statusCode).toBe(400)
       expect(JSON.parse(result.body)).toEqual({
-        error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+        error: 'Invalid page_size parameter. Must be between 1 and 1000.'
       })
     })
 
@@ -726,7 +726,7 @@ describe('getConcepts', () => {
 
       expect(result.statusCode).toBe(400)
       expect(JSON.parse(result.body)).toEqual({
-        error: 'Invalid page_size parameter. Must be between 1 and 2000.'
+        error: 'Invalid page_size parameter. Must be between 1 and 1000.'
       })
     })
   })

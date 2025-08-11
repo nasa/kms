@@ -19,6 +19,8 @@ import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
+const MAX_PAGE_SIZE = 1000
+
 /**
  * Retrieves multiple SKOS Concepts and returns them in the specified format.
  *
@@ -34,7 +36,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @param {string} [event.pathParameters.pattern] - The pattern to filter concepts by.
  * @param {Object} [event.queryStringParameters] - The query string parameters from the API Gateway event.
  * @param {string} [event.queryStringParameters.page_num='1'] - The page number for pagination.
- * @param {string} [event.queryStringParameters.page_size='2000'] - The page size for pagination (max 2000).
+ * @param {string} [event.queryStringParameters.page_size='1000'] - The page size for pagination (max 1000).
  * @param {string} [event.queryStringParameters.format='rdf'] - The output format (rdf, json, xml, or csv).
  * @param {string} [event.queryStringParameters.version='published'] - The version of the concepts to retrieve.
  * @param {string} [event.path] - The path of the API request.
@@ -93,7 +95,7 @@ export const getConcepts = async (event, context) => {
   const { defaultResponseHeaders, maxTotalConceptsLimit = 50000 } = getApplicationConfig()
   const { queryStringParameters } = event
   const { conceptScheme, pattern } = event?.pathParameters || {}
-  const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
+  const { page_num: pageNumStr = '1', page_size: pageSizeStr = MAX_PAGE_SIZE.toString(), format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
   // Convert page_num and page_size to integers
@@ -117,12 +119,12 @@ export const getConcepts = async (event, context) => {
   }
 
   if (Number.isNaN(pageSize)
-  || pageSize < 1 || pageSize > 2000
+  || pageSize < 1 || pageSize > MAX_PAGE_SIZE
   || pageSize !== Number(pageSizeStr)) {
     return {
       headers: defaultResponseHeaders,
       statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid page_size parameter. Must be between 1 and 2000.' })
+      body: JSON.stringify({ error: 'Invalid page_size parameter. Must be between 1 and 1000.' })
     }
   }
 
