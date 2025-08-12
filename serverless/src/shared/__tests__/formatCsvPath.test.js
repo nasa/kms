@@ -20,12 +20,12 @@ describe('formatPath', () => {
 
           test('should pad spaces to the end when path is shorter than maxLevel and not a leaf', () => {
             const result = formatCsvPath('instruments', 6, ['Instrument1'], false)
-            expect(result).toEqual(['Instrument1', ' ', ' ', ' '])
+            expect(result).toEqual(['Instrument1', '', '', ''])
           })
 
           test('should pad spaces before short name when path is shorter than maxLevel and is a leaf', () => {
             const result = formatCsvPath('instruments', 6, ['Instrument1', 'ShortName'], true)
-            expect(result).toEqual(['Instrument1', ' ', ' ', 'ShortName'])
+            expect(result).toEqual(['Instrument1', '', '', 'ShortName'])
           })
         })
       })
@@ -43,7 +43,7 @@ describe('formatPath', () => {
 
           test('should pad the path with spaces when path length is less than maxLevel', () => {
             const result = formatCsvPath(scheme, 5, ['a', 'b'], false)
-            expect(result).toEqual(['a', 'b', ' ', ' '])
+            expect(result).toEqual(['a', 'b', '', ''])
           })
         })
       })
@@ -57,12 +57,12 @@ describe('formatPath', () => {
 
       test('should pad the path with spaces when path length is less than maxLevel and not a leaf', () => {
         const result = formatCsvPath('providers', 6, ['a', 'b'], false)
-        expect(result).toEqual(['a', 'b', ' '])
+        expect(result).toEqual(['a', 'b', ''])
       })
 
       test('should insert spaces before the last element when path length is less than maxLevel and is a leaf', () => {
         const result = formatCsvPath('providers', 6, ['a', 'b'], true)
-        expect(result).toEqual(['a', ' ', 'b'])
+        expect(result).toEqual(['a', '', 'b'])
       })
     })
 
@@ -74,12 +74,12 @@ describe('formatPath', () => {
 
       test('should return the original path for sciencekeywords scheme when path length shorter than maxLevel', () => {
         const result = formatCsvPath('sciencekeywords', 4, ['a', 'b'], false)
-        expect(result).toEqual(['a', 'b', ' '])
+        expect(result).toEqual(['a', 'b', ''])
       })
 
       test('should return the original path for providers scheme when path length equals maxLevel', () => {
         const result = formatCsvPath('providers', 8, ['a', 'b'], true)
-        expect(result).toEqual(['a', ' ', ' ', ' ', 'b'])
+        expect(result).toEqual(['a', '', '', '', 'b'])
       })
     })
   })

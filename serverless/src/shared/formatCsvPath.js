@@ -13,17 +13,17 @@
  * @example
  * // For 'platforms' scheme
  * formatCsvPath('platforms', 5, ['Level1', 'Level2'], false)
- * // Returns: ['Level1', 'Level2', ' ']
+ * // Returns: ['Level1', 'Level2', '']
  *
  * @example
  * // For 'sciencekeywords' scheme
  * formatCsvPath('sciencekeywords', 4, ['Category', 'Topic'], false)
- * // Returns: ['Category', 'Topic', ' ']
+ * // Returns: ['Category', 'Topic', '']
  *
  * @example
  * // For 'providers' scheme
  * formatCsvPath('providers', 6, ['Provider1', 'Provider2'], true)
- * // Returns: ['Provider1', 'Provider2', ' ', ' ']
+ * // Returns: ['Provider1', 'Provider2', '', '']
  *
  * @example
  * // For an unhandled scheme
@@ -42,9 +42,9 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
 
     while (maxLevel > path.length) {
       if (!isLeaf) {
-        path.push(' ') // Add space to end
+        path.push('') // Add space to end
       } else {
-        path.splice(path.length - 1, 0, ' ') // Add space before short name
+        path.splice(path.length - 1, 0, '') // Add space before short name
       }
     }
 
@@ -63,7 +63,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
     // Add spaces if path is shorter than maxLevel
     if (maxLevel > path.length) {
       while (maxLevel > path.length) {
-        path.push(' ')
+        path.push('')
       }
 
       return path
@@ -82,7 +82,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
     // Add spaces to non-leaf nodes if path is shorter than maxLevel
     if ((maxLevel > path.length) && !isLeaf) {
       while (maxLevel > path.length) {
-        path.push(' ')
+        path.push('')
       }
 
       return path
@@ -91,7 +91,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
     // Insert spaces for leaf nodes if path is shorter than maxLevel
     if ((maxLevel > path.length) && isLeaf) {
       while (maxLevel > path.length) {
-        path.splice(path.length - 1, 0, ' ')
+        path.splice(path.length - 1, 0, '')
       }
 
       return path
