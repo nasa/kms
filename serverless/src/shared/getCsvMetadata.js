@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import {
   getConceptSchemeDetailsQuery
 } from '@/shared/operations/queries/getConceptSchemeDetailsQuery'
@@ -54,7 +55,13 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 export const getCsvMetadata = async (scheme, version) => {
   let updateDate = 'N/A'
+  let keywordVersion = 'N/A'
   try {
+    const versionInfo = await getVersionMetadata(version)
+    if (versionInfo?.versionName) {
+      keywordVersion = versionInfo?.versionName
+    }
+
     // Make a SPARQL request to fetch concept scheme details
     const response = await sparqlRequest({
       method: 'POST',
@@ -86,7 +93,7 @@ export const getCsvMetadata = async (scheme, version) => {
   // Initialize an empty array to store metadata
   const metadata = []
   // Add standard metadata information
-  metadata.push('Keyword Version: N')
+  metadata.push(`Keyword Version: ${keywordVersion}`)
   metadata.push(`Revision: ${updateDate}`)
   // Add timestamp in the format 'yyyy-MM-dd HH:mm:ss'
   metadata.push(`Timestamp: ${format(Date.now(), 'yyyy-MM-dd HH:mm:ss')}`)
