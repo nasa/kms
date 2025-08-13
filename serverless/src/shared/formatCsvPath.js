@@ -42,9 +42,9 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
 
     while (maxLevel > path.length) {
       if (!isLeaf) {
-        path.push('') // Add space to end
+        path.push('') // Add empty columns to end
       } else {
-        path.splice(path.length - 1, 0, '') // Add space before short name
+        path.splice(path.length - 1, 0, '') // Add empty columns before short name
       }
     }
 
@@ -60,7 +60,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
       return path
     }
 
-    // Add spaces if path is shorter than maxLevel
+    // Add empty columns if path is shorter than maxLevel
     if (maxLevel > path.length) {
       while (maxLevel > path.length) {
         path.push('')
@@ -79,7 +79,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
       return path
     }
 
-    // Add spaces to non-leaf nodes if path is shorter than maxLevel
+    // Add empty columns to non-leaf nodes if path is shorter than maxLevel
     if ((maxLevel > path.length) && !isLeaf) {
       while (maxLevel > path.length) {
         path.push('')
@@ -88,7 +88,7 @@ export const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => {
       return path
     }
 
-    // Insert spaces for leaf nodes if path is shorter than maxLevel
+    // Insert empty columns for leaf nodes if path is shorter than maxLevel
     if ((maxLevel > path.length) && isLeaf) {
       while (maxLevel > path.length) {
         path.splice(path.length - 1, 0, '')
