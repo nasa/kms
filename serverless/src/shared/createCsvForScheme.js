@@ -42,7 +42,7 @@ export const createCsvForScheme = async ({ scheme, version, versionName }) => {
     }
 
     // Get scheme update date
-    let schemeUpdateDate = getSchemeUpdateDate(scheme, version)
+    let schemeUpdateDate = await getSchemeUpdateDate(scheme, version)
     if (!schemeUpdateDate) {
       schemeUpdateDate = 'N/A'
     }
