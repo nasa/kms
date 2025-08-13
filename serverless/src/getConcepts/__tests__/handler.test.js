@@ -59,6 +59,29 @@ describe('getConcepts', () => {
     toLegacyJSON.mockReturnValue({})
   })
 
+  describe('when an invalid version is provided', () => {
+    test('returns 400 status code with error message for invalid version', async () => {
+      // Mock getVersionMetadata to return null for invalid version
+      getVersionMetadata.mockResolvedValue(null)
+
+      const event = {
+        queryStringParameters: {
+          version: 'invalid_version'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+      })
+
+      expect(getVersionMetadata).toHaveBeenCalledWith('invalid_version')
+    })
+  })
+
   describe('when format is CSV', () => {
     test('calls createCsvForScheme when format is csv and conceptScheme is provided', async () => {
       getFilteredTriples.mockResolvedValue([])
@@ -86,7 +109,12 @@ describe('getConcepts', () => {
 
       const result = await getConcepts(event)
 
-      expect(createCsvForScheme).toHaveBeenCalledWith('testScheme', 'published')
+      expect(createCsvForScheme).toHaveBeenCalledWith({
+        scheme: 'testScheme',
+        version: 'published',
+        versionName: '21.0'
+      })
+
       expect(result).toEqual(mockCsvResponse)
     })
 
@@ -348,6 +376,8 @@ describe('getConcepts', () => {
         '@rdf:about': uri,
         'skos:prefLabel': { _text: `Concept ${uri.split('uri')[1]}` }
       }))
+
+      getVersionMetadata.mockResolvedValue({ versionName: '1.0' })
     })
 
     test('handles basic pagination case', async () => {
@@ -385,7 +415,7 @@ describe('getConcepts', () => {
       })
     })
 
-    it('handles pagination for second page', async () => {
+    test('handles pagination for second page', async () => {
       const event = {
         queryStringParameters: {
           page_num: '2',
@@ -420,7 +450,7 @@ describe('getConcepts', () => {
       })
     })
 
-    it('handles pagination for last page with fewer items', async () => {
+    test('handles pagination for last page with fewer items', async () => {
       const event = {
         queryStringParameters: {
           page_num: '4',

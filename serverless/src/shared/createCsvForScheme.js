@@ -1,10 +1,11 @@
 import { createCsv } from './createCsv'
+import { createCsvMetadata } from './createCsvMetadata'
 import { generateCsvHeaders } from './generateCsvHeaders'
 import { getApplicationConfig } from './getConfig'
 import { getCsvHeaders } from './getCsvHeaders'
-import { getCsvMetadata } from './getCsvMetadata'
 import { getCsvPaths } from './getCsvPaths'
 import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
+import { getSchemeUpdateDate } from './getSchemeUpdateDate'
 
 /**
  * Creates a CSV file for a specified scheme.
@@ -32,7 +33,7 @@ import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
  * }
  */
 
-export const createCsvForScheme = async (scheme, version) => {
+export const createCsvForScheme = async ({ scheme, version, versionName }) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   try {
     if (scheme.toLowerCase() === 'granuledataformat') {
@@ -40,8 +41,18 @@ export const createCsvForScheme = async (scheme, version) => {
       scheme = 'dataformat'
     }
 
-    // Get CSV output metadata
-    const csvMetadata = await getCsvMetadata(scheme, version)
+    // Get scheme update date
+    let schemeUpdateDate = getSchemeUpdateDate(scheme, version)
+    if (!schemeUpdateDate) {
+      schemeUpdateDate = 'N/A'
+    }
+
+    // Create CSV metadata
+    const csvMetadata = createCsvMetadata({
+      versionName,
+      scheme,
+      schemeUpdateDate
+    })
     // Get CSV headers
     let csvHeaders = await getCsvHeaders(scheme, version)
     // Calculate CSV header count

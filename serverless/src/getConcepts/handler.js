@@ -96,6 +96,18 @@ export const getConcepts = async (event, context) => {
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
+  let keywordVersion = 'n/a'
+  const versionInfo = await getVersionMetadata(version)
+  if (versionInfo) {
+    keywordVersion = versionInfo.versionName
+  } else {
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+    }
+  }
+
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
   const pageSize = parseInt(pageSizeStr, 10)
@@ -157,7 +169,11 @@ export const getConcepts = async (event, context) => {
         }
       }
 
-      return createCsvForScheme(conceptScheme, version)
+      return createCsvForScheme({
+        scheme: conceptScheme,
+        version,
+        versionName: keywordVersion
+      })
     }
 
     let triples
@@ -204,9 +220,6 @@ export const getConcepts = async (event, context) => {
 
       const conceptSchemeMap = await createConceptSchemeMap(event)
 
-      const versionInfo = await getVersionMetadata(version)
-      const keywordVersion = versionInfo?.versionName || 'n/a'
-
       const jsonResponse = {
         hits: totalConcepts,
         page_num: pageNum,
@@ -248,9 +261,6 @@ export const getConcepts = async (event, context) => {
         attributeNamePrefix: '@',
         suppressEmptyNode: true
       })
-
-      const versionInfo = await getVersionMetadata(version)
-      const keywordVersion = versionInfo?.versionName || 'n/a'
 
       const xmlObj = {
         concepts: {
