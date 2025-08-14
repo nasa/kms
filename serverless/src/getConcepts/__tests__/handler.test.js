@@ -168,6 +168,11 @@ describe('getConcepts', () => {
       }
       createCsvForScheme.mockResolvedValue(mockCsvResponse)
 
+      getVersionMetadata.mockResolvedValue({
+        versionName: '21.0',
+        created: '2023-01-01T00:00:00Z'
+      })
+
       const event = {
         queryStringParameters: {
           format: 'csv'
@@ -182,7 +187,8 @@ describe('getConcepts', () => {
       expect(createCsvForScheme).toHaveBeenCalledWith({
         scheme: 'testScheme',
         version: 'published',
-        versionName: '21.0'
+        versionName: '21.0',
+        versionCreationDate: '2023-01-01T00:00:00Z'
       })
 
       expect(result).toEqual(mockCsvResponse)

@@ -1,11 +1,22 @@
 import { format } from 'date-fns'
 
-export const createCsvMetadata = ({ versionName, scheme, schemeUpdateDate }) => {
+/**
+ * Creates CSV metadata for a keyword version.
+ *
+ * @param {Object} options - The options for creating metadata.
+ * @param {string} options.versionName - The name of the keyword version.
+ * @param {string} options.versionCreationDate - The creation date of the version.
+ * @param {string} options.scheme - The scheme identifier for the XML representation URL.
+ * @returns {string[]} An array of metadata strings.
+ */
+export const createCsvMetadata = ({
+  versionName, versionCreationDate, scheme
+}) => {
   // Initialize an empty array to store metadata
   const metadata = []
   // Add standard metadata information
   metadata.push(`Keyword Version: ${versionName}`)
-  metadata.push(`Revision: ${schemeUpdateDate}`)
+  metadata.push(`Revision: ${versionCreationDate}`)
   // Add timestamp in the format 'yyyy-MM-dd HH:mm:ss'
   metadata.push(`Timestamp: ${format(Date.now(), 'yyyy-MM-dd HH:mm:ss')}`)
   // Add Terms of Use URL

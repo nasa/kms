@@ -99,9 +99,11 @@ export const getConcepts = async (event, context) => {
 
   // Check existence of version
   let keywordVersion = 'n/a'
+  let versionCreationDate = 'n/a'
   const versionInfo = await getVersionMetadata(version)
   if (versionInfo) {
     keywordVersion = versionInfo.versionName
+    versionCreationDate = versionInfo.created
   } else {
     return {
       headers: defaultResponseHeaders,
@@ -189,7 +191,8 @@ export const getConcepts = async (event, context) => {
       return createCsvForScheme({
         scheme: conceptScheme,
         version,
-        versionName: keywordVersion
+        versionName: keywordVersion,
+        versionCreationDate
       })
     }
 

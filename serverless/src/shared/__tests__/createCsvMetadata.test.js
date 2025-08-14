@@ -16,7 +16,7 @@ describe('createCsvMetadata', () => {
     const params = {
       versionName: '1.0',
       scheme: 'test-scheme',
-      schemeUpdateDate: '2023-05-19'
+      versionCreationDate: '2023-05-19'
     }
 
     const result = createCsvMetadata(params)
@@ -37,7 +37,7 @@ describe('createCsvMetadata', () => {
     const params = {
       versionName: '2.1',
       scheme: 'another-scheme',
-      schemeUpdateDate: '2023-06-14'
+      versionCreationDate: '2023-06-14'
     }
 
     const result = createCsvMetadata(params)

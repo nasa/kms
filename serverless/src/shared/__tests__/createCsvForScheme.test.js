@@ -13,7 +13,6 @@ import { getApplicationConfig } from '../getConfig'
 import { getCsvHeaders } from '../getCsvHeaders'
 import { getCsvPaths } from '../getCsvPaths'
 import { getMaxLengthOfSubArray } from '../getMaxLengthOfSubArray'
-import { getSchemeUpdateDate } from '../getSchemeUpdateDate'
 
 // Mock the imported functions
 vi.mock('../getConfig')
@@ -31,7 +30,6 @@ describe('createCsvForScheme', () => {
     vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(createCsvMetadata).mockReturnValue(['mocked metadata'])
-    vi.mocked(getSchemeUpdateDate).mockReturnValue('2023-01-01')
   })
 
   describe('when successful', () => {
@@ -39,6 +37,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'testScheme'
       const version = 'draft'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2']
@@ -54,7 +53,8 @@ describe('createCsvForScheme', () => {
       const result = await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       expect(result).toEqual({
@@ -70,7 +70,7 @@ describe('createCsvForScheme', () => {
       expect(createCsvMetadata).toHaveBeenCalledWith({
         versionName,
         scheme,
-        schemeUpdateDate: '2023-01-01'
+        versionCreationDate: '2023-01-01'
       })
 
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
@@ -82,6 +82,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'testScheme'
       const version = 'draft'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2', 'Header3']
@@ -102,7 +103,8 @@ describe('createCsvForScheme', () => {
       await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       // Check if createCsv was called with correctly sorted paths
@@ -119,6 +121,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'testScheme'
       const version = 'draft'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockPaths = [['A', '1', '2'], ['B', '2', '3']]
@@ -136,7 +139,8 @@ describe('createCsvForScheme', () => {
       const result = await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       expect(result).toEqual({
@@ -152,7 +156,7 @@ describe('createCsvForScheme', () => {
       expect(createCsvMetadata).toHaveBeenCalledWith({
         versionName,
         scheme,
-        schemeUpdateDate: '2023-01-01'
+        versionCreationDate: '2023-01-01'
       })
 
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
@@ -166,6 +170,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'granuledataformat'
       const version = 'draft'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2']
@@ -181,7 +186,8 @@ describe('createCsvForScheme', () => {
       const result = await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       expect(result).toEqual({
@@ -198,7 +204,7 @@ describe('createCsvForScheme', () => {
       expect(createCsvMetadata).toHaveBeenCalledWith({
         versionName,
         scheme: 'dataformat',
-        schemeUpdateDate: '2023-01-01'
+        versionCreationDate: '2023-01-01'
       })
 
       expect(getCsvHeaders).toHaveBeenCalledWith('dataformat', version)
@@ -212,6 +218,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'testScheme'
       const version = 'draft'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Test error')
 
@@ -221,7 +228,8 @@ describe('createCsvForScheme', () => {
       const result = await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       expect(result).toEqual({
@@ -235,7 +243,7 @@ describe('createCsvForScheme', () => {
       expect(createCsvMetadata).toHaveBeenCalledWith({
         versionName,
         scheme,
-        schemeUpdateDate: '2023-01-01'
+        versionCreationDate: '2023-01-01'
       })
     })
 
@@ -243,6 +251,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'testScheme'
       const version = 'draft'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Headers error')
 
@@ -253,7 +262,8 @@ describe('createCsvForScheme', () => {
       const result = await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       expect(result).toEqual({
@@ -267,7 +277,7 @@ describe('createCsvForScheme', () => {
       expect(createCsvMetadata).toHaveBeenCalledWith({
         versionName,
         scheme,
-        schemeUpdateDate: '2023-01-01'
+        versionCreationDate: '2023-01-01'
       })
 
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
@@ -277,6 +287,7 @@ describe('createCsvForScheme', () => {
       const scheme = 'testScheme'
       const version = 'version'
       const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Paths error')
 
@@ -288,7 +299,8 @@ describe('createCsvForScheme', () => {
       const result = await createCsvForScheme({
         scheme,
         version,
-        versionName
+        versionName,
+        versionCreationDate
       })
 
       expect(result).toEqual({
@@ -302,7 +314,7 @@ describe('createCsvForScheme', () => {
       expect(createCsvMetadata).toHaveBeenCalledWith({
         versionName,
         scheme,
-        schemeUpdateDate: '2023-01-01'
+        versionCreationDate: '2023-01-01'
       })
 
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
@@ -314,6 +326,7 @@ describe('createCsvForScheme', () => {
     const scheme = 'testScheme'
     const version = 'draft'
     const versionName = 'Test Version'
+    const versionCreationDate = 'N/A'
     const mockDefaultHeaders = { 'Default-Header': 'value' }
     const mockMetadata = { some: 'metadata' }
     const mockHeaders = ['Header1', 'Header2']
@@ -325,18 +338,18 @@ describe('createCsvForScheme', () => {
     getCsvHeaders.mockResolvedValue(mockHeaders)
     getCsvPaths.mockResolvedValue(mockPaths)
     createCsv.mockResolvedValue(mockCsvContent)
-    getSchemeUpdateDate.mockReturnValue(null) // Simulate no update date
 
     await createCsvForScheme({
       scheme,
       version,
-      versionName
+      versionName,
+      versionCreationDate
     })
 
     expect(createCsvMetadata).toHaveBeenCalledWith({
       versionName,
       scheme,
-      schemeUpdateDate: 'N/A'
+      versionCreationDate: 'N/A'
     })
   })
 })
