@@ -87,6 +87,8 @@ getConcepts:
   handler: serverless/src/getConcepts/handler.default
   provisionedConcurrency: 1
   timeout: ${env:LAMBDA_TIMEOUT, '900'}
+  environment:
+    GET_CONCEPTS_BUCKET_NAME: ${env:GET_CONCEPTS_BUCKET_NAME, 'get-concepts'}
   events:
     - http:
         method: get

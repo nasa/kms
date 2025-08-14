@@ -21,7 +21,7 @@ import {
  * const s3Client = new S3Client({});
  * await ensureBucketAndLifecycleRule(s3Client, 'my-bucket', 30);
  */
-export const ensureBucketAndLifecycleRule = async (s3Client, bucketName, daysUntilExpiration) => {
+export const ensureBucketAndLifecycleRule = async (s3Client, bucketName, daysUntilExpiration, filterPrefix = 'draft/') => {
   // Check if bucket exists, create if it doesn't
   try {
     await s3Client.send(new HeadBucketCommand({ Bucket: bucketName }))
@@ -44,7 +44,7 @@ export const ensureBucketAndLifecycleRule = async (s3Client, bucketName, daysUnt
           ID: 'ExpireDraftFiles',
           Status: 'Enabled',
           Filter: {
-            Prefix: 'draft/'
+            Prefix: filterPrefix
           },
           Expiration: { Days: daysUntilExpiration }
         }
@@ -54,7 +54,7 @@ export const ensureBucketAndLifecycleRule = async (s3Client, bucketName, daysUnt
 
   try {
     await s3Client.send(command)
-    console.log(`Lifecycle rule set/updated: Objects in 'draft/' will expire after ${daysUntilExpiration} days`)
+    console.log(`Lifecycle rule set/updated: Objects in ${filterPrefix} will expire after ${daysUntilExpiration} days`)
   } catch (error) {
     console.error('Error setting/updating lifecycle rule:', error)
     throw error
