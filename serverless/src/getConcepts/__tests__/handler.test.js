@@ -13,6 +13,7 @@ import {
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -24,6 +25,7 @@ import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 // Mock the specified dependencies
+vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/createCsvForScheme')
 vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
@@ -60,7 +62,7 @@ describe('getConcepts', () => {
   })
 
   describe('when an invalid version is provided', () => {
-    test('returns 400 status code with error message for invalid version', async () => {
+    test('returns 404 status code with error message for invalid version', async () => {
       // Mock getVersionMetadata to return null for invalid version
       getVersionMetadata.mockResolvedValue(null)
 
@@ -74,11 +76,79 @@ describe('getConcepts', () => {
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
-        statusCode: 400,
+        statusCode: 404,
         body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
       })
 
       expect(getVersionMetadata).toHaveBeenCalledWith('invalid_version')
+    })
+  })
+
+  describe('concept scheme validation', () => {
+    beforeEach(() => {
+      vi.resetAllMocks()
+      getApplicationConfig.mockReturnValue({
+        defaultResponseHeaders: mockDefaultHeaders,
+        maxTotalConceptsLimit: 50000
+      })
+
+      getVersionMetadata.mockResolvedValue({ versionName: '21.0' })
+    })
+
+    test('returns 404 when concept scheme is not found', async () => {
+      getConceptSchemeDetails.mockResolvedValue(null)
+
+      const event = {
+        pathParameters: {
+          conceptScheme: 'nonexistentScheme'
+        },
+        queryStringParameters: {
+          version: 'published'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result).toEqual({
+        headers: mockDefaultHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
+      })
+
+      expect(getConceptSchemeDetails).toHaveBeenCalledWith({
+        schemeName: 'nonexistentScheme',
+        version: 'published'
+      })
+    })
+
+    test('continues execution when concept scheme is found', async () => {
+      getConceptSchemeDetails.mockResolvedValue({ /* Mock scheme details */ })
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        pathParameters: {
+          conceptScheme: 'existingScheme'
+        },
+        queryStringParameters: {
+          version: 'published'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(getConceptSchemeDetails).toHaveBeenCalledWith({
+        schemeName: 'existingScheme',
+        version: 'published'
+      })
     })
   })
 

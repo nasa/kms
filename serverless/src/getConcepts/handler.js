@@ -8,6 +8,7 @@ import {
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -96,6 +97,7 @@ export const getConcepts = async (event, context) => {
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
+  // Check existence of version
   let keywordVersion = 'n/a'
   const versionInfo = await getVersionMetadata(version)
   if (versionInfo) {
@@ -103,8 +105,23 @@ export const getConcepts = async (event, context) => {
   } else {
     return {
       headers: defaultResponseHeaders,
-      statusCode: 400,
+      statusCode: 404,
       body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+    }
+  }
+
+  // Check existence of scheme if given
+  if (conceptScheme) {
+    const scheme = await getConceptSchemeDetails({
+      schemeName: conceptScheme,
+      version
+    })
+    if (scheme === null) {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
+      }
     }
   }
 
