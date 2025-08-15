@@ -342,7 +342,7 @@ export const getConcepts = async (event, context) => {
       }
     } else {
       console.log('content size greater than SIZE_THRESHOLD')
-      const signedUrl = createRedirectToS3(responseBody, contentType)
+      const signedUrl = await createRedirectToS3(responseBody, contentType)
       console.log('signed url=', signedUrl)
       response = {
         statusCode: 302,
