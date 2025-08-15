@@ -322,6 +322,7 @@ export const getConcepts = async (event, context) => {
 
     const SIZE_THRESHOLD = 5 * 1024 * 1024 // 5MB in bytes
     const contentSize = Buffer.byteLength(responseBody)
+    console.log('content size=', contentSize)
 
     const headers = {
       ...defaultResponseHeaders,
@@ -333,13 +334,16 @@ export const getConcepts = async (event, context) => {
     }
     let response
     if (contentSize < SIZE_THRESHOLD) {
+      console.log('content size less than SIZE_THRESHOLD')
       response = {
         statusCode: 200,
         body: responseBody,
         headers
       }
     } else {
+      console.log('content size greater than SIZE_THRESHOLD')
       const signedUrl = createRedirectToS3(responseBody, contentType)
+      console.log('signed url=', signedUrl)
       response = {
         statusCode: 302,
         body: '',
