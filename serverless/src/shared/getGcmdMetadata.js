@@ -76,7 +76,7 @@ export const getGcmdMetadata = async ({
     const iriIdentifier = conceptIRI.split('/').pop()
 
     baseMetadata['gcmd:schemeVersion'] = {
-      _text: '2025-01-22 17:32:01'
+      _text: versionInfo?.created || 'n/a'
     }
 
     baseMetadata['gcmd:viewer'] = {
