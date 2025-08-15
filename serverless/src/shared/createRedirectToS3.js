@@ -9,7 +9,7 @@ import { ensureBucketAndLifecycleRule } from './ensureBucketAndLifeCycleRule'
 
 export const createRedirectToS3 = async (content, contentType) => {
   const s3Client = new S3Client({})
-  const s3BucketName = process.env.GET_CONCEPTS_BUCKET_NAME || 'get-concepts'
+  const s3BucketName = process.env.GET_CONCEPTS_BUCKET_NAME || 'get-concepts-ops'
   const contentSize = Buffer.byteLength(content)
   const objectKey = `concepts-${Date.now()}-${contentSize}`
 

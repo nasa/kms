@@ -64,6 +64,7 @@ dockerRun() {
         --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
         --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
+        --env "GET_CONCEPTS_BUCKET_NAME=$bamboo_GET_CONCEPTS_BUCKET_NAME" \
         $dockerTag "$@"
 }
 

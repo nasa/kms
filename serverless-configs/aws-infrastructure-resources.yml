@@ -70,6 +70,12 @@ Resources:
                   - arn:aws:s3:::kms-rdf-backup-uat/*
                   - arn:aws:s3:::kms-rdf-backup-ops
                   - arn:aws:s3:::kms-rdf-backup-ops/*
+                  - arn:aws:s3:::get-concepts-sit
+                  - arn:aws:s3:::get-concepts-sit/*
+                  - arn:aws:s3:::get-concepts-uat
+                  - arn:aws:s3:::get-concepts-uat/*
+                  - arn:aws:s3:::get-concepts-ops
+                  - arn:aws:s3:::get-concepts-ops/*
         - PolicyName: KMSLambdaBase
           PolicyDocument:
             Version: '2012-10-17'
