@@ -42,7 +42,7 @@ describe('getGcmdMetadata', () => {
         version: 'draft'
       })
       expect(result).toMatchObject({
-        'gcmd:schemeVersion': { _text: '2025-01-22 17:32:01' },
+        'gcmd:schemeVersion': { _text: '2023-01-01T00:00:00Z' },
         'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/5678/1234' }
       })
 
@@ -65,7 +65,7 @@ describe('getGcmdMetadata', () => {
         'gcmd:page_size': { _text: '2000' },
         'gcmd:termsOfUse': { _text: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf' },
         'gcmd:keywordVersion': { _text: '20.8' },
-        'gcmd:schemeVersion': { _text: '2025-01-22 17:32:01' },
+        'gcmd:schemeVersion': { _text: '2023-01-01T00:00:00Z' },
         'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/5678/1234' }
       })
 

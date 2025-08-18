@@ -7,33 +7,37 @@ import {
 
 import { createCsv } from '../createCsv'
 import { createCsvForScheme } from '../createCsvForScheme'
+import { createCsvMetadata } from '../createCsvMetadata'
 import { generateCsvHeaders } from '../generateCsvHeaders'
 import { getApplicationConfig } from '../getConfig'
 import { getCsvHeaders } from '../getCsvHeaders'
-import { getCsvMetadata } from '../getCsvMetadata'
 import { getCsvPaths } from '../getCsvPaths'
 import { getMaxLengthOfSubArray } from '../getMaxLengthOfSubArray'
 
 // Mock the imported functions
 vi.mock('../getConfig')
-vi.mock('../getCsvMetadata')
+vi.mock('../createCsvMetadata')
 vi.mock('../getCsvHeaders')
 vi.mock('../getCsvPaths')
 vi.mock('../createCsv')
 vi.mock('../generateCsvHeaders')
 vi.mock('../getMaxLengthOfSubArray')
+vi.mock('../getSchemeUpdateDate')
 
 describe('createCsvForScheme', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     vi.resetAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(createCsvMetadata).mockReturnValue(['mocked metadata'])
   })
 
   describe('when successful', () => {
     test('should create a CSV for a given scheme successfully', async () => {
       const scheme = 'testScheme'
       const version = 'draft'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2']
@@ -41,12 +45,17 @@ describe('createCsvForScheme', () => {
       const mockCsvContent = 'csv,content'
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockResolvedValue(mockMetadata)
+      createCsvMetadata.mockReturnValue(mockMetadata)
       getCsvHeaders.mockResolvedValue(mockHeaders)
       getCsvPaths.mockResolvedValue(mockPaths)
       createCsv.mockResolvedValue(mockCsvContent)
 
-      const result = await createCsvForScheme(scheme, version)
+      const result = await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       expect(result).toEqual({
         statusCode: 200,
@@ -58,7 +67,12 @@ describe('createCsvForScheme', () => {
         }
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(createCsvMetadata).toHaveBeenCalledWith({
+        versionName,
+        scheme,
+        versionCreationDate: '2023-01-01'
+      })
+
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
       expect(getCsvPaths).toHaveBeenCalledWith(scheme, mockHeaders.length, version)
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockHeaders, mockPaths)
@@ -66,6 +80,9 @@ describe('createCsvForScheme', () => {
 
     test('should sort paths correctly when shorter arrays come first', async () => {
       const scheme = 'testScheme'
+      const version = 'draft'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2', 'Header3']
@@ -78,12 +95,17 @@ describe('createCsvForScheme', () => {
       const mockCsvContent = 'csv,content'
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockResolvedValue(mockMetadata)
+      createCsvMetadata.mockReturnValue(mockMetadata)
       getCsvHeaders.mockResolvedValue(mockHeaders)
       getCsvPaths.mockResolvedValue(mockPaths)
       createCsv.mockResolvedValue(mockCsvContent)
 
-      await createCsvForScheme(scheme)
+      await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       // Check if createCsv was called with correctly sorted paths
       const expectedSortedPaths = [
@@ -98,6 +120,8 @@ describe('createCsvForScheme', () => {
     test('should generate headers if none are retrieved', async () => {
       const scheme = 'testScheme'
       const version = 'draft'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockPaths = [['A', '1', '2'], ['B', '2', '3']]
@@ -105,14 +129,19 @@ describe('createCsvForScheme', () => {
       const mockCsvContent = 'csv,content'
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockResolvedValue(mockMetadata)
+      createCsvMetadata.mockReturnValue(mockMetadata)
       getCsvHeaders.mockResolvedValue([]) // Return empty array to trigger header generation
       getCsvPaths.mockResolvedValue(mockPaths)
       getMaxLengthOfSubArray.mockReturnValue(3)
       generateCsvHeaders.mockReturnValue(mockGeneratedHeaders)
       createCsv.mockResolvedValue(mockCsvContent)
 
-      const result = await createCsvForScheme(scheme, version)
+      const result = await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       expect(result).toEqual({
         statusCode: 200,
@@ -124,7 +153,12 @@ describe('createCsvForScheme', () => {
         }
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(createCsvMetadata).toHaveBeenCalledWith({
+        versionName,
+        scheme,
+        versionCreationDate: '2023-01-01'
+      })
+
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
       expect(getCsvPaths).toHaveBeenCalledWith(scheme, 0, version) // Called with 0 since initial headers were empty
       expect(getMaxLengthOfSubArray).toHaveBeenCalledWith(mockPaths)
@@ -135,6 +169,8 @@ describe('createCsvForScheme', () => {
     test('should handle "granuledataformat" scheme correctly', async () => {
       const scheme = 'granuledataformat'
       const version = 'draft'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockMetadata = { some: 'metadata' }
       const mockHeaders = ['Header1', 'Header2']
@@ -142,12 +178,17 @@ describe('createCsvForScheme', () => {
       const mockCsvContent = 'csv,content'
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockResolvedValue(mockMetadata)
+      createCsvMetadata.mockReturnValue(mockMetadata)
       getCsvHeaders.mockResolvedValue(mockHeaders)
       getCsvPaths.mockResolvedValue(mockPaths)
       createCsv.mockResolvedValue(mockCsvContent)
 
-      const result = await createCsvForScheme(scheme, version)
+      const result = await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       expect(result).toEqual({
         statusCode: 200,
@@ -160,7 +201,12 @@ describe('createCsvForScheme', () => {
       })
 
       // Check if the functions were called with 'dataformat' instead of 'granuledataformat'
-      expect(getCsvMetadata).toHaveBeenCalledWith('dataformat', version)
+      expect(createCsvMetadata).toHaveBeenCalledWith({
+        versionName,
+        scheme: 'dataformat',
+        versionCreationDate: '2023-01-01'
+      })
+
       expect(getCsvHeaders).toHaveBeenCalledWith('dataformat', version)
       expect(getCsvPaths).toHaveBeenCalledWith('dataformat', mockHeaders.length, version)
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockHeaders, mockPaths)
@@ -171,13 +217,20 @@ describe('createCsvForScheme', () => {
     test('should handle errors and return a 500 status code', async () => {
       const scheme = 'testScheme'
       const version = 'draft'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Test error')
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockRejectedValue(mockError)
+      createCsvMetadata.mockImplementation(() => { throw mockError })
 
-      const result = await createCsvForScheme(scheme, version)
+      const result = await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
@@ -187,20 +240,31 @@ describe('createCsvForScheme', () => {
         })
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(createCsvMetadata).toHaveBeenCalledWith({
+        versionName,
+        scheme,
+        versionCreationDate: '2023-01-01'
+      })
     })
 
     test('should handle errors from getCsvHeaders and return a 500 status code', async () => {
       const scheme = 'testScheme'
       const version = 'draft'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Headers error')
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockResolvedValue({})
+      createCsvMetadata.mockReturnValue({})
       getCsvHeaders.mockRejectedValue(mockError)
 
-      const result = await createCsvForScheme(scheme, version)
+      const result = await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
@@ -210,22 +274,34 @@ describe('createCsvForScheme', () => {
         })
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(createCsvMetadata).toHaveBeenCalledWith({
+        versionName,
+        scheme,
+        versionCreationDate: '2023-01-01'
+      })
+
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
     })
 
     test('should handle errors from getCsvPaths and return a 500 status code', async () => {
       const scheme = 'testScheme'
       const version = 'version'
+      const versionName = 'Test Version'
+      const versionCreationDate = '2023-01-01'
       const mockDefaultHeaders = { 'Default-Header': 'value' }
       const mockError = new Error('Paths error')
 
       getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      getCsvMetadata.mockResolvedValue({})
+      createCsvMetadata.mockReturnValue({})
       getCsvHeaders.mockResolvedValue(['Header1', 'Header2'])
       getCsvPaths.mockRejectedValue(mockError)
 
-      const result = await createCsvForScheme(scheme, version)
+      const result = await createCsvForScheme({
+        scheme,
+        version,
+        versionName,
+        versionCreationDate
+      })
 
       expect(result).toEqual({
         headers: mockDefaultHeaders,
@@ -235,9 +311,45 @@ describe('createCsvForScheme', () => {
         })
       })
 
-      expect(getCsvMetadata).toHaveBeenCalledWith(scheme, version)
+      expect(createCsvMetadata).toHaveBeenCalledWith({
+        versionName,
+        scheme,
+        versionCreationDate: '2023-01-01'
+      })
+
       expect(getCsvHeaders).toHaveBeenCalledWith(scheme, version)
       expect(getCsvPaths).toHaveBeenCalledWith(scheme, 2, version)
+    })
+  })
+
+  test('should use "N/A" as schemeUpdateDate when getSchemeUpdateDate returns falsy value', async () => {
+    const scheme = 'testScheme'
+    const version = 'draft'
+    const versionName = 'Test Version'
+    const versionCreationDate = 'N/A'
+    const mockDefaultHeaders = { 'Default-Header': 'value' }
+    const mockMetadata = { some: 'metadata' }
+    const mockHeaders = ['Header1', 'Header2']
+    const mockPaths = ['path1', 'path2']
+    const mockCsvContent = 'csv,content'
+
+    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    createCsvMetadata.mockReturnValue(mockMetadata)
+    getCsvHeaders.mockResolvedValue(mockHeaders)
+    getCsvPaths.mockResolvedValue(mockPaths)
+    createCsv.mockResolvedValue(mockCsvContent)
+
+    await createCsvForScheme({
+      scheme,
+      version,
+      versionName,
+      versionCreationDate
+    })
+
+    expect(createCsvMetadata).toHaveBeenCalledWith({
+      versionName,
+      scheme,
+      versionCreationDate: 'N/A'
     })
   })
 })

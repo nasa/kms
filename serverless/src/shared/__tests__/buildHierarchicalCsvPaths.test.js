@@ -222,7 +222,7 @@ describe('buildHierarchicalCsvPaths', () => {
     })
 
     expect(paths).toHaveLength(1)
-    expect(paths[0]).toEqual(['Child', ' ', ' ', 'child'])
+    expect(paths[0]).toEqual(['Child', '', '', 'child'])
   })
 
   test('should not include paths with only one node', async () => {

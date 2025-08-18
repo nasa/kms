@@ -8,6 +8,7 @@ import {
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -96,6 +97,36 @@ export const getConcepts = async (event, context) => {
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
+  // Check existence of version
+  let keywordVersion = 'n/a'
+  let versionCreationDate = 'n/a'
+  const versionInfo = await getVersionMetadata(version)
+  if (versionInfo) {
+    keywordVersion = versionInfo.versionName
+    versionCreationDate = versionInfo.created
+  } else {
+    return {
+      headers: defaultResponseHeaders,
+      statusCode: 404,
+      body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+    }
+  }
+
+  // Check existence of scheme if given
+  if (conceptScheme) {
+    const scheme = await getConceptSchemeDetails({
+      schemeName: conceptScheme,
+      version
+    })
+    if (scheme === null) {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
+      }
+    }
+  }
+
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
   const pageSize = parseInt(pageSizeStr, 10)
@@ -157,7 +188,12 @@ export const getConcepts = async (event, context) => {
         }
       }
 
-      return createCsvForScheme(conceptScheme, version)
+      return createCsvForScheme({
+        scheme: conceptScheme,
+        version,
+        versionName: keywordVersion,
+        versionCreationDate
+      })
     }
 
     let triples
@@ -204,9 +240,6 @@ export const getConcepts = async (event, context) => {
 
       const conceptSchemeMap = await createConceptSchemeMap(event)
 
-      const versionInfo = await getVersionMetadata(version)
-      const keywordVersion = versionInfo?.versionName || 'n/a'
-
       const jsonResponse = {
         hits: totalConcepts,
         page_num: pageNum,
@@ -248,9 +281,6 @@ export const getConcepts = async (event, context) => {
         attributeNamePrefix: '@',
         suppressEmptyNode: true
       })
-
-      const versionInfo = await getVersionMetadata(version)
-      const keywordVersion = versionInfo?.versionName || 'n/a'
 
       const xmlObj = {
         concepts: {

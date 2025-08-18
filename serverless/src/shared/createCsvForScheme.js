@@ -1,38 +1,24 @@
 import { createCsv } from './createCsv'
+import { createCsvMetadata } from './createCsvMetadata'
 import { generateCsvHeaders } from './generateCsvHeaders'
 import { getApplicationConfig } from './getConfig'
 import { getCsvHeaders } from './getCsvHeaders'
-import { getCsvMetadata } from './getCsvMetadata'
 import { getCsvPaths } from './getCsvPaths'
 import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
 
 /**
- * Creates a CSV file for a specified scheme.
+ * Creates a CSV file for the specified scheme.
  *
- * This function generates a CSV file containing data for a given scheme. It retrieves
- * metadata, headers, and row data for the scheme, then compiles this information into
- * a CSV format. The function handles both successful CSV creation and error scenarios.
- *
- * @async
- * @function createCsvForScheme
- * @param {string} scheme - The identifier for the scheme for which to create the CSV.
- * @returns {Promise<Object>} A promise that resolves to an object containing:
- *   @property {number} statusCode - HTTP status code (200 for success, 500 for error).
- *   @property {string} body - CSV data as a string (for success) or error message (for failure).
- *   @property {Object} headers - HTTP headers for the response.
- *
- * @throws Will throw an error if there's an issue retrieving data or creating the CSV.
- *
- * @example
- * const result = await createCsvForScheme('exampleScheme');
- * if (result.statusCode === 200) {
- *   console.log('CSV created successfully');
- * } else {
- *   console.error('Failed to create CSV:', result.body);
- * }
+ * @param {Object} params - The parameters for creating the CSV.
+ * @param {string} params.scheme - The scheme name.
+ * @param {string} params.version - The version parameter.
+ * @param {string} params.versionName - The name of the version.
+ * @param {string} params.versionCreationDate - The creation date of the version.
+ * @returns {Promise<Object>} A promise that resolves to an object containing the CSV data and response details.
  */
-
-export const createCsvForScheme = async (scheme, version) => {
+export const createCsvForScheme = async ({
+  scheme, version, versionName, versionCreationDate
+}) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   try {
     if (scheme.toLowerCase() === 'granuledataformat') {
@@ -40,8 +26,12 @@ export const createCsvForScheme = async (scheme, version) => {
       scheme = 'dataformat'
     }
 
-    // Get CSV output metadata
-    const csvMetadata = await getCsvMetadata(scheme, version)
+    // Create CSV metadata
+    const csvMetadata = createCsvMetadata({
+      versionName,
+      versionCreationDate,
+      scheme
+    })
     // Get CSV headers
     let csvHeaders = await getCsvHeaders(scheme, version)
     // Calculate CSV header count

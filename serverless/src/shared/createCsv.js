@@ -54,7 +54,10 @@ export const createCsv = async (csvMetadata, csvHeaders, values) => new Promise(
   values.splice(1, 0, csvHeaders)
 
   // Use csv-stringify to convert the 2D array to CSV format
-  stringify(values, { quoted: true }, (err, output) => {
+  stringify(values, {
+    quoted: true,
+    quoted_empty: true
+  }, (err, output) => {
     if (err) {
       // If there's an error during CSV creation, reject the promise
       reject(err)

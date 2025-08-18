@@ -122,12 +122,12 @@ export const buildHierarchicalCsvPaths = async (params) => {
 
     // Add long name if required by the scheme
     if (isCsvLongNameFlag(scheme)) {
-      path.push(longNameArray || ' ')
+      path.push(longNameArray || '')
     }
 
     // Add provider URL if required by the scheme
     if (isCsvProviderUrlFlag(scheme)) {
-      path.push(providerUrlsArray ? providerUrlsArray[0] : ' ')
+      path.push(providerUrlsArray ? providerUrlsArray[0] : '')
     }
 
     // Add UUID to the path
