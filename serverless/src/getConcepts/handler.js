@@ -364,13 +364,16 @@ export const getConcepts = async (event, context) => {
       'X-Total-Pages': totalPages.toString()
     }
     let response
+    // Check if the response body size exceeds the threshold for compression
     if (contentSize < SIZE_THRESHOLD) {
+      // If the content is smaller than the threshold, return uncompressed
       response = {
         statusCode: 200,
         body: responseBody,
         headers
       }
     } else {
+      // If the content is larger than the threshold, attempt to compress it
       const gzip = promisify(zlib.gzip)
       try {
         const compressedBody = await gzip(responseBody)
@@ -385,6 +388,7 @@ export const getConcepts = async (event, context) => {
           }
         }
       } catch (compressionError) {
+        // Log the error if compression fails
         console.error('Error compressing response:', compressionError)
         // Fallback to uncompressed response if compression fails
         response = {
