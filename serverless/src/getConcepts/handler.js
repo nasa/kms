@@ -349,7 +349,8 @@ export const getConcepts = async (event, context) => {
         body: '',
         headers: {
           ...headers,
-          Location: signedUrl
+          Location: signedUrl,
+          'X-Use-Original-Url': 'true'
         }
       }
     }

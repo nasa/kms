@@ -7,4 +7,5 @@ headers:
   - Authorization
   - Origin
   - User-Agent
+  - X-Use-Original-Url
 allowCredentials: true
