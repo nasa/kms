@@ -1,4 +1,7 @@
 /* eslint-disable no-underscore-dangle */
+import { promisify } from 'util'
+import zlib from 'zlib'
+
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
@@ -8,7 +11,6 @@ import {
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { createRedirectToS3 } from '@/shared/createRedirectToS3'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
@@ -320,7 +322,7 @@ export const getConcepts = async (event, context) => {
     performanceMetrics.totalTime = (endTime - startTime).toFixed(2)
     console.log('get concepts performance=', JSON.stringify(performanceMetrics))
 
-    const SIZE_THRESHOLD = 5 * 1024 * 1024 // 5MB in bytes
+    const SIZE_THRESHOLD = 4.5 * 1024 * 1024 // 5MB in bytes
     const contentSize = Buffer.byteLength(responseBody)
     console.log('content size=', contentSize)
 
@@ -334,23 +336,34 @@ export const getConcepts = async (event, context) => {
     }
     let response
     if (contentSize < SIZE_THRESHOLD) {
-      console.log('content size less than SIZE_THRESHOLD')
+      console.log('content size less than 4.5MB')
       response = {
         statusCode: 200,
         body: responseBody,
         headers
       }
     } else {
-      console.log('content size greater than SIZE_THRESHOLD')
-      const signedUrl = await createRedirectToS3(responseBody, contentType)
-      console.log('signed url=', signedUrl)
-      response = {
-        statusCode: 302,
-        body: '',
-        headers: {
-          ...headers,
-          Location: signedUrl,
-          'X-Use-Original-Url': 'true'
+      const gzip = promisify(zlib.gzip)
+      console.log('content size greater than 4.5MB, compressing')
+      try {
+        const compressedBody = await gzip(responseBody)
+        response = {
+          statusCode: 200,
+          body: compressedBody.toString('base64'),
+          isBase64Encoded: true,
+          headers: {
+            ...headers,
+            'Content-Encoding': 'gzip',
+            'Content-Length': compressedBody.length
+          }
+        }
+      } catch (compressionError) {
+        console.error('Error compressing response:', compressionError)
+        // Fallback to uncompressed response if compression fails
+        response = {
+          statusCode: 200,
+          body: responseBody,
+          headers
         }
       }
     }
