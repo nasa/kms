@@ -1,3 +1,5 @@
+import zlib from 'zlib'
+
 import {
   beforeEach,
   describe,
@@ -40,6 +42,7 @@ vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/getVersionMetadata')
 vi.mock('@/shared/operations/queries/getTotalCountQuery')
 vi.mock('@/shared/getTotalConceptCount')
+vi.mock('zlib')
 
 describe('getConcepts', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -242,6 +245,154 @@ describe('getConcepts', () => {
         statusCode: 400,
         body: JSON.stringify({ error: 'Pattern parameter is not allowed for CSV format' })
       })
+    })
+  })
+
+  describe('response compression', () => {
+    beforeEach(() => {
+      vi.resetAllMocks()
+      getApplicationConfig.mockReturnValue({
+        defaultResponseHeaders: mockDefaultHeaders,
+        maxTotalConceptsLimit: 50000
+      })
+
+      getVersionMetadata.mockResolvedValue({ versionName: '1.0' })
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+    })
+
+    test('compresses response when size exceeds threshold', async () => {
+      // Create a large response body
+      const largeResponseBody = 'a'.repeat(6 * 1024 * 1024) // 6MB of data
+      const mockTriples = [
+        {
+          s: { value: 'http://example.com/concept1' },
+          p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+          o: { value: largeResponseBody }
+        }
+      ]
+
+      getFilteredTriples.mockResolvedValue(mockTriples)
+
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: { 'http://example.com/concept1': new Set(mockTriples) },
+        conceptURIs: ['http://example.com/concept1']
+      })
+
+      toSkosJson.mockImplementation((uri, triples) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': { _text: triples[0].o.value }
+      }))
+
+      getTotalConceptCount.mockResolvedValue(1)
+
+      // Mock the gzip function
+      const mockGzip = vi.fn().mockImplementation((input, callback) => {
+        callback(null, Buffer.from('compressed data'))
+      })
+      zlib.gzip = mockGzip
+
+      const event = {}
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.isBase64Encoded).toBe(true)
+      expect(result.headers['Content-Encoding']).toBe('gzip')
+      expect(result.headers['Content-Length']).toBe(15) // Length of 'compressed data'
+      expect(result.body).toBe(Buffer.from('compressed data').toString('base64'))
+      expect(mockGzip).toHaveBeenCalled()
+    })
+
+    test('falls back to uncompressed response if compression fails', async () => {
+      const largeResponseBody = 'a'.repeat(6 * 1024 * 1024) // 6MB of data
+      const mockTriples = [
+        {
+          s: { value: 'http://example.com/concept1' },
+          p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+          o: { value: largeResponseBody }
+        }
+      ]
+
+      getFilteredTriples.mockResolvedValue(mockTriples)
+
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: { 'http://example.com/concept1': new Set(mockTriples) },
+        conceptURIs: ['http://example.com/concept1']
+      })
+
+      toSkosJson.mockImplementation((uri, triples) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': { _text: triples[0].o.value }
+      }))
+
+      getTotalConceptCount.mockResolvedValue(1)
+
+      const mockGzip = vi.fn().mockImplementation((input, callback) => {
+        callback(new Error('Compression failed'), null)
+      })
+      zlib.gzip = mockGzip
+
+      const consoleSpy = vi.spyOn(console, 'error')
+
+      const event = {}
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.isBase64Encoded).toBeUndefined()
+      expect(result.headers['Content-Encoding']).toBeUndefined()
+      expect(result.headers['Content-Length']).toBeUndefined()
+      expect(result.body).toContain('<skos:Concept rdf:about="http://example.com/concept1">')
+      expect(result.body).toContain(`<skos:prefLabel>${largeResponseBody}</skos:prefLabel>`)
+      expect(consoleSpy).toHaveBeenCalledWith('Error compressing response:', expect.any(Error))
+      expect(mockGzip).toHaveBeenCalled()
+    })
+
+    test('does not compress response when size is below threshold', async () => {
+      const smallResponseBody = 'small response'
+      const mockTriples = [
+        {
+          s: { value: 'http://example.com/concept1' },
+          p: { value: 'http://www.w3.org/2004/02/skos/core#prefLabel' },
+          o: { value: smallResponseBody }
+        }
+      ]
+      getFilteredTriples.mockResolvedValue(mockTriples)
+
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: { 'http://example.com/concept1': new Set(mockTriples) },
+        conceptURIs: ['http://example.com/concept1']
+      })
+
+      toSkosJson.mockImplementation((uri, triples) => ({
+        '@rdf:about': uri,
+        'skos:prefLabel': { _text: triples[0].o.value }
+      }))
+
+      getTotalConceptCount.mockResolvedValue(1)
+
+      const mockGzip = vi.fn()
+      zlib.gzip = mockGzip
+
+      const event = {}
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.isBase64Encoded).toBeUndefined()
+      expect(result.headers['Content-Encoding']).toBeUndefined()
+      expect(result.headers['Content-Length']).toBeUndefined()
+      expect(result.body).toContain('<skos:Concept rdf:about="http://example.com/concept1">')
+      expect(result.body).toContain('<skos:prefLabel>small response</skos:prefLabel>')
+      expect(mockGzip).not.toHaveBeenCalled()
     })
   })
 
