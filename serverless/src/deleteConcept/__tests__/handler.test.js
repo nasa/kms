@@ -115,7 +115,10 @@ describe('deleteConcept', () => {
 
       expect(conceptIdExists).toHaveBeenCalledWith(mockConceptIRI, customVersion)
       expect(getConceptById).toHaveBeenCalledWith('123', customVersion)
-      expect(ensureReciprocal).toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
+      expect(ensureReciprocal).toHaveBeenCalledWith(
+        expect.objectContaining({ version: customVersion })
+      )
+
       expect(deleteTriples).toHaveBeenCalledWith(mockConceptIRI, customVersion, mockTransactionUrl)
     })
   })

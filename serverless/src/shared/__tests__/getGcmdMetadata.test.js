@@ -22,6 +22,10 @@ vi.mocked(getVersionMetadata).mockResolvedValue({
 })
 
 describe('getGcmdMetadata', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
   describe('when successful', () => {
     test('should return base metadata when no arguments are provided', async () => {
       const result = await getGcmdMetadata({})
@@ -91,11 +95,54 @@ describe('getGcmdMetadata', () => {
   })
 
   describe('when unsuccessful', () => {
-    test('should handle errors from getConceptSchemeOfConcept', async () => {
+    test('should log error when getConceptSchemeOfConcept fails', async () => {
       const mockConceptIRI = 'https://gcmd.earthdata.nasa.gov/kms/concept/1234'
+      const mockVersion = 'published'
       getConceptSchemeOfConcept.mockRejectedValue(new Error('Scheme not found'))
 
-      await expect(getGcmdMetadata({ conceptIRI: mockConceptIRI })).rejects.toThrow('Scheme not found')
+      // Spy on console.error
+      const consoleErrorSpy = vi.spyOn(console, 'error')
+
+      // Call the function
+      await getGcmdMetadata({
+        conceptIRI: mockConceptIRI,
+        version: mockVersion
+      })
+
+      // Check if console.error was called with the expected message
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to get concept scheme:', expect.any(Error))
+
+      // Optionally, you can also check the specific error message
+      expect(consoleErrorSpy.mock.calls[0][1].message).toBe('Scheme not found')
+
+      // Clean up the spy
+      consoleErrorSpy.mockRestore()
+    })
+  })
+
+  describe('when unsuccessful', () => {
+    test('should log error when getConceptSchemeOfConcept fails', async () => {
+      const mockConceptIRI = 'https://gcmd.earthdata.nasa.gov/kms/concept/1234'
+      const mockVersion = 'published'
+      getConceptSchemeOfConcept.mockRejectedValue(new Error('Scheme not found'))
+
+      // Spy on console.error
+      const consoleErrorSpy = vi.spyOn(console, 'error')
+
+      // Call the function
+      await getGcmdMetadata({
+        conceptIRI: mockConceptIRI,
+        version: mockVersion
+      })
+
+      // Check if console.error was called with the expected message
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to get concept scheme:', expect.any(Error))
+
+      // Optionally, you can also check the specific error message
+      expect(consoleErrorSpy.mock.calls[0][1].message).toBe('Scheme not found')
+
+      // Clean up the spy
+      consoleErrorSpy.mockRestore()
     })
   })
 })

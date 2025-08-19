@@ -71,17 +71,21 @@ export const getGcmdMetadata = async ({
   }
 
   if (conceptIRI) {
-    const conceptScheme = await getConceptSchemeOfConcept(conceptIRI, version)
-    const schemeId = conceptScheme.split('/').pop()
-    const iriIdentifier = conceptIRI.split('/').pop()
+    try {
+      const conceptScheme = await getConceptSchemeOfConcept(conceptIRI, version)
+      const schemeId = conceptScheme.split('/').pop()
+      const iriIdentifier = conceptIRI.split('/').pop()
 
-    baseMetadata['gcmd:schemeVersion'] = {
-      _text: versionInfo?.created || 'n/a'
-    }
+      baseMetadata['gcmd:schemeVersion'] = {
+        _text: versionInfo?.created || 'n/a'
+      }
 
-    baseMetadata['gcmd:viewer'] = {
-      _text: `https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/${schemeId}/${iriIdentifier}`
+      baseMetadata['gcmd:viewer'] = {
+        _text: `https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/${schemeId}/${iriIdentifier}`
 
+      }
+    } catch (error) {
+      console.error('Failed to get concept scheme:', error)
     }
   } else {
     baseMetadata['gcmd:viewer'] = {

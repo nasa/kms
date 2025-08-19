@@ -88,7 +88,7 @@ export const getConceptVersions = async (event, context) => {
       try {
         const [formattedDatePart] = new Date(creationDate).toISOString().split('T')
         formattedCreationDate = formattedDatePart
-      } catch (error) {
+      } catch {
         console.warn(`Invalid date format: ${creationDate}`)
       }
 

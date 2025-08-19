@@ -4,7 +4,7 @@ import { getSkosConcept } from '@/shared/getSkosConcept'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { toKeywordJson } from '@/shared/toKeywordJson'
 
-const getKeyword = async (event, context) => {
+export const getKeyword = async (event, context) => {
   // Extract configuration and parameters
   const { defaultResponseHeaders } = getApplicationConfig()
   const queryStringParameters = event.queryStringParameters || {}

@@ -1,22 +1,33 @@
-/* eslint-disable no-new */
-const fs = require('fs')
-const path = require('path')
+import * as fs from 'fs'
+import * as path from 'path'
 
-const {
+import {
   CfnOutput,
   Duration,
   Fn,
   RemovalPolicy,
-  Stack
-} = require('aws-cdk-lib')
-const autoscaling = require('aws-cdk-lib/aws-autoscaling')
-const ec2 = require('aws-cdk-lib/aws-ec2')
-const ecr = require('aws-cdk-lib/aws-ecr')
-const ecs = require('aws-cdk-lib/aws-ecs')
-const elbv2 = require('aws-cdk-lib/aws-elasticloadbalancingv2')
-const iam = require('aws-cdk-lib/aws-iam')
-const logs = require('aws-cdk-lib/aws-logs')
-const custom = require('aws-cdk-lib/custom-resources')
+  Stack,
+  StackProps
+} from 'aws-cdk-lib'
+import * as autoscaling from 'aws-cdk-lib/aws-autoscaling'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as ecr from 'aws-cdk-lib/aws-ecr'
+import * as ecs from 'aws-cdk-lib/aws-ecs'
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2'
+import * as iam from 'aws-cdk-lib/aws-iam'
+import * as logs from 'aws-cdk-lib/aws-logs'
+import * as custom from 'aws-cdk-lib/custom-resources'
+import { Construct } from 'constructs'
+
+import { IEbsStack } from './ebs-stack'
+import { ILoadBalancerStack } from './lb-stack'
+
+interface EcsStackProps extends StackProps {
+  vpcId: string;
+  roleArn: string;
+  ebsStack: IEbsStack;
+  lbStack: ILoadBalancerStack;
+}
 
 /**
  * Stack for creating ECS (Elastic Container Service) resources for RDF4J.
@@ -36,29 +47,59 @@ const custom = require('aws-cdk-lib/custom-resources')
  * The stack also handles the creation and configuration of necessary networking
  * components and ensures that the ECS tasks are running in the same Availability
  * Zone as the EBS volume for data persistence.
- *
- * @extends Stack
- */class EcsStack extends Stack {
-  constructor(scope, id, props) {
+ */
+export class EcsStack extends Stack {
+  private ebsStack: IEbsStack
+
+  private vpc!: ec2.IVpc
+
+  private role!: iam.IRole
+
+  private ebsVolumeId!: string
+
+  private ebsVolumeAz!: string
+
+  private ecsTasksSecurityGroup!: ec2.SecurityGroup
+
+  private repository!: ecr.IRepository
+
+  private logGroup!: logs.LogGroup
+
+  private cluster!: ecs.Cluster
+
+  private taskDefinition!: ecs.Ec2TaskDefinition
+
+  private loadBalancerDns!: string
+
+  private targetGroupArn!: string
+
+  private loadBalancerSecurityGroupId!: string
+
+  private targetGroup!: elbv2.IApplicationTargetGroup
+
+  private ecsService!: ecs.Ec2Service
+
+  private capacityProvider!: ecs.AsgCapacityProvider
+
+  constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
-    const { vpcId, roleArn, ebsStack } = props
+    const { vpcId, ebsStack } = props
 
     this.ebsStack = ebsStack
-    this.initializeBaseResources(vpcId, roleArn)
+    this.initializeBaseResources(vpcId)
     this.addSecurityGroupRules()
     this.addOutputs()
   }
 
-  initializeBaseResources(vpcId, roleArn) {
+  private initializeBaseResources(vpcId: string): void {
     this.vpc = this.getVpc(vpcId)
-    this.role = this.getRole(roleArn)
+    this.role = this.getRole()
     this.ebsVolumeId = this.getEbsVolumeId()
     this.ebsVolumeAz = this.getEbsVolumeAz()
 
     this.createSecurityGroups()
     this.repository = this.createOrGetECRRepository()
     this.logGroup = this.createLogGroup()
-
     this.cluster = this.createEcsCluster()
     this.taskDefinition = this.createTaskDefinition()
     const container = this.addContainerToTaskDefinition(this.taskDefinition)
@@ -79,7 +120,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     this.createEcsService()
   }
 
-  createSecurityGroups() {
+  private createSecurityGroups(): void {
     this.ecsTasksSecurityGroup = new ec2.SecurityGroup(this, 'EcsTasksSecurityGroup', {
       vpc: this.vpc,
       description: 'Security group for ECS tasks',
@@ -87,7 +128,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     })
   }
 
-  addSecurityGroupRules() {
+  private addSecurityGroupRules(): void {
     // Allow inbound traffic on port 8080 from anywhere to ECS tasks
     this.ecsTasksSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
@@ -103,30 +144,33 @@ const custom = require('aws-cdk-lib/custom-resources')
     )
   }
 
-  getVpc(vpcId) {
+  private getVpc(vpcId: string): ec2.IVpc {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  getEbsVolumeId() {
+  private getEbsVolumeId(): string {
     return this.ebsStack.volume.volumeId
   }
 
-  getEbsVolumeAz() {
+  private getEbsVolumeAz(): string {
     return this.ebsStack.volume.availabilityZone
   }
 
-  getRole() {
+  private getRole(): iam.IRole {
     return iam.Role.fromRoleArn(this, 'ImportedRole', Fn.importValue('rdf4jRoleArn'))
   }
 
-  getInstanceType() {
+  private getInstanceType(): ec2.InstanceType {
     const instanceType = process.env.RDF4J_INSTANCE_TYPE || 'R5.LARGE'
     const [instanceClass, instanceSize] = instanceType.split('.')
 
-    return ec2.InstanceType.of(ec2.InstanceClass[instanceClass], ec2.InstanceSize[instanceSize])
+    return ec2.InstanceType.of(
+      ec2.InstanceClass[instanceClass as keyof typeof ec2.InstanceClass],
+      ec2.InstanceSize[instanceSize as keyof typeof ec2.InstanceSize]
+    )
   }
 
-  createEcsCluster() {
+  private createEcsCluster(): ecs.Cluster {
     const { ebsVolumeId } = this
 
     const userData = ec2.UserData.forLinux()
@@ -146,7 +190,7 @@ const custom = require('aws-cdk-lib/custom-resources')
       maxCapacity: 1,
       vpc: this.vpc,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         availabilityZones: [this.getEbsVolumeAz()]
       },
       userData,
@@ -164,9 +208,10 @@ const custom = require('aws-cdk-lib/custom-resources')
     // Add the security groups of the VPC endpoints to the Auto Scaling Group
     const cluster = new ecs.Cluster(this, 'rdf4jEcsCluster', {
       vpc: this.vpc,
-      clusterName: 'rdf4jEcs',
-      securityGroups: [this.ecsTasksSecurityGroup]
+      clusterName: 'rdf4jEcs'
     })
+    // Add the security group to the cluster's default capacity provider
+    cluster.connections.addSecurityGroup(this.ecsTasksSecurityGroup)
 
     this.capacityProvider = new ecs.AsgCapacityProvider(this, 'rdf4jAsgCapacityProvider', {
       autoScalingGroup,
@@ -178,7 +223,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     return cluster
   }
 
-  createOrGetECRRepository() {
+  private createOrGetECRRepository(): ecr.IRepository {
     const repositoryName = 'rdf4j'
     const checkRepo = this.createCheckRepositoryCustomResource(repositoryName)
 
@@ -186,7 +231,7 @@ const custom = require('aws-cdk-lib/custom-resources')
       checkRepo.getResponseField('repositories')
 
       return ecr.Repository.fromRepositoryName(this, 'Existingrdf4jRepository', repositoryName)
-    } catch (e) {
+    } catch {
       return new ecr.Repository(this, 'rdf4jRepository', {
         repositoryName,
         removalPolicy: RemovalPolicy.RETAIN
@@ -194,7 +239,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     }
   }
 
-  createCheckRepositoryCustomResource(repositoryName) {
+  private createCheckRepositoryCustomResource(repositoryName: string): custom.AwsCustomResource {
     return new custom.AwsCustomResource(this, 'CheckRepository', {
       onUpdate: {
         service: 'ECR',
@@ -209,7 +254,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     })
   }
 
-  createLogGroup() {
+  private createLogGroup(): logs.LogGroup {
     return new logs.LogGroup(this, 'rdf4jContainerLogs', {
       logGroupName: '/ecs/rdf4j',
       retention: logs.RetentionDays.ONE_DAY,
@@ -217,7 +262,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     })
   }
 
-  createEcsService() {
+  private createEcsService(): void {
     this.ecsService = new ecs.Ec2Service(this, 'rdf4jService', {
       cluster: this.cluster,
       taskDefinition: this.taskDefinition,
@@ -228,7 +273,7 @@ const custom = require('aws-cdk-lib/custom-resources')
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         availabilityZones: [this.getEbsVolumeAz()]
       },
       capacityProviderStrategies: [
@@ -243,23 +288,22 @@ const custom = require('aws-cdk-lib/custom-resources')
     this.ecsService.attachToApplicationTargetGroup(this.targetGroup)
   }
 
-  getContainerMemoryLimit() {
-  // Default to 14336 (14 GiB) if not specified
+  private getContainerMemoryLimit(): number {
+    // Default to 14336 (14 GiB) if not specified
     return parseInt(process.env.RDF4J_CONTAINER_MEMORY_LIMIT || '14336', 10)
   }
 
-  createTaskDefinition() {
-    const taskDef = new ecs.Ec2TaskDefinition(this, 'rdf4jTaskDefinition', {
+  private createTaskDefinition(): ecs.Ec2TaskDefinition {
+    return new ecs.Ec2TaskDefinition(this, 'rdf4jTaskDefinition', {
       taskRole: this.role,
       executionRole: this.role,
-      networkMode: ecs.NetworkMode.AWS_VPC,
-      memory: this.getContainerMemoryLimit()
+      networkMode: ecs.NetworkMode.AWS_VPC
     })
-
-    return taskDef
   }
 
-  addContainerToTaskDefinition(taskDefinition) {
+  private addContainerToTaskDefinition(
+    taskDefinition: ecs.Ec2TaskDefinition
+  ): ecs.ContainerDefinition {
     const VERSION = process.env.VERSION || 'latest'
 
     const container = taskDefinition.addContainer('rdf4jContainer', {
@@ -271,11 +315,11 @@ const custom = require('aws-cdk-lib/custom-resources')
         logGroup: this.logGroup
       }),
       environment: {
-        ACCOUNT: process.env.CDK_DEFAULT_ACCOUNT,
-        REGION: process.env.CDK_DEFAULT_REGION,
+        ACCOUNT: process.env.CDK_DEFAULT_ACCOUNT || '',
+        REGION: process.env.CDK_DEFAULT_REGION || '',
         RDF4J_DATA_DIR: '/rdf4j-data',
-        RDF4J_USER_NAME: process.env.RDF4J_USER_NAME,
-        RDF4J_PASSWORD: process.env.RDF4J_PASSWORD,
+        RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || '',
+        RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || '',
         RDF4J_CONTAINER_MEMORY_LIMIT: this.getContainerMemoryLimit().toString()
       }
     })
@@ -289,7 +333,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     return container
   }
 
-  addEbsVolumeToTaskDefinition(taskDefinition) {
+  private addEbsVolumeToTaskDefinition(taskDefinition: ecs.Ec2TaskDefinition): void {
     taskDefinition.addVolume({
       name: 'rdf4j-data',
       host: {
@@ -298,7 +342,7 @@ const custom = require('aws-cdk-lib/custom-resources')
     })
   }
 
-  addMountPointToContainer(container) {
+  private addMountPointToContainer(container: ecs.ContainerDefinition): void {
     container.addMountPoints({
       containerPath: '/rdf4j-data',
       sourceVolume: 'rdf4j-data',
@@ -306,19 +350,22 @@ const custom = require('aws-cdk-lib/custom-resources')
     })
   }
 
-  addOutputs() {
+  private addOutputs(): void {
+    // eslint-disable-next-line no-new
     new CfnOutput(this, 'rdf4jCluster', {
       value: this.cluster.clusterName,
       description: 'The rdf4j cluster',
       exportName: 'rdf4jCluster'
     })
 
+    // eslint-disable-next-line no-new
     new CfnOutput(this, 'rdf4jServiceName', {
       value: this.ecsService.serviceName,
       description: 'The rdf4j service name',
       exportName: 'rdf4jServiceName'
     })
 
+    // eslint-disable-next-line no-new
     new CfnOutput(this, 'EcsTasksSecurityGroupId', {
       value: this.ecsTasksSecurityGroup.securityGroupId,
       description: 'The ECS Tasks Security Group ID',
@@ -326,5 +373,3 @@ const custom = require('aws-cdk-lib/custom-resources')
     })
   }
 }
-
-module.exports = { EcsStack }
