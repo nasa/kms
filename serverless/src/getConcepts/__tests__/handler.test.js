@@ -308,7 +308,7 @@ describe('getConcepts', () => {
       expect(result.headers['Content-Encoding']).toBe('gzip')
       expect(result.headers['Content-Length']).toBe(15) // Length of 'compressed data'
       expect(result.body).toBe(Buffer.from('compressed data').toString('base64'))
-      expect(mockGzip).toHaveBeenCalled()
+      expect(mockGzip).toHaveBeenCalledTimes(1)
     })
 
     test('should fall back to uncompressed response if compression fails', async () => {
@@ -353,7 +353,7 @@ describe('getConcepts', () => {
       expect(result.body).toContain('<skos:Concept rdf:about="http://example.com/concept1">')
       expect(result.body).toContain(`<skos:prefLabel>${largeResponseBody}</skos:prefLabel>`)
       expect(consoleSpy).toHaveBeenCalledWith('Error compressing response:', expect.any(Error))
-      expect(mockGzip).toHaveBeenCalled()
+      expect(mockGzip).toHaveBeenCalledTimes(1)
     })
 
     test('should not compress response when size is below threshold', async () => {
@@ -392,7 +392,7 @@ describe('getConcepts', () => {
       expect(result.headers['Content-Length']).toBeUndefined()
       expect(result.body).toContain('<skos:Concept rdf:about="http://example.com/concept1">')
       expect(result.body).toContain('<skos:prefLabel>small response</skos:prefLabel>')
-      expect(mockGzip).not.toHaveBeenCalled()
+      expect(mockGzip).toHaveBeenCalledTimes(0)
     })
   })
 
