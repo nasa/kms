@@ -248,7 +248,7 @@ describe('getConcepts', () => {
     })
   })
 
-  describe('response compression', () => {
+  describe('when fetching concepts', () => {
     beforeEach(() => {
       vi.resetAllMocks()
       getApplicationConfig.mockReturnValue({
@@ -268,7 +268,7 @@ describe('getConcepts', () => {
       getGcmdMetadata.mockResolvedValue({})
     })
 
-    test('compresses response when size exceeds threshold', async () => {
+    test('should compress if size exceeds threshold', async () => {
       // Create a large response body
       const largeResponseBody = 'a'.repeat(6 * 1024 * 1024) // 6MB of data
       const mockTriples = [
@@ -311,7 +311,7 @@ describe('getConcepts', () => {
       expect(mockGzip).toHaveBeenCalled()
     })
 
-    test('falls back to uncompressed response if compression fails', async () => {
+    test('should fall back to uncompressed response if compression fails', async () => {
       const largeResponseBody = 'a'.repeat(6 * 1024 * 1024) // 6MB of data
       const mockTriples = [
         {
@@ -356,7 +356,7 @@ describe('getConcepts', () => {
       expect(mockGzip).toHaveBeenCalled()
     })
 
-    test('does not compress response when size is below threshold', async () => {
+    test('should not compress response when size is below threshold', async () => {
       const smallResponseBody = 'small response'
       const mockTriples = [
         {

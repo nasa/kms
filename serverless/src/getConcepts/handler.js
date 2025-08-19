@@ -352,7 +352,8 @@ export const getConcepts = async (event, context) => {
     performanceMetrics.totalTime = (endTime - startTime).toFixed(2)
     console.log('get concepts performance=', JSON.stringify(performanceMetrics))
 
-    const SIZE_THRESHOLD = 5 * 1024 * 1024 // 5MB in bytes
+    // API Gateway has a hard limit of responses at 6MB
+    const SIZE_THRESHOLD = 5 * 1024 * 1024 // Set threshold to 5MB to have some buffer
     const contentSize = Buffer.byteLength(responseBody)
 
     const headers = {
