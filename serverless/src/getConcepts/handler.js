@@ -1,4 +1,7 @@
 /* eslint-disable no-underscore-dangle */
+import { promisify } from 'util'
+import zlib from 'zlib'
+
 import { XMLBuilder } from 'fast-xml-parser'
 
 import { namespaces } from '@/shared/constants/namespaces'
@@ -349,18 +352,55 @@ export const getConcepts = async (event, context) => {
     performanceMetrics.totalTime = (endTime - startTime).toFixed(2)
     console.log('get concepts performance=', JSON.stringify(performanceMetrics))
 
-    return {
-      statusCode: 200,
-      body: responseBody,
-      headers: {
-        ...defaultResponseHeaders,
-        'Content-Type': `${contentType}; charset=utf-8`,
-        'X-Total-Count': totalConcepts.toString(),
-        'X-Page-Number': pageNum.toString(),
-        'X-Page-Size': pageSize.toString(),
-        'X-Total-Pages': totalPages.toString()
+    // API Gateway has a hard limit of responses at 6MB
+    const SIZE_THRESHOLD = 5 * 1024 * 1024 // Set threshold to 5MB to have some buffer
+    const contentSize = Buffer.byteLength(responseBody)
+
+    const headers = {
+      ...defaultResponseHeaders,
+      'Content-Type': `${contentType}; charset=utf-8`,
+      'X-Total-Count': totalConcepts.toString(),
+      'X-Page-Number': pageNum.toString(),
+      'X-Page-Size': pageSize.toString(),
+      'X-Total-Pages': totalPages.toString()
+    }
+    let response
+    // Check if the response body size exceeds the threshold for compression
+    if (contentSize < SIZE_THRESHOLD) {
+      // If the content is smaller than the threshold, return uncompressed
+      response = {
+        statusCode: 200,
+        body: responseBody,
+        headers
+      }
+    } else {
+      // If the content is larger than the threshold, attempt to compress it
+      const gzip = promisify(zlib.gzip)
+      try {
+        const compressedBody = await gzip(responseBody)
+        response = {
+          statusCode: 200,
+          body: compressedBody.toString('base64'),
+          isBase64Encoded: true,
+          headers: {
+            ...headers,
+            'Content-Encoding': 'gzip',
+            'Content-Length': compressedBody.length
+          }
+        }
+      } catch (compressionError) {
+        // Log the error if compression fails
+        console.error('Error compressing response:', compressionError)
+        // Fallback to uncompressed response if compression fails
+        response = {
+          statusCode: 200,
+          body: responseBody,
+          headers
+        }
       }
     }
+
+    return response
   } catch (error) {
     console.error(`Error retrieving concepts, error=${error}`)
 
