@@ -36,6 +36,9 @@ describe('toLegacyXML', () => {
     ['http://example.com/sciencekeyword', 'Test Science Keyword']
   ])
 
+  const keywordVersion = '10.0'
+  const versionCreationDate = '2023-06-01'
+
   describe('when processing a basic concept', () => {
     test('should correctly transform basic concept properties', () => {
       const concept = {
@@ -44,13 +47,15 @@ describe('toLegacyXML', () => {
         'dcterms:modified': '2023-01-01 12:00:00'
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(result.concept['@uuid']).toBe('http://example.com/concept')
       expect(result.concept.prefLabel).toBe('Test Concept')
       expect(result.concept.lastModifiedDate).toBe('2023-01-01')
       expect(result.concept.conceptScheme['@name']).toBe('testScheme')
       expect(result.concept.conceptScheme['@longName']).toBe('Test Scheme')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 
@@ -70,12 +75,14 @@ describe('toLegacyXML', () => {
         ]
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(result.concept.broader.conceptBrief['@prefLabel']).toBe('Broader Concept')
       expect(result.concept.narrower.conceptBrief).toHaveLength(2)
       expect(result.concept.narrower.conceptBrief[0]['@prefLabel']).toBe('Narrower Concept 1')
       expect(result.concept.narrower.conceptBrief[1]['@prefLabel']).toBe('Narrower Concept 2')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 
@@ -102,7 +109,7 @@ describe('toLegacyXML', () => {
         }
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(result.concept.altLabels.altLabel).toHaveLength(2)
       expect(result.concept.altLabels.altLabel[0]).toEqual({
@@ -114,6 +121,8 @@ describe('toLegacyXML', () => {
       expect(result.concept.definition['@reference']).toBe('Test Reference')
       expect(result.concept.resources.resource['@type']).toBe('testType')
       expect(result.concept.resources.resource['#text']).toBe('http://example.com/resource')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 
@@ -131,7 +140,7 @@ describe('toLegacyXML', () => {
 
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
       expect(result.concept.related.weightedRelation).toHaveLength(3)
       expect(result.concept.related.weightedRelation[0]['@type']).toBe('has_instrument')
       expect(result.concept.related.weightedRelation[0]['@prefLabel']).toBe('Test Instrument')
@@ -139,6 +148,8 @@ describe('toLegacyXML', () => {
       expect(result.concept.related.weightedRelation[1]['@prefLabel']).toBe('Test Sensor')
       expect(result.concept.related.weightedRelation[2]['@type']).toBe('is_on_platform')
       expect(result.concept.related.weightedRelation[2]['@prefLabel']).toBe('Test Platform')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
 
     test('should correctly handle skos:related relations', () => {
@@ -152,10 +163,12 @@ describe('toLegacyXML', () => {
 
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
       expect(result.concept.related.weightedRelation).toHaveLength(1)
       expect(result.concept.related.weightedRelation[0]['@type']).not.toBeDefined()
       expect(result.concept.related.weightedRelation[0]['@prefLabel']).toBe('Test Science Keyword')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 
@@ -178,7 +191,7 @@ describe('toLegacyXML', () => {
       `
       }
 
-      const resultSingle = toLegacyXML(conceptSingleNote, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const resultSingle = toLegacyXML(conceptSingleNote, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(resultSingle.concept.changeNotes.changeNote).toEqual({
         '@date': '2020-01-06',
@@ -207,7 +220,7 @@ describe('toLegacyXML', () => {
         'skos:prefLabel': { _text: 'Test Concept' }
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(result.concept.altLabels).toBeNull()
       expect(result.concept.definition).toBeUndefined()
@@ -217,6 +230,8 @@ describe('toLegacyXML', () => {
       expect(result.concept.resources).toBeUndefined()
       expect(result.concept.changeNotes).toBeUndefined()
       expect(result.concept.lastModifiedDate).toBeUndefined()
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 
@@ -227,7 +242,7 @@ describe('toLegacyXML', () => {
         'skos:prefLabel': { _text: 'Test Concept' }
       }
 
-      expect(() => toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'nonExistentScheme'))
+      expect(() => toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'nonExistentScheme', keywordVersion, versionCreationDate))
         .toThrow('No matching scheme found for: nonExistentScheme')
     })
   })
@@ -240,10 +255,12 @@ describe('toLegacyXML', () => {
         'skos:narrower': { '@rdf:resource': 'http://example.com/narrower1' }
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(result.concept.narrower.conceptBrief).toHaveLength(1)
       expect(result.concept.narrower.conceptBrief[0]['@prefLabel']).toBe('Narrower Concept 1')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 
@@ -255,11 +272,13 @@ describe('toLegacyXML', () => {
         'gcmd:hasInstrument': { '@rdf:resource': 'http://example.com/instrument' }
       }
 
-      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme')
+      const result = toLegacyXML(concept, mockConceptSchemeDetails, mockCsvHeaders, mockConceptToConceptSchemeShortNameMap, mockPrefLabelMap, 'testScheme', keywordVersion, versionCreationDate)
 
       expect(result.concept.related.weightedRelation).toHaveLength(1)
       expect(result.concept.related.weightedRelation[0]['@type']).toBe('has_instrument')
       expect(result.concept.related.weightedRelation[0]['@prefLabel']).toBe('Test Instrument')
+      expect(result.concept.keywordVersion).toBe('10.0')
+      expect(result.concept.schemeVersion).toBe('2023-06-01')
     })
   })
 })
