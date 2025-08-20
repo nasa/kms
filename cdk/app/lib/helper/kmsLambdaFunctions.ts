@@ -10,11 +10,14 @@ import * as lambda from 'aws-cdk-lib/aws-lambda'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
+import { ApiResources } from './ApiResources'
+
 /**
  * Interface for LambdaFunctions constructor properties
  */
 interface LambdaFunctionsProps {
   api: apigateway.IRestApi;
+  apiResources: ApiResources;
   lambdaRole: iam.Role;
   prefix: string;
   securityGroup: ec2.SecurityGroup;
@@ -508,8 +511,13 @@ export class LambdaFunctions {
       methodOptions
     )
 
+    // Add CORS options to this resource
+    this.props.apiResources.addCorsOptionsToResource(resource)
+
     return lambdaFunction
-  } /**
+  }
+
+  /**
    * Retrieves a Lambda function by its handler path
    * @param {string} handlerPath - The path to the Lambda handler file
    * @returns {lambda.Function | undefined} The Lambda function if found, undefined otherwise

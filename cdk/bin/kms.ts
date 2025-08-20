@@ -123,7 +123,8 @@ async function main() {
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
-      EDL_PASSWORD: process.env.EDL_PASSWORD || ''
+      EDL_PASSWORD: process.env.EDL_PASSWORD || '',
+      CORS_ORIGIN: process.env.CORS_ORIGIN || '*.earthdata.nasa.gov,http://localhost:5173'
     }
   }
 

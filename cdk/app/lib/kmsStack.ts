@@ -5,9 +5,10 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
 
-import { IamSetup } from './helper/iamSetup'
-import { LambdaFunctions } from './helper/kmsLambdaFunctions'
-import { VpcSetup } from './helper/vpcSetup'
+import { ApiResources } from './helper/ApiResources'
+import { IamSetup } from './helper/IamSetup'
+import { LambdaFunctions } from './helper/KmsLambdaFunctions'
+import { VpcSetup } from './helper/VpcSetup'
 
 /**
  * Interface for KmsStack properties.
@@ -21,6 +22,7 @@ export interface KmsStackProps extends cdk.StackProps {
   vpcId: string
   environment: {
     CMR_BASE_URL: string
+    CORS_ORIGIN: string
     EDL_PASSWORD: string
     RDF4J_PASSWORD: string
     RDF4J_SERVICE_URL: string
@@ -114,9 +116,18 @@ export class KmsStack extends cdk.Stack {
       })
     }
 
+    const apiResources = new ApiResources({
+      api: this.api,
+      prefix: props.prefix,
+      corsOrigin: props.environment.CORS_ORIGIN
+    })
+    // Configure CORS for the entire API
+    apiResources.configureCors(this, prefix)
+
     // Set up Lambda functions
     this.lambdaFunctions = new LambdaFunctions(this, {
       api: this.api,
+      apiResources,
       environment,
       lambdaRole: this.lambdaRole,
       prefix,
