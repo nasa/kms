@@ -86,11 +86,19 @@ export class KmsStack extends cdk.Stack {
     const iamSetup = new IamSetup(this, 'IamSetup', this.stage, this.account, this.region, this.stackName)
     this.lambdaRole = iamSetup.lambdaRole
 
+    let deployment: apigateway.CfnDeployment | undefined
+
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(this, 'ApiGatewayRestApi', {
         restApiId: existingApiId,
         rootResourceId
+      })
+
+      deployment = new apigateway.CfnDeployment(this, 'ApiDeployment', {
+        restApiId: this.api.restApiId,
+        stageName: stage,
+        description: `Deployment for ${stage} at ${new Date().toISOString()}`
       })
     } else {
       // Create a new API Gateway
@@ -98,6 +106,7 @@ export class KmsStack extends cdk.Stack {
         restApiName: `${prefix}-api`,
         description: 'API Gateway for KMS',
         endpointTypes: [apigateway.EndpointType.PRIVATE],
+        deploy: true,
         deployOptions: {
           stageName: stage
         },
@@ -117,13 +126,6 @@ export class KmsStack extends cdk.Stack {
     })
 
     const lambdas = this.lambdaFunctions.getAllLambdas()
-
-    // This will work for both existing and new APIs
-    const deployment = new apigateway.CfnDeployment(this, 'ApiDeployment', {
-      description: `Deployment for ${stage} at ${new Date().toISOString()}`,
-      restApiId: this.api.restApiId,
-      stageName: stage
-    })
 
     // Ensure deployment happens after all routes/methods/integrations exist
     if (lambdas) {

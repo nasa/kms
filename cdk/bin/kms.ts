@@ -41,7 +41,7 @@ import { SnapshotStack } from '../rdfdb/lib/snapshot-stack'
  * @since [Date]
  */
 async function main() {
-  const prefix = process.env.STACK_PREFIX || 'cgokey'
+  const prefix = process.env.STACK_PREFIX || 'kms'
   const stage = process.env.STAGE_NAME || 'dev'
   const existingApiId = process.env.EXISTING_API_ID
   const rootResourceId = process.env.ROOT_RESOURCE_ID
