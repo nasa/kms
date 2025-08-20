@@ -14,7 +14,18 @@ This guide outlines the steps to migrate the KMS (Keyword Management System) fro
 Before removing the old Serverless stack, we need to ensure that the API Gateway is retained. This step involves deploying a minimal CDK stack that imports the existing API Gateway.
 
 ```bash
-cdk deploy KmsRetentionStack
+./bin/deploy_bamoo.sh
+```
+
+The `serverless.yml` file has been updated to include a retention policy for the API Gateway:
+
+```yaml
+resources: 
+  - ${file(./serverless-configs/${self:provider.name}-resources.yml)}
+  - extensions:
+      ApiGatewayRestApi:
+        DeletionPolicy: Retain
+        UpdateReplacePolicy: Retain
 ```
 
 ### 2. Remove the old Serverless stack
