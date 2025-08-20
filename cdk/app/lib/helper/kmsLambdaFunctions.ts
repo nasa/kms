@@ -447,7 +447,7 @@ export class LambdaFunctions {
         memorySize,
         vpc: this.props.vpc,
         vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_ISOLATED
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
         },
         securityGroups: [this.props.securityGroup],
         role: this.props.lambdaRole,
