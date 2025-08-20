@@ -13,12 +13,12 @@ import { SnapshotStack } from '../rdfdb/lib/SnapshotStack'
  * It includes stacks for IAM, Load Balancer, EBS, ECS, Snapshot, and KMS.
  *
  * @requires aws-cdk-lib
- * @requires ../app/lib/kmsStack
- * @requires ../rdbdb/lib/ebs-stack
- * @requires ../rdbdb/lib/ecs-stack
- * @requires ../rdbdb/lib/iam-stack
- * @requires ../rdbdb/lib/lb-stack
- * @requires ../rdbdb/lib/snapshot-stack
+ * @requires ../app/lib/KmsStack
+ * @requires ../rdbdb/lib/EbsStack
+ * @requires ../rdbdb/lib/EcsStack
+ * @requires ../rdbdb/lib/IamStack
+ * @requires ../rdbdb/lib/LoadBalancerStack
+ * @requires ../rdbdb/lib/SnapshotStack
  *
  * @description
  * The main function performs the following tasks:
@@ -35,10 +35,6 @@ import { SnapshotStack } from '../rdfdb/lib/SnapshotStack'
  * ```
  * ./kms.ts
  * ```
- *
- * @author [Your Name]
- * @version 1.0
- * @since [Date]
  */
 async function main() {
   const prefix = process.env.STACK_PREFIX || 'kms'
