@@ -14,17 +14,17 @@ import { VpcSetup } from './helper/vpcSetup'
  * @interface
  */
 export interface KmsStackProps extends cdk.StackProps {
+  existingApiId: string | undefined,
   prefix: string
+  rootResourceId: string | undefined,
   stage: string
   vpcId: string
-  existingApiId: string | undefined,
-  rootResourceId: string | undefined,
   environment: {
-    RDF4J_SERVICE_URL: string
-    RDF4J_USER_NAME: string
-    RDF4J_PASSWORD: string
     CMR_BASE_URL: string
     EDL_PASSWORD: string
+    RDF4J_PASSWORD: string
+    RDF4J_SERVICE_URL: string
+    RDF4J_USER_NAME: string
   }
 }
 
@@ -68,7 +68,12 @@ export class KmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: KmsStackProps) {
     super(scope, id, props)
     const {
-      prefix, stage, environment, vpcId, existingApiId, rootResourceId
+      environment,
+      existingApiId,
+      prefix,
+      rootResourceId,
+      stage,
+      vpcId
     } = props
     this.stage = stage
 
@@ -102,22 +107,22 @@ export class KmsStack extends cdk.Stack {
 
     // Set up Lambda functions
     this.lambdaFunctions = new LambdaFunctions(this, {
-      prefix,
-      stage: this.stage,
-      vpc: this.vpc,
-      securityGroup: this.securityGroup,
-      lambdaRole: this.lambdaRole,
       api: this.api,
-      environment
+      environment,
+      lambdaRole: this.lambdaRole,
+      prefix,
+      securityGroup: this.securityGroup,
+      stage: this.stage,
+      vpc: this.vpc
     })
 
     const lambdas = this.lambdaFunctions.getAllLambdas()
 
     // This will work for both existing and new APIs
     const deployment = new apigateway.CfnDeployment(this, 'ApiDeployment', {
+      description: `Deployment for ${stage} at ${new Date().toISOString()}`,
       restApiId: this.api.restApiId,
-      stageName: stage,
-      description: `Deployment for ${stage} at ${new Date().toISOString()}`
+      stageName: stage
     })
 
     // Ensure deployment happens after all routes/methods/integrations exist
@@ -141,38 +146,38 @@ export class KmsStack extends cdk.Stack {
     const apiUrl = `https://${this.api.restApiId}.execute-api.${region}.${urlSuffix}/${this.stage}`
 
     new cdk.CfnOutput(this, 'ApiRootResourceId', {
-      value: this.api.restApiRootResourceId,
       description: 'The ID of the API Gateway root resource',
-      exportName: `${prefix}-KmsApiRootResourceId`
+      exportName: `${prefix}-KmsApiRootResourceId`,
+      value: this.api.restApiRootResourceId
     })
 
     new cdk.CfnOutput(this, 'ApiGatewayUrl', {
-      value: apiUrl,
       description: 'The URL of the API Gateway',
-      exportName: `${prefix}-KmsApiGatewayUrl`
+      exportName: `${prefix}-KmsApiGatewayUrl`,
+      value: apiUrl
     })
 
     new cdk.CfnOutput(this, 'ApiId', {
-      value: this.api.restApiId,
       description: 'The ID of the API Gateway',
-      exportName: `${prefix}-KmsApiId`
+      exportName: `${prefix}-KmsApiId`,
+      value: this.api.restApiId
     })
 
     new cdk.CfnOutput(this, 'AuthorizerId', {
-      value: this.lambdaFunctions.authorizer.authorizerId,
       description: 'The ID of the API Gateway Authorizer',
-      exportName: `${prefix}-KmsAuthorizerId`
+      exportName: `${prefix}-KmsAuthorizerId`,
+      value: this.lambdaFunctions.authorizer.authorizerId
     })
 
     new cdk.CfnOutput(this, 'KMSLambdaSecurityGroup', {
-      value: this.securityGroup.securityGroupId,
-      exportName: `${this.stage}-kms-LambdaSecurityGroup`
+      exportName: `${this.stage}-kms-LambdaSecurityGroup`,
+      value: this.securityGroup.securityGroupId
     })
 
     new cdk.CfnOutput(this, 'KMSServerlessAppRoleArn', {
-      value: this.lambdaRole.roleArn,
       description: 'Role used to execute commands across the serverless application',
-      exportName: `${this.stage}-KMSServerlessCdkAppRole`
+      exportName: `${this.stage}-KMSServerlessCdkAppRole`,
+      value: this.lambdaRole.roleArn
     })
   }
 }

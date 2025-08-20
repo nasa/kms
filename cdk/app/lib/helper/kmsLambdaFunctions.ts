@@ -14,18 +14,18 @@ import { Construct } from 'constructs'
  * Interface for LambdaFunctions constructor properties
  */
 interface LambdaFunctionsProps {
+  api: apigateway.IRestApi;
+  lambdaRole: iam.Role;
   prefix: string;
+  securityGroup: ec2.SecurityGroup;
   stage: string;
   vpc: ec2.IVpc;
-  securityGroup: ec2.SecurityGroup;
-  lambdaRole: iam.Role;
-  api: apigateway.IRestApi;
   environment: {
-    RDF4J_SERVICE_URL: string;
-    RDF4J_USER_NAME: string;
-    RDF4J_PASSWORD: string;
     CMR_BASE_URL: string;
     EDL_PASSWORD: string;
+    RDF4J_PASSWORD: string;
+    RDF4J_SERVICE_URL: string;
+    RDF4J_USER_NAME: string;
   };
 }
 

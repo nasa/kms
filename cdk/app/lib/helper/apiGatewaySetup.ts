@@ -7,10 +7,11 @@ import { Construct } from 'constructs'
  * @interface
  */
 export interface ApiGatewaySetupProps {
-  /** The prefix to use for naming resources, e.g., "kms" */
-  prefix: string;
   /** The existing API Gateway to configure */
   api: apigateway.IRestApi;
+
+  /** The prefix to use for naming resources, e.g., "kms" */
+  prefix: string;
 }
 
 /**
@@ -32,8 +33,8 @@ export class ApiGatewaySetup {
    */
   constructor(scope: Construct, id: string, props: ApiGatewaySetupProps) {
     const {
-      prefix,
-      api
+      api,
+      prefix
     } = props
 
     this.api = api
