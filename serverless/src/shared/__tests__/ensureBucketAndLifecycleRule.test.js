@@ -3,6 +3,16 @@ import { CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3'
 import { ensureBucketAndLifecycleRule } from '../ensureBucketAndLifeCycleRule' // Make sure to export this function in your handler file
 
 describe('ensureBucketAndLifecycleRule', () => {
+  let consoleLogSpy
+
+  beforeEach(() => {
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore()
+  })
+
   test('should create bucket and set lifecycle rule if bucket does not exist', async () => {
     const mockS3Client = {
       send: vi.fn()

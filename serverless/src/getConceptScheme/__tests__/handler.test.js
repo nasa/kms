@@ -22,6 +22,16 @@ describe('getConceptScheme', () => {
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'X-Custom-Header': 'Value' } })
   })
 
+  let consoleErrorSpy
+
+  beforeAll(() => {
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterAll(() => {
+    consoleErrorSpy.mockRestore()
+  })
+
   describe('When called with valid parameters', () => {
     test('should return a 200 status code and XML content', async () => {
       getConceptSchemeDetails.mockResolvedValue({
