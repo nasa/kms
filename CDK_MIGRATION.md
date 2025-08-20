@@ -40,19 +40,19 @@ This step removes all resources managed by the Serverless Framework except for t
 ### 3. Set environment variables for API Gateway
 We need to set environment variables for the existing API Gateway ID and its root resource ID. These will be used in our CDK stack.
 
-First, set the `API_ID`:
+First, set the `EXISTING_API_ID`:
 ```bash
-export API_ID=<your-api-id>
+export EXISTING_API_ID=<your-api-id>
 ```
 
 Then, retrieve and set the `ROOT_RESOURCE_ID`:
 ```bash
-export ROOT_RESOURCE_ID=$(aws apigateway get-rest-api --rest-api-id $API_ID --query 'rootResourceId' --output text)
+export ROOT_RESOURCE_ID=$(aws apigateway get-rest-api --rest-api-id $EXISTING_API_ID --query 'rootResourceId' --output text)
 ```
 
 Verify that both environment variables are set correctly:
 ```bash
-echo $API_ID
+echo $EXISTING_API_ID
 echo $ROOT_RESOURCE_ID
 ```
 
@@ -72,8 +72,7 @@ This command deploys the new KMS infrastructure using CDK, integrating with the 
 
 ## Troubleshooting
 - If you encounter permission issues, ensure that your AWS CLI is configured with the correct credentials and has the necessary permissions.
-- If the API Gateway integration fails, double-check that the `API_ID` and `ROOT_RESOURCE_ID` environment variables are set correctly.
-- For any CDK specific issues, refer to the AWS CDK documentation or run `cdk doctor` to diagnose common problems.
+- If the API Gateway integration fails, double-check that the `EXISTING_API_ID` and `ROOT_RESOURCE_ID` environment variables are set correctly.
 
 ## Rollback
 In case of any issues during migration:
