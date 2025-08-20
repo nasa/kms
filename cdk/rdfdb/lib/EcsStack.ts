@@ -19,8 +19,8 @@ import * as logs from 'aws-cdk-lib/aws-logs'
 import * as custom from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
-import { IEbsStack } from './ebs-stack'
-import { ILoadBalancerStack } from './lb-stack'
+import { IEbsStack } from './EbsStack'
+import { ILoadBalancerStack } from './LoadBalancerStack'
 
 interface EcsStackProps extends StackProps {
   vpcId: string;
@@ -190,7 +190,7 @@ export class EcsStack extends Stack {
       maxCapacity: 1,
       vpc: this.vpc,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         availabilityZones: [this.getEbsVolumeAz()]
       },
       userData,
@@ -273,7 +273,7 @@ export class EcsStack extends Stack {
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         availabilityZones: [this.getEbsVolumeAz()]
       },
       capacityProviderStrategies: [

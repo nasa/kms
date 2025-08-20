@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib'
 
-import { KmsStack, KmsStackProps } from '../app/lib/kmsStack'
-import { EbsStack } from '../rdfdb/lib/ebs-stack'
-import { EcsStack } from '../rdfdb/lib/ecs-stack'
-import { IamStack } from '../rdfdb/lib/iam-stack'
-import { LoadBalancerStack } from '../rdfdb/lib/lb-stack'
-import { SnapshotStack } from '../rdfdb/lib/snapshot-stack'
+import { KmsStack, KmsStackProps } from '../app/lib/KmsStack'
+import { EbsStack } from '../rdfdb/lib/EbsStack'
+import { EcsStack } from '../rdfdb/lib/EcsStack'
+import { IamStack } from '../rdfdb/lib/IamStack'
+import { LoadBalancerStack } from '../rdfdb/lib/LoadBalancerStack'
+import { SnapshotStack } from '../rdfdb/lib/SnapshotStack'
 
 /**
  * This script sets up and deploys multiple AWS CDK stacks for a cloud infrastructure.

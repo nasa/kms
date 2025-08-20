@@ -71,7 +71,7 @@ export class LoadBalancerStack extends Stack implements ILoadBalancerStack {
       internetFacing: false,
       securityGroup: this.loadBalancerSecurityGroup,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetType: ec2.SubnetType.PRIVATE_ISOLATED,
         availabilityZones: this.vpc.availabilityZones.slice(0, 2)
       }
     })
