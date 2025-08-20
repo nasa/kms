@@ -55,13 +55,91 @@ describe('getConcept', () => {
       created: '2023-01-01T00:00:00Z',
       modified: '2023-01-01T00:00:00Z'
     })
+
+    getGcmdMetadata.mockImplementation(async ({ version }) => {
+      const versionInfo = await getVersionMetadata(version)
+
+      return {
+        'gcmd:keywordVersion': { _text: versionInfo?.versionName || 'n/a' },
+        'gcmd:termsOfUse': { _text: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf' },
+        'gcmd:viewer': { _text: 'https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/all' }
+      }
+    })
   })
 
-  const mockSuccessfulResponse = (mockSkosConcept) => {
-    const mockGcmdMetadata = { 'gcmd:keywordVersion': { _text: '1.0' } }
+  const mockSuccessfulResponse = (mockSkosConcept, mockVersionInfo = { versionName: '1.0' }) => {
+    const mockGcmdMetadata = { 'gcmd:keywordVersion': { _text: mockVersionInfo.versionName } }
     getSkosConcept.mockResolvedValue(mockSkosConcept)
     getGcmdMetadata.mockResolvedValue(mockGcmdMetadata)
   }
+
+  describe('version metadata handling', () => {
+    test('should set keywordVersion and versionCreationDate when version metadata exists', async () => {
+      const mockEvent = {
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: { version: 'test_version' }
+      }
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      const mockVersionInfo = {
+        versionName: '1.2.3',
+        created: '2023-06-15T00:00:00Z'
+      }
+      mockSuccessfulResponse(mockSkosConcept, mockVersionInfo)
+
+      getVersionMetadata.mockResolvedValue(mockVersionInfo)
+
+      const result = await getConcept(mockEvent)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.body).toContain('<gcmd:keywordVersion>1.2.3</gcmd:keywordVersion>')
+      expect(getGcmdMetadata).toHaveBeenCalledWith(expect.objectContaining({
+        version: 'test_version'
+      }))
+    })
+
+    test('should return 404 when version metadata does not exist', async () => {
+      const mockEvent = {
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: { version: 'non_existent_version' }
+      }
+
+      getVersionMetadata.mockResolvedValue(null)
+
+      const result = await getConcept(mockEvent)
+
+      expect(result.statusCode).toBe(404)
+      expect(result.headers).toEqual(mockDefaultHeaders)
+      expect(JSON.parse(result.body)).toEqual({
+        error: 'Invalid version parameter. Version not found'
+      })
+    })
+
+    test('should use default version when not specified', async () => {
+      const mockEvent = {
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {}
+      }
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+
+      getVersionMetadata.mockResolvedValue({
+        versionName: 'default',
+        created: '2023-06-15T00:00:00Z'
+      })
+
+      await getConcept(mockEvent)
+
+      expect(getVersionMetadata).toHaveBeenCalledWith('published')
+    })
+  })
 
   describe('when successful', () => {
     describe('when retrieving by concept identifier', () => {

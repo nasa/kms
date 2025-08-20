@@ -17,6 +17,8 @@ import { createChangeNote } from '@/shared/createChangeNote'
  * @param {Map<string, string>} conceptToConceptSchemeShortNameMap - A map of concept IRIs to their scheme short names.
  * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels for the specific version.
  * @param {string} schemeShortName - The short name of the concept scheme.
+ * @param {string} keywordVersion - The version of the keyword set.
+ * @param {string} versionCreationDate - The creation date of the version, used as the scheme version.
  * @returns {Object} An object representing the legacy XML structure of the concept.
  * @throws {Error} If no matching scheme is found for the provided schemeShortName.
  *
@@ -26,13 +28,18 @@ import { createChangeNote } from '@/shared/createChangeNote'
  * const publishedSchemeDetails = [ ... ]; // Concept scheme details for the published version
  * const publishedCsvHeaders = [ ... ]; // CSV headers for the published version
  * const publishedPrefLabelMap = new Map([ ... ]); // Preferred label map for the published version
+ * const schemeShortName = 'sciencekeywords';
+ * const keywordVersion = '10.0';
+ * const versionCreationDate = '2023-06-01';
  *
  * const legacyXML = toLegacyXML(
  *   publishedConcept,
  *   publishedSchemeDetails,
  *   publishedCsvHeaders,
  *   publishedPrefLabelMap,
- *   'sciencekeywords'
+ *   schemeShortName,
+ *   keywordVersion,
+ *   versionCreationDate
  * );
  * console.log(JSON.stringify(legacyXML, null, 2));
  *
@@ -47,7 +54,9 @@ export const toLegacyXML = (
   csvHeaders,
   conceptToConceptSchemeShortNameMap,
   prefLabelMap,
-  schemeShortName
+  schemeShortName,
+  keywordVersion,
+  versionCreationDate
 ) => {
   // Helper function to retrieve parsed information in concept_schemes xml
 // Helper function to retrieve parsed information in concept_schemes xml
@@ -80,7 +89,7 @@ export const toLegacyXML = (
 
   // Finding the appropriate shortName and longName for scheme
   const matchingSchemeDetails = findMatchingConceptScheme(schemeShortName, conceptSchemeDetails)
-  const { schemeLongName, schemeVersionDate } = matchingSchemeDetails
+  const { schemeLongName } = matchingSchemeDetails
 
   const conceptObj = {
     concept: {
@@ -90,8 +99,8 @@ export const toLegacyXML = (
       '@uuid': uuid,
       '@xsi:noNamespaceSchemaLocation': 'https://gcmd.earthdata.nasa.gov/static/kms/kms.xsd',
       termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
-      keywordVersion: '20.8',
-      schemeVersion: schemeVersionDate,
+      keywordVersion,
+      schemeVersion: versionCreationDate,
       viewer: `https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/${schemeShortName}/${uuid}`,
       // eslint-disable-next-line no-underscore-dangle
       prefLabel: concept['skos:prefLabel']._text,

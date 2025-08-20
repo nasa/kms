@@ -11,6 +11,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
@@ -81,6 +82,21 @@ export const getConcept = async (event, context) => {
   })
 
   try {
+    // Check existence of version
+    let keywordVersion = 'n/a'
+    let versionCreationDate = 'n/a'
+    const versionInfo = await getVersionMetadata(version)
+    if (versionInfo) {
+      keywordVersion = versionInfo.versionName
+      versionCreationDate = versionInfo.created
+    } else {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+      }
+    }
+
     const decode = (str) => {
       if (!str) return null
 
@@ -124,7 +140,9 @@ export const getConcept = async (event, context) => {
         concept,
         conceptSchemeMap,
         conceptToConceptSchemeShortNameMap,
-        prefLabelMap
+        prefLabelMap,
+        keywordVersion,
+        versionCreationDate
       ), null, 2)
 
       contentType = 'application/json'
@@ -148,7 +166,9 @@ export const getConcept = async (event, context) => {
         csvHeaders,
         conceptToConceptSchemeShortNameMap,
         prefLabelMap,
-        schemeShortName
+        schemeShortName,
+        keywordVersion,
+        versionCreationDate
       )
       responseBody = xmlBuilder.build(legacyXML)
       contentType = 'application/xml'

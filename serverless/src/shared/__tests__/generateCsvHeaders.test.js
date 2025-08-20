@@ -20,6 +20,15 @@ describe('generateCsvHeaders', () => {
     vi.clearAllMocks()
   })
 
+  let consoleErrorSpy
+  beforeAll(() => {
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterAll(() => {
+    consoleErrorSpy.mockRestore()
+  })
+
   test('should generate headers for 2 columns', async () => {
     // Mock the sparqlRequest response
     sparqlRequest.mockResolvedValue({

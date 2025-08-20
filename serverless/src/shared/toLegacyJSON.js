@@ -11,6 +11,8 @@
  * @param {Map<string, string>} conceptSchemeMap - A map of concept scheme short names to their long names.
  * @param {Map<string, string>} conceptToConceptSchemeShortNameMap - A map of concept IRIs to their scheme short names.
  * @param {Map<string, string>} prefLabelMap - A map of concept IRIs to their preferred labels.
+ * @param {string} keywordVersion - The version of the keyword set.
+ * @param {string} versionCreationDate - The creation date of the version, used as the scheme version.
  * @returns {Object} The transformed legacy JSON object.
  * @throws {Error} If there's an error during the conversion process.
  *
@@ -37,8 +39,17 @@
  *   const conceptSchemeMap = new Map([['scheme1', 'Scheme One'], ...]);
  *   const conceptToConceptSchemeShortNameMap = new Map([['http://example.com/concept/1', 'scheme1'], ...]);
  *   const prefLabelMap = new Map([['http://example.com/concept/1', 'Concept One'], ...]);
+ *   const keywordVersion = '10.0';
+ *   const versionCreationDate = '2023-06-01'
  *
- *   const legacyJSON = toLegacyJSON(concept, conceptSchemeMap, conceptToConceptSchemeShortNameMap, prefLabelMap);
+ *   const legacyJSON = toLegacyJSON(
+ *     concept,
+ *     conceptSchemeMap,
+ *     conceptToConceptSchemeShortNameMap,
+ *     prefLabelMap,
+ *     keywordVersion,
+ *     versionCreationDate
+ *   )
  *   console.log('Transformed legacy JSON:', legacyJSON);
  * } catch (error) {
  *   console.error('Error converting to legacy JSON:', error);
@@ -55,7 +66,9 @@ export const toLegacyJSON = (
   concept,
   conceptSchemeMap,
   conceptToConceptSchemeShortNameMap,
-  prefLabelMap
+  prefLabelMap,
+  keywordVersion,
+  versionCreationDate
 ) => {
   // Helper function to determine if there are multiple altLabels and assist in translating the different types
   const processAltLabels = (altLabels) => {
@@ -91,8 +104,8 @@ export const toLegacyJSON = (
     // Transform the data
     const transformedData = {
       termsOfUse: 'https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf',
-      keywordVersion: '20.6',
-      schemeVersion: '2025-01-31 11:22:12', // Corrolates with the change of keywordVersion
+      keywordVersion,
+      schemeVersion: versionCreationDate, // Corrolates with the change of keywordVersion
       viewer: `https://gcmd.earthdata.nasa.gov/KeywordViewer/scheme/${schemeShortName}/${uuid}`,
       lastModifiedDate: concept['dcterms:modified'],
       uuid,

@@ -13,6 +13,8 @@ describe('toLegacyJSON', () => {
   let mockConceptSchemeMap
   let mockPrefLabelMap
   let mockConceptToConceptSchemeShortNameMap
+  let keywordVersion
+  let versionCreationDate
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -65,6 +67,9 @@ describe('toLegacyJSON', () => {
       ['relatedUUID3', 'testRelatedScheme'],
       ['relatedUUID4', 'testRelatedScheme']
     ])
+
+    keywordVersion = '20.6'
+    versionCreationDate = '2025-01-31 11:22:12'
   })
 
   describe('when given a basic skos concept', () => {
@@ -73,7 +78,9 @@ describe('toLegacyJSON', () => {
         mockConcept,
         mockConceptSchemeMap,
         mockConceptToConceptSchemeShortNameMap,
-        mockPrefLabelMap
+        mockPrefLabelMap,
+        keywordVersion,
+        versionCreationDate
       )
 
       expect(result).toEqual({
