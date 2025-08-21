@@ -1,4 +1,4 @@
-FROM node:18-bullseye
+FROM node:22
 COPY . /build
 WORKDIR /build
-RUN npm ci --omit=dev && npm run build
+RUN npm ci

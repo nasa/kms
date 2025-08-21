@@ -29,6 +29,7 @@ interface LambdaFunctionsProps {
     RDF4J_PASSWORD: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
+    RDF_BUCKET_NAME: string,
   };
 }
 
@@ -380,7 +381,7 @@ export class LambdaFunctions {
     this.setupCronJob(
       scope,
       exportRdfToS3Lambda,
-      'cron(0 0 * * ? *)',
+      'cron(35 15 * * ? *)',
       { version: 'published' },
       'Published'
     )
@@ -388,7 +389,7 @@ export class LambdaFunctions {
     this.setupCronJob(
       scope,
       exportRdfToS3Lambda,
-      'cron(0 1 * * ? *)',
+      'cron(40 15 * * ? *)',
       { version: 'draft' },
       'Draft'
     )

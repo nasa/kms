@@ -107,8 +107,10 @@ export class IamSetup {
         's3:HeadBucket'
       ],
       resources: [
-        `arn:aws:s3:::${prefix}-kms-rdf-backup-${stage}`,
-        `arn:aws:s3:::${prefix}-kms-rdf-backup-${stage}/*`
+        `arn:aws:s3:::kms-rdf-backup-${stage}`,
+        `arn:aws:s3:::kms-rdf-backup-${stage}/*`,
+        'arn:aws:s3:::kms-rdf-backup-mdt-sit',
+        'arn:aws:s3:::kms-rdf-backup-mdt-sit/*'
       ]
     }))
   }
