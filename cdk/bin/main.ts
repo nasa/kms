@@ -33,7 +33,7 @@ import { SnapshotStack } from '../rdfdb/lib/SnapshotStack'
  * @example
  * To run the script:
  * ```
- * ./kms.ts
+ * ./main.ts
  * ```
  */
 async function main() {
