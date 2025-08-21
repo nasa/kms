@@ -120,8 +120,8 @@ const createRdfFiles = async () => {
             // eslint-disable-next-line no-await-in-loop
             await fileHandle.writeFile(conceptXml)
           }
-        } catch {
-          console.log('Error processing concept ', uuid)
+        } catch (error) {
+          console.log('Error processing concept ', uuid, error)
         }
       }
 
