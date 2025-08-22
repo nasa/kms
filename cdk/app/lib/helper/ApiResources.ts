@@ -9,8 +9,6 @@ import { Construct } from 'constructs'
 export interface ApiResourcesProps {
     /** The existing API Gateway to configure */
   api: apigateway.IRestApi;
-  /** The CORS origin to allow */
-  corsOrigin: string;
   /** The prefix to use for naming resources */
   prefix: string;
 }
@@ -23,9 +21,6 @@ export class ApiResources {
 /** The referenced existing API Gateway */
   public readonly api: apigateway.IRestApi
 
-  /** Array of allowed CORS origins */
-  private readonly corsOrigins: string[]
-
   /** Array of allowed CORS headers */
   private readonly corsHeaders: string[]
 
@@ -37,12 +32,8 @@ export class ApiResources {
    * @param {ApiResourcesProps} props - The properties to configure the ApiResources.
    */
   constructor(props: ApiResourcesProps) {
-    const { api, corsOrigin } = props
+    const { api } = props
     this.api = api
-
-    const defaultCorsOrigins = ['*.earthdata.nasa.gov', 'http://localhost:5173']
-    const additionalCorsOrigins = corsOrigin.split(',')
-    this.corsOrigins = [...new Set([...defaultCorsOrigins, ...additionalCorsOrigins])]
 
     this.corsHeaders = [
       'Content-Type',
@@ -75,7 +66,7 @@ export class ApiResources {
    */
   private getCorsHeaders() {
     return {
-      'Access-Control-Allow-Origin': `'${this.corsOrigins.join(',')}'`,
+      'Access-Control-Allow-Origin': '\'*\'',
       'Access-Control-Allow-Headers': `'${this.corsHeaders.join(',')}'`,
       'Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS'",
       'Access-Control-Allow-Credentials': "'true'"
@@ -145,21 +136,57 @@ export class ApiResources {
    * @public
    */
   public addCorsOptionsToResource(resource: apigateway.IResource): void {
+    console.log(`Attempting to add/update CORS options for resource: ${resource.path}`)
+
     if (this.processedResources.has(resource.path)) {
-      console.log(`CORS options already added for resource ${resource.path}. Skipping.`)
+      console.log(`CORS options already processed for resource ${resource.path}. Skipping.`)
 
       return
     }
 
-    const corsOptions: apigateway.CorsOptions = {
-      allowOrigins: this.corsOrigins,
-      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowHeaders: this.corsHeaders,
-      allowCredentials: true
+    // Remove existing OPTIONS method if it exists
+    const existingOptionsMethod = resource.node.tryFindChild('OPTIONS')
+    if (existingOptionsMethod) {
+      console.log(`Removing existing OPTIONS method for resource ${resource.path}`)
+      resource.node.tryRemoveChild('OPTIONS')
     }
 
+    // Add new OPTIONS method with explicit CORS configuration and integration
+    resource.addMethod(
+      'OPTIONS',
+      new apigateway.MockIntegration({
+        integrationResponses: [
+          {
+            statusCode: '200',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Headers': `'${this.corsHeaders.join(',')}'`,
+              'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS'",
+              'method.response.header.Access-Control-Allow-Origin': '\'*\'',
+              'method.response.header.Access-Control-Allow-Credentials': "'true'"
+            }
+          }
+        ],
+        passthroughBehavior: apigateway.PassthroughBehavior.NEVER,
+        requestTemplates: {
+          'application/json': '{"statusCode": 200}'
+        }
+      }),
+      {
+        methodResponses: [
+          {
+            statusCode: '200',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Headers': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+              'method.response.header.Access-Control-Allow-Origin': true,
+              'method.response.header.Access-Control-Allow-Credentials': true
+            }
+          }
+        ]
+      }
+    )
+
     this.processedResources.add(resource.path)
-    resource.addCorsPreflight(corsOptions)
-    console.log(`Added CORS options to resource ${resource.path}`)
+    console.log(`CORS options processed for resource ${resource.path}`)
   }
 }

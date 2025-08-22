@@ -22,7 +22,6 @@ export interface KmsStackProps extends cdk.StackProps {
   vpcId: string
   environment: {
     CMR_BASE_URL: string
-    CORS_ORIGIN: string
     EDL_PASSWORD: string
     RDF4J_PASSWORD: string
     RDF4J_SERVICE_URL: string
@@ -89,19 +88,11 @@ export class KmsStack extends cdk.Stack {
     const iamSetup = new IamSetup(this, 'IamSetup', this.stage, this.account, this.region, this.stackName)
     this.lambdaRole = iamSetup.lambdaRole
 
-    let deployment: apigateway.CfnDeployment | undefined
-
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(this, 'ApiGatewayRestApi', {
         restApiId: existingApiId,
         rootResourceId
-      })
-
-      deployment = new apigateway.CfnDeployment(this, 'ApiDeployment', {
-        restApiId: this.api.restApiId,
-        stageName: stage,
-        description: `Deployment for ${stage} at ${new Date().toISOString()}`
       })
     } else {
       // Create a new API Gateway
@@ -119,8 +110,7 @@ export class KmsStack extends cdk.Stack {
 
     const apiResources = new ApiResources({
       api: this.api,
-      prefix: props.prefix,
-      corsOrigin: props.environment.CORS_ORIGIN
+      prefix: props.prefix
     })
     // Configure CORS for the entire API
     apiResources.configureCors(this, prefix)
@@ -138,6 +128,30 @@ export class KmsStack extends cdk.Stack {
     })
 
     const lambdas = this.lambdaFunctions.getAllLambdas()
+
+    // Create a new deployment
+    const deployment = new apigateway.Deployment(this, `ApiDeployment-${Date.now().toString()}`, {
+      api: this.api,
+      retainDeployments: false,
+      description: `Deployment for ${stage} at ${new Date().toISOString()}`
+    })
+
+    // Ensure deployment happens after all routes/methods/integrations exist
+    if (lambdas) {
+      Object.values(lambdas).forEach((lambda) => {
+        deployment.node.addDependency(lambda)
+      })
+    }
+
+    // Add explicit dependencies
+    this.api.deploymentStage?.node.addDependency(deployment)
+
+    // Output the new deployment ID
+    new cdk.CfnOutput(this, 'NewDeploymentId', {
+      value: deployment.deploymentId,
+      description: 'ID of the new API Gateway deployment',
+      exportName: `${prefix}-NewApiDeploymentId`
+    })
 
     // Ensure deployment happens after all routes/methods/integrations exist
     if (lambdas) {
