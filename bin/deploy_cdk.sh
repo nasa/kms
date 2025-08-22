@@ -49,10 +49,10 @@ docker build -t $dockerTag .
 dockerRun() {
   docker run \
         --rm \
-	--env "AWS_ACCESS_KEY_ID=$bamboo_AWS_ACCESS_KEY_ID" \
-	--env "AWS_SECRET_ACCESS_KEY=$bamboo_AWS_SECRET_ACCESS_KEY" \
+        --env "AWS_ACCESS_KEY_ID=$bamboo_AWS_ACCESS_KEY_ID" \
+        --env "AWS_SECRET_ACCESS_KEY=$bamboo_AWS_SECRET_ACCESS_KEY" \
         --env "AWS_SESSION_TOKEN=$bamboo_AWS_SESSION_TOKEN" \
-	--env "STAGE_NAME=$bamboo_STAGE_NAME" \
+        --env "STAGE_NAME=$bamboo_STAGE_NAME" \
         --env "LAMBDA_TIMEOUT=$bamboo_LAMBDA_TIMEOUT" \
         --env "NODE_ENV=$bamboo_STAGE_NAME" \
         --env "NODE_OPTIONS=--max_old_space_size=4096" \
@@ -68,8 +68,8 @@ dockerRun() {
         --env "RDF4J_INSTANCE_TYPE=$bamboo_RDF4J_INSTANCE_TYPE" \
         --env "RDF4J_CONTAINER_MEMORY_LIMIT=$bamboo_RDF4J_CONTAINER_MEMORY_LIMIT" \
         --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
-	--env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
-	--env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
+        --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
+        --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
     $dockerTag "$@"
 }
 

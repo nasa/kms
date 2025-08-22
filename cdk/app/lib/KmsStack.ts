@@ -153,13 +153,6 @@ export class KmsStack extends cdk.Stack {
       exportName: `${prefix}-NewApiDeploymentId`
     })
 
-    // Ensure deployment happens after all routes/methods/integrations exist
-    if (lambdas) {
-      Object.values(lambdas).forEach((lambda) => {
-        deployment?.node.addDependency(lambda)
-      })
-    }
-
     this.addOutputs(prefix)
   }
 
