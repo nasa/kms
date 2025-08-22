@@ -446,7 +446,7 @@ export class LambdaFunctions {
         functionName: `${this.props.prefix}-${functionName}`,
         entry: path.join(__dirname, '../../../../serverless/src', handlerPath),
         handler: handlerName,
-        runtime: lambda.Runtime.NODEJS_20_X,
+        runtime: lambda.Runtime.NODEJS_22_X,
         timeout,
         memorySize,
         vpc: this.props.vpc,
