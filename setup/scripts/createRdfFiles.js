@@ -121,7 +121,7 @@ const createRdfFiles = async () => {
             await fileHandle.writeFile(conceptXml)
           }
         } catch (error) {
-          console.log('Error processing concept ', uuid)
+          console.log('Error processing concept ', uuid, error)
         }
       }
 
@@ -256,7 +256,12 @@ const createRdfFiles = async () => {
       for (const version of versions) {
         console.log(`*********** fetching ${version} ${versionType} ***********`)
 
-        await createSchemes(version, versionType, await getXmlSchemes(version, versionType), creationDateMap)
+        await createSchemes(
+          version,
+          versionType,
+          await getXmlSchemes(version, versionType),
+          creationDateMap
+        )
 
         // eslint-disable-next-line no-underscore-dangle
         const __dirname = fileURLToPath(new URL('.', import.meta.url))

@@ -1,6 +1,6 @@
-import { sparqlRequest } from '@/shared/sparqlRequest'
+import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 
-const { XMLParser, XMLBuilder } = require('fast-xml-parser')
+import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
  * Creates and uploads RDF schemes for a specific version of GCMD keywords.

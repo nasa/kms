@@ -7,14 +7,23 @@ import { generatePolicy } from '@/shared/generatePolicy'
  * @param {Object} event Details about the HTTP request that it received
  * @param {Object} context Methods and properties that provide information about the invocation, function, and execution environment
  */
-const edlAuthorizer = async (event) => {
+export const edlAuthorizer = async (event) => {
   const {
     headers = {},
-    methodArn
+    methodArn,
+    authorizationToken
   } = event
 
-  const { authorization: launchpadToken = '' } = downcaseKeys(headers)
+  // First, try to get the token from headers (case-insensitive)
+  let launchpadToken = downcaseKeys(headers).authorization
 
+  // If not found in headers, check if it's directly in the event as authorizationToken
+  if (!launchpadToken && authorizationToken) {
+    launchpadToken = authorizationToken
+  }
+
+  // If still not found, default to an empty string
+  launchpadToken = launchpadToken || ''
   const profile = await fetchEdlProfile(launchpadToken)
   const { uid } = profile
 

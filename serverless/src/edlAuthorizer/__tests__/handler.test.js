@@ -38,6 +38,41 @@ describe('edlAuthorizer', () => {
     })
   })
 
+  describe('when the token is provided in authorizationToken', () => {
+    test('uses the authorizationToken and returns a valid policy', async () => {
+      fetchEdlProfile.mockImplementation(() => ({
+        email: 'test.user@localhost',
+        first_name: 'Test',
+        last_name: 'User',
+        uid: 'mock_user'
+      }))
+
+      const event = {
+        authorizationToken: 'mock-token-in-event',
+        methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/method/resourcepath'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'mock_user',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Allow',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
+
+      // Verify that fetchEdlProfile was called with the correct token
+      expect(fetchEdlProfile).toHaveBeenCalledWith('mock-token-in-event')
+    })
+  })
+
   describe('when running offline', () => {
     test('returns a valid policy', async () => {
       process.env.IS_OFFLINE = true

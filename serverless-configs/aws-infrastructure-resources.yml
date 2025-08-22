@@ -103,7 +103,7 @@ Outputs:
     Value:
       Ref: LambdaSecurityGroup
     Export:
-      Name: ${self:provider.stage}-LambdaSecurityGroup
+      Name: ${self:provider.stage}-KmsLambdaSecurityGroup
 
   KMSServerlessAppRole:
     Description: Role used to execute commands across the serverless application

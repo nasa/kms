@@ -275,7 +275,10 @@ describe('updateConcept', () => {
 
       expect(getConceptById).toHaveBeenCalledWith(mockConceptId, customVersion)
       expect(deleteTriples).toHaveBeenCalledWith(`https://gcmd.earthdata.nasa.gov/kms/concept/${mockConceptId}`, customVersion, 'mock-transaction-url')
-      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({ version: customVersion }))
+      expect(sparqlRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ version: customVersion })
+      )
+
       expect(ensureReciprocal).toHaveBeenCalledWith(expect.objectContaining({
         oldRdfXml: mockOldRdfXml,
         newRdfXml: mockRdfXml,
