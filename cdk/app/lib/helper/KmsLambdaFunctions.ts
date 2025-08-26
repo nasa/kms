@@ -7,6 +7,7 @@ import * as events from 'aws-cdk-lib/aws-events'
 import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
+import * as nodejsLambda from 'aws-cdk-lib/aws-lambda-nodejs'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
@@ -23,6 +24,7 @@ interface LambdaFunctionsProps {
   securityGroup: ec2.SecurityGroup;
   stage: string;
   vpc: ec2.IVpc;
+  useLocalstack: boolean;
   environment: {
     CMR_BASE_URL: string;
     EDL_PASSWORD: string;
@@ -442,29 +444,35 @@ export class LambdaFunctions {
     let lambdaFunction = this.lambdas[handlerPath]
 
     if (!lambdaFunction) {
-      lambdaFunction = new NodejsFunction(scope, `${this.props.prefix}-${functionName}`, {
+      const nodejsFunctionProps: nodejsLambda.NodejsFunctionProps = {
         functionName: `${this.props.prefix}-${functionName}`,
         entry: path.join(__dirname, '../../../../serverless/src', handlerPath),
         handler: handlerName,
         runtime: lambda.Runtime.NODEJS_22_X,
         timeout,
         memorySize,
-        vpc: this.props.vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
-        },
-        securityGroups: [this.props.securityGroup],
         role: this.props.lambdaRole,
         depsLockFilePath: path.join(__dirname, '../../../../package-lock.json'),
         projectRoot: path.join(__dirname, '../../../..'),
-        environment: this.props.environment
-      })
+        environment: this.props.environment,
+        // Conditionally add VPC configuration
+        ...(this.props.useLocalstack ? {} : {
+          vpc: this.props.vpc,
+          vpcSubnets: {
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+          },
+          securityGroups: [this.props.securityGroup]
+        })
+      };
+
+      lambdaFunction = new nodejsLambda.NodejsFunction(scope, `${this.props.prefix}-${functionName}`, nodejsFunctionProps);
 
       this.lambdas[handlerPath] = lambdaFunction
     }
 
     return lambdaFunction
   }
+
 
   private createApiLambda(
     scope: Construct,
