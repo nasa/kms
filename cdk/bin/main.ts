@@ -73,28 +73,28 @@ async function main() {
   let snapshotStack: SnapshotStack | undefined;
   if (!useLocalstack) {
     // Create IAM Stack
-    const iamStack = new IamStack(app, 'rdf4jIamStack', {
+    iamStack = new IamStack(app, 'rdf4jIamStack', {
       env,
       vpcId,
       stackName: 'rdf4jIamStack'
     })
 
     // Create Load Balancer Stack
-    const lbStack = new LoadBalancerStack(app, 'rdf4jLoadBalancerStack', {
+    lbStack = new LoadBalancerStack(app, 'rdf4jLoadBalancerStack', {
       env,
       vpcId,
       stackName: 'rdf4jLoadBalancerStack'
     })
 
     // Create EBS Stack
-    const ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
+    ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
       env,
       vpcId,
       stackName: 'rdf4jEbsStack'
     })
 
     // Create ECS Stack
-    const ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
+    ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
       env,
       vpcId,
       roleArn: iamStack.role.roleArn,
@@ -104,7 +104,7 @@ async function main() {
     })
 
     // Create Snapshot Stack
-    const snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
+    snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
       env,
       ebsVolumeId: ebsStack.volume.volumeId,
       stackName: 'rdf4jSnapshotStack'
@@ -137,14 +137,14 @@ async function main() {
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
       EDL_PASSWORD: process.env.EDL_PASSWORD || ''
-  }
+    }
   }
 
   const kmsStack = new KmsStack(app, 'KmsStack', kmsStackProps)
   // Add dependency only if ecsStack is defined
-if (!useLocalstack && ecsStack) {
-  kmsStack.addDependency(ecsStack);
-}
+  if (!useLocalstack && ecsStack) {
+    kmsStack.addDependency(ecsStack);
+  }
 
   app.synth()
 }
