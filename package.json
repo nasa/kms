@@ -10,7 +10,6 @@
     "preview": "vite preview",
     "test": "vitest",
     "cdk": "cdk",
-    "run-synth": "cd cdk && cdk synth --context useLocalstack=true --output ./cdk.out",
     "start-local": "bin/start-local.sh",
     "deploy-application": "cd cdk && npm ci --include=dev && npx cdk deploy KmsStack --progress events --require-approval never",
     "rdf4j:build": "docker build -t rdf4j:latest ./cdk/rdfdb/docker",

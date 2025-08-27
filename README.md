@@ -27,10 +27,6 @@ Prerequisites:
 - Docker
 - aws-sam-cli (`brew install aws-sam-cli`)
 
-To run cdk synth:
-```
-npm run run-synth
-```
 To start local server (including rdf4j database server, cdk synth and sam)
 ```
 npm run start-local
