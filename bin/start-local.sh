@@ -15,16 +15,6 @@ cleanup() {
 # Set up trap to call cleanup function on Ctrl+C
 trap cleanup SIGINT
 
-# Stop, start and setup RDF4J
-echo "Starting RDF4J..."
-export RDF4J_USER_NAME=rdf4j
-export RDF4J_PASSWORD=rdf4j
-npm run rdf4j:stop
-npm run rdf4j:start
-# Wait for rdf4j server to start
-sleep 10
-npm run rdf4j:setup
-
 # Synthesize the CDK stack
 cd cdk
 cdk synth --context useLocalstack=true --output ./cdk.out > /dev/null 2>&1
