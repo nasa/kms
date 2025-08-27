@@ -7,7 +7,7 @@ import * as events from 'aws-cdk-lib/aws-events'
 import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
-import { NodejsFunction, NodejsFunctionProps} from 'aws-cdk-lib/aws-lambda-nodejs'
+import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
 import { ApiResources } from './ApiResources'
@@ -454,7 +454,6 @@ export class LambdaFunctions {
     memorySize: number
   ): lambda.Function {
     let lambdaFunction = this.lambdas[handlerPath]
-    
     if (!lambdaFunction) {
       const nodejsFunctionProps: NodejsFunctionProps = {
         functionName: `${this.props.prefix}-${functionName}`,
