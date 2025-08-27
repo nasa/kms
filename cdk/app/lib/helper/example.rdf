@@ -1,0 +1,9 @@
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#"
+xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#" xmlns:dcterms="http://purl.org/dc/terms/">
+<skos:ConceptScheme rdf:about="https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/a3">
+<skos:prefLabel>A3</skos:prefLabel>
+<skos:notation>a3</skos:notation>
+<dcterms:modified>2025-03-31</dcterms:modified>
+<gcmd:csvHeaders>Category,Topic,Term</gcmd:csvHeaders>
+</skos:ConceptScheme>
+</rdf:RDF>

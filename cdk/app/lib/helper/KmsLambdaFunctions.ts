@@ -71,6 +71,14 @@ export class LambdaFunctions {
     scope: Construct,
     authorizerLambda: lambda.Function
   ): apigateway.IAuthorizer {
+    if (this.props.useLocalstack) {
+      // Return a dummy authorizer for Localstack
+      return {
+        authorizerId: 'dummy-authorizer-id',
+        authorizationType: apigateway.AuthorizationType.CUSTOM,
+      } as apigateway.IAuthorizer
+    }
+
     const authorizer = new apigateway.TokenAuthorizer(scope, `${this.props.prefix}-EdlAuthorizer`, {
       handler: authorizerLambda,
       identitySource: apigateway.IdentitySource.header('Authorization')
@@ -507,12 +515,14 @@ export class LambdaFunctions {
       proxy: true
     }
 
-    const methodOptions: apigateway.MethodOptions = useAuthorizer
-      ? {
-        authorizer: this.authorizer,
-        authorizationType: apigateway.AuthorizationType.CUSTOM
-      }
-      : {}
+    const methodOptions: apigateway.MethodOptions = this.props.useLocalstack
+      ? {}  // No authorization for Localstack
+      : useAuthorizer
+        ? {
+            authorizer: this.authorizer,
+            authorizationType: apigateway.AuthorizationType.CUSTOM
+          }
+        : {}
 
     resource.addMethod(
       httpMethod,
