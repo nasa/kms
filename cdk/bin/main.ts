@@ -51,11 +51,11 @@ async function main() {
   const useLocalstack = app.node.tryGetContext('useLocalstack') === 'true'
 
   const env: cdk.Environment = useLocalstack
-  ? {
+    ? {
       account: '000000000000',
       region: 'us-east-1'
     }
-  : {
+    : {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: process.env.CDK_DEFAULT_REGION
     }
@@ -66,11 +66,11 @@ async function main() {
     throw new Error('VPC_ID environment variable is not set')
   }
 
-  let iamStack: IamStack | undefined;
-  let lbStack: LoadBalancerStack | undefined;
-  let ebsStack: EbsStack | undefined;
-  let ecsStack: EcsStack | undefined;
-  let snapshotStack: SnapshotStack | undefined;
+  let iamStack: IamStack | undefined
+  let lbStack: LoadBalancerStack | undefined
+  let ebsStack: EbsStack | undefined
+  let ecsStack: EcsStack | undefined
+  let snapshotStack: SnapshotStack | undefined
   if (!useLocalstack) {
     // Create IAM Stack
     iamStack = new IamStack(app, 'rdf4jIamStack', {
@@ -129,8 +129,8 @@ async function main() {
     existingApiId,
     rootResourceId,
     environment: {
-      RDF4J_SERVICE_URL: useLocalstack 
-        ? 'http://host.docker.internal:8080' 
+      RDF4J_SERVICE_URL: useLocalstack
+        ? 'http://host.docker.internal:8080'
         : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8080'),
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
@@ -143,7 +143,7 @@ async function main() {
   const kmsStack = new KmsStack(app, 'KmsStack', kmsStackProps)
   // Add dependency only if ecsStack is defined
   if (!useLocalstack && ecsStack) {
-    kmsStack.addDependency(ecsStack);
+    kmsStack.addDependency(ecsStack)
   }
 
   app.synth()

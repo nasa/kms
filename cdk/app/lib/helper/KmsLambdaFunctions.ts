@@ -8,7 +8,6 @@ import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as nodejsLambda from 'aws-cdk-lib/aws-lambda-nodejs'
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
 import { ApiResources } from './ApiResources'
@@ -75,7 +74,7 @@ export class LambdaFunctions {
       // Return a dummy authorizer for Localstack
       return {
         authorizerId: 'dummy-authorizer-id',
-        authorizationType: apigateway.AuthorizationType.CUSTOM,
+        authorizationType: apigateway.AuthorizationType.CUSTOM
       } as apigateway.IAuthorizer
     }
 
@@ -471,16 +470,15 @@ export class LambdaFunctions {
           },
           securityGroups: [this.props.securityGroup]
         })
-      };
+      }
 
-      lambdaFunction = new nodejsLambda.NodejsFunction(scope, `${this.props.prefix}-${functionName}`, nodejsFunctionProps);
+      lambdaFunction = new nodejsLambda.NodejsFunction(scope, `${this.props.prefix}-${functionName}`, nodejsFunctionProps)
 
       this.lambdas[handlerPath] = lambdaFunction
     }
 
     return lambdaFunction
   }
-
 
   private createApiLambda(
     scope: Construct,
@@ -515,14 +513,16 @@ export class LambdaFunctions {
       proxy: true
     }
 
-    const methodOptions: apigateway.MethodOptions = this.props.useLocalstack
-      ? {}  // No authorization for Localstack
-      : useAuthorizer
-        ? {
-            authorizer: this.authorizer,
-            authorizationType: apigateway.AuthorizationType.CUSTOM
-          }
-        : {}
+    let methodOptions: apigateway.MethodOptions = {}
+
+    if (!this.props.useLocalstack) {
+      if (useAuthorizer) {
+        methodOptions = {
+          authorizer: this.authorizer,
+          authorizationType: apigateway.AuthorizationType.CUSTOM
+        }
+      }
+    }
 
     resource.addMethod(
       httpMethod,
