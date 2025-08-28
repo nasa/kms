@@ -17,7 +17,7 @@ trap cleanup SIGINT
 
 # Synthesize the CDK stack
 cd cdk
-cdk synth --context useLocalstack='true' --output ./cdk.out > /dev/null 2>&1
+cdk synth --context useLocalstack="true" --output ./cdk.out > /dev/null 2>&1
 
 # Check if port 3013 is already in use
 if lsof -Pi :3013 -sTCP:LISTEN -t >/dev/null ; then
