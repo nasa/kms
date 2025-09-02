@@ -48,62 +48,76 @@ async function main() {
     }
   })
 
-  const env: cdk.Environment = {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION
-  }
+  const useLocalstack = app.node.tryGetContext('useLocalstack') === 'true'
 
-  const vpcId = process.env.VPC_ID
+  const env: cdk.Environment = useLocalstack
+    ? {
+      account: '000000000000',
+      region: 'us-east-1'
+    }
+    : {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION
+    }
+
+  const vpcId = useLocalstack ? 'dummy-vpc-id' : process.env.VPC_ID
 
   if (!vpcId) {
     throw new Error('VPC_ID environment variable is not set')
   }
 
-  // Create IAM Stack
-  const iamStack = new IamStack(app, 'rdf4jIamStack', {
-    env,
-    vpcId,
-    stackName: 'rdf4jIamStack'
-  })
+  let iamStack: IamStack | undefined
+  let lbStack: LoadBalancerStack | undefined
+  let ebsStack: EbsStack | undefined
+  let ecsStack: EcsStack | undefined
+  let snapshotStack: SnapshotStack | undefined
+  if (!useLocalstack) {
+    // Create IAM Stack
+    iamStack = new IamStack(app, 'rdf4jIamStack', {
+      env,
+      vpcId,
+      stackName: 'rdf4jIamStack'
+    })
 
-  // Create Load Balancer Stack
-  const lbStack = new LoadBalancerStack(app, 'rdf4jLoadBalancerStack', {
-    env,
-    vpcId,
-    stackName: 'rdf4jLoadBalancerStack'
-  })
+    // Create Load Balancer Stack
+    lbStack = new LoadBalancerStack(app, 'rdf4jLoadBalancerStack', {
+      env,
+      vpcId,
+      stackName: 'rdf4jLoadBalancerStack'
+    })
 
-  // Create EBS Stack
-  const ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
-    env,
-    vpcId,
-    stackName: 'rdf4jEbsStack'
-  })
+    // Create EBS Stack
+    ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
+      env,
+      vpcId,
+      stackName: 'rdf4jEbsStack'
+    })
 
-  // Create ECS Stack
-  const ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
-    env,
-    vpcId,
-    roleArn: iamStack.role.roleArn,
-    lbStack,
-    ebsStack,
-    stackName: 'rdf4jEcsStack'
-  })
+    // Create ECS Stack
+    ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
+      env,
+      vpcId,
+      roleArn: iamStack.role.roleArn,
+      lbStack,
+      ebsStack,
+      stackName: 'rdf4jEcsStack'
+    })
 
-  // Create Snapshot Stack
-  const snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
-    env,
-    ebsVolumeId: ebsStack.volume.volumeId,
-    stackName: 'rdf4jSnapshotStack'
-  })
+    // Create Snapshot Stack
+    snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
+      env,
+      ebsVolumeId: ebsStack.volume.volumeId,
+      stackName: 'rdf4jSnapshotStack'
+    })
 
-  // Add dependencies
-  ebsStack.addDependency(iamStack)
-  lbStack.addDependency(iamStack)
-  ecsStack.addDependency(iamStack)
-  ecsStack.addDependency(ebsStack)
-  ecsStack.addDependency(lbStack)
-  snapshotStack.addDependency(ebsStack)
+    // Add dependencies
+    ebsStack.addDependency(iamStack)
+    lbStack.addDependency(iamStack)
+    ecsStack.addDependency(iamStack)
+    ecsStack.addDependency(ebsStack)
+    ecsStack.addDependency(lbStack)
+    snapshotStack.addDependency(ebsStack)
+  }
 
   // Create KmsStack
   const kmsStackProps: KmsStackProps = {
@@ -115,7 +129,9 @@ async function main() {
     existingApiId,
     rootResourceId,
     environment: {
-      RDF4J_SERVICE_URL: lbStack.rdf4jServiceUrl,
+      RDF4J_SERVICE_URL: useLocalstack
+        ? 'http://rdf4j-server:8080'
+        : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8080'),
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
@@ -125,7 +141,10 @@ async function main() {
   }
 
   const kmsStack = new KmsStack(app, 'KmsStack', kmsStackProps)
-  kmsStack.addDependency(ecsStack)
+  // Add dependency only if ecsStack is defined
+  if (!useLocalstack && ecsStack) {
+    kmsStack.addDependency(ecsStack)
+  }
 
   app.synth()
 }

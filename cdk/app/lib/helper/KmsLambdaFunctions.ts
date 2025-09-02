@@ -7,7 +7,7 @@ import * as events from 'aws-cdk-lib/aws-events'
 import * as targets from 'aws-cdk-lib/aws-events-targets'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
 import { ApiResources } from './ApiResources'
@@ -23,6 +23,7 @@ interface LambdaFunctionsProps {
   securityGroup: ec2.SecurityGroup;
   stage: string;
   vpc: ec2.IVpc;
+  useLocalstack: boolean;
   environment: {
     CMR_BASE_URL: string;
     EDL_PASSWORD: string;
@@ -46,12 +47,17 @@ export class LambdaFunctions {
   /** Map of Lambda functions, keyed by handler path */
   private lambdas: { [key: string]: lambda.Function } = {}
 
+  /** Flag if use local stack */
+  private useLocalstack: boolean
+
   /**
    * Constructs a new instance of LambdaFunctions
    * @param {Construct} scope - The scope in which to define this construct
    * @param {LambdaFunctionsProps} props - The properties for configuring the Lambda functions
    */
   constructor(scope: Construct, private props: LambdaFunctionsProps) {
+    const { useLocalstack } = props
+    this.useLocalstack = useLocalstack
     this.authorizerLambda = this.createAuthorizerLambda(scope)
     this.authorizer = this.createAuthorizer(scope, this.authorizerLambda)
 
@@ -69,6 +75,14 @@ export class LambdaFunctions {
     scope: Construct,
     authorizerLambda: lambda.Function
   ): apigateway.IAuthorizer {
+    if (this.useLocalstack) {
+      // Return a dummy authorizer for Localstack
+      return {
+        authorizerId: 'dummy-authorizer-id',
+        authorizationType: apigateway.AuthorizationType.CUSTOM
+      } as apigateway.IAuthorizer
+    }
+
     const authorizer = new apigateway.TokenAuthorizer(scope, `${this.props.prefix}-EdlAuthorizer`, {
       handler: authorizerLambda,
       identitySource: apigateway.IdentitySource.header('Authorization')
@@ -440,25 +454,29 @@ export class LambdaFunctions {
     memorySize: number
   ): lambda.Function {
     let lambdaFunction = this.lambdas[handlerPath]
-
     if (!lambdaFunction) {
-      lambdaFunction = new NodejsFunction(scope, `${this.props.prefix}-${functionName}`, {
+      const nodejsFunctionProps: NodejsFunctionProps = {
         functionName: `${this.props.prefix}-${functionName}`,
         entry: path.join(__dirname, '../../../../serverless/src', handlerPath),
         handler: handlerName,
         runtime: lambda.Runtime.NODEJS_22_X,
         timeout,
         memorySize,
-        vpc: this.props.vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
-        },
-        securityGroups: [this.props.securityGroup],
         role: this.props.lambdaRole,
         depsLockFilePath: path.join(__dirname, '../../../../package-lock.json'),
         projectRoot: path.join(__dirname, '../../../..'),
-        environment: this.props.environment
-      })
+        environment: this.props.environment,
+        // Conditionally add VPC configuration
+        ...(this.useLocalstack ? {} : {
+          vpc: this.props.vpc,
+          vpcSubnets: {
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+          },
+          securityGroups: [this.props.securityGroup]
+        })
+      }
+
+      lambdaFunction = new NodejsFunction(scope, `${this.props.prefix}-${functionName}`, nodejsFunctionProps)
 
       this.lambdas[handlerPath] = lambdaFunction
     }
@@ -499,12 +517,16 @@ export class LambdaFunctions {
       proxy: true
     }
 
-    const methodOptions: apigateway.MethodOptions = useAuthorizer
-      ? {
-        authorizer: this.authorizer,
-        authorizationType: apigateway.AuthorizationType.CUSTOM
+    let methodOptions: apigateway.MethodOptions = {}
+
+    if (!this.useLocalstack) {
+      if (useAuthorizer) {
+        methodOptions = {
+          authorizer: this.authorizer,
+          authorizationType: apigateway.AuthorizationType.CUSTOM
+        }
       }
-      : {}
+    }
 
     resource.addMethod(
       httpMethod,

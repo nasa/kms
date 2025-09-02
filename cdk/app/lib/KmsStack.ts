@@ -79,8 +79,10 @@ export class KmsStack extends cdk.Stack {
     } = props
     this.stage = stage
 
+    const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true'
+
     // Set up VPC and Security Group
-    const vpcSetup = new VpcSetup(this, 'VpcSetup', vpcId)
+    const vpcSetup = new VpcSetup(this, prefix, vpcId, useLocalstack)
     this.vpc = vpcSetup.vpc
     this.securityGroup = vpcSetup.securityGroup
 
@@ -124,7 +126,8 @@ export class KmsStack extends cdk.Stack {
       prefix,
       securityGroup: this.securityGroup,
       stage: this.stage,
-      vpc: this.vpc
+      vpc: this.vpc,
+      useLocalstack
     })
 
     const lambdas = this.lambdaFunctions.getAllLambdas()

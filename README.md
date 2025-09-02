@@ -9,7 +9,7 @@ Keyword Management System (KMS) is a application for maintaining keywords (scien
 ### Requirements
 
 - [Node](https://nodejs.org/) (check .nvmrc for correct version)
-  - [nvm](https://github.com/nvm-sh/nvm) is highly recommended
+- [nvm](https://github.com/nvm-sh/nvm) is highly recommended
 
 ### Setup
 
@@ -21,14 +21,16 @@ npm install
 
 ### Usage
 
-#### Running Serverless Offline (API Gateway/Lambdas)
+### Running local server
 
-In order to run serverless-offline, which is used for mimicking API Gateway to call lambda functions, run:
+Prerequisites:
+- Docker
+- aws-sam-cli (`brew install aws-sam-cli`)
 
+To start local server (including rdf4j database server, cdk synth and sam)
 ```
-CMR_BASE_URL=https://cmr.earthdata.nasa.gov RDF4J_SERVICE_URL=http://localhost:8080 npm run offline
+npm run start-local
 ```
-CMR_BASE_URL used to fetch number of collections for interface /keyword/uuid called by Keyword Viewer
 
 ## Local Testing
 
@@ -49,6 +51,10 @@ export RDF4J_PASSWORD=[password]
 #### Build the docker image
 ```
 npm run rdf4j:build
+```
+#### Create a docker network
+```
+npm run create-network
 ```
 #### Run the docker image
 ```
