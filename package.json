@@ -12,7 +12,7 @@
     "cdk": "cdk",
     "start-local": "bin/start-local.sh",
     "deploy-application": "cd cdk && npm ci --include=dev && npx cdk deploy KmsStack --progress events --require-approval never",
-    "create-network": "docker network create --ignore-duplicate kms-network",
+    "create-network": "docker network create kms-network",
     "rdf4j:build": "docker build -t rdf4j:latest ./cdk/rdfdb/docker",
     "rdf4j:start": "docker run --name rdf4j-server --network kms-network -d -p 8080:8080 -e RDF4J_USER_NAME=$RDF4J_USER_NAME -e RDF4J_PASSWORD=$RDF4J_PASSWORD -e JAVA_OPTS='-Xms6.5g -Xmx6.5g' -v logs:/usr/local/tomcat/logs rdf4j:latest",
     "rdf4j:stop": "docker ps -q --filter ancestor=rdf4j:latest | xargs -r docker kill && docker ps -aq --filter ancestor=rdf4j:latest | xargs -r docker rm",
