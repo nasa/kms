@@ -214,7 +214,7 @@ describe('toLegacyJSON', () => {
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 1',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -223,7 +223,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID2',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 2',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -252,7 +252,7 @@ describe('toLegacyJSON', () => {
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 1',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -261,7 +261,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID2',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 2',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -467,7 +467,7 @@ describe('toLegacyJSON', () => {
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID1',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 1',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -476,7 +476,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID3',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 3',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -485,7 +485,7 @@ describe('toLegacyJSON', () => {
         },
         {
           uuid: 'relatedUUID2',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 2',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
@@ -510,7 +510,7 @@ describe('toLegacyJSON', () => {
       expect(result.related).toEqual([
         {
           uuid: 'relatedUUID4',
-          prefLabel: 'Test PrefLabel',
+          prefLabel: 'Related PrefLabel 4',
           scheme: {
             shortName: 'testRelatedScheme',
             longName: 'Test Related Scheme'
