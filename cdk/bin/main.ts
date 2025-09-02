@@ -130,7 +130,7 @@ async function main() {
     rootResourceId,
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
-        ? 'http://host.docker.internal:8080'
+        ? 'http://rdf4j-server:8080'
         : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8080'),
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
