@@ -52,6 +52,10 @@ export RDF4J_PASSWORD=[password]
 ```
 npm run rdf4j:build
 ```
+#### Create a docker network
+```
+npm run create-network
+```
 #### Run the docker image
 ```
 npm run rdf4j:start
