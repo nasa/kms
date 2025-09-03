@@ -1,1 +1,16 @@
-{ "application": { "env": "sit", "version": "cgokey", "defaultResponseHeaders": { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Credentials": true }, "maxTotalConceptsLimit": 50000 }, "edl": { "host": "https://sit.urs.earthdata.nasa.gov", "uid": "mmt_test" } }
+{
+  "application": {
+    "env": "sit",
+    "version": "cgokey",
+    "defaultResponseHeaders": {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Credentials": true
+    },
+    "maxTotalConceptsLimit": 50000
+  },
+  "edl": {
+    "host": "https://sit.urs.earthdata.nasa.gov",
+    "uid": "mmt_test"
+  }
+}
