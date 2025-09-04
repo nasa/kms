@@ -106,6 +106,7 @@ cdk deploy rdf4jIamStack
 cdk deploy rdf4jEbsStack
 cdk deploy rdf4jLbStack
 cdk deploy rdf4jEcsStack
+cdk deploy rdf4jSnapshotStack
 cdk deploy KmsStack
 ```
 #### Alternatively, you can deploy all stacks at once
