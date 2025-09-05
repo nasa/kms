@@ -9,7 +9,7 @@ Keyword Management System (KMS) is a application for maintaining keywords (scien
 ### Requirements
 
 - [Node](https://nodejs.org/) (check .nvmrc for correct version)
-  - [nvm](https://github.com/nvm-sh/nvm) is highly recommended
+- [nvm](https://github.com/nvm-sh/nvm) is highly recommended
 
 ### Setup
 
@@ -21,14 +21,16 @@ npm install
 
 ### Usage
 
-#### Running Serverless Offline (API Gateway/Lambdas)
+### Running local server
 
-In order to run serverless-offline, which is used for mimicking API Gateway to call lambda functions, run:
+Prerequisites:
+- Docker
+- aws-sam-cli (`brew install aws-sam-cli`)
 
+To start local server (including rdf4j database server, cdk synth and sam)
 ```
-CMR_BASE_URL=https://cmr.earthdata.nasa.gov RDF4J_SERVICE_URL=http://localhost:8080 npm run offline
+npm run start-local
 ```
-CMR_BASE_URL used to fetch number of collections for interface /keyword/uuid called by Keyword Viewer
 
 ## Local Testing
 
@@ -49,6 +51,10 @@ export RDF4J_PASSWORD=[password]
 #### Build the docker image
 ```
 npm run rdf4j:build
+```
+#### Create a docker network
+```
+npm run create-network
 ```
 #### Run the docker image
 ```
@@ -83,7 +89,7 @@ export RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 
 #### Deploy Docker Container to Registry
 ```
-cd infrastructure/rdfdb/cdk/bin
+cd cdk/rdfdb/bin
 ./deploy_to_ecr.sh
 ```
 
@@ -95,15 +101,17 @@ export RDF4J_PASSWORD=[your rdfdb password]
 export RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 export RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
 
-cd infrastructure/rdfdb/cdk
+cd cdk
 cdk deploy rdf4jIamStack
 cdk deploy rdf4jEbsStack
 cdk deploy rdf4jLbStack
 cdk deploy rdf4jEcsStack
+cdk deploy rdf4jSnapshotStack
+cdk deploy KmsStack
 ```
 #### Alternatively, you can deploy all stacks at once
 ```
-cd infrastructure/rdfdb/cdk
+cd cdk
 cdk deploy --all
 ```
 One thing to note is if you destroy the rdf4jEbsStack and redeploy, this will create a new EBS file system.  You will need to copy the data from the old EBS file system to the new one.  This can be done by mounting the old EBS file system to an EC2 instance and copying the data to the new EBS file system.
@@ -123,22 +131,19 @@ export bamboo_SUBNET_ID_C={subnet #3}
 export bamboo_VPC_ID={your vpc id}
 export bamboo_RDF4J_USER_NAME=[your rdfdb user name]
 export bamboo_RDF4J_PASSWORD=[your rdfdb password]
+export bamboo_EDL_HOST=[edl host name]
+export bamboo_EDL_UID=[edl user id]
+export bamboo_EDL_PASSWORD=[edl password]
+export bamboo_CMR_BASE_URL=[cmr base url]
+export bamboo_CORS_ORIGIN=[comma separated list of cors origins]
+export bamboo_RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
+export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
+export bamboo_RDF_BUCKET_NAME=[name of bucket for storing archived versions]
+export bamboo_EXISTING_API_ID=[api id if deploying this into an existing api gateway]
+export bamboo_ROOT_RESOURCE_ID=[see CDK_MIGRATION.md for how to determine]
 ```
 #### Deploy KMS Application
 ```
-./bin/deploy_bamboo.sh
-```
-### Downloading the latest concepts from old KMS.
-#### If you want to refresh your database with the latest SKOS concepts from legacy KMS, do the following:
-```
-LEGACY_SERVER=https://gcmd.sit.earthdata.nasa.gov npm run download-data
-LEGACY_SERVER=https://gcmd.sit.earthdata.nasa.gov npm run create-rdf-files
-```
-This will download the latest JSON export from legacy KMS and turn them into RDF files.
-Then restart your local database, i.e.,
-```
-npm run rdf4j:stop
-npm run rdf4j:start
-npm run rddfj:setup
+./bin/deploy-bamboo.sh
 ```
 

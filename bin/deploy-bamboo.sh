@@ -22,34 +22,37 @@ echo $config > tmp.$$.json && mv tmp.$$.json static.config.json
 #####################
 
 cat <<EOF > .dockerignore
-node_modules
 .DS_Store
 .git
 .github
 .serverless
-cmr
-coverage
+.webpack
+cypress
 dist
 node_modules
 tmp
 EOF
 
 cat <<EOF > Dockerfile
-FROM node:20-bookworm
+FROM node:22
 COPY . /build
 WORKDIR /build
-RUN npm ci --omit=dev && npm run build
+RUN npm ci
 EOF
+
 dockerTag=kms-$bamboo_STAGE_NAME
+stageOpts="--stage $bamboo_STAGE_NAME "
+
 docker build -t $dockerTag .
 
 # Convenience function to invoke `docker run` with appropriate env vars instead of baking them into image
 dockerRun() {
-    docker run \
+  docker run \
+        --rm \
         --env "AWS_ACCESS_KEY_ID=$bamboo_AWS_ACCESS_KEY_ID" \
         --env "AWS_SECRET_ACCESS_KEY=$bamboo_AWS_SECRET_ACCESS_KEY" \
         --env "AWS_SESSION_TOKEN=$bamboo_AWS_SESSION_TOKEN" \
-        --env "LAMBDA_TIMEOUT=$bamboo_LAMBDA_TIMEOUT" \
+        --env "STAGE_NAME=$bamboo_STAGE_NAME" \
         --env "NODE_ENV=$bamboo_STAGE_NAME" \
         --env "NODE_OPTIONS=--max_old_space_size=4096" \
         --env "SUBNET_ID_A=$bamboo_SUBNET_ID_A" \
@@ -59,23 +62,19 @@ dockerRun() {
         --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
         --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
-        --env "SHOULD_SYNC=$bamboo_SHOULD_SYNC" \
-        --env "SYNC_API_ENDPOINT=$bamboo_SYNC_API_ENDPOINT" \
         --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
+        --env "RDF4J_INSTANCE_TYPE=$bamboo_RDF4J_INSTANCE_TYPE" \
+        --env "RDF4J_CONTAINER_MEMORY_LIMIT=$bamboo_RDF4J_CONTAINER_MEMORY_LIMIT" \
         --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
-        $dockerTag "$@"
+        --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
+        --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
+    $dockerTag "$@"
 }
 
-# Execute serverless commands in Docker
+# Execute deployment commands in Docker
 #######################################
 
-stageOpts="--stage $bamboo_STAGE_NAME"
-
-# Deploy AWS Infrastructure Resources
-echo 'Deploying AWS Infrastructure Resources...'
-dockerRun npx serverless deploy $stageOpts --config serverless-infrastructure.yml
-
-# Deploy AWS Application Resources
-echo 'Deploying AWS Application Resources...'
-dockerRun npx serverless deploy $stageOpts
+# Deploy to AWS
+echo 'Deploying to AWS Resources...'
+dockerRun npm run deploy-application

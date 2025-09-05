@@ -1,14 +1,29 @@
-/* eslint-disable no-new */
-const { Stack, CfnOutput } = require('aws-cdk-lib')
-const ec2 = require('aws-cdk-lib/aws-ec2')
-const iam = require('aws-cdk-lib/aws-iam')
+import {
+  CfnOutput,
+  Stack,
+  StackProps
+} from 'aws-cdk-lib'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as iam from 'aws-cdk-lib/aws-iam'
+import { Construct } from 'constructs'
+
+export interface IIamStack {
+  readonly role: iam.Role;
+}
+
+interface IamStackProps extends StackProps {
+  vpcId: string;
+}
 
 /**
  * Stack for creating IAM resources for RDF4J.
- * @extends Stack
  */
-class IamStack extends Stack {
-  constructor(scope, id, props) {
+export class IamStack extends Stack implements IIamStack {
+  public readonly role: iam.Role
+
+  private readonly vpc: ec2.IVpc
+
+  constructor(scope: Construct, id: string, props: IamStackProps) {
     super(scope, id, props)
     const { vpcId } = props
 
@@ -21,16 +36,16 @@ class IamStack extends Stack {
     this.addOutputs()
   }
 
-  getVpc(vpcId) {
+  private getVpc(vpcId: string): ec2.IVpc {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  addSsmPermissions(role) {
+  private addSsmPermissions(role: iam.Role): void {
     role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'))
   }
 
-  createIAMRole() {
-    const role = new iam.Role(this, 'rdf4jRole', {
+  private createIAMRole(): iam.Role {
+    return new iam.Role(this, 'rdf4jRole', {
       roleName: 'rdf4jRole',
       assumedBy: new iam.CompositePrincipal(
         new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
@@ -43,12 +58,9 @@ class IamStack extends Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy')
       ]
     })
-
-    return role
   }
 
-  addEbsVolumePermissions(role) {
-    // Keep this method as is
+  private addEbsVolumePermissions(role: iam.Role): void {
     role.addToPolicy(new iam.PolicyStatement({
       actions: [
         'ec2:AttachVolume',
@@ -63,7 +75,7 @@ class IamStack extends Stack {
     }))
   }
 
-  addAwsBackupPermissions(role) {
+  private addAwsBackupPermissions(role: iam.Role): void {
     role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSBackupServiceRolePolicyForBackup'))
     role.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSBackupServiceRolePolicyForRestores'))
 
@@ -99,7 +111,7 @@ class IamStack extends Stack {
     }))
   }
 
-  addEcrAndElbPermissions(role) {
+  private addEcrAndElbPermissions(role: iam.Role): void {
     role.addToPolicy(new iam.PolicyStatement({
       actions: [
         'ecr:GetAuthorizationToken',
@@ -119,12 +131,11 @@ class IamStack extends Stack {
     }))
   }
 
-  addOutputs() {
+  private addOutputs(): void {
+    // eslint-disable-next-line no-new
     new CfnOutput(this, 'RoleArn', {
       value: this.role.roleArn,
       exportName: 'rdf4jRoleArn'
     })
   }
 }
-
-module.exports = { IamStack }

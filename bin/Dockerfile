@@ -1,4 +1,4 @@
-FROM node:20-bookworm
+FROM node:22
 COPY . /build
 WORKDIR /build
 RUN npm ci --omit=dev && npm run build

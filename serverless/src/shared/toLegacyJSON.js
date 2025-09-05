@@ -155,7 +155,7 @@ export const toLegacyJSON = (
 
           const result = {
             uuid: relationUuid,
-            prefLabel: prefLabelMap.get(uuid),
+            prefLabel: prefLabelMap.get(relationUuid),
             scheme: {
               shortName: relatedShortName,
               longName: relatedLongName

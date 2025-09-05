@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs').promises
 
 const baseUrl = 'http://localhost:8080/rdf4j-server'

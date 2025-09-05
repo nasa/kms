@@ -5,8 +5,6 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import url from 'url'
 
-import { recreateDatabase } from '../../serverless/src/recreateDatabase/handler'
-
 import { fetchVersions } from './lib/fetchVersions'
 
 const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
@@ -20,6 +18,48 @@ const base64Credentials = Buffer.from(`${username}:${password}`).toString('base6
 
 /* eslint-disable no-restricted-syntax */
 const loadExport = async () => {
+  const getAuthHeader = () => `Basic ${base64Credentials}`
+
+  const recreateDatabase = async () => {
+    try {
+      // Step 1: Delete existing repository
+      const deleteResponse = await fetch(`${baseUrl}/repositories/${repoId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: getAuthHeader()
+        }
+      })
+      if (!deleteResponse.ok && deleteResponse.status !== 404) {
+        throw new Error(`Failed to delete repository: ${deleteResponse.status} ${deleteResponse.statusText}`)
+      }
+
+      console.log(`Deleted repository '${repoId}' (if it existed)`)
+
+      // Step 2: Read config.ttl file
+      const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
+      const configPath = path.join(__dirname, '..', '..', 'cdk', 'rdbdb', 'docker', 'config', 'config.ttl')
+      const createConfig = await fs.readFile(configPath, 'utf8')
+
+      // Step 3: Create new repository
+      const createResponse = await fetch(`${baseUrl}/repositories/${repoId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'text/turtle',
+          Authorization: getAuthHeader()
+        },
+        body: createConfig
+      })
+      if (!createResponse.ok) {
+        throw new Error(`Failed to create repository: ${createResponse.status} ${createResponse.statusText}`)
+      }
+
+      console.log(`Created new repository '${repoId}'`)
+    } catch (error) {
+      console.error('Error recreating database:', error)
+      throw error
+    }
+  }
+
   const loadRDFXMLToRDF4J = async (filePath, graphId) => {
     try {
       const xmlData = await fs.readFile(filePath, 'utf8')

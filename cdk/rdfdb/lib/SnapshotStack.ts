@@ -1,6 +1,20 @@
-const { Stack, Duration } = require('aws-cdk-lib')
-const backup = require('aws-cdk-lib/aws-backup')
-const events = require('aws-cdk-lib/aws-events')
+import {
+  Duration,
+  Stack,
+  StackProps
+} from 'aws-cdk-lib'
+import * as backup from 'aws-cdk-lib/aws-backup'
+import * as events from 'aws-cdk-lib/aws-events'
+import { Construct } from 'constructs'
+
+export interface ISnapshotStack {
+  readonly backupVault: backup.BackupVault;
+  readonly backupPlan: backup.BackupPlan;
+}
+
+interface SnapshotStackProps extends StackProps {
+  ebsVolumeId: string;
+}
 
 /**
  * SnapshotStack creates an AWS Backup configuration for an EBS volume using AWS CDK.
@@ -8,20 +22,20 @@ const events = require('aws-cdk-lib/aws-events')
  * This stack sets up an automated backup system for a specified EBS volume. It creates
  * a backup vault, defines a backup plan with a customizable schedule, and selects the
  * EBS volume as the resource to be backed up.
- *
- * @class
- * @extends {Stack}
  */
-class SnapshotStack extends Stack {
+export class SnapshotStack extends Stack implements ISnapshotStack {
+  public readonly backupVault: backup.BackupVault
+
+  public readonly backupPlan: backup.BackupPlan
+
   /**
    * Constructs a new instance of SnapshotStack.
    *
    * @param {Construct} scope - The scope in which to define this construct.
    * @param {string} id - The scoped construct ID.
-   * @param {object} props - Initialization properties.
-   * @param {string} props.ebsVolumeId - The ID of the EBS volume to be backed up.
+   * @param {SnapshotStackProps} props - Initialization properties.
    */
-  constructor(scope, id, props) {
+  constructor(scope: Construct, id: string, props: SnapshotStackProps) {
     super(scope, id, props)
 
     const { ebsVolumeId } = props
@@ -30,18 +44,18 @@ class SnapshotStack extends Stack {
     const cronExpression = process.env.SNAPSHOT_CRON_EXPRESSION_UTC || '0 5 * * ? *' // Midnight EST
 
     // Create a backup vault
-    const backupVault = new backup.BackupVault(this, 'RDF4JBackupVault', {
+    this.backupVault = new backup.BackupVault(this, 'RDF4JBackupVault', {
       backupVaultName: 'rdf4j-backup-vault'
     })
 
     // Create a backup plan
-    const plan = new backup.BackupPlan(this, 'RDF4JBackupPlan', {
+    this.backupPlan = new backup.BackupPlan(this, 'RDF4JBackupPlan', {
       backupPlanName: 'rdf4j-backup-plan',
-      backupVault
+      backupVault: this.backupVault
     })
 
     // Add a rule to the plan
-    plan.addRule(new backup.BackupPlanRule({
+    this.backupPlan.addRule(new backup.BackupPlanRule({
       completionWindow: Duration.hours(2),
       startWindow: Duration.hours(1),
       scheduleExpression: events.Schedule.expression(`cron(${cronExpression})`),
@@ -51,12 +65,10 @@ class SnapshotStack extends Stack {
     // Select the resources to backup
     // eslint-disable-next-line no-new
     new backup.BackupSelection(this, 'RDF4JVolumeSelection', {
-      backupPlan: plan,
+      backupPlan: this.backupPlan,
       resources: [
         backup.BackupResource.fromArn(`arn:aws:ec2:${this.region}:${this.account}:volume/${ebsVolumeId}`)
       ]
     })
   }
 }
-
-module.exports = { SnapshotStack }

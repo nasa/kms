@@ -1,4 +1,3 @@
-import { XMLParser } from 'fast-xml-parser'
 import {
   afterEach,
   beforeEach,
@@ -8,8 +7,6 @@ import {
 } from 'vitest'
 
 import { buildXmlMap } from '../buildXmlMap'
-
-vi.mock('fast-xml-parser')
 
 describe('buildXmlMap', () => {
   // Mock console.warn and console.error
@@ -173,10 +170,6 @@ describe('buildXmlMap', () => {
     })
 
     test('should warn about unexpected XML structure', async () => {
-      XMLParser.mockImplementation(() => ({
-        parse: () => ({ concepts: { unexpectedElement: 'data' } })
-      }))
-
       const result = await buildXmlMap('<dummy xml>')
 
       expect(result).toEqual({})
