@@ -46,9 +46,6 @@
  *   }
  * }
  */
-import { addChangeNotes } from '@/shared/addChangeNotes'
-import { captureRelations } from '@/shared/captureRelations'
-import { compareRelations } from '@/shared/compareRelations'
 import { conceptIdExists } from '@/shared/conceptIdExists'
 import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
@@ -99,7 +96,13 @@ export const deleteConcept = async (event, context) => {
     // Start transaction
     transactionUrl = await startTransaction()
 
+    // Commented out this block because we want to preserve this code
+    // in case we deprecate a concept instead of delete it
+    // (see https://bugs.earthdata.nasa.gov/browse/KMS-631)
+    /*
+    // Before relations
     const beforeRelations = await captureRelations(conceptId, version, transactionUrl)
+    */
 
     // Get the existing concept data
     const oldRdfXml = await getConceptById(conceptId, version)
@@ -120,6 +123,11 @@ export const deleteConcept = async (event, context) => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 
+    // Commented out this block because we want to preserve this code
+    // in case we deprecate a concept instead of delete it
+    // (see https://bugs.earthdata.nasa.gov/browse/KMS-631)
+
+    /*
     // Capture relations after update
     const afterRelations = await captureRelations(conceptId, version, transactionUrl)
 
@@ -130,6 +138,7 @@ export const deleteConcept = async (event, context) => {
     if (addedRelations.length > 0 || removedRelations.length > 0) {
       await addChangeNotes(addedRelations, removedRelations, version, transactionUrl)
     }
+    */
 
     // Commit transaction
     await commitTransaction(transactionUrl)
