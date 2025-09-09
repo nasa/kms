@@ -165,52 +165,6 @@ describe('createCsvForScheme', () => {
       expect(generateCsvHeaders).toHaveBeenCalledWith(scheme, version, 3)
       expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockGeneratedHeaders, mockPaths)
     })
-
-    test('should handle "granuledataformat" scheme correctly', async () => {
-      const scheme = 'granuledataformat'
-      const version = 'draft'
-      const versionName = 'Test Version'
-      const versionCreationDate = '2023-01-01'
-      const mockDefaultHeaders = { 'Default-Header': 'value' }
-      const mockMetadata = { some: 'metadata' }
-      const mockHeaders = ['Header1', 'Header2']
-      const mockPaths = ['path1', 'path2']
-      const mockCsvContent = 'csv,content'
-
-      getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-      createCsvMetadata.mockReturnValue(mockMetadata)
-      getCsvHeaders.mockResolvedValue(mockHeaders)
-      getCsvPaths.mockResolvedValue(mockPaths)
-      createCsv.mockResolvedValue(mockCsvContent)
-
-      const result = await createCsvForScheme({
-        scheme,
-        version,
-        versionName,
-        versionCreationDate
-      })
-
-      expect(result).toEqual({
-        statusCode: 200,
-        body: mockCsvContent,
-        headers: {
-          ...mockDefaultHeaders,
-          'Content-Type': 'text/csv',
-          'Content-Disposition': 'attachment; filename=dataformat.csv'
-        }
-      })
-
-      // Check if the functions were called with 'dataformat' instead of 'granuledataformat'
-      expect(createCsvMetadata).toHaveBeenCalledWith({
-        versionName,
-        scheme: 'dataformat',
-        versionCreationDate: '2023-01-01'
-      })
-
-      expect(getCsvHeaders).toHaveBeenCalledWith('dataformat', version)
-      expect(getCsvPaths).toHaveBeenCalledWith('dataformat', mockHeaders.length, version)
-      expect(createCsv).toHaveBeenCalledWith(mockMetadata, mockHeaders, mockPaths)
-    })
   })
 
   describe('when unsuccessful', () => {

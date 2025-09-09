@@ -153,6 +153,84 @@ describe('getConcepts', () => {
         version: 'published'
       })
     })
+
+    test('converts granuledataformat to dataformat', async () => {
+      getVersionMetadata.mockResolvedValue({ versionName: '1.0' })
+      getConceptSchemeDetails.mockResolvedValue({ /* Mock scheme details */ })
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        pathParameters: {
+          conceptScheme: 'granuledataformat'
+        },
+        queryStringParameters: {
+          version: 'published'
+        }
+      }
+
+      await getConcepts(event)
+
+      // Check if getFilteredTriples was called with 'dataformat' instead of 'granuledataformat'
+      expect(getFilteredTriples).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conceptScheme: 'dataformat',
+          version: 'published'
+        })
+      )
+
+      // Also check if getConceptSchemeDetails was called with 'dataformat'
+      expect(getConceptSchemeDetails).toHaveBeenCalledWith({
+        schemeName: 'dataformat',
+        version: 'published'
+      })
+    })
+
+    test('does not convert other concept schemes', async () => {
+      getVersionMetadata.mockResolvedValue({ versionName: '1.0' })
+      getConceptSchemeDetails.mockResolvedValue({ /* Mock scheme details */ })
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        pathParameters: {
+          conceptScheme: 'otherScheme'
+        },
+        queryStringParameters: {
+          version: 'published'
+        }
+      }
+
+      await getConcepts(event)
+
+      // Check if getFilteredTriples was called with the original scheme name
+      expect(getFilteredTriples).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conceptScheme: 'otherScheme',
+          version: 'published'
+        })
+      )
+
+      // Also check if getConceptSchemeDetails was called with the original scheme name
+      expect(getConceptSchemeDetails).toHaveBeenCalledWith({
+        schemeName: 'otherScheme',
+        version: 'published'
+      })
+    })
   })
 
   describe('when format is CSV', () => {

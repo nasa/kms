@@ -96,7 +96,8 @@ export const getConcepts = async (event, context) => {
 
   const { defaultResponseHeaders, maxTotalConceptsLimit = 50000 } = getApplicationConfig()
   const { queryStringParameters } = event
-  const { conceptScheme, pattern } = event?.pathParameters || {}
+  const { pattern } = event?.pathParameters || {}
+  let { conceptScheme } = event?.pathParameters || {}
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
@@ -117,6 +118,10 @@ export const getConcepts = async (event, context) => {
 
   // Check existence of scheme if given
   if (conceptScheme) {
+    if (conceptScheme.toLowerCase() === 'granuledataformat') {
+      conceptScheme = 'dataformat'
+    }
+
     const scheme = await getConceptSchemeDetails({
       schemeName: conceptScheme,
       version

@@ -21,11 +21,6 @@ export const createCsvForScheme = async ({
 }) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   try {
-    if (scheme.toLowerCase() === 'granuledataformat') {
-    // eslint-disable-next-line no-param-reassign
-      scheme = 'dataformat'
-    }
-
     // Create CSV metadata
     const csvMetadata = createCsvMetadata({
       versionName,
