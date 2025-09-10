@@ -61,14 +61,14 @@ TIMEOUT=300  # 5 minutes timeout
 START_TIME=$(date +%s)
 
 while true; do
-    # Check if there are any running ECS tasks
-    RUNNING_TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --desired-status RUNNING --query 'length(taskArns)' --output text)
-    
     # Check if the ASG has any instances
-    ASG_INSTANCES=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $ASG_NAME --query 'AutoScalingGroups[0].Instances' --output text)
+    ASG_INSTANCES=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $ASG_NAME --query 'length(AutoScalingGroups[0].Instances)' --output text)
     
-    if [ "$RUNNING_TASKS" -eq 0 ] && [ -z "$ASG_INSTANCES" ]; then
-        log "Shutdown complete: No running tasks and no instances in ASG"
+    # Check for any ECS container instances
+    ECS_INSTANCES=$(aws ecs list-container-instances --cluster $CLUSTER_NAME --query 'length(containerInstanceArns)' --output text)
+    
+    if [ "$ASG_INSTANCES" -eq 0 ] && [ "$ECS_INSTANCES" -eq 0 ]; then
+        log "Shutdown complete: No instances in ASG and no ECS container instances"
         break
     fi
     
@@ -78,7 +78,7 @@ while true; do
         break
     fi
     
-    log "Still waiting for complete shutdown. Running tasks: $RUNNING_TASKS, ASG instances: $ASG_INSTANCES"
+    log "Still waiting for complete shutdown. ASG instances: $ASG_INSTANCES, ECS container instances: $ECS_INSTANCES"
     sleep 10
 done
 
