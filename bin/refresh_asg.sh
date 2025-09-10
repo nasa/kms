@@ -55,8 +55,32 @@ while true; do
     sleep 30
 done
 
-# Wait for a bit to ensure everything is shut down
-sleep 60
+# Verify complete shutdown
+log "Verifying complete shutdown..."
+TIMEOUT=300  # 5 minutes timeout
+START_TIME=$(date +%s)
+
+while true; do
+    # Check if there are any running ECS tasks
+    RUNNING_TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --desired-status RUNNING --query 'length(taskArns)' --output text)
+    
+    # Check if the ASG has any instances
+    ASG_INSTANCES=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names $ASG_NAME --query 'AutoScalingGroups[0].Instances' --output text)
+    
+    if [ "$RUNNING_TASKS" -eq 0 ] && [ -z "$ASG_INSTANCES" ]; then
+        log "Shutdown complete: No running tasks and no instances in ASG"
+        break
+    fi
+    
+    CURRENT_TIME=$(date +%s)
+    if (( CURRENT_TIME - START_TIME > TIMEOUT )); then
+        log "Timeout reached while waiting for complete shutdown. Proceeding anyway..."
+        break
+    fi
+    
+    log "Still waiting for complete shutdown. Running tasks: $RUNNING_TASKS, ASG instances: $ASG_INSTANCES"
+    sleep 10
+done
 
 # Set everything back to 1
 log "Setting min, max, and desired capacity back to 1..."
