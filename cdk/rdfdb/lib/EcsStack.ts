@@ -3,7 +3,6 @@ import * as path from 'path'
 
 import {
   CfnOutput,
-  Duration,
   Fn,
   RemovalPolicy,
   Stack,
@@ -195,14 +194,6 @@ export class EcsStack extends Stack {
       },
       userData,
       role: this.role
-    })
-
-    // Add a lifecycle hook to ensure instances are launched in the correct AZ
-    autoScalingGroup.addLifecycleHook('EbsAzHook', {
-      lifecycleTransition: autoscaling.LifecycleTransition.INSTANCE_LAUNCHING,
-      defaultResult: autoscaling.DefaultResult.ABANDON,
-      heartbeatTimeout: Duration.minutes(5),
-      notificationMetadata: JSON.stringify({ targetAz: this.ebsVolumeAz })
     })
 
     // Add the security groups of the VPC endpoints to the Auto Scaling Group
