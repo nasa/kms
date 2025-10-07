@@ -392,10 +392,11 @@ export class LambdaFunctions {
     )
 
     // Set up cron jobs for exportRdfToS3
+    // Runs at 1am nightly.
     this.setupCronJob(
       scope,
       exportRdfToS3Lambda,
-      'cron(35 15 * * ? *)',
+      'cron(0 6 * * ? *)',
       { version: 'published' },
       'Published'
     )
@@ -403,7 +404,7 @@ export class LambdaFunctions {
     this.setupCronJob(
       scope,
       exportRdfToS3Lambda,
-      'cron(40 15 * * ? *)',
+      'cron(5 6 * * ? *)',
       { version: 'draft' },
       'Draft'
     )
