@@ -24,10 +24,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * - Creates a new file with a date-based path: `draft/{year}/{month}/{day}/rdf.xml`
  * - A new file is created each time, preserving historical versions
  *
- * The function will create the S3 bucket if it doesn't exist.
- *
- * Environment Variables:
- * - RDF_BUCKET_NAME: The name of the S3 bucket to use. Defaults to 'kms-rdf-backup' if not set.
+ * The function will create the S3 bucket if it doesn't exist using the stage name
+ * as part of the bucket name, e.g., kms-rdf-backup-${stage}
  *
  * @async
  * @function handler
@@ -40,11 +38,11 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @throws Will throw an error if the RDF data fetch fails or if there are issues with S3 operations.
  */
 export const handler = async (event) => {
-  const { defaultResponseHeaders } = getApplicationConfig()
+  const { defaultResponseHeaders, env: stage } = getApplicationConfig()
   const version = event.version || 'published' // Default to 'published' if not specified
 
   try {
-    const s3BucketName = process.env.RDF_BUCKET_NAME || 'kms-rdf-backup'
+    const s3BucketName = `kms-rdf-backup-${stage}`
     const s3Client = new S3Client({})
 
     // Ensure bucket exists and lifecycle rule is set
