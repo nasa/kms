@@ -108,9 +108,7 @@ export class IamSetup {
       ],
       resources: [
         `arn:aws:s3:::kms-rdf-backup-${stage}`,
-        `arn:aws:s3:::kms-rdf-backup-${stage}/*`,
-        'arn:aws:s3:::kms-rdf-backup-mdt-sit',
-        'arn:aws:s3:::kms-rdf-backup-mdt-sit/*'
+        `arn:aws:s3:::kms-rdf-backup-${stage}/*`
       ]
     }))
   }

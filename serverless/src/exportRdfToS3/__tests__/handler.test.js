@@ -29,9 +29,9 @@ describe('exportRdfToS3 handler', () => {
     vi.useFakeTimers()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    process.env.RDF_BUCKET_NAME = 'test-bucket'
 
     getApplicationConfig.mockReturnValue({
+      env: 'test',
       defaultResponseHeaders: { 'Content-Type': 'application/json' }
     })
 
@@ -73,7 +73,7 @@ describe('exportRdfToS3 handler', () => {
 
       expect(result.statusCode).toBe(200)
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
-        Bucket: 'test-bucket',
+        Bucket: 'kms-rdf-backup-test',
         Key: '21.4/rdf.xml',
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
@@ -87,7 +87,7 @@ describe('exportRdfToS3 handler', () => {
 
       expect(result.statusCode).toBe(200)
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
-        Bucket: 'test-bucket',
+        Bucket: 'kms-rdf-backup-test',
         Key: 'draft/2023/06/01/rdf.xml',
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
@@ -164,25 +164,11 @@ describe('exportRdfToS3 handler', () => {
   })
 
   describe('Configuration and settings', () => {
-    test('should use default bucket name if RDF_BUCKET_NAME is not set', async () => {
-      delete process.env.RDF_BUCKET_NAME
-
-      await handler({ version: 'published' })
-
-      expect(HeadBucketCommand).toHaveBeenCalledWith({ Bucket: 'kms-rdf-backup' })
-      expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
-        Bucket: 'kms-rdf-backup',
-        Key: '21.4/rdf.xml',
-        Body: expect.any(String),
-        ContentType: 'application/rdf+xml'
-      }))
-    })
-
     test('should set correct ContentType for S3 upload', async () => {
       await handler({ version: 'published' })
 
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
-        Bucket: 'test-bucket',
+        Bucket: 'kms-rdf-backup-test',
         Key: '21.4/rdf.xml',
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
