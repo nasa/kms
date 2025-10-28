@@ -15,12 +15,15 @@ vi.mock('../cmrGetRequest')
 vi.mock('../cmrPostRequest')
 
 describe('getNumberOfCmrCollections', () => {
+  const originalConsoleLog = console.log
   beforeEach(() => {
     vi.resetAllMocks()
+    console.log = vi.fn()
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    console.log = originalConsoleLog
   })
 
   test('should return the correct number of collections for science keywords', async () => {
@@ -198,7 +201,7 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBe(0)
   })
 
-  test('should throw an error when the response is not ok', async () => {
+  test('should log an error and return null when the response is not ok', async () => {
     const mockConsoleError = vi.fn()
     const originalConsoleError = console.error
     console.error = mockConsoleError
@@ -209,19 +212,27 @@ describe('getNumberOfCmrCollections', () => {
     }
     cmrPostRequest.mockResolvedValue(mockResponse)
 
-    await expect(getNumberOfCmrCollections({
+    const result = await getNumberOfCmrCollections({
       scheme: 'sciencekeywords',
       uuid: '1234-5678-9ABC-DEF0'
-    })).resolves.toBeNull()
+    })
 
-    expect(mockConsoleError).toHaveBeenCalled()
-    expect(mockConsoleError.mock.calls[0][0]).toBe('Error in getNumberOfCmrCollections:')
-    expect(mockConsoleError.mock.calls[0][1]).toBeInstanceOf(Error)
-    expect(mockConsoleError.mock.calls[0][1].message).toBe('HTTP error! status: 400')
+    expect(result).toBeNull()
+    expect(mockConsoleError).toHaveBeenCalledTimes(3)
+    
+    // First call to console.error
+    expect(mockConsoleError.mock.calls[0][0]).toBe('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:')
+    expect(mockConsoleError.mock.calls[0][1]).toEqual(mockResponse)
+
+    // Second call to console.error (for the error object)
+    expect(mockConsoleError.mock.calls[1][0]).toBe('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:')
+    expect(mockConsoleError.mock.calls[1][1]).toBeInstanceOf(Error)
+    expect(mockConsoleError.mock.calls[1][1].message).toBe('HTTP error! status: 400')
 
     // Restore original console.error
     console.error = originalConsoleError
-  })
+  });
+
 
   test('should handle instruments scheme correctly', async () => {
     const mockResponse = {
@@ -377,7 +388,7 @@ describe('getNumberOfCmrCollections', () => {
     })
 
     expect(result).toBeNull()
-    expect(mockConsoleError).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(mockConsoleError).toHaveBeenCalledWith('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:', expect.any(Error))
     expect(mockConsoleError.mock.calls[0][1].message).toBe('Network Error')
 
     // Restore original console.error
@@ -479,7 +490,7 @@ describe('getNumberOfCmrCollections', () => {
 
     // Check if the error is logged
     expect(console.error).toHaveBeenCalledWith(
-      'Error in getNumberOfCmrCollections:',
+      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 
@@ -512,7 +523,7 @@ describe('getNumberOfCmrCollections', () => {
 
     // Check if the error is logged
     expect(console.error).toHaveBeenCalledWith(
-      'Error in getNumberOfCmrCollections:',
+      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 
@@ -549,7 +560,7 @@ describe('getNumberOfCmrCollections', () => {
 
     // Check if the error is logged
     expect(console.error).toHaveBeenCalledWith(
-      'Error in getNumberOfCmrCollections:',
+      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 
@@ -577,7 +588,7 @@ describe('getNumberOfCmrCollections', () => {
 
     // Check if the error is logged
     expect(console.error).toHaveBeenCalledWith(
-      'Error in getNumberOfCmrCollections:',
+      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 

@@ -6,13 +6,19 @@ vi.mock('@/shared/fetchEdlProfile')
 
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
+  const originalConsoleLog = console.log
+  const originalConsoleError = console.error
 
   beforeEach(() => {
     process.env = { ...OLD_ENV }
+    console.log = vi.fn()
+    console.error = vi.fn()
   })
 
   afterEach(() => {
     process.env = OLD_ENV
+    console.log = originalConsoleLog
+    console.error = originalConsoleError
   })
 
   describe('when the token is for a valid user', () => {

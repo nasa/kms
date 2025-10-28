@@ -8,6 +8,7 @@ import { generatePolicy } from '@/shared/generatePolicy'
  * @param {Object} context Methods and properties that provide information about the invocation, function, and execution environment
  */
 export const edlAuthorizer = async (event) => {
+  console.log('#edlAuthorizer EDL Authorizer called with event:', JSON.stringify(event, null, 2))
   const {
     headers = {},
     methodArn,
@@ -24,14 +25,25 @@ export const edlAuthorizer = async (event) => {
 
   // If still not found, default to an empty string
   launchpadToken = launchpadToken || ''
-  const profile = await fetchEdlProfile(launchpadToken)
-  const { uid } = profile
+  console.log('#edlAuthorizer Launchpad token:', launchpadToken ? 'Present' : 'Not present')
 
-  if (uid) {
-    return generatePolicy(uid, 'Allow', methodArn)
+  try {
+    const profile = await fetchEdlProfile(launchpadToken)
+    console.log('#edlAuthorizer Fetched EDL profile:', JSON.stringify(profile, null, 2))
+    const { uid } = profile
+
+    if (uid) {
+      console.log('#edlAuthorizer Authorization successful for uid:', uid)
+
+      return generatePolicy(uid, 'Allow', methodArn)
+    }
+
+    console.log('#edlAuthorizer Authorization failed: No uid found in profile')
+    throw new Error('Unauthorized')
+  } catch (error) {
+    console.error('#edlAuthorizer EDL Authorizer error:', error)
+    throw error
   }
-
-  throw new Error('Unauthorized')
 }
 
 export default edlAuthorizer

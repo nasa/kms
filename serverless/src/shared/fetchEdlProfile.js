@@ -7,6 +7,7 @@ import fetchEdlClientToken from './fetchEdlClientToken'
  * @param {Object} headers Lambda event headers
  */
 const fetchEdlProfile = async (launchpadToken) => {
+  console.log('#fetchEdlProfile Fetching EDL profile for token:', launchpadToken ? 'Present' : 'Not present')
   const {
     IS_OFFLINE
   } = process.env
@@ -20,41 +21,47 @@ const fetchEdlProfile = async (launchpadToken) => {
   }
 
   const { host } = getEdlConfig()
+  console.log('#fetchEdlProfile EDL host:', host)
 
-  const clientToken = await fetchEdlClientToken()
+  try {
+    const clientToken = await fetchEdlClientToken()
+    console.log('#fetchEdlProfile Fetched client token:', clientToken ? 'Present' : 'Not present')
 
-  return fetch(`${host}/api/nams/edl_user`, {
-    body: `token=${launchpadToken}`,
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${clientToken}`,
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+    const response = await fetch(`${host}/api/nams/edl_user`, {
+      body: `token=${launchpadToken}`,
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${clientToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+      }
+    })
+
+    console.log('#fetchEdlProfile EDL API response status:', response.status)
+
+    const profile = await response.json()
+    console.log('#fetchEdlProfile Received EDL profile:', JSON.stringify(profile, null, 2))
+
+    const {
+      first_name: firstName,
+      last_name: lastName
+    } = profile
+
+    let name = [firstName, lastName].filter(Boolean).join(' ')
+
+    if (name.trim().length === 0) {
+      name = profile.uid
     }
-  })
-    .then((response) => response.json())
-    .then((profile) => {
-      const {
-        first_name: firstName,
-        last_name: lastName
-      } = profile
 
-      let name = [firstName, lastName].filter(Boolean).join(' ')
+    return {
+      auid: profile.nams_auid,
+      name,
+      uid: profile.uid
+    }
+  } catch (error) {
+    console.error('#fetchEdlProfile fetchEdlProfile Error:', error)
 
-      if (name.trim().length === 0) {
-        name = profile.uid
-      }
-
-      return {
-        auid: profile.nams_auid,
-        name,
-        uid: profile.uid
-      }
-    })
-    .catch((error) => {
-      console.log('fetchEdlProfile Error: ', error)
-
-      return undefined
-    })
+    return undefined
+  }
 }
 
 export default fetchEdlProfile

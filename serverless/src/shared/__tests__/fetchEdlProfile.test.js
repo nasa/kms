@@ -3,10 +3,17 @@ import fetchEdlProfile from '../fetchEdlProfile'
 
 vi.mock('../fetchEdlClientToken', () => ({ default: vi.fn() }))
 
-beforeEach(() => {
-  vi.clearAllMocks()
+const originalConsoleLog = console.log
 
+beforeEach(() => {
+  vi.resetAllMocks()
+  console.log = vi.fn()
   fetchEdlClientToken.mockImplementation(() => ('mock_token'))
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+  console.log = originalConsoleLog
 })
 
 describe('fetchEdlProfile', () => {
@@ -91,15 +98,17 @@ describe('fetchEdlProfile', () => {
   describe('when the response from EDL is an error', () => {
     test('returns undefined', async () => {
       fetch.mockImplementationOnce(() => Promise.reject(new Error('Error calling EDL')))
-      const consoleMock = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const consoleLogMock = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const token = await fetchEdlProfile('mock-token')
         .catch((error) => {
           expect(error.message).toEqual('Error calling EDL')
         })
 
-      expect(consoleMock).toHaveBeenCalledTimes(1)
-      expect(consoleMock).toHaveBeenCalledWith('fetchEdlProfile Error: ', new Error('Error calling EDL'))
+      expect(consoleLogMock).toHaveBeenCalledTimes(3)
+      expect(consoleErrorMock).toHaveBeenCalledTimes(1)
+      expect(consoleErrorMock).toHaveBeenCalledWith('fetchEdlProfile Error:', new Error('Error calling EDL'))
 
       expect(token).toEqual(undefined)
     })
