@@ -219,7 +219,7 @@ describe('getNumberOfCmrCollections', () => {
 
     expect(result).toBeNull()
     expect(mockConsoleError).toHaveBeenCalledTimes(3)
-    
+
     // First call to console.error
     expect(mockConsoleError.mock.calls[0][0]).toBe('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:')
     expect(mockConsoleError.mock.calls[0][1]).toEqual(mockResponse)
@@ -231,8 +231,7 @@ describe('getNumberOfCmrCollections', () => {
 
     // Restore original console.error
     console.error = originalConsoleError
-  });
-
+  })
 
   test('should handle instruments scheme correctly', async () => {
     const mockResponse = {
