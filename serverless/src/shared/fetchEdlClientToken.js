@@ -34,9 +34,8 @@ const fetchEdlClientToken = async () => {
     console.log('#fetchEdlClientToken Response status:', response.status)
 
     if (!response.ok) {
-      const responseText = await response.text()
-      console.error('#fetchEdlClientToken Error response:', responseText)
-      throw new Error(`EDL request failed with status ${response.status}: ${responseText}`)
+      console.error('#fetchEdlClientToken Error response:', response)
+      throw new Error(`EDL request failed with status ${response.status}`)
     }
 
     const json = await response.json()
