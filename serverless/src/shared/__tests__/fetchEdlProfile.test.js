@@ -20,6 +20,8 @@ describe('fetchEdlProfile', () => {
   describe('when the user exists', () => {
     test('returns the users profile', async () => {
       global.fetch = vi.fn(() => Promise.resolve({
+        ok: true,
+        status: 200,
         json: () => Promise.resolve({
           nams_auid: 'user.name',
           uid: 'user.name',
@@ -51,6 +53,8 @@ describe('fetchEdlProfile', () => {
   describe('when the user does not have name fields', () => {
     test('returns the users profile', async () => {
       global.fetch = vi.fn(() => Promise.resolve({
+        ok: true,
+        status: 200,
         json: () => Promise.resolve({
           nams_auid: 'user.name',
           uid: 'user.name',
@@ -111,6 +115,18 @@ describe('fetchEdlProfile', () => {
       expect(consoleErrorMock).toHaveBeenCalledWith('#fetchEdlProfile fetchEdlProfile Error:', new Error('Error calling EDL'))
 
       expect(token).toEqual(undefined)
+    })
+  })
+
+  describe('when the response from EDL is not ok', () => {
+    test('throws an error', async () => {
+      global.fetch = vi.fn(() => Promise.resolve({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: 'Bad Request' })
+      }))
+
+      await expect(fetchEdlProfile('mock-token')).rejects.toThrow('EDL API request failed with status 400')
     })
   })
 })

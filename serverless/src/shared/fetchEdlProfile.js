@@ -38,6 +38,11 @@ const fetchEdlProfile = async (launchpadToken) => {
 
     console.log('#fetchEdlProfile EDL API response status:', response.status)
 
+    if (!response.ok) {
+      console.error('#fetchEdlProfile Error response:', response)
+      throw new Error(`EDL API request failed with status ${response.status}`)
+    }
+
     const profile = await response.json()
     console.log('#fetchEdlProfile Received EDL profile:', JSON.stringify(profile, null, 2))
 
