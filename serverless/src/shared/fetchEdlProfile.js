@@ -60,7 +60,7 @@ const fetchEdlProfile = async (launchpadToken) => {
   } catch (error) {
     console.error('#fetchEdlProfile fetchEdlProfile Error:', error)
 
-    return undefined
+    throw error
   }
 }
 
