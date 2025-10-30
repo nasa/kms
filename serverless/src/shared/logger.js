@@ -8,6 +8,8 @@ const LOG_LEVELS = {
 const getCurrentLogLevel = () => {
   const levelString = process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toUpperCase() : undefined
 
+  console.log(`Logger: process.env.LOG_LEVEL=${levelString}`)
+
   if (levelString && Object.prototype.hasOwnProperty.call(LOG_LEVELS, levelString)) {
     return LOG_LEVELS[levelString]
   }
