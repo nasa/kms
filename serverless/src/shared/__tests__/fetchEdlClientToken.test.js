@@ -1,9 +1,16 @@
 import * as getConfig from '@/shared/getConfig'
 
 import fetchEdlClientToken from '../fetchEdlClientToken'
+import { logger } from '../logger'
 
-let consoleLogSpy
-let consoleErrorSpy
+vi.mock('../logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }
+}))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -13,15 +20,6 @@ beforeEach(() => {
   }))
 
   process.env.EDL_PASSWORD = 'test'
-  // Spy on console.log and console.error
-  consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-})
-
-afterEach(() => {
-  // Restore console.log and console.error after each test
-  consoleLogSpy.mockRestore()
-  consoleErrorSpy.mockRestore()
 })
 
 global.fetch = vi.fn(() => Promise.resolve({
@@ -72,14 +70,10 @@ describe('Retrieving EDL Client Token', () => {
 
     await expect(fetchEdlClientToken()).rejects.toThrow('EDL request failed with status 400')
 
-    // Verify that console.error was called with the expected message
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '#fetchEdlClientToken Error response:',
-      expect.objectContaining({
-        ok: false,
-        status: 400
-      })
-    )
+    expect(logger.error).toHaveBeenCalledWith('Error response:', expect.objectContaining({
+      ok: false,
+      status: 400
+    }))
   })
 
   test('throws an error when no access token is received', async () => {
@@ -94,20 +88,23 @@ describe('Retrieving EDL Client Token', () => {
       })
     }))
 
+    // Expect the function to throw an error
     await expect(fetchEdlClientToken()).rejects.toThrow('No access token received from EDL')
 
-    // Verify that console.error was called with the expected message
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '#fetchEdlClientToken No access token received in response'
-    )
+    // Verify all logger.debug calls in order
+    expect(logger.debug).toHaveBeenNthCalledWith(1, 'Starting to fetch EDL client token')
+    expect(logger.debug).toHaveBeenNthCalledWith(2, 'EDL host:', 'https://localtest.urs.earthdata.nasa.gov')
+    expect(logger.debug).toHaveBeenNthCalledWith(3, 'EDL UID:', 'kms_test')
+    expect(logger.debug).toHaveBeenNthCalledWith(4, 'EDL password:', 'Present')
+    expect(logger.debug).toHaveBeenNthCalledWith(5, 'Token URL:', 'https://localtest.urs.earthdata.nasa.gov/oauth/token')
+    expect(logger.debug).toHaveBeenNthCalledWith(6, 'Authorization header:', 'Basic a21zX3Rlc3Q6dG...')
+    expect(logger.debug).toHaveBeenNthCalledWith(7, 'Sending request to EDL')
+    expect(logger.debug).toHaveBeenNthCalledWith(8, 'Response status:', 200)
+    expect(logger.debug).toHaveBeenNthCalledWith(9, 'Response body:', '{\n  "token_type": "Bearer",\n  "expires_in": 1296000\n}')
+    expect(logger.debug).toHaveBeenNthCalledWith(10, 'Access token:', 'Not present')
 
-    // Verify that console.log was called with the response body
-    expect(consoleLogSpy).toHaveBeenCalledWith(
-      '#fetchEdlClientToken Response body:',
-      JSON.stringify({
-        token_type: 'Bearer',
-        expires_in: 1296000
-      }, null, 2)
-    )
+    // Verify logger.error calls
+    expect(logger.error).toHaveBeenNthCalledWith(1, 'No access token received in response')
+    expect(logger.error).toHaveBeenNthCalledWith(2, 'Error fetching EDL client token:', expect.any(Error))
   })
 })

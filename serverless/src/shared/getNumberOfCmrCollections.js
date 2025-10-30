@@ -1,5 +1,6 @@
 import { cmrGetRequest } from './cmrGetRequest'
 import { cmrPostRequest } from './cmrPostRequest'
+import { logger } from './logger'
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -48,7 +49,7 @@ export const getNumberOfCmrCollections = async ({
   fullPath,
   isLeaf
 }) => {
-  console.log('#getNumberOfCmrCollections getNumberOfCmrCollections called with params:', {
+  logger.info('getNumberOfCmrCollections called with params:', {
     scheme,
     uuid,
     prefLabel,
@@ -57,7 +58,7 @@ export const getNumberOfCmrCollections = async ({
   })
 
   const doRequest = async (method, query) => {
-    console.log(`#getNumberOfCmrCollections Performing ${method} request to CMR with query:`, JSON.stringify(query))
+    logger.debug(`Performing ${method} request to CMR with query:`, JSON.stringify(query))
     let response
     if (method === 'POST') {
       response = await cmrPostRequest({
@@ -72,17 +73,17 @@ export const getNumberOfCmrCollections = async ({
       })
     }
 
-    console.log('#getNumberOfCmrCollections CMR response status:', response.status)
+    logger.debug('CMR response status:', response.status)
 
     // Check if the response is successful
     if (!response.ok) {
-      console.error('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:', response)
+      logger.error('Error in getNumberOfCmrCollections:', response)
       const error = new Error(`HTTP error! status: ${response.status}`)
       throw error
     }
 
     const cmrHits = Number(response.headers.get('cmr-hits')) || 0
-    console.log('#getNumberOfCmrCollections CMR hits:', cmrHits)
+    logger.debug('CMR hits:', cmrHits)
 
     return cmrHits
   }
@@ -113,7 +114,7 @@ export const getNumberOfCmrCollections = async ({
     sb.push('"ignore_case":false')
 
     const query = `{"condition":{"${schemeParam}":{${sb.join(', ')}}}}`
-    console.log('#getNumberOfCmrCollections Generated JSON query:', query)
+    logger.debug('Generated JSON query:', query)
 
     return JSON.parse(query)
   }
@@ -151,7 +152,7 @@ export const getNumberOfCmrCollections = async ({
       cmrScheme = scheme // Use the original value if no match is found
   }
 
-  console.log('#getNumberOfCmrCollections Mapped CMR scheme:', cmrScheme)
+  logger.debug('Mapped CMR scheme:', cmrScheme)
 
   try {
     let numberOfCollections
@@ -165,7 +166,7 @@ export const getNumberOfCmrCollections = async ({
           }
         }
       }
-      console.log('#getNumberOfCmrCollections Using UUID-based query:', JSON.stringify(jsonQuery))
+      logger.debug('Using UUID-based query:', JSON.stringify(jsonQuery))
       numberOfCollections = await doRequest('POST', jsonQuery)
     // Handle schemes that use prefLabel
     } else if (['project', 'ProductLevelId'].includes(cmrScheme)) {
@@ -174,12 +175,12 @@ export const getNumberOfCmrCollections = async ({
           [cmrScheme]: prefLabel
         }
       }
-      console.log('#getNumberOfCmrCollections Using prefLabel-based query:', JSON.stringify(jsonQuery))
+      logger.debug('Using prefLabel-based query:', JSON.stringify(jsonQuery))
       numberOfCollections = await doRequest('POST', jsonQuery)
     } else if (['data_center'].includes(cmrScheme)) {
       const hierarchyFields = ['level_0', 'level_1', 'level_2', 'level_3']
       let keywordList = fullPath.split('|')
-      console.log('#getNumberOfCmrCollections Data center keyword list:', keywordList)
+      logger.debug('Data center keyword list:', keywordList)
       let jsonQuery
       if (isLeaf) {
         if (keywordList.length > 1) {
@@ -204,25 +205,25 @@ export const getNumberOfCmrCollections = async ({
         })
       }
 
-      console.log('#getNumberOfCmrCollections Using data center query:', JSON.stringify(jsonQuery))
+      logger.debug('Using data center query:', JSON.stringify(jsonQuery))
       numberOfCollections = await doRequest('POST', jsonQuery)
     } else if (['processing_level_id'].includes(cmrScheme)) {
       const query = `{"condition":{"${cmrScheme}":"${prefLabel}"}}`
-      console.log('#getNumberOfCmrCollections Using processing_level_id query:', query)
+      logger.debug('Using processing_level_id query:', query)
       numberOfCollections = await doRequest('POST', JSON.parse(query))
     // Handle all other schemes
     } else {
       const queryString = `${cmrScheme}=${prefLabel}`
-      console.log('#getNumberOfCmrCollections Using GET request with query string:', queryString)
+      logger.debug('Using GET request with query string:', queryString)
       numberOfCollections = await doRequest('GET', queryString)
     }
 
-    console.log('#getNumberOfCmrCollections Number of collections found:', numberOfCollections)
+    logger.info('Number of collections found:', numberOfCollections)
 
     return numberOfCollections
   } catch (error) {
-    console.error('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:', error)
-    console.error('#getNumberOfCmrCollections Error stack:', error.stack)
+    logger.error('Error in getNumberOfCmrCollections:', error)
+    logger.error('Error stack:', error.stack)
 
     return null
   }

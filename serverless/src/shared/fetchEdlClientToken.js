@@ -1,27 +1,29 @@
 import { getEdlConfig } from '@/shared/getConfig'
 
+import { logger } from './logger'
+
 /**
  * The EDL client token is used for retrieving/modifying user/groups in URS.
  * @returns the EDL client token
  */
 const fetchEdlClientToken = async () => {
-  console.log('#fetchEdlClientToken Starting to fetch EDL client token')
+  logger.debug('Starting to fetch EDL client token')
 
   const { host, uid } = getEdlConfig()
-  console.log('#fetchEdlClientToken EDL host:', host)
-  console.log('#fetchEdlClientToken EDL UID:', uid)
+  logger.debug('EDL host:', host)
+  logger.debug('EDL UID:', uid)
 
   const { EDL_PASSWORD: password } = process.env
-  console.log('#fetchEdlClientToken EDL password:', password ? 'Present' : 'Not present')
+  logger.debug('EDL password:', password ? 'Present' : 'Not present')
 
   const url = `${host}/oauth/token`
-  console.log('#fetchEdlClientToken Token URL:', url)
+  logger.debug('Token URL:', url)
 
   const authorizationHeader = `Basic ${Buffer.from(`${uid}:${password}`).toString('base64')}`
-  console.log('#fetchEdlClientToken Authorization header:', `${authorizationHeader.substring(0, 20)}...`)
+  logger.debug('Authorization header:', `${authorizationHeader.substring(0, 20)}...`)
 
   try {
-    console.log('#fetchEdlClientToken Sending request to EDL')
+    logger.debug('Sending request to EDL')
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -31,29 +33,29 @@ const fetchEdlClientToken = async () => {
       body: 'grant_type=client_credentials'
     })
 
-    console.log('#fetchEdlClientToken Response status:', response.status)
+    logger.debug('Response status:', response.status)
 
     if (!response.ok) {
-      console.error('#fetchEdlClientToken Error response:', response)
+      logger.error('Error response:', response)
       throw new Error(`EDL request failed with status ${response.status}`)
     }
 
     const json = await response.json()
-    console.log('#fetchEdlClientToken Response body:', JSON.stringify(json, null, 2))
+    logger.debug('Response body:', JSON.stringify(json, null, 2))
 
     const accessToken = json.access_token
-    console.log('#fetchEdlClientToken Access token:', accessToken ? 'Present' : 'Not present')
+    logger.debug('Access token:', accessToken ? 'Present' : 'Not present')
 
     if (!accessToken) {
-      console.error('#fetchEdlClientToken No access token received in response')
+      logger.error('No access token received in response')
       throw new Error('No access token received from EDL')
     }
 
-    console.log('#fetchEdlClientToken Successfully fetched EDL client token')
+    logger.debug('Successfully fetched EDL client token')
 
     return accessToken
   } catch (error) {
-    console.error('#fetchEdlClientToken Error fetching EDL client token:', error)
+    logger.error('Error fetching EDL client token:', error)
     throw error
   }
 }

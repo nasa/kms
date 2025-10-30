@@ -1,6 +1,7 @@
 import { downcaseKeys } from '@/shared/downcaseKeys'
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
 import { generatePolicy } from '@/shared/generatePolicy'
+import { logger } from '@/shared/logger'
 
 /**
  * Custom authorizer for API Gateway authentication
@@ -8,7 +9,7 @@ import { generatePolicy } from '@/shared/generatePolicy'
  * @param {Object} context Methods and properties that provide information about the invocation, function, and execution environment
  */
 export const edlAuthorizer = async (event) => {
-  console.log('#edlAuthorizer EDL Authorizer called with event:', JSON.stringify(event, null, 2))
+  logger.debug('EDL Authorizer called with event:', JSON.stringify(event, null, 2))
   const {
     headers = {},
     methodArn,
@@ -25,23 +26,23 @@ export const edlAuthorizer = async (event) => {
 
   // If still not found, default to an empty string
   launchpadToken = launchpadToken || ''
-  console.log('#edlAuthorizer Launchpad token:', launchpadToken ? 'Present' : 'Not present')
+  logger.debug('Launchpad token:', launchpadToken ? 'Present' : 'Not present')
 
   try {
     const profile = await fetchEdlProfile(launchpadToken)
-    console.log('#edlAuthorizer Fetched EDL profile:', JSON.stringify(profile, null, 2))
+    logger.debug('Fetched EDL profile:', JSON.stringify(profile, null, 2))
     const { uid } = profile
 
     if (uid) {
-      console.log('#edlAuthorizer Authorization successful for uid:', uid)
+      logger.debug('Authorization successful for uid:', uid)
 
       return generatePolicy(uid, 'Allow', methodArn)
     }
 
-    console.log('#edlAuthorizer Authorization failed: No uid found in profile')
+    logger.error('Authorization failed: No uid found in profile')
     throw new Error('Unauthorized')
   } catch (error) {
-    console.error('#edlAuthorizer EDL Authorizer error:', error)
+    logger.error('EDL Authorizer error:', error)
     throw error
   }
 }

@@ -69,6 +69,7 @@ dockerRun() {
         --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
         --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
         --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
+        --env "LOG_LEVEL=$bamboo_LOG_LEVEL" \
     $dockerTag "$@"
 }
 

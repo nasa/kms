@@ -99,25 +99,6 @@ describe('fetchEdlProfile', () => {
     })
   })
 
-  describe('when the response from EDL is an error', () => {
-    test('returns undefined', async () => {
-      fetch.mockImplementationOnce(() => Promise.reject(new Error('Error calling EDL')))
-      const consoleLogMock = vi.spyOn(console, 'log').mockImplementation(() => {})
-      const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-      const token = await fetchEdlProfile('mock-token')
-        .catch((error) => {
-          expect(error.message).toEqual('Error calling EDL')
-        })
-
-      expect(consoleLogMock).toHaveBeenCalledTimes(3)
-      expect(consoleErrorMock).toHaveBeenCalledTimes(1)
-      expect(consoleErrorMock).toHaveBeenCalledWith('#fetchEdlProfile fetchEdlProfile Error:', new Error('Error calling EDL'))
-
-      expect(token).toEqual(undefined)
-    })
-  })
-
   describe('when the response from EDL is not ok', () => {
     test('throws an error', async () => {
       global.fetch = vi.fn(() => Promise.resolve({

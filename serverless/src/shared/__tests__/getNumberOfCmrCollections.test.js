@@ -9,10 +9,18 @@ import {
 import { cmrGetRequest } from '../cmrGetRequest'
 import { cmrPostRequest } from '../cmrPostRequest'
 import { getNumberOfCmrCollections } from '../getNumberOfCmrCollections'
+import { logger } from '../logger'
 
 // Mock the cmrGetRequest and cmrPostRequest functions
 vi.mock('../cmrGetRequest')
 vi.mock('../cmrPostRequest')
+vi.mock('../logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn()
+  }
+}))
 
 describe('getNumberOfCmrCollections', () => {
   const originalConsoleLog = console.log
@@ -202,10 +210,6 @@ describe('getNumberOfCmrCollections', () => {
   })
 
   test('should log an error and return null when the response is not ok', async () => {
-    const mockConsoleError = vi.fn()
-    const originalConsoleError = console.error
-    console.error = mockConsoleError
-
     const mockResponse = {
       ok: false,
       status: 400
@@ -218,19 +222,8 @@ describe('getNumberOfCmrCollections', () => {
     })
 
     expect(result).toBeNull()
-    expect(mockConsoleError).toHaveBeenCalledTimes(3)
-
-    // First call to console.error
-    expect(mockConsoleError.mock.calls[0][0]).toBe('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:')
-    expect(mockConsoleError.mock.calls[0][1]).toEqual(mockResponse)
-
-    // Second call to console.error (for the error object)
-    expect(mockConsoleError.mock.calls[1][0]).toBe('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:')
-    expect(mockConsoleError.mock.calls[1][1]).toBeInstanceOf(Error)
-    expect(mockConsoleError.mock.calls[1][1].message).toBe('HTTP error! status: 400')
-
-    // Restore original console.error
-    console.error = originalConsoleError
+    expect(logger.error).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
   })
 
   test('should handle instruments scheme correctly', async () => {
@@ -375,10 +368,6 @@ describe('getNumberOfCmrCollections', () => {
   })
 
   test('should handle network errors', async () => {
-    const mockConsoleError = vi.fn()
-    const originalConsoleError = console.error
-    console.error = mockConsoleError
-
     cmrPostRequest.mockRejectedValue(new Error('Network Error'))
 
     const result = await getNumberOfCmrCollections({
@@ -387,11 +376,8 @@ describe('getNumberOfCmrCollections', () => {
     })
 
     expect(result).toBeNull()
-    expect(mockConsoleError).toHaveBeenCalledWith('#getNumberOfCmrCollections Error in getNumberOfCmrCollections:', expect.any(Error))
-    expect(mockConsoleError.mock.calls[0][1].message).toBe('Network Error')
-
-    // Restore original console.error
-    console.error = originalConsoleError
+    expect(logger.error).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
   })
 
   test('should handle malformed JSON responses', async () => {
@@ -472,11 +458,7 @@ describe('getNumberOfCmrCollections', () => {
   })
 
   test('should handle errors for unknown schemes', async () => {
-    // Mock console.error
-    const originalConsoleError = console.error
-    console.error = vi.fn()
-
-    // Mock the cmrGetRequest to throw an error
+  // Mock the cmrGetRequest to throw an error
     cmrGetRequest.mockRejectedValue(new Error('Network error'))
 
     const result = await getNumberOfCmrCollections({
@@ -488,23 +470,23 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBeNull()
 
     // Check if the error is logged
-    expect(console.error).toHaveBeenCalledWith(
-      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
       expect.any(Error)
+    )
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error stack:',
+      expect.any(String)
     )
 
     // Verify that cmrGetRequest was called with the correct arguments
     expect(cmrGetRequest).toHaveBeenCalledWith({
       path: '/search/collections?unknown_scheme=Some Label'
     })
-
-    // Restore the original console.error
-    console.error = originalConsoleError
   })
 
   test('should handle errors for processing_level_id scheme', async () => {
-    // Mock console.error
-    console.error = vi.fn()
     // Mock cmrPostRequest to return a failed response
     cmrPostRequest.mockResolvedValue({
       ok: false,
@@ -521,8 +503,8 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBeNull()
 
     // Check if the error is logged
-    expect(console.error).toHaveBeenCalledWith(
-      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 
@@ -558,8 +540,8 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBeNull()
 
     // Check if the error is logged
-    expect(console.error).toHaveBeenCalledWith(
-      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 
@@ -586,8 +568,8 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBeNull()
 
     // Check if the error is logged
-    expect(console.error).toHaveBeenCalledWith(
-      '#getNumberOfCmrCollections Error in getNumberOfCmrCollections:',
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error in getNumberOfCmrCollections:',
       expect.any(Error)
     )
 
@@ -602,5 +584,27 @@ describe('getNumberOfCmrCollections', () => {
         }
       })
     })
+  })
+
+  test('should log info and debug messages', async () => {
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      headers: new Map([['cmr-hits', '100']])
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(logger.info).toHaveBeenCalledWith('getNumberOfCmrCollections called with params:', expect.any(Object))
+    expect(logger.debug).toHaveBeenCalledWith('Mapped CMR scheme:', 'science_keywords')
+    expect(logger.debug).toHaveBeenCalledWith('Using UUID-based query:', expect.any(String))
+    expect(logger.debug).toHaveBeenCalledWith('Performing POST request to CMR with query:', expect.any(String))
+    expect(logger.debug).toHaveBeenCalledWith('CMR response status:', 200)
+    expect(logger.debug).toHaveBeenCalledWith('CMR hits:', 100)
+    expect(logger.info).toHaveBeenCalledWith('Number of collections found:', 100)
   })
 })
