@@ -33,7 +33,7 @@ export const getCallerFunctionName = () => {
 const formatMessage = (level, callerName, ...args) => {
   const message = args.map((arg) => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg)).join(' ')
 
-  return `${callerName} [${level}] ${message}`
+  return `#${callerName} [${level}] ${message}`
 }
 
 export const createLogger = () => {
