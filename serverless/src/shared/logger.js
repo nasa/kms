@@ -8,7 +8,9 @@ const LOG_LEVELS = {
 const getCurrentLogLevel = () => {
   const levelString = process.env.LOG_LEVEL ? process.env.LOG_LEVEL.toUpperCase() : undefined
 
-  if (levelString && Object.prototype.hasOwnProperty.call(LOG_LEVELS, levelString)) {
+  // If levelString is truthy and LOG_LEVEL has a property named levelString,
+  // return the valid log level value.
+  if (levelString && Object.hasOwn(LOG_LEVELS, levelString)) {
     return LOG_LEVELS[levelString]
   }
 
@@ -16,15 +18,19 @@ const getCurrentLogLevel = () => {
 }
 
 export const getCallerFunctionName = () => {
-  const err = new Error()
-  const stack = err.stack.split('\n')
-  // Start from index 4 to skip over the logger functions
-  for (let i = 4; i < stack.length; i += 1) {
-    const line = stack[i]
-    const match = line.match(/at\s+(.*)\s+\(/)
-    if (match && !match[1].includes('logger.js')) {
-      return match[1]
+  try {
+    const err = new Error()
+    const stack = err.stack.split('\n')
+    // Start from index 4 to skip over the logger functions
+    for (let i = 4; i < stack.length; i += 1) {
+      const line = stack[i]
+      const match = line.match(/at\s+(.*)\s+\(/)
+      if (match && !match[1].includes('logger.js')) {
+        return match[1]
+      }
     }
+  } catch (error) {
+    console.error('Error in getCallerFunctionName:', error)
   }
 
   return 'unknown'

@@ -20,7 +20,6 @@ const fetchEdlClientToken = async () => {
   logger.debug('Token URL:', url)
 
   const authorizationHeader = `Basic ${Buffer.from(`${uid}:${password}`).toString('base64')}`
-  logger.debug('Authorization header:', `${authorizationHeader.substring(0, 20)}...`)
 
   try {
     logger.debug('Sending request to EDL')

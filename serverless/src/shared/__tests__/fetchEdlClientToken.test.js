@@ -97,11 +97,10 @@ describe('Retrieving EDL Client Token', () => {
     expect(logger.debug).toHaveBeenNthCalledWith(3, 'EDL UID:', 'kms_test')
     expect(logger.debug).toHaveBeenNthCalledWith(4, 'EDL password:', 'Present')
     expect(logger.debug).toHaveBeenNthCalledWith(5, 'Token URL:', 'https://localtest.urs.earthdata.nasa.gov/oauth/token')
-    expect(logger.debug).toHaveBeenNthCalledWith(6, 'Authorization header:', 'Basic a21zX3Rlc3Q6dG...')
-    expect(logger.debug).toHaveBeenNthCalledWith(7, 'Sending request to EDL')
-    expect(logger.debug).toHaveBeenNthCalledWith(8, 'Response status:', 200)
-    expect(logger.debug).toHaveBeenNthCalledWith(9, 'Response body:', '{\n  "token_type": "Bearer",\n  "expires_in": 1296000\n}')
-    expect(logger.debug).toHaveBeenNthCalledWith(10, 'Access token:', 'Not present')
+    expect(logger.debug).toHaveBeenNthCalledWith(6, 'Sending request to EDL')
+    expect(logger.debug).toHaveBeenNthCalledWith(7, 'Response status:', 200)
+    expect(logger.debug).toHaveBeenNthCalledWith(8, 'Response body:', '{\n  "token_type": "Bearer",\n  "expires_in": 1296000\n}')
+    expect(logger.debug).toHaveBeenNthCalledWith(9, 'Access token:', 'Not present')
 
     // Verify logger.error calls
     expect(logger.error).toHaveBeenNthCalledWith(1, 'No access token received in response')
