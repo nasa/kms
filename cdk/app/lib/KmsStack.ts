@@ -27,6 +27,7 @@ export interface KmsStackProps extends cdk.StackProps {
     RDF4J_SERVICE_URL: string
     RDF4J_USER_NAME: string
     RDF_BUCKET_NAME: string
+    LOG_LEVEL: string
   }
 }
 

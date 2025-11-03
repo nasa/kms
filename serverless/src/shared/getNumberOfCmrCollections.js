@@ -1,5 +1,6 @@
 import { cmrGetRequest } from './cmrGetRequest'
 import { cmrPostRequest } from './cmrPostRequest'
+import { logger } from './logger'
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -48,7 +49,16 @@ export const getNumberOfCmrCollections = async ({
   fullPath,
   isLeaf
 }) => {
+  logger.info('getNumberOfCmrCollections called with params:', {
+    scheme,
+    uuid,
+    prefLabel,
+    fullPath,
+    isLeaf
+  })
+
   const doRequest = async (method, query) => {
+    logger.debug(`Performing ${method} request to CMR with query:`, JSON.stringify(query))
     let response
     if (method === 'POST') {
       response = await cmrPostRequest({
@@ -63,12 +73,17 @@ export const getNumberOfCmrCollections = async ({
       })
     }
 
+    logger.debug('CMR response status:', response.status)
+
     // Check if the response is successful
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      logger.error('Error in getNumberOfCmrCollections:', response)
+      const error = new Error(`HTTP error! status: ${response.status}`)
+      throw error
     }
 
     const cmrHits = Number(response.headers.get('cmr-hits')) || 0
+    logger.debug('CMR hits:', cmrHits)
 
     return cmrHits
   }
@@ -99,6 +114,7 @@ export const getNumberOfCmrCollections = async ({
     sb.push('"ignore_case":false')
 
     const query = `{"condition":{"${schemeParam}":{${sb.join(', ')}}}}`
+    logger.debug('Generated JSON query:', query)
 
     return JSON.parse(query)
   }
@@ -136,98 +152,79 @@ export const getNumberOfCmrCollections = async ({
       cmrScheme = scheme // Use the original value if no match is found
   }
 
-  // Handle schemes that use UUID
-  if (['science_keywords', 'platform', 'instrument', 'location_keyword'].includes(cmrScheme)) {
-    const jsonQuery = {
-      condition: {
-        [cmrScheme]: {
-          uuid
+  logger.debug('Mapped CMR scheme:', cmrScheme)
+
+  try {
+    let numberOfCollections
+
+    // Handle schemes that use UUID
+    if (['science_keywords', 'platform', 'instrument', 'location_keyword'].includes(cmrScheme)) {
+      const jsonQuery = {
+        condition: {
+          [cmrScheme]: {
+            uuid
+          }
         }
       }
-    }
-    try {
-      const numberOfCollections = await doRequest('POST', jsonQuery)
-
-      return numberOfCollections
-    } catch (error) {
-      console.error('Error in getNumberOfCmrCollections:', error)
-
-      return null
-    }
-  // Handle schemes that use prefLabel
-  } else if (['project', 'ProductLevelId'].includes(cmrScheme)) {
-    const jsonQuery = {
-      condition: {
-        [cmrScheme]: prefLabel
+      logger.debug('Using UUID-based query:', JSON.stringify(jsonQuery))
+      numberOfCollections = await doRequest('POST', jsonQuery)
+    // Handle schemes that use prefLabel
+    } else if (['project', 'ProductLevelId'].includes(cmrScheme)) {
+      const jsonQuery = {
+        condition: {
+          [cmrScheme]: prefLabel
+        }
       }
-    }
-    try {
-      const numberOfCollections = await doRequest('POST', jsonQuery)
+      logger.debug('Using prefLabel-based query:', JSON.stringify(jsonQuery))
+      numberOfCollections = await doRequest('POST', jsonQuery)
+    } else if (['data_center'].includes(cmrScheme)) {
+      const hierarchyFields = ['level_0', 'level_1', 'level_2', 'level_3']
+      let keywordList = fullPath.split('|')
+      logger.debug('Data center keyword list:', keywordList)
+      let jsonQuery
+      if (isLeaf) {
+        if (keywordList.length > 1) {
+          keywordList = keywordList.slice(0, -1)
+        }
 
-      return numberOfCollections
-    } catch (error) {
-      console.error('Error in getNumberOfCmrCollections:', error)
-
-      return null
-    }
-  } else if (['data_center'].includes(cmrScheme)) {
-    const hierarchyFields = ['level_0', 'level_1', 'level_2', 'level_3']
-    let keywordList = fullPath.split('|')
-    let jsonQuery
-    if (isLeaf) {
-      if (keywordList.length > 1) {
-        keywordList = keywordList.slice(0, -1)
+        const prefLabelField = 'short_name'
+        jsonQuery = getJsonQueryForKeywordHierarchy({
+          schemeParam: cmrScheme,
+          hierarchyFields,
+          keywordList,
+          prefLabelField,
+          prefLabelParam: prefLabel
+        })
+      } else {
+        jsonQuery = getJsonQueryForKeywordHierarchy({
+          schemeParam: cmrScheme,
+          hierarchyFields,
+          keywordList,
+          prefLabelField: null,
+          prefLabelParam: null
+        })
       }
 
-      const prefLabelField = 'short_name'
-      jsonQuery = getJsonQueryForKeywordHierarchy({
-        schemeParam: cmrScheme,
-        hierarchyFields,
-        keywordList,
-        prefLabelField,
-        prefLabelParam: prefLabel
-      })
+      logger.debug('Using data center query:', JSON.stringify(jsonQuery))
+      numberOfCollections = await doRequest('POST', jsonQuery)
+    } else if (['processing_level_id'].includes(cmrScheme)) {
+      const query = `{"condition":{"${cmrScheme}":"${prefLabel}"}}`
+      logger.debug('Using processing_level_id query:', query)
+      numberOfCollections = await doRequest('POST', JSON.parse(query))
+    // Handle all other schemes
     } else {
-      jsonQuery = getJsonQueryForKeywordHierarchy({
-        schemeParam: cmrScheme,
-        hierarchyFields,
-        keywordList,
-        prefLabelField: null,
-        prefLabelParam: null
-      })
+      const queryString = `${cmrScheme}=${prefLabel}`
+      logger.debug('Using GET request with query string:', queryString)
+      numberOfCollections = await doRequest('GET', queryString)
     }
 
-    try {
-      const numberOfCollections = await doRequest('POST', jsonQuery)
+    logger.info('Number of collections found:', numberOfCollections)
 
-      return numberOfCollections
-    } catch (error) {
-      console.error('Error in getNumberOfCmrCollections:', error)
+    return numberOfCollections
+  } catch (error) {
+    logger.error('Error in getNumberOfCmrCollections:', error)
+    logger.error('Error stack:', error.stack)
 
-      return null
-    }
-  } else if (['processing_level_id'].includes(cmrScheme)) {
-    const query = `{"condition":{"${cmrScheme}":"${prefLabel}"}}`
-    try {
-      const numberOfCollections = await doRequest('POST', JSON.parse(query))
-
-      return numberOfCollections
-    } catch (error) {
-      console.error('Error in getNumberOfCmrCollections:', error)
-
-      return null
-    }
-  // Handle all other schemes
-  } else {
-    const queryString = `${cmrScheme}=${prefLabel}`
-    try {
-      const numberOfCollections = await doRequest('GET', queryString)
-
-      return numberOfCollections
-    } catch (error) {
-      console.error('Error in getNumberOfCmrCollections:', error)
-
-      return null
-    }
+    return null
   }
 }

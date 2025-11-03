@@ -3,16 +3,25 @@ import fetchEdlProfile from '../fetchEdlProfile'
 
 vi.mock('../fetchEdlClientToken', () => ({ default: vi.fn() }))
 
-beforeEach(() => {
-  vi.clearAllMocks()
+const originalConsoleLog = console.log
 
+beforeEach(() => {
+  vi.resetAllMocks()
+  console.log = vi.fn()
   fetchEdlClientToken.mockImplementation(() => ('mock_token'))
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+  console.log = originalConsoleLog
 })
 
 describe('fetchEdlProfile', () => {
   describe('when the user exists', () => {
     test('returns the users profile', async () => {
       global.fetch = vi.fn(() => Promise.resolve({
+        ok: true,
+        status: 200,
         json: () => Promise.resolve({
           nams_auid: 'user.name',
           uid: 'user.name',
@@ -44,6 +53,8 @@ describe('fetchEdlProfile', () => {
   describe('when the user does not have name fields', () => {
     test('returns the users profile', async () => {
       global.fetch = vi.fn(() => Promise.resolve({
+        ok: true,
+        status: 200,
         json: () => Promise.resolve({
           nams_auid: 'user.name',
           uid: 'user.name',
@@ -88,20 +99,15 @@ describe('fetchEdlProfile', () => {
     })
   })
 
-  describe('when the response from EDL is an error', () => {
-    test('returns undefined', async () => {
-      fetch.mockImplementationOnce(() => Promise.reject(new Error('Error calling EDL')))
-      const consoleMock = vi.spyOn(console, 'log').mockImplementation(() => {})
+  describe('when the response from EDL is not ok', () => {
+    test('throws an error', async () => {
+      global.fetch = vi.fn(() => Promise.resolve({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error: 'Bad Request' })
+      }))
 
-      const token = await fetchEdlProfile('mock-token')
-        .catch((error) => {
-          expect(error.message).toEqual('Error calling EDL')
-        })
-
-      expect(consoleMock).toHaveBeenCalledTimes(1)
-      expect(consoleMock).toHaveBeenCalledWith('fetchEdlProfile Error: ', new Error('Error calling EDL'))
-
-      expect(token).toEqual(undefined)
+      await expect(fetchEdlProfile('mock-token')).rejects.toThrow('EDL API request failed with status 400')
     })
   })
 })

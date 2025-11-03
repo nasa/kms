@@ -136,7 +136,8 @@ async function main() {
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
-      EDL_PASSWORD: process.env.EDL_PASSWORD || ''
+      EDL_PASSWORD: process.env.EDL_PASSWORD || '',
+      LOG_LEVEL: process.env.LOG_LEVEL || 'INFO'
     }
   }
 
