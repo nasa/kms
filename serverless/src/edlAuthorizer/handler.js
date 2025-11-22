@@ -60,6 +60,10 @@ export const edlAuthorizer = async (event) => {
     return generatePolicy(uid, 'Allow', methodArn)
   } catch (error) {
     logger.error('EDL Authorizer error:', error)
+    if (error === 'Unauthorized' || (error && error.message === 'Unauthorized')) {
+      throw new Error('Unauthorized')
+    }
+
     throw error
   }
 }
