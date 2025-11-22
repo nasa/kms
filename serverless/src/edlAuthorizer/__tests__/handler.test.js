@@ -100,12 +100,16 @@ describe('edlAuthorizer', () => {
   })
 
   describe('when the supplied token is invalid', () => {
-    test('returns unauthorized', async () => {
-      fetchEdlProfile.mockImplementationOnce(() => false)
+    test('returns unauthorized when fetchEdlProfile resolves false', async () => {
+      fetchEdlProfile.mockResolvedValueOnce(false)
 
-      await expect(
-        edlAuthorizer({}, {})
-      ).rejects.toThrow('Unauthorized')
+      await expect(edlAuthorizer({}, {})).rejects.toThrow('Unauthorized')
+    })
+
+    test('returns unauthorized when fetchEdlProfile throws unauthorized error', async () => {
+      fetchEdlProfile.mockRejectedValueOnce(new Error('Unauthorized'))
+
+      await expect(edlAuthorizer({}, {})).rejects.toThrow('Unauthorized')
     })
   })
 
