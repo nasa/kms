@@ -5,11 +5,6 @@ import { logger } from '@/shared/logger'
 
 const REQUIRED_ASSURANCE_LEVEL = 5
 
-/**
- * Custom authorizer for API Gateway authentication
- * @param {Object} event Details about the HTTP request that it received
- * @param {Object} context Methods and properties that provide information about the invocation, function, and execution environment
- */
 export const edlAuthorizer = async (event) => {
   logger.debug('EDL Authorizer called with event:', JSON.stringify(event, null, 2))
   const {
@@ -40,31 +35,38 @@ export const edlAuthorizer = async (event) => {
 
     if (!uid) {
       logger.error('Authorization failed: No uid found in profile')
-      throw new Error('Unauthorized')
+
+      return generatePolicy('user', 'Deny', methodArn)
     }
 
     const parsedAssuranceLevel = Number(assuranceLevel)
 
     if (Number.isNaN(parsedAssuranceLevel)) {
       logger.error('Authorization failed: Assurance level missing from profile')
-      throw new Error('Unauthorized')
+
+      return generatePolicy('user', 'Deny', methodArn)
     }
 
     if (parsedAssuranceLevel < REQUIRED_ASSURANCE_LEVEL) {
       logger.error(`Authorization failed: Assurance level ${parsedAssuranceLevel} below required ${REQUIRED_ASSURANCE_LEVEL}`)
-      throw new Error('Unauthorized')
+
+      return generatePolicy('user', 'Deny', methodArn)
     }
 
     logger.debug('Authorization successful for uid:', uid)
 
-    return generatePolicy(uid, 'Allow', methodArn)
+    const policy = generatePolicy(uid, 'Allow', methodArn)
+    logger.debug('Returning policy:', JSON.stringify(policy, null, 2))
+
+    return policy
   } catch (error) {
     logger.error('EDL Authorizer error:', error)
-    if (error === 'Unauthorized' || (error && error.message === 'Unauthorized')) {
-      throw new Error('Unauthorized')
-    }
 
-    throw error
+    // Return a "Deny" policy for any caught errors
+    const denyPolicy = generatePolicy('user', 'Deny', methodArn)
+    logger.debug('Returning deny policy:', JSON.stringify(denyPolicy, null, 2))
+
+    return denyPolicy
   }
 }
 
