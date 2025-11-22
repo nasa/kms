@@ -31,6 +31,18 @@ const buildProfile = (profile) => {
   }
 }
 
+const buildEdlError = (response, source) => {
+  const {
+    status
+  } = response
+
+  if (status === 400 || status === 401) {
+    return new Error('Unauthorized')
+  }
+
+  return new Error(`${source} failed with status ${status}`)
+}
+
 /**
  * Fetches the user profile using a Launchpad token via the Launchpad gateway
  * @param {string} host EDL host base URL
@@ -54,7 +66,7 @@ const fetchProfileWithLaunchpadToken = async (host, launchpadToken) => {
 
   if (!response.ok) {
     logger.error('Error response:', response)
-    throw new Error(`EDL API request failed with status ${response.status}`)
+    throw buildEdlError(response, 'EDL API request')
   }
 
   const profile = await response.json()
@@ -87,7 +99,7 @@ const fetchProfileWithEdlAccessToken = async (host, edlToken) => {
 
   if (!response.ok) {
     logger.error('EDL oauth error response:', response)
-    throw new Error(`EDL oauth request failed with status ${response.status}`)
+    throw buildEdlError(response, 'EDL oauth request')
   }
 
   const profile = await response.json()

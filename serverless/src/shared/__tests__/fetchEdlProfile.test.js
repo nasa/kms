@@ -53,16 +53,28 @@ describe('fetchEdlProfile', () => {
       })
     })
 
-    describe('when the oauth endpoint returns an error', () => {
-      test('throws an error describing the failure', async () => {
+    describe('when the oauth endpoint returns an unauthorized error', () => {
+      test('throws unauthorized', async () => {
         global.fetch = vi.fn(() => Promise.resolve({
           ok: false,
           status: 401,
           json: () => Promise.resolve({ error: 'Unauthorized' })
         }))
 
-        await expect(fetchEdlProfile('Bearer bearer-token-value')).rejects.toThrow('EDL oauth request failed with status 401')
+        await expect(fetchEdlProfile('Bearer bearer-token-value')).rejects.toThrow('Unauthorized')
         expect(fetchEdlClientToken).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('when the oauth endpoint returns a non-auth error', () => {
+      test('throws an error describing the failure', async () => {
+        global.fetch = vi.fn(() => Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Server Error' })
+        }))
+
+        await expect(fetchEdlProfile('Bearer bearer-token-value')).rejects.toThrow('EDL oauth request failed with status 500')
       })
     })
 
@@ -146,15 +158,27 @@ describe('fetchEdlProfile', () => {
       })
     })
 
-    describe('when the response from EDL is not ok', () => {
-      test('throws an error', async () => {
+    describe('when the response from EDL is a 400', () => {
+      test('throws unauthorized', async () => {
         global.fetch = vi.fn(() => Promise.resolve({
           ok: false,
           status: 400,
           json: () => Promise.resolve({ error: 'Bad Request' })
         }))
 
-        await expect(fetchEdlProfile('mock-token')).rejects.toThrow('EDL API request failed with status 400')
+        await expect(fetchEdlProfile('mock-token')).rejects.toThrow('Unauthorized')
+      })
+    })
+
+    describe('when the response from EDL is a non-auth error', () => {
+      test('throws an error indicating the status', async () => {
+        global.fetch = vi.fn(() => Promise.resolve({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'Server error' })
+        }))
+
+        await expect(fetchEdlProfile('mock-token')).rejects.toThrow('EDL API request failed with status 500')
       })
     })
   })

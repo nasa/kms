@@ -13,6 +13,14 @@ describe('edlAuthorizer', () => {
     process.env = { ...OLD_ENV }
     console.log = vi.fn()
     console.error = vi.fn()
+    fetchEdlProfile.mockReset()
+    fetchEdlProfile.mockResolvedValue({
+      email: 'test.user@localhost',
+      first_name: 'Test',
+      last_name: 'User',
+      uid: 'mock_user',
+      assuranceLevel: 5
+    })
   })
 
   afterEach(() => {
@@ -27,7 +35,8 @@ describe('edlAuthorizer', () => {
         email: 'test.user@localhost',
         first_name: 'Test',
         last_name: 'User',
-        uid: 'mock_user'
+        uid: 'mock_user',
+        assuranceLevel: 5
       }))
 
       const event = {
@@ -46,13 +55,6 @@ describe('edlAuthorizer', () => {
 
   describe('when the token is provided in authorizationToken', () => {
     test('uses the authorizationToken and returns a valid policy', async () => {
-      fetchEdlProfile.mockImplementation(() => ({
-        email: 'test.user@localhost',
-        first_name: 'Test',
-        last_name: 'User',
-        uid: 'mock_user'
-      }))
-
       const event = {
         authorizationToken: 'mock-token-in-event',
         methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/method/resourcepath'
@@ -104,6 +106,17 @@ describe('edlAuthorizer', () => {
       await expect(
         edlAuthorizer({}, {})
       ).rejects.toThrow('Unauthorized')
+    })
+  })
+
+  describe('when the assurance level is below 5', () => {
+    test('throws an unauthorized error', async () => {
+      fetchEdlProfile.mockResolvedValueOnce({
+        uid: 'mock_user',
+        assuranceLevel: 3
+      })
+
+      await expect(edlAuthorizer({}, {})).rejects.toThrow('Unauthorized')
     })
   })
 })
