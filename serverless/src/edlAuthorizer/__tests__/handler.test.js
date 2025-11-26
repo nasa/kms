@@ -100,27 +100,81 @@ describe('edlAuthorizer', () => {
   })
 
   describe('when the supplied token is invalid', () => {
-    test('returns unauthorized when fetchEdlProfile resolves false', async () => {
+    test('returns a deny policy when fetchEdlProfile resolves false', async () => {
       fetchEdlProfile.mockResolvedValueOnce(false)
 
-      await expect(edlAuthorizer({}, {})).rejects.toThrow('Unauthorized')
+      const event = {
+        methodArn: 'arn:aws:execute-api:us-east-1:123:api-id/stage/GET/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'user',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Deny',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
     })
 
-    test('returns unauthorized when fetchEdlProfile throws unauthorized error', async () => {
+    test('returns a deny policy when fetchEdlProfile throws unauthorized error', async () => {
       fetchEdlProfile.mockRejectedValueOnce(new Error('Unauthorized'))
 
-      await expect(edlAuthorizer({}, {})).rejects.toThrow('Unauthorized')
+      const event = {
+        methodArn: 'arn:aws:execute-api:us-east-1:123:api-id/stage/POST/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'user',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Deny',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
     })
   })
 
   describe('when the assurance level is below 5', () => {
-    test('throws an unauthorized error', async () => {
+    test('returns a deny policy', async () => {
       fetchEdlProfile.mockResolvedValueOnce({
         uid: 'mock_user',
         assuranceLevel: 3
       })
 
-      await expect(edlAuthorizer({}, {})).rejects.toThrow('Unauthorized')
+      const event = {
+        methodArn: 'arn:aws:execute-api:us-east-1:123:api-id/stage/PUT/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'user',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Deny',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
     })
   })
 })
