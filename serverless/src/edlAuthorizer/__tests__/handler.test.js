@@ -149,8 +149,8 @@ describe('edlAuthorizer', () => {
     })
   })
 
-  describe('when the assurance level is below 5', () => {
-    test('returns a deny policy', async () => {
+  describe('when the assurance level is below requirements', () => {
+    test('returns a deny policy when below 5', async () => {
       fetchEdlProfile.mockResolvedValueOnce({
         uid: 'mock_user',
         assuranceLevel: 3
@@ -158,6 +158,32 @@ describe('edlAuthorizer', () => {
 
       const event = {
         methodArn: 'arn:aws:execute-api:us-east-1:123:api-id/stage/PUT/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'user',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Deny',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
+    })
+
+    test('returns a deny policy when assurance level missing', async () => {
+      fetchEdlProfile.mockResolvedValueOnce({
+        uid: 'mock_user'
+      })
+
+      const event = {
+        methodArn: 'arn:aws:execute-api:us-east-1:123:api-id/stage/DELETE/resource'
       }
 
       const response = await edlAuthorizer(event, {})
