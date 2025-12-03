@@ -110,16 +110,16 @@ const fetchProfileWithEdlAccessToken = async (host, edlToken) => {
 
 /**
  * Returns the user's EDL profile regardless of token type
- * @param {string} launchpadToken Authorization token (Launchpad or Bearer EDL)
+ * @param {string} token Authorization token (Launchpad or Bearer EDL)
  * @returns {Promise<Object>} normalized EDL profile
  */
-const fetchEdlProfile = async (launchpadToken) => {
-  logger.debug('Fetching EDL profile for token:', launchpadToken ? 'Present' : 'Not present')
+const fetchEdlProfile = async (token) => {
+  logger.debug('Fetching EDL profile for token:', token ? 'Present' : 'Not present')
   const {
     IS_OFFLINE
   } = process.env
 
-  if (IS_OFFLINE && launchpadToken === 'ABC-1') {
+  if (IS_OFFLINE && token === 'ABC-1') {
     return {
       auid: 'admin',
       name: 'Admin User',
@@ -132,7 +132,7 @@ const fetchEdlProfile = async (launchpadToken) => {
   logger.debug('EDL host:', host)
 
   try {
-    const normalizedToken = launchpadToken || ''
+    const normalizedToken = token || ''
     const bearerMatch = normalizedToken.match(/^\s*bearer\s+(.*)$/i)
 
     if (bearerMatch) {
