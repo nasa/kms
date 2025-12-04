@@ -1,4 +1,5 @@
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
+import { logger } from '@/shared/logger'
 
 import edlAuthorizer from '../handler'
 
@@ -8,8 +9,10 @@ describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
   const originalConsoleLog = console.log
   const originalConsoleError = console.error
+  let loggerErrorSpy
 
   beforeEach(() => {
+    loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     console.log = vi.fn()
     console.error = vi.fn()
@@ -27,6 +30,10 @@ describe('edlAuthorizer', () => {
     process.env = OLD_ENV
     console.log = originalConsoleLog
     console.error = originalConsoleError
+  })
+
+  afterAll(() => {
+    loggerErrorSpy?.mockRestore()
   })
 
   describe('when the token is for a valid user', () => {
@@ -99,8 +106,8 @@ describe('edlAuthorizer', () => {
     })
   })
 
-  describe('when the supplied token is invalid', () => {
-    test('returns a deny policy when fetchEdlProfile resolves false', async () => {
+  describe('when the profile returned is invalid', () => {
+    test('returns a deny policy when the profile is missing a uid', async () => {
       fetchEdlProfile.mockResolvedValueOnce(false)
 
       const event = {
@@ -122,10 +129,16 @@ describe('edlAuthorizer', () => {
           ]
         }
       })
-    })
 
+      expect(logger.error).toHaveBeenCalledTimes(1)
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: No uid found in profile')
+    })
+  })
+
+  describe('when the supplied token is invalid', () => {
     test('returns a deny policy when fetchEdlProfile throws unauthorized error', async () => {
-      fetchEdlProfile.mockRejectedValueOnce(new Error('Unauthorized'))
+      const unauthorizedError = new Error('Unauthorized')
+      fetchEdlProfile.mockRejectedValueOnce(unauthorizedError)
 
       const event = {
         methodArn: 'arn:aws:execute-api:us-east-1:123:api-id/stage/POST/resource'
@@ -146,6 +159,9 @@ describe('edlAuthorizer', () => {
           ]
         }
       })
+
+      expect(logger.error).toHaveBeenCalledTimes(1)
+      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError)
     })
   })
 
@@ -175,6 +191,9 @@ describe('edlAuthorizer', () => {
           ]
         }
       })
+
+      expect(logger.error).toHaveBeenCalledTimes(1)
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level 3 below required 5')
     })
 
     test('returns a deny policy when assurance level missing', async () => {
@@ -201,6 +220,9 @@ describe('edlAuthorizer', () => {
           ]
         }
       })
+
+      expect(logger.error).toHaveBeenCalledTimes(1)
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level missing from profile')
     })
   })
 })

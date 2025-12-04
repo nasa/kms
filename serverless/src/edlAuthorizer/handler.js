@@ -14,19 +14,19 @@ export const edlAuthorizer = async (event) => {
   } = event
 
   // First, try to get the token from headers (case-insensitive)
-  let launchpadToken = downcaseKeys(headers).authorization
+  let token = downcaseKeys(headers).authorization
 
   // If not found in headers, check if it's directly in the event as authorizationToken
-  if (!launchpadToken && authorizationToken) {
-    launchpadToken = authorizationToken
+  if (!token && authorizationToken) {
+    token = authorizationToken
   }
 
   // If still not found, default to an empty string
-  launchpadToken = launchpadToken || ''
-  logger.debug('Launchpad token:', launchpadToken ? 'Present' : 'Not present')
+  token = token || ''
+  logger.debug('Launchpad token:', token ? 'Present' : 'Not present')
 
   try {
-    const profile = await fetchEdlProfile(launchpadToken)
+    const profile = await fetchEdlProfile(token)
     logger.debug('Fetched EDL profile:', JSON.stringify(profile, null, 2))
     const {
       uid,

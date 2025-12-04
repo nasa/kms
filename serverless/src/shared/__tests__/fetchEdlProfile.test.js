@@ -1,19 +1,25 @@
+import { logger } from '@/shared/logger'
+
 import fetchEdlClientToken from '../fetchEdlClientToken'
 import fetchEdlProfile from '../fetchEdlProfile'
 
 vi.mock('../fetchEdlClientToken', () => ({ default: vi.fn() }))
 
 const originalConsoleLog = console.log
+let loggerErrorSpy
 
 beforeEach(() => {
   vi.resetAllMocks()
   console.log = vi.fn()
   fetchEdlClientToken.mockImplementation(() => ('mock_token'))
+  loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
   vi.clearAllMocks()
   console.log = originalConsoleLog
+  loggerErrorSpy?.mockRestore()
+  loggerErrorSpy = undefined
 })
 
 describe('fetchEdlProfile', () => {
@@ -55,26 +61,32 @@ describe('fetchEdlProfile', () => {
 
     describe('when the oauth endpoint returns an unauthorized error', () => {
       test('throws unauthorized', async () => {
-        global.fetch = vi.fn(() => Promise.resolve({
+        const mockResponse = {
           ok: false,
           status: 401,
           json: () => Promise.resolve({ error: 'Unauthorized' })
-        }))
+        }
+        global.fetch = vi.fn(() => Promise.resolve(mockResponse))
 
         await expect(fetchEdlProfile('Bearer bearer-token-value')).rejects.toThrow('Unauthorized')
         expect(fetchEdlClientToken).not.toHaveBeenCalled()
+        expect(logger.error).toHaveBeenCalledTimes(1)
+        expect(logger.error).toHaveBeenCalledWith('EDL oauth error response:', mockResponse)
       })
     })
 
     describe('when the oauth endpoint returns a non-auth error', () => {
       test('throws an error describing the failure', async () => {
-        global.fetch = vi.fn(() => Promise.resolve({
+        const mockResponse = {
           ok: false,
           status: 500,
           json: () => Promise.resolve({ error: 'Server Error' })
-        }))
+        }
+        global.fetch = vi.fn(() => Promise.resolve(mockResponse))
 
         await expect(fetchEdlProfile('Bearer bearer-token-value')).rejects.toThrow('EDL oauth request failed with status 500')
+        expect(logger.error).toHaveBeenCalledTimes(1)
+        expect(logger.error).toHaveBeenCalledWith('EDL oauth error response:', mockResponse)
       })
     })
 
@@ -85,6 +97,8 @@ describe('fetchEdlProfile', () => {
         await expect(fetchEdlProfile('Bearer    ')).rejects.toThrow('Invalid Bearer token provided')
         expect(fetch).not.toHaveBeenCalled()
         expect(fetchEdlClientToken).not.toHaveBeenCalled()
+        expect(logger.error).toHaveBeenCalledTimes(1)
+        expect(logger.error).toHaveBeenCalledWith('#fetchEdlProfile fetchEdlProfile Error:', expect.any(Error))
       })
     })
   })
@@ -160,25 +174,31 @@ describe('fetchEdlProfile', () => {
 
     describe('when the response from EDL is a 400', () => {
       test('throws unauthorized', async () => {
-        global.fetch = vi.fn(() => Promise.resolve({
+        const mockResponse = {
           ok: false,
           status: 400,
           json: () => Promise.resolve({ error: 'Bad Request' })
-        }))
+        }
+        global.fetch = vi.fn(() => Promise.resolve(mockResponse))
 
         await expect(fetchEdlProfile('mock-token')).rejects.toThrow('Unauthorized')
+        expect(logger.error).toHaveBeenCalledTimes(1)
+        expect(logger.error).toHaveBeenCalledWith('Error response:', mockResponse)
       })
     })
 
     describe('when the response from EDL is a non-auth error', () => {
       test('throws an error indicating the status', async () => {
-        global.fetch = vi.fn(() => Promise.resolve({
+        const mockResponse = {
           ok: false,
           status: 500,
           json: () => Promise.resolve({ error: 'Server error' })
-        }))
+        }
+        global.fetch = vi.fn(() => Promise.resolve(mockResponse))
 
         await expect(fetchEdlProfile('mock-token')).rejects.toThrow('EDL API request failed with status 500')
+        expect(logger.error).toHaveBeenCalledTimes(1)
+        expect(logger.error).toHaveBeenCalledWith('Error response:', mockResponse)
       })
     })
   })

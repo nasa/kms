@@ -1,7 +1,7 @@
 import { getEdlConfig } from '@/shared/getConfig'
+import { logger } from '@/shared/logger'
 
 import fetchEdlClientToken from './fetchEdlClientToken'
-import { logger } from './logger'
 
 /**
  * Builds an EDL profile into the format expected by consumers
