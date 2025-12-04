@@ -38,14 +38,6 @@ describe('edlAuthorizer', () => {
 
   describe('when the token is for a valid user', () => {
     test('returns a valid policy', async () => {
-      fetchEdlProfile.mockImplementation(() => ({
-        email: 'test.user@localhost',
-        first_name: 'Test',
-        last_name: 'User',
-        uid: 'mock_user',
-        assuranceLevel: 5
-      }))
-
       const event = {
         headers: {
           Authorization: 'mock-token'
