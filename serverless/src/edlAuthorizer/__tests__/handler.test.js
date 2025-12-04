@@ -7,15 +7,11 @@ vi.mock('@/shared/fetchEdlProfile')
 
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
-  const originalConsoleLog = console.log
-  const originalConsoleError = console.error
   let loggerErrorSpy
 
   beforeEach(() => {
     loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
-    console.log = vi.fn()
-    console.error = vi.fn()
     fetchEdlProfile.mockReset()
     fetchEdlProfile.mockResolvedValue({
       email: 'test.user@localhost',
@@ -28,8 +24,6 @@ describe('edlAuthorizer', () => {
 
   afterEach(() => {
     process.env = OLD_ENV
-    console.log = originalConsoleLog
-    console.error = originalConsoleError
   })
 
   afterAll(() => {
