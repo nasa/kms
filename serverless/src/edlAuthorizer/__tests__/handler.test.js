@@ -30,10 +30,6 @@ describe('edlAuthorizer', () => {
     loggerErrorSpy?.mockRestore()
   })
 
-  afterAll(() => {
-    loggerErrorSpy?.mockRestore()
-  })
-
   describe('when the token is for a valid user', () => {
     test('returns a valid policy', async () => {
       const event = {
