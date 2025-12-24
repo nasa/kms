@@ -1,6 +1,22 @@
+import { XMLParser } from 'fast-xml-parser'
+
 import { cmrGetRequest } from './cmrGetRequest'
 import { cmrPostRequest } from './cmrPostRequest'
 import { logger } from './logger'
+
+// Schemes accepted by CMR to fetch number of collections.
+const VALID_SCHEMES = [
+  'collectiondatatype',
+  'dataformat',
+  'granuledataformat',
+  'instruments',
+  'locations',
+  'platforms',
+  'productlevelid',
+  'projects',
+  'providers',
+  'sciencekeywords'
+]
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -57,6 +73,13 @@ export const getNumberOfCmrCollections = async ({
     isLeaf
   })
 
+  // Check if the scheme is valid to get number of CMR collections
+  if (!VALID_SCHEMES.includes(scheme.toLowerCase())) {
+    logger.warn(`Invalid scheme, can't get number of CMR collections: ${scheme}`)
+
+    return null
+  }
+
   const doRequest = async (method, query) => {
     logger.debug(`Performing ${method} request to CMR with query:`, JSON.stringify(query))
     let response
@@ -77,8 +100,27 @@ export const getNumberOfCmrCollections = async ({
 
     // Check if the response is successful
     if (!response.ok) {
-      logger.error('Error in getNumberOfCmrCollections:', response)
-      const error = new Error(`HTTP error! status: ${response.status}`)
+      const textContent = await response.text()
+      let errorMessage = `HTTP error! status: ${response.status}`
+
+      if (textContent.trim().startsWith('<?xml')) {
+        const parser = new XMLParser()
+        const xmlObj = parser.parse(textContent)
+        if (xmlObj.errors && xmlObj.errors.error) {
+          if (Array.isArray(xmlObj.errors.error)) {
+            errorMessage = xmlObj.errors.error.join(', ')
+          } else {
+            errorMessage = xmlObj.errors.error
+          }
+        }
+      } else {
+        errorMessage = textContent || errorMessage
+      }
+
+      const error = new Error(errorMessage)
+      error.status = response.status
+      error.url = response.url
+      error.message = errorMessage
       throw error
     }
 
@@ -213,7 +255,7 @@ export const getNumberOfCmrCollections = async ({
       numberOfCollections = await doRequest('POST', JSON.parse(query))
     // Handle all other schemes
     } else {
-      const queryString = `${cmrScheme}=${prefLabel}`
+      const queryString = `${cmrScheme}=${encodeURIComponent(prefLabel)}`
       logger.debug('Using GET request with query string:', queryString)
       numberOfCollections = await doRequest('GET', queryString)
     }

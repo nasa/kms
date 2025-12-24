@@ -1,3 +1,4 @@
+import { logger } from './logger'
 /**
  * Make a GET request to the NASA Common Metadata Repository (CMR) API.
  *
@@ -31,6 +32,8 @@ export const cmrGetRequest = async ({
   const fetchOptions = {
     method: 'GET'
   }
+
+  logger.info('URL:', `${endpoint}${path}`, 'with options:', fetchOptions)
 
   return fetch(`${endpoint}${path}`, fetchOptions)
 }

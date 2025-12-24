@@ -1,3 +1,4 @@
+import { XMLParser } from 'fast-xml-parser'
 import {
   afterEach,
   beforeEach,
@@ -18,8 +19,15 @@ vi.mock('../logger', () => ({
   logger: {
     info: vi.fn(),
     debug: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    warn: vi.fn()
   }
+}))
+
+vi.mock('fast-xml-parser', () => ({
+  XMLParser: vi.fn().mockImplementation(() => ({
+    parse: vi.fn()
+  }))
 }))
 
 describe('getNumberOfCmrCollections', () => {
@@ -101,24 +109,6 @@ describe('getNumberOfCmrCollections', () => {
     expect(result).toBeNull()
     // Restore console.error
     console.error = originalConsoleError
-  })
-
-  test('should use GET request for unsupported schemes', async () => {
-    const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '25']])
-    }
-    cmrGetRequest.mockResolvedValue(mockResponse)
-
-    const result = await getNumberOfCmrCollections({
-      scheme: 'unsupported_scheme',
-      prefLabel: 'test_label'
-    })
-
-    expect(result).toBe(25)
-    expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/collections?unsupported_scheme=test_label'
-    })
   })
 
   test('should handle processing_level_id scheme correctly', async () => {
@@ -457,35 +447,6 @@ describe('getNumberOfCmrCollections', () => {
     })
   })
 
-  test('should handle errors for unknown schemes', async () => {
-  // Mock the cmrGetRequest to throw an error
-    cmrGetRequest.mockRejectedValue(new Error('Network error'))
-
-    const result = await getNumberOfCmrCollections({
-      scheme: 'unknown_scheme',
-      prefLabel: 'Some Label'
-    })
-
-    // Check if the function returns null on error
-    expect(result).toBeNull()
-
-    // Check if the error is logged
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error in getNumberOfCmrCollections:',
-      expect.any(Error)
-    )
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error stack:',
-      expect.any(String)
-    )
-
-    // Verify that cmrGetRequest was called with the correct arguments
-    expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/collections?unknown_scheme=Some Label'
-    })
-  })
-
   test('should handle errors for processing_level_id scheme', async () => {
     // Mock cmrPostRequest to return a failed response
     cmrPostRequest.mockResolvedValue({
@@ -606,5 +567,138 @@ describe('getNumberOfCmrCollections', () => {
     expect(logger.debug).toHaveBeenCalledWith('CMR response status:', 200)
     expect(logger.debug).toHaveBeenCalledWith('CMR hits:', 100)
     expect(logger.info).toHaveBeenCalledWith('Number of collections found:', 100)
+  })
+
+  test('should return null for an invalid scheme', async () => {
+    const result = await getNumberOfCmrCollections({
+      scheme: 'invalidScheme',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(logger.warn).toHaveBeenCalledWith("Invalid scheme, can't get number of CMR collections: invalidScheme")
+  })
+
+  test('should handle XML error responses', async () => {
+    const xmlErrorResponse = `
+      <?xml version="1.0" encoding="UTF-8"?>
+      <errors>
+        <error>Error 1</error>
+        <error>Error 2</error>
+      </errors>
+    `
+    const mockResponse = {
+      ok: false,
+      status: 400,
+      url: 'https://cmr.earthdata.nasa.gov/search/collections',
+      text: vi.fn().mockResolvedValue(xmlErrorResponse)
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const mockParse = vi.fn().mockReturnValue({
+      errors: {
+        error: ['Error 1', 'Error 2']
+      }
+    })
+    XMLParser.mockImplementation(() => ({
+      parse: mockParse
+    }))
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(XMLParser).toHaveBeenCalled()
+    expect(mockParse).toHaveBeenCalledWith(xmlErrorResponse)
+    expect(logger.error).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
+  })
+
+  test('should handle non-XML error responses', async () => {
+    const nonXmlErrorResponse = 'This is a plain text error message'
+    const mockResponse = {
+      ok: false,
+      status: 400,
+      url: 'https://cmr.earthdata.nasa.gov/search/collections',
+      text: vi.fn().mockResolvedValue(nonXmlErrorResponse)
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(XMLParser).not.toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
+
+    // Check that the error message is the non-XML text
+    const errorCall = logger.error.mock.calls.find((call) => call[0] === 'Error in getNumberOfCmrCollections:')
+    expect(errorCall[1].message).toBe(nonXmlErrorResponse)
+  })
+
+  test('should handle XML error response with a single error', async () => {
+    const xmlErrorResponse = `
+    <?xml version="1.0" encoding="UTF-8"?>
+    <errors>
+      <error>Single error message</error>
+    </errors>
+  `
+    const mockResponse = {
+      ok: false,
+      status: 400,
+      url: 'https://cmr.earthdata.nasa.gov/search/collections',
+      text: vi.fn().mockResolvedValue(xmlErrorResponse)
+    }
+    cmrPostRequest.mockResolvedValue(mockResponse)
+
+    const mockParse = vi.fn().mockReturnValue({
+      errors: {
+        error: 'Single error message'
+      }
+    })
+    XMLParser.mockImplementation(() => ({
+      parse: mockParse
+    }))
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(XMLParser).toHaveBeenCalled()
+    expect(mockParse).toHaveBeenCalledWith(xmlErrorResponse)
+    expect(logger.error).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
+    expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
+
+    // Check that the error message is the single error from XML
+    const errorCall = logger.error.mock.calls.find((call) => call[0] === 'Error in getNumberOfCmrCollections:')
+    expect(errorCall[1].message).toBe('Single error message')
+  })
+
+  test('should use the original scheme when not explicitly mapped to CMR scheme', async () => {
+    const mockResponse = {
+      ok: true,
+      headers: new Map([['cmr-hits', '42']])
+    }
+    cmrGetRequest.mockResolvedValue(mockResponse)
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'CollectionDataType',
+      prefLabel: 'someValue'
+    })
+
+    expect(result).toBe(42)
+    expect(cmrGetRequest).toHaveBeenCalledWith({
+      path: '/search/collections?CollectionDataType=someValue'
+    })
+
+    expect(logger.debug).toHaveBeenCalledWith('Mapped CMR scheme:', 'CollectionDataType')
+    expect(logger.debug).toHaveBeenCalledWith('Using GET request with query string:', 'CollectionDataType=someValue')
   })
 })
