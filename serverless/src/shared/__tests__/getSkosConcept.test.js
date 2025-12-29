@@ -133,7 +133,7 @@ describe('getSkosConcept', () => {
         }))
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${mockScheme}>`)
+          body: expect.stringContaining(`FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${mockScheme}"))`)
         }))
 
         expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
@@ -320,6 +320,131 @@ describe('getSkosConcept', () => {
         expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
       })
     })
+
+    describe('Retrieving skos concept for a given fullPath', () => {
+      test('should generate correct query when fullPath is provided', async () => {
+        const mockFullPath = 'TestScheme|Category|Subcategory|Term'
+        const mockConceptURI = 'http://example.com/concept/789'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ fullPath: mockFullPath })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("Term"))')
+        }))
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/TestScheme"))')
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should handle Earth Science keywords correctly', async () => {
+        const mockFullPath = 'Earth Science|Atmosphere|Atmospheric Temperature|Surface Temperature'
+        const mockConceptURI = 'http://example.com/concept/101'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ fullPath: mockFullPath })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("Surface Temperature"))')
+        }))
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"))')
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should throw an error if fullPath has less than two elements', async () => {
+        const mockFullPath = 'SingleElement'
+
+        await expect(getSkosConcept({ fullPath: mockFullPath }))
+          .rejects.toThrow('fullPath must contain at least two elements separated by "|"')
+      })
+
+      test('should use the last element as shortName and the first as scheme', async () => {
+        const mockFullPath = 'SchemeA|Category1|Category2|FinalTerm'
+        const mockConceptURI = 'http://example.com/concept/102'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ fullPath: mockFullPath })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("FinalTerm"))')
+        }))
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/SchemeA"))')
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should handle case-insensitive "Earth Science" in fullPath', async () => {
+        const mockFullPath = 'earth science|Atmosphere|Temperature|Surface Temperature'
+        const mockConceptURI = 'http://example.com/concept/103'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ fullPath: mockFullPath })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("Surface Temperature"))')
+        }))
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"))')
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+    })
   })
 
   describe('when unsuccessful', () => {
@@ -346,7 +471,7 @@ describe('getSkosConcept', () => {
 
       test('should throw an error if no identifier is provided', async () => {
         await expect(getSkosConcept({}))
-          .rejects.toThrow('Either conceptIRI, shortName, or altLabel must be provided')
+          .rejects.toThrow('Either conceptIRI, shortName, altLabel or fullPath must be provided')
       })
 
       test('should throw an error if conceptIRI cannot be extracted from results', async () => {

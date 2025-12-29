@@ -379,7 +379,8 @@ describe('getConcept', () => {
         const mockEvent = {
           pathParameters: {
             shortName: 'Short%20Name',
-            altLabel: 'Alt%2BLabel'
+            altLabel: 'Alt%2BLabel',
+            fullPath: 'Full%20Path'
           },
           queryStringParameters: {
             scheme: 'Test%20Scheme'
@@ -399,6 +400,7 @@ describe('getConcept', () => {
           conceptIRI: null,
           shortName: 'Short Name',
           altLabel: 'Alt+Label',
+          fullPath: 'Full Path',
           scheme: 'Test Scheme',
           version: 'published'
         })

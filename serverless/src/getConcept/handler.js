@@ -71,7 +71,9 @@ import { toLegacyXML } from '@/shared/toLegacyXML'
 export const getConcept = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { pathParameters } = event
-  const { conceptId, shortName, altLabel } = pathParameters
+  const {
+    conceptId, shortName, altLabel, fullPath
+  } = pathParameters
   const { queryStringParameters } = event
   const { scheme, format = 'rdf' } = queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
@@ -107,6 +109,7 @@ export const getConcept = async (event, context) => {
       conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
       shortName: shortName ? decode(shortName) : null,
       altLabel: altLabel ? decode(altLabel) : null,
+      fullPath: fullPath ? decode(fullPath) : null,
       scheme: scheme ? decode(scheme) : null,
       version
     })

@@ -24,6 +24,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @param {string} [options.conceptIRI] - The IRI of the SKOS concept to retrieve.
  * @param {string} [options.shortName] - The short name of the SKOS concept to retrieve.
  * @param {string} [options.altLabel] - The alternative label of the SKOS concept to retrieve.
+ * @param {string} [options.fullPath] - The full path of the concept, including scheme and hierarchy, separated by '|'.
  * @param {string} [options.scheme] - The scheme to filter the concept search (used with shortName or altLabel).
  * @param {string} options.version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  *
@@ -70,6 +71,18 @@ import { toSkosJson } from '@/shared/toSkosJson'
  *   console.error('Failed to get concept:', error);
  * }
  *
+ * @example
+ * // Retrieve by fullPath from the published version
+ * try {
+ *   const conceptData = await getSkosConcept({
+ *     fullPath: 'Earth Science|Atmosphere|Atmospheric Temperature|Surface Temperature',
+ *     version: 'published'
+ *   });
+ *   console.log(conceptData);
+ * } catch (error) {
+ *   console.error('Failed to get concept:', error);
+ * }
+ *
  * // Example output:
  * // {
  * //   "@rdf:about": "http://example.com/concept/123",
@@ -99,7 +112,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @see getTriplesForAltLabelQuery - For the SPARQL query used when retrieving by altLabel.
  */
 export const getSkosConcept = async ({
-  conceptIRI, shortName, altLabel, scheme, version
+  conceptIRI, shortName, altLabel, fullPath, scheme, version
 }) => {
   let sparqlQuery
 
@@ -115,8 +128,30 @@ export const getSkosConcept = async ({
       altLabel,
       scheme
     })
+  } else if (fullPath) {
+    const fullPathArray = fullPath.split('|')
+    if (fullPathArray.length < 2) {
+      throw new Error('fullPath must contain at least two elements separated by "|"')
+    }
+
+    let schemeFromFullPath = fullPathArray[0]
+    const shortNameFromFullPath = fullPathArray[fullPathArray.length - 1]
+
+    // Keywords from scheme 'sciencekeywords' can have fullPath starts with 'Science Keywords',
+    // 'Earth Science' or 'Earth Science Services'
+    const scienceKeywordsStartPhrases = ['science keywords', 'earth science', 'earth science services']
+    if (scienceKeywordsStartPhrases.some((phrase) => (
+      schemeFromFullPath.toLowerCase().startsWith(phrase)
+    ))) {
+      schemeFromFullPath = 'sciencekeywords'
+    }
+
+    sparqlQuery = getTriplesForShortNameQuery({
+      shortName: shortNameFromFullPath,
+      scheme: schemeFromFullPath
+    })
   } else {
-    throw new Error('Either conceptIRI, shortName, or altLabel must be provided')
+    throw new Error('Either conceptIRI, shortName, altLabel or fullPath must be provided')
   }
 
   try {
