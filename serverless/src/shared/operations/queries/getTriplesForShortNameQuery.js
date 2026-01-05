@@ -9,8 +9,7 @@ WHERE {
     WHERE {
       ?concept skos:prefLabel ?prefLabel .
       FILTER(LCASE(STR(?prefLabel)) = LCASE("${shortName}"))
-      ${scheme ? `?concept skos:inScheme ?schemeUri . 
-      FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}"))` : ''}
+      ${scheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .` : ''}
     }
     LIMIT 1
   }

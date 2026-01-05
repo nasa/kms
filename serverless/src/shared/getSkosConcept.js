@@ -6,6 +6,35 @@ import {
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import { toSkosJson } from '@/shared/toSkosJson'
 
+import {
+  getTriplesForConceptFullPathQuery
+} from './operations/queries/getTriplesForConceptFullPathQuery'
+
+/**
+ * Determines the scheme name based on the full path of a concept.
+ *
+ * @param {string} fullPath - The full path of the concept, including scheme and hierarchy, separated by '|'.
+ * @returns {string} The determined scheme name in lowercase.
+ *
+ * @description
+ * This function extracts the scheme name from the full path and applies special logic for science keywords.
+ * If the scheme starts with certain science-related phrases, it returns 'sciencekeywords'.
+ * Otherwise, it returns the lowercase version of the extracted scheme name.
+ */
+const getSchemeName = (fullPath) => {
+  // Extract the scheme name from the first part of the full path
+  const scheme = fullPath.split('|')[0]
+  // Define phrases that indicate a science keyword scheme
+  const scienceKeywordsStartPhrases = ['science keywords', 'earth science', 'earth science services']
+  // Check if the scheme starts with any of the science keyword phrases
+  if (scienceKeywordsStartPhrases.some((phrase) => scheme.toLowerCase().startsWith(phrase))) {
+    return 'sciencekeywords'
+  }
+
+  // If not a science keyword, return the lowercase version of the scheme
+  return scheme.toLowerCase()
+}
+
 /**
  * Retrieves and processes SKOS concept data for a specific version.
  *
@@ -129,26 +158,24 @@ export const getSkosConcept = async ({
       scheme
     })
   } else if (fullPath) {
-    const fullPathArray = fullPath.split('|')
-    if (fullPathArray.length < 2) {
+    // Split the fullPath into levels using '|' as a separator
+    const levels = fullPath.split('|')
+    // Ensure that the fullPath contains at least two levels (scheme and concept)
+    if (levels.length < 2) {
       throw new Error('fullPath must contain at least two elements separated by "|"')
     }
 
-    let schemeFromFullPath = fullPathArray[0]
-    const shortNameFromFullPath = fullPathArray[fullPathArray.length - 1]
+    // Determine the scheme name from the fullPath
+    const schemeFromFullPath = getSchemeName(fullPath)
 
-    // Keywords from scheme 'sciencekeywords' can have fullPath starts with 'Science Keywords',
-    // 'Earth Science' or 'Earth Science Services'
-    const scienceKeywordsStartPhrases = ['science keywords', 'earth science', 'earth science services']
-    if (scienceKeywordsStartPhrases.some((phrase) => (
-      schemeFromFullPath.toLowerCase().startsWith(phrase)
-    ))) {
-      schemeFromFullPath = 'sciencekeywords'
-    }
+    // Extract the target concept (last element in the levels array)
+    const targetConcept = levels[levels.length - 1]
 
-    sparqlQuery = getTriplesForShortNameQuery({
-      shortName: shortNameFromFullPath,
-      scheme: schemeFromFullPath
+    // Construct the SPARQL query for retrieving concept data based on its full path
+    sparqlQuery = getTriplesForConceptFullPathQuery({
+      levels,
+      scheme: schemeFromFullPath,
+      targetConcept
     })
   } else {
     throw new Error('Either conceptIRI, shortName, altLabel or fullPath must be provided')

@@ -8,11 +8,15 @@ import {
 } from 'vitest'
 
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import {
+  getTriplesForConceptFullPathQuery
+} from '@/shared/operations/queries/getTriplesForConceptFullPathQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/toSkosJson')
+vi.mock('@/shared/operations/queries/getTriplesForConceptFullPathQuery')
 
 describe('getSkosConcept', () => {
   const mockSparqlResponse = {
@@ -133,7 +137,7 @@ describe('getSkosConcept', () => {
         }))
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining(`FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${mockScheme}"))`)
+          body: expect.stringContaining(`skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${mockScheme}>`)
         }))
 
         expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
@@ -321,39 +325,25 @@ describe('getSkosConcept', () => {
       })
     })
 
-    describe('Retrieving skos concept for a given fullPath', () => {
-      test('should generate correct query when fullPath is provided', async () => {
-        const mockFullPath = 'TestScheme|Category|Subcategory|Term'
-        const mockConceptURI = 'http://example.com/concept/789'
-
+    describe('Retrieving skos concept for a given full path', () => {
+      beforeEach(() => {
+        getTriplesForConceptFullPathQuery.mockReturnValue('mocked query')
         mockSparqlResponse.json.mockResolvedValue({
           results: {
             bindings: [
               {
-                s: { value: mockConceptURI },
+                s: { value: 'http://example.com/concept/test' },
                 p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
                 o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
               }
             ]
           }
         })
-
-        await getSkosConcept({ fullPath: mockFullPath })
-
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("Term"))')
-        }))
-
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/TestScheme"))')
-        }))
-
-        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
       })
 
-      test('should handle Earth Science keywords correctly', async () => {
-        const mockFullPath = 'Earth Science|Atmosphere|Atmospheric Temperature|Surface Temperature'
-        const mockConceptURI = 'http://example.com/concept/101'
+      test('should generate correct query when fullPath is provided', async () => {
+        const mockFullPath = 'Earth Science|Atmosphere|Air Quality|Emissions'
+        const mockConceptURI = 'http://example.com/concept/emissions'
 
         mockSparqlResponse.json.mockResolvedValue({
           results: {
@@ -369,80 +359,56 @@ describe('getSkosConcept', () => {
 
         await getSkosConcept({ fullPath: mockFullPath })
 
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("Surface Temperature"))')
-        }))
+        expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith({
+          levels: ['Earth Science', 'Atmosphere', 'Air Quality', 'Emissions'],
+          scheme: 'sciencekeywords',
+          targetConcept: 'Emissions'
+        })
 
         expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"))')
+          body: 'mocked query'
         }))
 
         expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
       })
 
       test('should throw an error if fullPath has less than two elements', async () => {
-        const mockFullPath = 'SingleElement'
+        const invalidFullPath = 'Earth Science'
 
-        await expect(getSkosConcept({ fullPath: mockFullPath }))
+        await expect(getSkosConcept({ fullPath: invalidFullPath }))
           .rejects.toThrow('fullPath must contain at least two elements separated by "|"')
       })
 
-      test('should use the last element as shortName and the first as scheme', async () => {
-        const mockFullPath = 'SchemeA|Category1|Category2|FinalTerm'
-        const mockConceptURI = 'http://example.com/concept/102'
+      test('should use correct scheme name for science keywords', async () => {
+        const scienceKeywordPaths = [
+          'Earth Science|Atmosphere',
+          'EARTH SCIENCE|Oceans',
+          'Science Keywords|Atmosphere',
+          'Earth Science Services|Models/Analyses'
+        ]
 
-        mockSparqlResponse.json.mockResolvedValue({
-          results: {
-            bindings: [
-              {
-                s: { value: mockConceptURI },
-                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
-                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
-              }
-            ]
-          }
-        })
+        await Promise.all(scienceKeywordPaths.map(async (path) => {
+          getTriplesForConceptFullPathQuery.mockClear()
+          sparqlRequest.mockClear()
 
-        await getSkosConcept({ fullPath: mockFullPath })
+          await getSkosConcept({ fullPath: path })
 
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("FinalTerm"))')
+          expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith(
+            expect.objectContaining({ scheme: 'sciencekeywords' })
+          )
+
+          expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+            body: 'mocked query'
+          }))
         }))
-
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/SchemeA"))')
-        }))
-
-        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
       })
 
-      test('should handle case-insensitive "Earth Science" in fullPath', async () => {
-        const mockFullPath = 'earth science|Atmosphere|Temperature|Surface Temperature'
-        const mockConceptURI = 'http://example.com/concept/103'
-
-        mockSparqlResponse.json.mockResolvedValue({
-          results: {
-            bindings: [
-              {
-                s: { value: mockConceptURI },
-                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
-                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
-              }
-            ]
-          }
-        })
-
-        await getSkosConcept({ fullPath: mockFullPath })
-
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?prefLabel)) = LCASE("Surface Temperature"))')
-        }))
-
-        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-          body: expect.stringContaining('FILTER(LCASE(STR(?schemeUri)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords"))')
-        }))
-
-        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      test('should use lowercase scheme name for non-science keywords', async () => {
+        const nonScienceKeywordPath = 'Projects|My Project'
+        await getSkosConcept({ fullPath: nonScienceKeywordPath })
+        expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith(
+          expect.objectContaining({ scheme: 'projects' })
+        )
       })
     })
   })
