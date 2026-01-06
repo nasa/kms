@@ -2,21 +2,8 @@ import { XMLParser } from 'fast-xml-parser'
 
 import { cmrGetRequest } from './cmrGetRequest'
 import { cmrPostRequest } from './cmrPostRequest'
+import { VALID_SCHEMES } from './constants/validSchemes'
 import { logger } from './logger'
-
-// Schemes accepted by CMR to fetch number of collections.
-const VALID_SCHEMES = [
-  'collectiondatatype',
-  'dataformat',
-  'granuledataformat',
-  'instruments',
-  'locations',
-  'platforms',
-  'productlevelid',
-  'projects',
-  'providers',
-  'sciencekeywords'
-]
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -120,7 +107,6 @@ export const getNumberOfCmrCollections = async ({
       const error = new Error(errorMessage)
       error.status = response.status
       error.url = response.url
-      error.message = errorMessage
       throw error
     }
 
