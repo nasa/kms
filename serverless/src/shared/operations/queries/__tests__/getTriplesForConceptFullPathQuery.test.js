@@ -66,4 +66,42 @@ describe('getTriplesForConceptFullPathQuery', () => {
     const result = getTriplesForConceptFullPathQuery(defaultParams)
     expect(result).toContain('LIMIT 1')
   })
+
+  test('should create sequential chain for path ordering', () => {
+    const params = {
+      ...defaultParams,
+      levels: ['Root', 'Mid1', 'Mid2', 'Target']
+    }
+    const result = getTriplesForConceptFullPathQuery(params)
+    // First intermediate connects to root
+    expect(result).toContain('?mid0 skos:broader+ ?root')
+    // Second intermediate connects to first
+    expect(result).toContain('?mid1 skos:broader+ ?mid0')
+    // Concept connects to last intermediate
+    expect(result).toContain('?concept skos:broader+ ?mid1')
+  })
+
+  test('should handle simple two-level path', () => {
+    const params = {
+      ...defaultParams,
+      levels: ['Root', 'Target']
+    }
+    const result = getTriplesForConceptFullPathQuery(params)
+    // No intermediate nodes, concept connects directly to root
+    expect(result).toContain('?concept skos:broader+ ?root')
+    expect(result).not.toContain('?mid0')
+  })
+
+  test('should not use old non-sequential pattern', () => {
+    const params = {
+      ...defaultParams,
+      levels: ['Root', 'Mid1', 'Mid2', 'Target']
+    }
+    const result = getTriplesForConceptFullPathQuery(params)
+    // Should not have the old pattern where concept connects to all intermediates
+    expect(result).not.toContain('?concept skos:broader+ ?mid0')
+    // Should not have intermediates all connecting to root independently
+    const rootConnections = (result.match(/\?mid\d+ skos:broader\+ \?root/g) || []).length
+    expect(rootConnections).toBe(1) // Only mid0 should connect to root
+  })
 })

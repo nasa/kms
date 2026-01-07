@@ -50,15 +50,22 @@ export const getTriplesForConceptFullPathQuery = ({ levels, scheme, targetConcep
           # Find the target concept
           ?concept skos:prefLabel ?conceptLabel .
           FILTER(LCASE(STR(?conceptLabel)) = LCASE("${targetConcept}"))
-          ?concept skos:broader+ ?root .
           
-          # Ensure all intermediate levels in the hierarchy exist
-          ${levels.slice(1, -1).map((level, index) => `
+          # Build the sequential chain from root through intermediates to concept
+          ${levels.slice(1, -1).map((level, index) => {
+    const prevNode = index === 0 ? '?root' : `?mid${index - 1}`
+
+    return `
             ?mid${index} skos:prefLabel ?midLabel${index} .
             FILTER(LCASE(STR(?midLabel${index})) = LCASE("${level}"))
-            ?concept skos:broader+ ?mid${index} .
-            ?mid${index} skos:broader+ ?root .
-          `).join('\n')}
+            ?mid${index} skos:broader+ ${prevNode} .`
+  }).join('\n')}
+          
+          # Connect concept to the last node in the chain
+          ${levels.length > 2
+    ? `?concept skos:broader+ ?mid${levels.length - 3} .`
+    : '?concept skos:broader+ ?root .'
+}
         }
         LIMIT 1
       }
