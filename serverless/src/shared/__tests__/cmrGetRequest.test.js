@@ -7,6 +7,7 @@ import {
 } from 'vitest'
 
 import { cmrGetRequest } from '../cmrGetRequest'
+import { logger } from '../logger'
 
 describe('cmrGetRequest', () => {
   beforeEach(() => {
@@ -19,6 +20,9 @@ describe('cmrGetRequest', () => {
 
     // Mock the global fetch function
     global.fetch = vi.fn()
+
+    // Mock the logger
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -65,5 +69,22 @@ describe('cmrGetRequest', () => {
     global.fetch.mockRejectedValueOnce(error)
 
     await expect(cmrGetRequest({ path: '/test' })).rejects.toThrow('Network error')
+  })
+
+  test('should log the correct URL and options', async () => {
+    const path = '/search'
+    const expectedUrl = 'https://cmr.example.com/search'
+    const expectedOptions = { method: 'GET' }
+
+    global.fetch.mockResolvedValueOnce({ ok: true })
+
+    await cmrGetRequest({ path })
+
+    expect(logger.info).toHaveBeenCalledWith(
+      'URL:',
+      expectedUrl,
+      'with options:',
+      expectedOptions
+    )
   })
 })

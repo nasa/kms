@@ -1,3 +1,4 @@
+import { logger } from './logger'
 /**
  * Makes a POST request to the CMR (Common Metadata Repository) API.
  *
@@ -45,6 +46,8 @@ export const cmrPostRequest = async ({
   if (body && body !== '') {
     fetchOptions.body = body
   }
+
+  logger.info('URL:', `${endpoint}${path}`, 'with options:', fetchOptions)
 
   return fetch(`${endpoint}${path}`, fetchOptions)
 }

@@ -7,6 +7,7 @@ import {
 } from 'vitest'
 
 import { cmrPostRequest } from '../cmrPostRequest'
+import { logger } from '../logger'
 
 describe('cmrPostRequest', () => {
   beforeEach(() => {
@@ -15,6 +16,9 @@ describe('cmrPostRequest', () => {
 
     // Mock process.env
     process.env.CMR_BASE_URL = 'https://cmr-test.earthdata.nasa.gov'
+
+    // Mock the logger
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -101,6 +105,39 @@ describe('cmrPostRequest', () => {
         },
         body
       }
+    )
+  })
+
+  test('should log the correct URL and options', async () => {
+    const mockResponse = {
+      ok: true,
+      json: () => Promise.resolve({ data: 'test' })
+    }
+    global.fetch.mockResolvedValue(mockResponse)
+
+    const path = '/search/collections.json'
+    const body = JSON.stringify({ query: 'some query' })
+
+    await cmrPostRequest({
+      path,
+      body
+    })
+
+    const expectedUrl = 'https://cmr-test.earthdata.nasa.gov/search/collections.json'
+    const expectedOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body
+    }
+
+    expect(logger.info).toHaveBeenCalledWith(
+      'URL:',
+      expectedUrl,
+      'with options:',
+      expectedOptions
     )
   })
 })
