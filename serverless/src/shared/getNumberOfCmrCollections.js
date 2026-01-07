@@ -61,7 +61,7 @@ export const getNumberOfCmrCollections = async ({
   })
 
   // Check if the scheme is valid to get number of CMR collections
-  if (!VALID_SCHEMES.includes(scheme.toLowerCase())) {
+  if (!VALID_SCHEMES.includes(scheme)) {
     logger.warn(`Invalid scheme, can't get number of CMR collections: ${scheme}`)
 
     return null

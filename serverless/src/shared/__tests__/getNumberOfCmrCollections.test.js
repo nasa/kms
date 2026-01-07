@@ -174,7 +174,7 @@ describe('getNumberOfCmrCollections', () => {
     cmrGetRequest.mockResolvedValue(mockResponse)
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'dataformat',
+      scheme: 'DataFormat',
       prefLabel: 'HDF5'
     })
 
@@ -305,40 +305,13 @@ describe('getNumberOfCmrCollections', () => {
     cmrGetRequest.mockResolvedValue(mockResponse)
 
     const result = await getNumberOfCmrCollections({
-      scheme: 'granuledataformat',
+      scheme: 'GranuleDataFormat',
       prefLabel: 'NetCDF-4'
     })
 
     expect(result).toBe(70)
     expect(cmrGetRequest).toHaveBeenCalledWith({
       path: '/search/collections?granule_data_format=NetCDF-4'
-    })
-  })
-
-  test('should handle case-insensitive scheme matching', async () => {
-    const mockResponse = {
-      ok: true,
-      headers: new Map([['cmr-hits', '80']])
-    }
-    cmrPostRequest.mockResolvedValue(mockResponse)
-
-    const result = await getNumberOfCmrCollections({
-      scheme: 'ScienceKeywords',
-      uuid: 'QRST-5678-1234-UVWX'
-    })
-
-    expect(result).toBe(80)
-    expect(cmrPostRequest).toHaveBeenCalledWith({
-      path: '/search/collections',
-      contentType: 'application/json',
-      accept: 'application/json',
-      body: JSON.stringify({
-        condition: {
-          science_keywords: {
-            uuid: 'QRST-5678-1234-UVWX'
-          }
-        }
-      })
     })
   })
 

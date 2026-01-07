@@ -11,13 +11,13 @@ describe('VALID_SCHEMES', () => {
 
   test('should contain all expected schemes', () => {
     const expectedSchemes = [
-      'collectiondatatype',
-      'dataformat',
-      'granuledataformat',
+      'CollectionDataType',
+      'DataFormat',
+      'GranuleDataFormat',
       'instruments',
       'locations',
       'platforms',
-      'productlevelid',
+      'ProductLevelId',
       'projects',
       'providers',
       'sciencekeywords'
@@ -31,12 +31,6 @@ describe('VALID_SCHEMES', () => {
   test('should not contain any duplicate schemes', () => {
     const uniqueSchemes = new Set(VALID_SCHEMES)
     expect(uniqueSchemes.size).toBe(VALID_SCHEMES.length)
-  })
-
-  test('all schemes should be lowercase', () => {
-    VALID_SCHEMES.forEach((scheme) => {
-      expect(scheme).toBe(scheme.toLowerCase())
-    })
   })
 
   test('all schemes should be strings', () => {

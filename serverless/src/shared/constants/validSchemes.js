@@ -3,13 +3,13 @@
  * @constant {string[]}
  */
 export const VALID_SCHEMES = [
-  'collectiondatatype',
-  'dataformat',
-  'granuledataformat',
+  'CollectionDataType',
+  'DataFormat',
+  'GranuleDataFormat',
   'instruments',
   'locations',
   'platforms',
-  'productlevelid',
+  'ProductLevelId',
   'projects',
   'providers',
   'sciencekeywords'
