@@ -15,12 +15,12 @@ import {
  * Determines the scheme name based on the full path of a concept.
  *
  * @param {string} fullPath - The full path of the concept, including scheme and hierarchy, separated by '|'.
- * @returns {string} The determined scheme name in lowercase.
+ * @returns {string} The determined scheme name preserving original casing.
  *
  * @description
  * This function extracts the scheme name from the full path and applies special logic for science keywords.
- * If the scheme starts with certain science-related phrases, it returns 'sciencekeywords'.
- * Otherwise, it returns the lowercase version of the extracted scheme name.
+ * If the scheme starts with certain science-related phrases, it returns 'Science Keywords'.
+ * Otherwise, it returns the scheme name as-is, preserving the original casing.
  */
 const getSchemeName = (fullPath) => {
   // Extract the scheme name from the first part of the full path
@@ -29,11 +29,11 @@ const getSchemeName = (fullPath) => {
   const scienceKeywordsStartPhrases = ['science keywords', 'earth science', 'earth science services']
   // Check if the scheme starts with any of the science keyword phrases
   if (scienceKeywordsStartPhrases.some((phrase) => scheme.toLowerCase().startsWith(phrase))) {
-    return 'sciencekeywords'
+    return 'Science Keywords'
   }
 
-  // If not a science keyword, return the lowercase version of the scheme
-  return scheme.toLowerCase()
+  // Return the scheme name as-is (preserving original casing)
+  return scheme
 }
 
 /**

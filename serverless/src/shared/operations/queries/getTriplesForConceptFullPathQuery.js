@@ -11,7 +11,7 @@ import prefixes from '@/shared/constants/prefixes'
  * @function getTriplesForConceptFullPathQuery
  * @param {Object} options - The options for constructing the query.
  * @param {string[]} options.levels - An array representing the hierarchical path to the concept, from root to target.
- * @param {string} options.scheme - The scheme name to filter the concept search.
+ * @param {string} options.scheme - The scheme long name (prefLabel) to filter the concept search.
  * @param {string} options.targetConcept - The label of the target concept (last element in the hierarchy).
  * @returns {string} A SPARQL query string.
  *
@@ -45,7 +45,8 @@ export const getTriplesForConceptFullPathQuery = ({ levels, scheme, targetConcep
           ?root skos:prefLabel ?rootLabel .
           FILTER(LCASE(STR(?rootLabel)) = LCASE("${levels[0]}"))
           ?root skos:inScheme ?scheme .
-          FILTER(LCASE(STR(?scheme)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}"))
+          ?scheme skos:prefLabel ?schemePrefLabel .
+          FILTER(LCASE(STR(?schemePrefLabel)) = LCASE("${scheme}"))
           
           # Find the target concept
           ?concept skos:prefLabel ?conceptLabel .
