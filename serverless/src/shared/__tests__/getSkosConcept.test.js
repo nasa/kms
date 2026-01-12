@@ -8,11 +8,15 @@ import {
 } from 'vitest'
 
 import { getSkosConcept } from '@/shared/getSkosConcept'
+import {
+  getTriplesForConceptFullPathQuery
+} from '@/shared/operations/queries/getTriplesForConceptFullPathQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import { toSkosJson } from '@/shared/toSkosJson'
 
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/toSkosJson')
+vi.mock('@/shared/operations/queries/getTriplesForConceptFullPathQuery')
 
 describe('getSkosConcept', () => {
   const mockSparqlResponse = {
@@ -320,6 +324,93 @@ describe('getSkosConcept', () => {
         expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
       })
     })
+
+    describe('Retrieving skos concept for a given full path', () => {
+      beforeEach(() => {
+        getTriplesForConceptFullPathQuery.mockReturnValue('mocked query')
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: 'http://example.com/concept/test' },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              }
+            ]
+          }
+        })
+      })
+
+      test('should generate correct query when fullPath is provided', async () => {
+        const mockFullPath = 'Earth Science|Atmosphere|Air Quality|Emissions'
+        const mockConceptURI = 'http://example.com/concept/emissions'
+
+        mockSparqlResponse.json.mockResolvedValue({
+          results: {
+            bindings: [
+              {
+                s: { value: mockConceptURI },
+                p: { value: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' },
+                o: { value: 'http://www.w3.org/2004/02/skos/core#Concept' }
+              }
+            ]
+          }
+        })
+
+        await getSkosConcept({ fullPath: mockFullPath })
+
+        expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith({
+          levels: ['Earth Science', 'Atmosphere', 'Air Quality', 'Emissions'],
+          scheme: 'sciencekeywords',
+          targetConcept: 'Emissions'
+        })
+
+        expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+          body: 'mocked query'
+        }))
+
+        expect(toSkosJson).toHaveBeenCalledWith(mockConceptURI, expect.any(Array))
+      })
+
+      test('should throw an error if fullPath has less than two elements', async () => {
+        const invalidFullPath = 'Earth Science'
+
+        await expect(getSkosConcept({ fullPath: invalidFullPath }))
+          .rejects.toThrow('fullPath must contain at least two elements separated by "|"')
+      })
+
+      test('should use correct scheme name for science keywords', async () => {
+        const scienceKeywordPaths = [
+          'Earth Science|Atmosphere',
+          'EARTH SCIENCE|Oceans',
+          'Science Keywords|Atmosphere',
+          'Earth Science Services|Models/Analyses'
+        ]
+
+        await Promise.all(scienceKeywordPaths.map(async (path) => {
+          getTriplesForConceptFullPathQuery.mockClear()
+          sparqlRequest.mockClear()
+
+          await getSkosConcept({ fullPath: path })
+
+          expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith(
+            expect.objectContaining({ scheme: 'sciencekeywords' })
+          )
+
+          expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
+            body: 'mocked query'
+          }))
+        }))
+      })
+
+      test('should use lowercase scheme name for non-science keywords', async () => {
+        const nonScienceKeywordPath = 'Projects|My Project'
+        await getSkosConcept({ fullPath: nonScienceKeywordPath })
+        expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith(
+          expect.objectContaining({ scheme: 'projects' })
+        )
+      })
+    })
   })
 
   describe('when unsuccessful', () => {
@@ -346,7 +437,7 @@ describe('getSkosConcept', () => {
 
       test('should throw an error if no identifier is provided', async () => {
         await expect(getSkosConcept({}))
-          .rejects.toThrow('Either conceptIRI, shortName, or altLabel must be provided')
+          .rejects.toThrow('Either conceptIRI, shortName, altLabel or fullPath must be provided')
       })
 
       test('should throw an error if conceptIRI cannot be extracted from results', async () => {

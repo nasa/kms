@@ -6,6 +6,36 @@ import {
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import { toSkosJson } from '@/shared/toSkosJson'
 
+import { escapeSparqlString } from './escapeSparqlString'
+import {
+  getTriplesForConceptFullPathQuery
+} from './operations/queries/getTriplesForConceptFullPathQuery'
+
+/**
+ * Determines the scheme name based on the full path of a concept.
+ *
+ * @param {string} fullPath - The full path of the concept, including scheme and hierarchy, separated by '|'.
+ * @returns {string} The determined scheme name in lowercase.
+ *
+ * @description
+ * This function extracts the scheme name from the full path and applies special logic for science keywords.
+ * If the scheme starts with certain science-related phrases, it returns 'sciencekeywords'.
+ * Otherwise, it returns the lowercase version of the extracted scheme name.
+ */
+const getSchemeName = (fullPath) => {
+  // Extract the scheme name from the first part of the full path
+  const scheme = fullPath.split('|')[0]
+  // Define phrases that indicate a science keyword scheme
+  const scienceKeywordsStartPhrases = ['science keywords', 'earth science', 'earth science services']
+  // Check if the scheme starts with any of the science keyword phrases
+  if (scienceKeywordsStartPhrases.some((phrase) => scheme.toLowerCase().startsWith(phrase))) {
+    return 'sciencekeywords'
+  }
+
+  // If not a science keyword, return the lowercase version of the scheme
+  return scheme.toLowerCase()
+}
+
 /**
  * Retrieves and processes SKOS concept data for a specific version.
  *
@@ -24,6 +54,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @param {string} [options.conceptIRI] - The IRI of the SKOS concept to retrieve.
  * @param {string} [options.shortName] - The short name of the SKOS concept to retrieve.
  * @param {string} [options.altLabel] - The alternative label of the SKOS concept to retrieve.
+ * @param {string} [options.fullPath] - The full path of the concept, including scheme and hierarchy, separated by '|'.
  * @param {string} [options.scheme] - The scheme to filter the concept search (used with shortName or altLabel).
  * @param {string} options.version - The version of the concept scheme to query (e.g., 'published', 'draft', or a specific version number).
  *
@@ -70,6 +101,18 @@ import { toSkosJson } from '@/shared/toSkosJson'
  *   console.error('Failed to get concept:', error);
  * }
  *
+ * @example
+ * // Retrieve by fullPath from the published version
+ * try {
+ *   const conceptData = await getSkosConcept({
+ *     fullPath: 'Earth Science|Atmosphere|Atmospheric Temperature|Surface Temperature',
+ *     version: 'published'
+ *   });
+ *   console.log(conceptData);
+ * } catch (error) {
+ *   console.error('Failed to get concept:', error);
+ * }
+ *
  * // Example output:
  * // {
  * //   "@rdf:about": "http://example.com/concept/123",
@@ -99,7 +142,7 @@ import { toSkosJson } from '@/shared/toSkosJson'
  * @see getTriplesForAltLabelQuery - For the SPARQL query used when retrieving by altLabel.
  */
 export const getSkosConcept = async ({
-  conceptIRI, shortName, altLabel, scheme, version
+  conceptIRI, shortName, altLabel, fullPath, scheme, version
 }) => {
   let sparqlQuery
 
@@ -115,8 +158,28 @@ export const getSkosConcept = async ({
       altLabel,
       scheme
     })
+  } else if (fullPath) {
+    // Split the fullPath into levels using '|' as a separator
+    const levels = fullPath.split('|').map((level) => escapeSparqlString(level.trim()))
+    // Ensure that the fullPath contains at least two levels (scheme and concept)
+    if (levels.length < 2) {
+      throw new Error('fullPath must contain at least two elements separated by "|"')
+    }
+
+    // Determine the scheme name from the fullPath
+    const schemeFromFullPath = getSchemeName(fullPath)
+
+    // Extract the target concept (last element in the levels array)
+    const targetConcept = levels[levels.length - 1]
+
+    // Construct the SPARQL query for retrieving concept data based on its full path
+    sparqlQuery = getTriplesForConceptFullPathQuery({
+      levels,
+      scheme: escapeSparqlString(schemeFromFullPath),
+      targetConcept
+    })
   } else {
-    throw new Error('Either conceptIRI, shortName, or altLabel must be provided')
+    throw new Error('Either conceptIRI, shortName, altLabel or fullPath must be provided')
   }
 
   try {
