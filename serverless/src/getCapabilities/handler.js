@@ -134,7 +134,6 @@ export const getCapabilities = async () => {
               ':@': {
                 name: 'get_concept_by_full_path',
                 href: '/concept/full_path/{full_path}',
-                params: 'version=&scheme=',
                 action: 'GET'
               }
             },

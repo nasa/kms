@@ -32,7 +32,6 @@ const getSchemeName = (fullPath) => {
     return 'Science Keywords'
   }
 
-  // Return the scheme name as-is (preserving original casing)
   return scheme
 }
 
