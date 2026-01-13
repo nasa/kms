@@ -20,7 +20,7 @@ import {
  * @description
  * This function extracts the scheme name from the full path and applies special logic for science keywords.
  * If the scheme starts with certain science-related phrases, it returns 'Science Keywords'.
- * Otherwise, it returns the scheme name as-is, preserving the original casing.
+ * Otherwise, it returns the scheme name as-is.
  */
 const getSchemeName = (fullPath) => {
   // Extract the scheme name from the first part of the full path
