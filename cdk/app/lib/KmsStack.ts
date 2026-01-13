@@ -133,29 +133,42 @@ export class KmsStack extends cdk.Stack {
 
     const lambdas = this.lambdaFunctions.getAllLambdas()
 
-    // Create a new deployment
-    const deployment = new apigateway.Deployment(this, `ApiDeployment-${Date.now().toString()}`, {
-      api: this.api,
-      retainDeployments: false,
-      description: `Deployment for ${stage} at ${new Date().toISOString()}`
-    })
+    // Create a new deployment for existing API Gateway
+    if (existingApiId && rootResourceId) {
+      const deployment = new apigateway.Deployment(this, `ApiDeployment-${Date.now().toString()}`, {
+        api: this.api,
+        retainDeployments: false,
+        description: `Deployment for ${stage} at ${new Date().toISOString()}`
+      })
 
-    // Ensure deployment happens after all routes/methods/integrations exist
-    if (lambdas) {
-      Object.values(lambdas).forEach((lambda) => {
-        deployment.node.addDependency(lambda)
+      // Ensure deployment happens after all routes/methods/integrations exist
+      if (lambdas) {
+        Object.values(lambdas).forEach((lambda) => {
+          deployment.node.addDependency(lambda)
+        })
+      }
+
+      // Create a stage and associate it with the deployment
+      const apiStage = new apigateway.Stage(this, `ApiStage-${stage}`, {
+        deployment,
+        stageName: stage,
+        description: `${stage} stage for KMS API`
+      })
+
+      // Output the deployment information
+      new cdk.CfnOutput(this, 'NewDeploymentId', {
+        value: deployment.deploymentId,
+        description: 'ID of the new API Gateway deployment',
+        exportName: `${prefix}-NewApiDeploymentId`
+      })
+
+      new cdk.CfnOutput(this, 'ApiStage', {
+        value: apiStage.stageName,
+        description: 'API Gateway stage name',
+        exportName: `${prefix}-ApiStageName`
       })
     }
-
-    // Add explicit dependencies
-    this.api.deploymentStage?.node.addDependency(deployment)
-
-    // Output the new deployment ID
-    new cdk.CfnOutput(this, 'NewDeploymentId', {
-      value: deployment.deploymentId,
-      description: 'ID of the new API Gateway deployment',
-      exportName: `${prefix}-NewApiDeploymentId`
-    })
+    // For new API Gateway, deployment is handled by deployOptions
 
     this.addOutputs(prefix)
   }
