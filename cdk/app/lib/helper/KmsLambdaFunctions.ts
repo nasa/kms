@@ -167,7 +167,7 @@ export class LambdaFunctions {
       'getConcept/handler.js',
       'get-concept-by-full-path',
       'getConcept',
-      '/concept/full_path/{fullPath}',
+      '/concept/full_path/{fullPath+}',
       'GET'
     )
 
