@@ -156,6 +156,15 @@ export class LambdaFunctions {
     this.createApiLambda(
       scope,
       'getConcept/handler.js',
+      'get-concept-by-full-path',
+      'getConcept',
+      '/concept/full_path/{fullPath+}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
+      'getConcept/handler.js',
       'get-concept',
       'getConcept',
       '/concept/{conceptId}',
