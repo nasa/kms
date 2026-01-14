@@ -147,8 +147,18 @@ export class KmsStack extends cdk.Stack {
       })
     }
 
-    // Add explicit dependencies
-    this.api.deploymentStage?.node.addDependency(deployment)
+    // Create Stage for the deployment
+    if (existingApiId) {
+      // For existing API, create a new Stage managed by CDK
+      new apigateway.Stage(this, 'ApiStage', {
+        deployment,
+        stageName: stage,
+        description: `${stage} stage name for KMS API`
+      })
+    } else {
+      // For new API, stage is auto-created
+      this.api.deploymentStage?.node.addDependency(deployment)
+    }
 
     // Output the new deployment ID
     new cdk.CfnOutput(this, 'NewDeploymentId', {
