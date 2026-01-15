@@ -144,14 +144,14 @@ export class LambdaFunctions {
       'GET'
     )
 
-    this.createApiLambda(
-      scope,
-      'getConcept/handler.js',
-      'get-concept-by-short-name',
-      'getConcept',
-      '/concept/short_name/{shortName}',
-      'GET'
-    )
+    // this.createApiLambda(
+    //   scope,
+    //   'getConcept/handler.js',
+    //   'get-concept-by-short-name',
+    //   'getConcept',
+    //   '/concept/short_name/{shortName}',
+    //   'GET'
+    // )
 
     this.createApiLambda(
       scope,
