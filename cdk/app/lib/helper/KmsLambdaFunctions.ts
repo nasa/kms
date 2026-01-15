@@ -140,7 +140,7 @@ export class LambdaFunctions {
       'getConcept/handler.js',
       'get-concept-by-alt-label',
       'getConcept',
-      '/concept/by-alt-label/{altLabel}',
+      '/concept/alt_label/{altLabel}',
       'GET'
     )
 
@@ -149,7 +149,7 @@ export class LambdaFunctions {
       'getConcept/handler.js',
       'get-concept-by-short-name',
       'getConcept',
-      '/concept/by-short-name/{shortName}',
+      '/concept/short_name/{shortName}',
       'GET'
     )
 
@@ -158,7 +158,7 @@ export class LambdaFunctions {
       'getConcept/handler.js',
       'get-concept-by-full-path',
       'getConcept',
-      '/concept/by-full-path/{fullPath}',
+      '/concept/full_path/{fullPath}',
       'GET'
     )
 
