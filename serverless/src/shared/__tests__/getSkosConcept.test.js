@@ -361,7 +361,7 @@ describe('getSkosConcept', () => {
 
         expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith({
           levels: ['Earth Science', 'Atmosphere', 'Air Quality', 'Emissions'],
-          scheme: 'sciencekeywords',
+          scheme: 'Science Keywords',
           targetConcept: 'Emissions'
         })
 
@@ -394,7 +394,7 @@ describe('getSkosConcept', () => {
           await getSkosConcept({ fullPath: path })
 
           expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith(
-            expect.objectContaining({ scheme: 'sciencekeywords' })
+            expect.objectContaining({ scheme: 'Science Keywords' })
           )
 
           expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -403,11 +403,11 @@ describe('getSkosConcept', () => {
         }))
       })
 
-      test('should use lowercase scheme name for non-science keywords', async () => {
+      test('should use original scheme name for non-science keywords', async () => {
         const nonScienceKeywordPath = 'Projects|My Project'
         await getSkosConcept({ fullPath: nonScienceKeywordPath })
         expect(getTriplesForConceptFullPathQuery).toHaveBeenCalledWith(
-          expect.objectContaining({ scheme: 'projects' })
+          expect.objectContaining({ scheme: 'Projects' })
         )
       })
     })

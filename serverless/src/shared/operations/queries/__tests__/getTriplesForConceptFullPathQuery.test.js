@@ -37,7 +37,8 @@ describe('getTriplesForConceptFullPathQuery', () => {
 
   test('should filter scheme correctly', () => {
     const result = getTriplesForConceptFullPathQuery(defaultParams)
-    expect(result).toContain('FILTER(LCASE(STR(?scheme)) = LCASE("https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/test_scheme"))')
+    expect(result).toContain('?scheme skos:prefLabel ?schemePrefLabel')
+    expect(result).toContain('FILTER(LCASE(STR(?schemePrefLabel)) = LCASE("test_scheme"))')
   })
 
   test('should filter target concept correctly', () => {
