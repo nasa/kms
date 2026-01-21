@@ -5,6 +5,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
 
+import { ApiCacheSetup } from './helper/ApiCacheSetup'
 import { ApiResources } from './helper/ApiResources'
 import { IamSetup } from './helper/IamSetup'
 import { LambdaFunctions } from './helper/KmsLambdaFunctions'
@@ -15,20 +16,20 @@ import { VpcSetup } from './helper/VpcSetup'
  * @interface
  */
 export interface KmsStackProps extends cdk.StackProps {
-  existingApiId: string | undefined,
-  prefix: string
-  rootResourceId: string | undefined,
-  stage: string
-  vpcId: string
+  existingApiId: string | undefined;
+  prefix: string;
+  rootResourceId: string | undefined;
+  stage: string;
+  vpcId: string;
   environment: {
-    CMR_BASE_URL: string
-    EDL_PASSWORD: string
-    RDF4J_PASSWORD: string
-    RDF4J_SERVICE_URL: string
-    RDF4J_USER_NAME: string
-    RDF_BUCKET_NAME: string
-    LOG_LEVEL: string
-  }
+    CMR_BASE_URL: string;
+    EDL_PASSWORD: string;
+    RDF4J_PASSWORD: string;
+    RDF4J_SERVICE_URL: string;
+    RDF4J_USER_NAME: string;
+    RDF_BUCKET_NAME: string;
+    LOG_LEVEL: string;
+  };
 }
 
 /**
@@ -49,34 +50,29 @@ export class KmsStack extends cdk.Stack {
   private readonly lambdaFunctions: LambdaFunctions
 
   /**
- * Represents a CDK stack for KMS (Keyword Management System), API Gateway, and Lambda resources.
- * This stack sets up the infrastructure for a serverless keyword management system, including:
- *
- * 1. VPC and Security Group configuration for Lambda functions
- * 2. IAM roles and policies for secure access
- * 3. Integration with an existing API Gateway
- * 4. Creation and configuration of multiple Lambda functions for various operations:
- *    - Read operations (e.g., get concepts, get schemes)
- *    - Tree operations (e.g., get keyword tree)
- *    - CRUD operations (e.g., create, update, delete concepts)
- *    - Scheduled operations (e.g., export RDF to S3)
- * 5. API Gateway deployment
- * 6. CloudFormation outputs for important resources
- *
- * The stack is designed to work with an existing VPC and API Gateway, extending their
- * functionality to support a comprehensive keyword management system.
- *
- * @extends cdk.Stack
- */
+   * Represents a CDK stack for KMS (Keyword Management System), API Gateway, and Lambda resources.
+   * This stack sets up the infrastructure for a serverless keyword management system, including:
+   *
+   * 1. VPC and Security Group configuration for Lambda functions
+   * 2. IAM roles and policies for secure access
+   * 3. Integration with an existing API Gateway
+   * 4. Creation and configuration of multiple Lambda functions for various operations:
+   *    - Read operations (e.g., get concepts, get schemes)
+   *    - Tree operations (e.g., get keyword tree)
+   *    - CRUD operations (e.g., create, update, delete concepts)
+   *    - Scheduled operations (e.g., export RDF to S3)
+   * 5. API Gateway deployment
+   * 6. CloudFormation outputs for important resources
+   *
+   * The stack is designed to work with an existing VPC and API Gateway, extending their
+   * functionality to support a comprehensive keyword management system.
+   *
+   * @extends cdk.Stack
+   */
   constructor(scope: Construct, id: string, props: KmsStackProps) {
     super(scope, id, props)
     const {
-      environment,
-      existingApiId,
-      prefix,
-      rootResourceId,
-      stage,
-      vpcId
+      environment, existingApiId, prefix, rootResourceId, stage, vpcId
     } = props
     this.stage = stage
 
@@ -88,15 +84,26 @@ export class KmsStack extends cdk.Stack {
     this.securityGroup = vpcSetup.securityGroup
 
     // Set up IAM roles
-    const iamSetup = new IamSetup(this, 'IamSetup', this.stage, this.account, this.region, this.stackName)
+    const iamSetup = new IamSetup(
+      this,
+      'IamSetup',
+      this.stage,
+      this.account,
+      this.region,
+      this.stackName
+    )
     this.lambdaRole = iamSetup.lambdaRole
 
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
-      this.api = apigateway.RestApi.fromRestApiAttributes(this, 'ApiGatewayRestApi', {
-        restApiId: existingApiId,
-        rootResourceId
-      })
+      this.api = apigateway.RestApi.fromRestApiAttributes(
+        this,
+        'ApiGatewayRestApi',
+        {
+          restApiId: existingApiId,
+          rootResourceId
+        }
+      )
     } else {
       // Create a new API Gateway
       this.api = new apigateway.RestApi(this, 'ApiGatewayRestApi', {
@@ -134,11 +141,15 @@ export class KmsStack extends cdk.Stack {
     const lambdas = this.lambdaFunctions.getAllLambdas()
 
     // Create a new deployment
-    const deployment = new apigateway.Deployment(this, `ApiDeployment-${Date.now().toString()}`, {
-      api: this.api,
-      retainDeployments: false,
-      description: `Deployment for ${stage} at ${new Date().toISOString()}`
-    })
+    const deployment = new apigateway.Deployment(
+      this,
+      `ApiDeployment-${Date.now().toString()}`,
+      {
+        api: this.api,
+        retainDeployments: false,
+        description: `Deployment for ${stage} at ${new Date().toISOString()}`
+      }
+    )
 
     // Ensure deployment happens after all routes/methods/integrations exist
     if (lambdas) {
@@ -166,6 +177,11 @@ export class KmsStack extends cdk.Stack {
       description: 'ID of the new API Gateway deployment',
       exportName: `${prefix}-NewApiDeploymentId`
     })
+
+    // Configure API Gateway caching
+    if (existingApiId && !useLocalstack) {
+      ApiCacheSetup.configure(this, this.api, deployment, this.stage)
+    }
 
     this.addOutputs(prefix)
   }
@@ -210,7 +226,8 @@ export class KmsStack extends cdk.Stack {
     })
 
     new cdk.CfnOutput(this, 'KMSServerlessAppRoleArn', {
-      description: 'Role used to execute commands across the serverless application',
+      description:
+        'Role used to execute commands across the serverless application',
       exportName: `${this.stage}-KMSServerlessCdkAppRole`,
       value: this.lambdaRole.roleArn
     })
