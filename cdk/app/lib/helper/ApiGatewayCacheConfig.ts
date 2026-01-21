@@ -27,14 +27,8 @@ export class ApiGatewayCacheConfig extends Construct {
 
     // For API Gateway method settings, use /*/* pattern for paths with parameters
     // or full path for simple resources
-    let basePath: string
-    if (resourcePath.includes('{')) {
-      // Use wildcard pattern for paths with parameters
-      basePath = '/*/*/GET'
-    } else {
-      // Use full path for simple resources
-      basePath = `~1${resourcePath.replace(/\//g, '~1')}/GET`
-    }
+    // Use full path for each resource, including path parameters
+    const basePath = `/methodSettings/~1${resourcePath.replace(/\//g, '~1')}/GET`
 
     const patchOperations: unknown[] = [
       {
