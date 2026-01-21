@@ -51,11 +51,15 @@ export class ApiGatewayCacheConfig extends Construct {
         path: `${basePath}/caching/ttlInSeconds`,
         value: String(cacheTtlInSeconds)
       },
-      ...cacheKeyParameters.map((param) => ({
-        op: 'add',
-        path: `${basePath}/caching/cacheKeyParameters/-`,
-        value: param
-      }))
+      ...(cacheKeyParameters.length
+        ? [
+            {
+              op: 'replace',
+              path: `${basePath}/caching/cacheKeyParameters`,
+              value: cacheKeyParameters
+            }
+          ]
+        : [])
     ]
 
     // eslint-disable-next-line no-new
