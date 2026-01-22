@@ -25,11 +25,14 @@ export interface KmsStackProps extends cdk.StackProps {
   environment: {
     CMR_BASE_URL: string;
     EDL_PASSWORD: string;
+    KMS_CACHE_CLUSTER_ENABLED?: string;
+    KMS_CACHE_CLUSTER_SIZE_GB?: string;
+    KMS_CACHE_TTL_SECONDS?: string;
+    LOG_LEVEL: string;
+    RDF_BUCKET_NAME: string;
     RDF4J_PASSWORD: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
-    RDF_BUCKET_NAME: string;
-    LOG_LEVEL: string;
   };
 }
 
@@ -95,9 +98,16 @@ export class KmsStack extends cdk.Stack {
     )
     this.lambdaRole = iamSetup.lambdaRole
 
-    const cacheMethodOptions = ApiCacheSetup.cacheMethodOptions(
-      cdk.Duration.hours(1)
-    )
+    const cacheTtlSeconds = Number(props.environment.KMS_CACHE_TTL_SECONDS)
+    const cacheTtl = Number.isFinite(cacheTtlSeconds) && cacheTtlSeconds > 0
+      ? cdk.Duration.seconds(cacheTtlSeconds)
+      : cdk.Duration.hours(1)
+
+    const cacheClusterSize = props.environment.KMS_CACHE_CLUSTER_SIZE_GB
+
+    const cacheMethodOptions = ApiCacheSetup.cacheMethodOptions(cacheTtl)
+
+    const cacheClusterEnabled = props.environment.KMS_CACHE_CLUSTER_ENABLED !== 'false'
 
     const accessLogGroup = useLocalstack
       ? undefined
@@ -111,7 +121,17 @@ export class KmsStack extends cdk.Stack {
         accessLogDestination: new apigateway.LogGroupLogDestination(
             accessLogGroup as logs.LogGroup
         ),
-        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields()
+        accessLogFormat: apigateway.AccessLogFormat.custom(
+          JSON.stringify({
+            requestId: '$context.requestId',
+            method: '$context.httpMethod',
+            path: '$context.path',
+            queryString: '$context.queryString',
+            status: '$context.status',
+            responseLatency: '$context.responseLatency',
+            integrationLatency: '$context.integrationLatency'
+          })
+        )
       }
 
     if (existingApiId && rootResourceId) {
@@ -136,8 +156,8 @@ export class KmsStack extends cdk.Stack {
           ...(useLocalstack
             ? {}
             : {
-              cacheClusterEnabled: true,
-              cacheClusterSize: '0.5',
+              cacheClusterEnabled,
+              cacheClusterSize,
               methodOptions: cacheMethodOptions,
               ...accessLogOptions
             })
@@ -196,8 +216,8 @@ export class KmsStack extends cdk.Stack {
         ...(useLocalstack
           ? {}
           : {
-            cacheClusterEnabled: true,
-            cacheClusterSize: '0.5',
+            cacheClusterEnabled,
+            cacheClusterSize,
             methodOptions: cacheMethodOptions,
             ...accessLogOptions
           })
