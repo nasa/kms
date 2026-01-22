@@ -63,6 +63,7 @@ export class ApiGatewayCacheConfig extends Construct {
           stageName,
           patchOperations
         },
+        outputPaths: ['cacheClusterEnabled'],
         physicalResourceId: cr.PhysicalResourceId.of(
           `${restApiId}-cache-${id}`
         )
@@ -74,7 +75,8 @@ export class ApiGatewayCacheConfig extends Construct {
           restApiId,
           stageName,
           patchOperations
-        }
+        },
+        outputPaths: ['cacheClusterEnabled']
       },
       policy: cr.AwsCustomResourcePolicy.fromStatements([
         new iam.PolicyStatement({
