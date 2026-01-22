@@ -50,17 +50,7 @@ export class ApiGatewayCacheConfig extends Construct {
         op: 'replace',
         path: `${basePath}/caching/ttlInSeconds`,
         value: String(cacheTtlInSeconds)
-      },
-      ...(cacheKeyParameters.length
-        ? [
-            {
-              op: 'replace',
-              path: `${basePath}/caching/cacheKeyParameters`,
-              // PatchOperations expects string values; use JSON for arrays.
-              value: JSON.stringify(cacheKeyParameters)
-            }
-          ]
-        : [])
+      }
     ]
 
     // eslint-disable-next-line no-new
