@@ -134,14 +134,6 @@ export class KmsStack extends cdk.Stack {
         )
       }
 
-    const executionLogOptions = useLocalstack
-      ? {}
-      : {
-        loggingLevel: apigateway.MethodLoggingLevel.INFO,
-        dataTraceEnabled: true,
-        metricsEnabled: true
-      }
-
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(
@@ -166,10 +158,9 @@ export class KmsStack extends cdk.Stack {
             : {
               cacheClusterEnabled,
               cacheClusterSize,
-              methodOptions: cacheMethodOptions,
-              ...accessLogOptions,
-              ...executionLogOptions
-            })
+                methodOptions: cacheMethodOptions,
+                ...accessLogOptions
+              })
         },
         policy: iamSetup.createApiGatewayPolicy()
       })
@@ -227,10 +218,9 @@ export class KmsStack extends cdk.Stack {
           : {
             cacheClusterEnabled,
             cacheClusterSize,
-            methodOptions: cacheMethodOptions,
-            ...accessLogOptions,
-            ...executionLogOptions
-          })
+              methodOptions: cacheMethodOptions,
+              ...accessLogOptions
+            })
       })
     } else {
       // For new API, stage is auto-created
