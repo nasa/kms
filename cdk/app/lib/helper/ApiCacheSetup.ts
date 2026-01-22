@@ -46,17 +46,6 @@ export class ApiCacheSetup {
       'method.request.querystring.version': false
     }
 
-    const integrationParams = {
-      'integration.request.querystring.page_num':
-        'method.request.querystring.page_num',
-      'integration.request.querystring.page_size':
-        'method.request.querystring.page_size',
-      'integration.request.querystring.format':
-        'method.request.querystring.format',
-      'integration.request.querystring.version':
-        'method.request.querystring.version'
-    }
-
     const cacheKeyParameters = [
       'method.request.querystring.page_num',
       'method.request.querystring.page_size',
@@ -93,7 +82,6 @@ export class ApiCacheSetup {
             type: existingIntegration.type,
             uri: existingIntegration.uri,
             integrationHttpMethod: existingIntegration.integrationHttpMethod,
-            requestParameters: integrationParams,
             cacheNamespace,
             cacheKeyParameters,
             ...(existingIntegration.credentials && {
