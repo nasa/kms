@@ -158,9 +158,9 @@ export class KmsStack extends cdk.Stack {
             : {
               cacheClusterEnabled,
               cacheClusterSize,
-                methodOptions: cacheMethodOptions,
-                ...accessLogOptions
-              })
+              methodOptions: cacheMethodOptions,
+              ...accessLogOptions
+            })
         },
         policy: iamSetup.createApiGatewayPolicy()
       })
@@ -218,9 +218,9 @@ export class KmsStack extends cdk.Stack {
           : {
             cacheClusterEnabled,
             cacheClusterSize,
-              methodOptions: cacheMethodOptions,
-              ...accessLogOptions
-            })
+            methodOptions: cacheMethodOptions,
+            ...accessLogOptions
+          })
       })
     } else {
       // For new API, stage is auto-created
