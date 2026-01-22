@@ -56,7 +56,8 @@ export class ApiGatewayCacheConfig extends Construct {
             {
               op: 'replace',
               path: `${basePath}/caching/cacheKeyParameters`,
-              value: cacheKeyParameters
+              // PatchOperations expects string values; use JSON for arrays.
+              value: JSON.stringify(cacheKeyParameters)
             }
           ]
         : [])
