@@ -9,7 +9,6 @@ export interface ApiGatewayCacheConfigProps {
   cacheClusterSize?: string;
   resourcePath: string;
   cacheTtlInSeconds?: number;
-  cacheKeyParameters?: string[];
 }
 
 export class ApiGatewayCacheConfig extends Construct {
@@ -21,8 +20,7 @@ export class ApiGatewayCacheConfig extends Construct {
       stageName,
       cacheClusterSize = '0.5',
       resourcePath,
-      cacheTtlInSeconds = 300,
-      cacheKeyParameters = []
+      cacheTtlInSeconds = 300
     } = props
 
     // For API Gateway method settings, use /*/* pattern for paths with parameters

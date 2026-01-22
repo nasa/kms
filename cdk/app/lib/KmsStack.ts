@@ -94,6 +94,10 @@ export class KmsStack extends cdk.Stack {
     )
     this.lambdaRole = iamSetup.lambdaRole
 
+    const cacheMethodOptions = ApiCacheSetup.cacheMethodOptions(
+      cdk.Duration.hours(1)
+    )
+
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(
@@ -112,7 +116,14 @@ export class KmsStack extends cdk.Stack {
         endpointTypes: [apigateway.EndpointType.PRIVATE],
         deploy: true,
         deployOptions: {
-          stageName: stage
+          stageName: stage,
+          ...(useLocalstack
+            ? {}
+            : {
+              cacheClusterEnabled: true,
+              cacheClusterSize: '0.5',
+              methodOptions: cacheMethodOptions
+            })
         },
         policy: iamSetup.createApiGatewayPolicy()
       })
@@ -164,7 +175,14 @@ export class KmsStack extends cdk.Stack {
       new apigateway.Stage(this, 'ApiStage', {
         deployment,
         stageName: stage,
-        description: `${stage} stage name for KMS API`
+        description: `${stage} stage name for KMS API`,
+        ...(useLocalstack
+          ? {}
+          : {
+            cacheClusterEnabled: true,
+            cacheClusterSize: '0.5',
+            methodOptions: cacheMethodOptions
+          })
       })
     } else {
       // For new API, stage is auto-created
@@ -180,7 +198,7 @@ export class KmsStack extends cdk.Stack {
 
     // Configure API Gateway caching
     if (existingApiId && !useLocalstack) {
-      ApiCacheSetup.configure(this, this.api, deployment, this.stage)
+      ApiCacheSetup.configure(this, this.api)
     }
 
     this.addOutputs(prefix)
