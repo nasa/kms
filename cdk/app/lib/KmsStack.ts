@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as logs from 'aws-cdk-lib/aws-logs'
 import { Construct } from 'constructs'
 
 import { ApiCacheSetup } from './helper/ApiCacheSetup'
@@ -98,6 +99,21 @@ export class KmsStack extends cdk.Stack {
       cdk.Duration.hours(1)
     )
 
+    const accessLogGroup = useLocalstack
+      ? undefined
+      : new logs.LogGroup(this, 'ApiAccessLogs', {
+        logGroupName: `/aws/apigateway/${prefix}-${stage}-access`
+      })
+
+    const accessLogOptions = useLocalstack
+      ? {}
+      : {
+        accessLogDestination: new apigateway.LogGroupLogDestination(
+            accessLogGroup as logs.LogGroup
+        ),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields()
+      }
+
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(
@@ -122,7 +138,8 @@ export class KmsStack extends cdk.Stack {
             : {
               cacheClusterEnabled: true,
               cacheClusterSize: '0.5',
-              methodOptions: cacheMethodOptions
+              methodOptions: cacheMethodOptions,
+              ...accessLogOptions
             })
         },
         policy: iamSetup.createApiGatewayPolicy()
@@ -181,7 +198,8 @@ export class KmsStack extends cdk.Stack {
           : {
             cacheClusterEnabled: true,
             cacheClusterSize: '0.5',
-            methodOptions: cacheMethodOptions
+            methodOptions: cacheMethodOptions,
+            ...accessLogOptions
           })
       })
     } else {
