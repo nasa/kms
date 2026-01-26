@@ -1,4 +1,5 @@
 {
+  "root": true,
   // Let eslint know were working as a browser to allow the standard globals (document, window, etc.)
   "env": {
     "browser": true,
@@ -60,9 +61,23 @@
     "vi": "readonly"
   },
   "plugins": [
-    "import"
+    "import",
+    "@stylistic/ts"
   ],
 "rules": {
+    "@stylistic/ts/member-delimiter-style": [
+      "error",
+      {
+        "multiline": {
+          "delimiter": "none",
+          "requireLast": false
+        },
+        "singleline": {
+          "delimiter": "comma",
+          "requireLast": false
+        }
+      }
+    ],
     "import/order": [
       "error",
       {
