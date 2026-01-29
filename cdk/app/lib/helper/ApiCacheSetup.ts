@@ -54,7 +54,6 @@ export class ApiCacheSetup {
     ]
 
     // Helper to configure a single resource
-    // eslint-disable-next-line max-len
     const configureResource = (
       resourcePath: string[],
       cacheNamespace: string
