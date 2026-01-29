@@ -33,7 +33,7 @@ export interface KmsStackProps extends cdk.StackProps {
     RDF4J_PASSWORD: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
-  };
+  }
 }
 
 /**

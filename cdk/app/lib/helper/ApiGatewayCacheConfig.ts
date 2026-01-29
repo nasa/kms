@@ -4,11 +4,11 @@ import * as cr from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
 export interface ApiGatewayCacheConfigProps {
-  restApiId: string;
-  stageName: string;
-  cacheClusterSize?: string;
-  resourcePath: string;
-  cacheTtlInSeconds?: number;
+  restApiId: string
+  stageName: string
+  cacheClusterSize?: string
+  resourcePath: string
+  cacheTtlInSeconds?: number
 }
 
 export class ApiGatewayCacheConfig extends Construct {
