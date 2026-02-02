@@ -82,7 +82,7 @@ dockerRun() {
 
 # Clear CDK context
 echo 'Clearing CDK context...'
-dockerRun cdk context --clear
+dockerRun npx cdk context --clear
 
 # Deploy to AWS
 echo 'Deploying to AWS Resources...'
