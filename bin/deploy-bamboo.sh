@@ -39,7 +39,6 @@ COPY . /build
 WORKDIR /build
 RUN npm ci
 RUN rm -rf cdk.out && rm -f cdk.context.json
-RUN cdk context --clear
 EOF
 
 dockerTag=kms-$bamboo_STAGE_NAME
@@ -81,6 +80,11 @@ dockerRun() {
 # Execute deployment commands in Docker
 #######################################
 
+# Clear CDK context
+echo 'Clearing CDK context...'
+dockerRun cdk context --clear
+
 # Deploy to AWS
 echo 'Deploying to AWS Resources...'
 dockerRun npm run deploy-application
+
