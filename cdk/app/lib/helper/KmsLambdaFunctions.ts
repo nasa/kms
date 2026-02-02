@@ -66,12 +66,6 @@ export class LambdaFunctions {
     this.authorizerLambda = this.createAuthorizerLambda(scope)
     this.authorizer = this.createAuthorizer(scope, this.authorizerLambda)
 
-    // Add this block to remove the old resource
-    const oldResource = this.props.api.root.resourceForPath('concept/full_path/{fullPath+}')
-    if (oldResource) {
-      oldResource.node.tryRemoveChild('Resource')
-    }
-
     this.createApiLambdas(scope)
   }
 
@@ -163,6 +157,12 @@ export class LambdaFunctions {
       '/concept/short_name/{shortName}',
       'GET'
     )
+
+    // Attempt to remove the old resource
+    const oldFullPathResource = this.props.api.root.getResource('concept')?.getResource('full_path')?.getResource('{fullPath+}')
+    if (oldFullPathResource) {
+      oldFullPathResource.node.tryRemoveChild('Resource')
+    }
 
     // This.createApiLambda(
     //   scope,
