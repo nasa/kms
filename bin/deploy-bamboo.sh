@@ -38,6 +38,8 @@ FROM node:22
 COPY . /build
 WORKDIR /build
 RUN npm ci
+RUN rm -rf cdk.out && rm -f cdk.context.json
+RUN cdk context --clear
 EOF
 
 dockerTag=kms-$bamboo_STAGE_NAME
