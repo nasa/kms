@@ -135,13 +135,13 @@ export class ApiResources {
    * @param {apigateway.IResource} resource - The API resource to add CORS options to.
    * @public
    */
-  public addCorsOptionsToResource(resource: apigateway.IResource): void {
+  public addCorsOptionsToResource(resource: apigateway.IResource): apigateway.Method | undefined {
     console.log(`Attempting to add/update CORS options for resource: ${resource.path}`)
 
     if (this.processedResources.has(resource.path)) {
       console.log(`CORS options already processed for resource ${resource.path}. Skipping.`)
 
-      return
+      return undefined
     }
 
     // Remove existing OPTIONS method if it exists
@@ -152,7 +152,7 @@ export class ApiResources {
     }
 
     // Add new OPTIONS method with explicit CORS configuration and integration
-    resource.addMethod(
+    const optionsMethod = resource.addMethod(
       'OPTIONS',
       new apigateway.MockIntegration({
         integrationResponses: [
@@ -188,5 +188,7 @@ export class ApiResources {
 
     this.processedResources.add(resource.path)
     console.log(`CORS options processed for resource ${resource.path}`)
+
+    return optionsMethod
   }
 }

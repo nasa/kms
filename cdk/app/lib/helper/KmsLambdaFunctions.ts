@@ -47,6 +47,9 @@ export class LambdaFunctions {
   /** Map of Lambda functions, keyed by handler path */
   private lambdas: { [key: string]: lambda.Function } = {}
 
+  /** API Gateway methods created (used for Deployment dependency ordering) */
+  private methods: apigateway.Method[] = []
+
   /** Flag if use local stack */
   private useLocalstack: boolean
 
@@ -538,14 +541,16 @@ export class LambdaFunctions {
       }
     }
 
-    resource.addMethod(
+    const method = resource.addMethod(
       httpMethod,
       new apigateway.LambdaIntegration(lambdaFunction, integrationOptions),
       methodOptions
     )
+    this.methods.push(method)
 
     // Add CORS options to this resource
-    this.props.apiResources.addCorsOptionsToResource(resource)
+    const optionsMethod = this.props.apiResources.addCorsOptionsToResource(resource)
+    if (optionsMethod) this.methods.push(optionsMethod)
 
     return lambdaFunction
   }
@@ -573,6 +578,10 @@ export class LambdaFunctions {
    */
   public getAllLambdas(): { [handlerPath: string]: lambda.Function } {
     return this.lambdas
+  }
+
+  public getAllMethods(): apigateway.Method[] {
+    return this.methods
   }
 
   /**
