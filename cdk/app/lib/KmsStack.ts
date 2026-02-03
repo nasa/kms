@@ -187,6 +187,7 @@ export class KmsStack extends cdk.Stack {
     })
 
     const lambdas = this.lambdaFunctions.getAllLambdas()
+    const methods = this.lambdaFunctions.getAllMethods()
 
     // Create a new deployment
     const deployment = new apigateway.Deployment(
@@ -204,6 +205,10 @@ export class KmsStack extends cdk.Stack {
       Object.values(lambdas).forEach((lambda) => {
         deployment.node.addDependency(lambda)
       })
+    }
+
+    if (methods.length) {
+      methods.forEach((method) => deployment.node.addDependency(method))
     }
 
     // Create Stage for the deployment
