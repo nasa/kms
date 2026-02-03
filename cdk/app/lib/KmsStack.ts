@@ -3,8 +3,6 @@ import * as cdk from 'aws-cdk-lib'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
-import * as logs from 'aws-cdk-lib/aws-logs'
-import * as cr from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
 import { ApiResources } from './helper/ApiResources'
@@ -93,58 +91,6 @@ export class KmsStack extends cdk.Stack {
     const iamSetup = new IamSetup(this, 'IamSetup', this.stage, this.account, this.region, this.stackName)
     this.lambdaRole = iamSetup.lambdaRole
 
-    const accessLogGroupName = `/aws/apigateway/${prefix}-${stage}-access`
-    const accessLogGroup = useLocalstack
-      ? undefined
-      : logs.LogGroup.fromLogGroupName(this, 'ApiAccessLogs', accessLogGroupName)
-
-    const ensureAccessLogGroup = useLocalstack
-      ? undefined
-      : new cr.AwsCustomResource(this, 'EnsureApiAccessLogGroup', {
-        onCreate: {
-          service: 'CloudWatchLogs',
-          action: 'createLogGroup',
-          parameters: {
-            logGroupName: accessLogGroupName
-          },
-          physicalResourceId: cr.PhysicalResourceId.of(accessLogGroupName),
-          ignoreErrorCodesMatching: 'ResourceAlreadyExistsException'
-        },
-        onUpdate: {
-          service: 'CloudWatchLogs',
-          action: 'createLogGroup',
-          parameters: {
-            logGroupName: accessLogGroupName
-          },
-          ignoreErrorCodesMatching: 'ResourceAlreadyExistsException'
-        },
-        policy: cr.AwsCustomResourcePolicy.fromStatements([
-          new iam.PolicyStatement({
-            actions: ['logs:CreateLogGroup'],
-            resources: ['*']
-          })
-        ])
-      })
-
-    const accessLogOptions = useLocalstack
-      ? {}
-      : {
-        accessLogDestination: new apigateway.LogGroupLogDestination(
-            accessLogGroup as logs.ILogGroup
-        ),
-        accessLogFormat: apigateway.AccessLogFormat.custom(
-          JSON.stringify({
-            requestId: '$context.requestId',
-            method: '$context.httpMethod',
-            path: '$context.path',
-            queryString: '$context.queryString',
-            status: '$context.status',
-            responseLatency: '$context.responseLatency',
-            integrationLatency: '$context.integrationLatency'
-          })
-        )
-      }
-
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(this, 'ApiGatewayRestApi', {
@@ -159,8 +105,7 @@ export class KmsStack extends cdk.Stack {
         endpointTypes: [apigateway.EndpointType.PRIVATE],
         deploy: true,
         deployOptions: {
-          stageName: stage,
-          ...accessLogOptions
+          stageName: stage
         },
         policy: iamSetup.createApiGatewayPolicy()
       })
@@ -210,23 +155,14 @@ export class KmsStack extends cdk.Stack {
     // Create Stage for the deployment
     if (existingApiId) {
       // For existing API, create a new Stage managed by CDK
-      const stageResource = new apigateway.Stage(this, 'ApiStage', {
+      new apigateway.Stage(this, 'ApiStage', {
         deployment,
         stageName: stage,
-        description: `${stage} stage name for KMS API`,
-        ...accessLogOptions
+        description: `${stage} stage name for KMS API`
       })
-
-      if (ensureAccessLogGroup) {
-        stageResource.node.addDependency(ensureAccessLogGroup)
-      }
     } else {
       // For new API, stage is auto-created
       this.api.deploymentStage?.node.addDependency(deployment)
-
-      if (ensureAccessLogGroup) {
-        this.api.deploymentStage?.node.addDependency(ensureAccessLogGroup)
-      }
     }
 
     // Output the new deployment ID
