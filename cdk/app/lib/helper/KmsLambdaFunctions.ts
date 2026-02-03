@@ -44,6 +44,9 @@ export class LambdaFunctions {
   /** Lambda function used as the API Gateway authorizer */
   public authorizerLambda: lambda.Function
 
+  /** All created API Gateway methods (real methods + CORS OPTIONS) */
+  private methods: apigateway.Method[] = []
+
   /**
    * Map of Lambda functions.
    *
@@ -544,14 +547,16 @@ export class LambdaFunctions {
       }
     }
 
-    resource.addMethod(
+    const method = resource.addMethod(
       httpMethod,
       new apigateway.LambdaIntegration(lambdaFunction, integrationOptions),
       methodOptions
     )
+    this.methods.push(method)
 
     // Add CORS options to this resource
-    this.props.apiResources.addCorsOptionsToResource(resource)
+    const corsOptionsMethod = this.props.apiResources.addCorsOptionsToResource(resource)
+    if (corsOptionsMethod) this.methods.push(corsOptionsMethod)
 
     return lambdaFunction
   }
@@ -593,6 +598,13 @@ export class LambdaFunctions {
    */
   public getAllLambdas(): { [handlerPath: string]: lambda.Function } {
     return this.lambdas
+  }
+
+  /**
+   * Retrieves all API Gateway methods created by this helper.
+   */
+  public getAllMethods(): apigateway.Method[] {
+    return this.methods
   }
 
   /**
