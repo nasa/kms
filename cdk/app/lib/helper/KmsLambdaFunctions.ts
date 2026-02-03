@@ -159,19 +159,14 @@ export class LambdaFunctions {
     )
 
     // Attempt to remove the old resource
-    const oldFullPathResource = this.props.api.root.getResource('concept')?.getResource('full_path')?.getResource('{fullPath+}')
-    if (oldFullPathResource) {
-      oldFullPathResource.node.tryRemoveChild('Resource')
-    }
-
-    // This.createApiLambda(
-    //   scope,
-    //   'getConcept/handler.js',
-    //   'get-concept-by-full-path',
-    //   'getConcept',
-    //   '/concept/full_path/{fullPath+}',
-    //   'GET'
-    // )
+    this.createApiLambda(
+      scope,
+      'getConcept/handler.js',
+      'get-concept-by-full-path',
+      'getConcept',
+      '/concept/full_path/{fullPath+}',
+      'GET'
+    )
 
     this.createApiLambda(
       scope,
