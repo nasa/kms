@@ -133,6 +133,7 @@ export class ApiResources {
    * Adds CORS options to a specific API resource.
    * This method creates an OPTIONS method for the given resource with the appropriate CORS headers.
    * @param {apigateway.IResource} resource - The API resource to add CORS options to.
+   * @returns {apigateway.Method | undefined} The created OPTIONS method, or undefined if already processed.
    * @public
    */
   public addCorsOptionsToResource(resource: apigateway.IResource): apigateway.Method | undefined {

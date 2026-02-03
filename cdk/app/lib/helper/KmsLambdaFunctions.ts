@@ -44,11 +44,16 @@ export class LambdaFunctions {
   /** Lambda function used as the API Gateway authorizer */
   public authorizerLambda: lambda.Function
 
-  /** Map of Lambda functions, keyed by handler path */
-  private lambdas: { [key: string]: lambda.Function } = {}
-
-  /** API Gateway methods created (used for Deployment dependency ordering) */
+  /** All created API Gateway methods (real methods + CORS OPTIONS) */
   private methods: apigateway.Method[] = []
+
+  /**
+   * Map of Lambda functions.
+   *
+   * Important: do NOT key only by handlerPath. Multiple API routes can share the same handler file,
+   * and caching by handlerPath causes route-order dependent behavior (and unexpected CFN replacements).
+   */
+  private lambdas: { [key: string]: lambda.Function } = {}
 
   /** Flag if use local stack */
   private useLocalstack: boolean
@@ -466,7 +471,8 @@ export class LambdaFunctions {
     timeout: Duration,
     memorySize: number
   ): lambda.Function {
-    let lambdaFunction = this.lambdas[handlerPath]
+    const lambdaKey = `${handlerPath}::${functionName}`
+    let lambdaFunction = this.lambdas[lambdaKey]
     if (!lambdaFunction) {
       const nodejsFunctionProps: NodejsFunctionProps = {
         functionName: `${this.props.prefix}-${functionName}`,
@@ -491,7 +497,7 @@ export class LambdaFunctions {
 
       lambdaFunction = new NodejsFunction(scope, `${this.props.prefix}-${functionName}`, nodejsFunctionProps)
 
-      this.lambdas[handlerPath] = lambdaFunction
+      this.lambdas[lambdaKey] = lambdaFunction
     }
 
     return lambdaFunction
@@ -549,27 +555,41 @@ export class LambdaFunctions {
     this.methods.push(method)
 
     // Add CORS options to this resource
-    const optionsMethod = this.props.apiResources.addCorsOptionsToResource(resource)
-    if (optionsMethod) this.methods.push(optionsMethod)
+    const corsOptionsMethod = this.props.apiResources.addCorsOptionsToResource(resource)
+    if (corsOptionsMethod) this.methods.push(corsOptionsMethod)
 
     return lambdaFunction
   }
 
   /**
-   * Retrieves a Lambda function by its handler path
-   * @param {string} handlerPath - The path to the Lambda handler file
-   * @returns {lambda.Function | undefined} The Lambda function if found, undefined otherwise
+   * Retrieves a Lambda function by its handler path.
+   *
+   * Note: internally we cache Lambdas by a composite key of
+   * `${handlerPath}::${functionName}` because multiple API routes can share the same handler file.
+   *
+   * This helper is intentionally strict:
+   * - If no Lambda matches the handler path, it throws (call-site likely passed the wrong handlerPath).
+   * - If multiple Lambdas match the handler path, it throws to avoid route-order dependent behavior.
+   *   In that case, use `getLambdaByFunctionName()` to disambiguate.
+   *
+   * @param {string} handlerPath - The path to the Lambda handler file (as passed to `createNodejsLambda`).
+   * @returns {lambda.Function} The Lambda function associated to this handler.
+   * @throws {Error} If no Lambda is found for the handler, or if more than one Lambda matches.
    */
 
   public getLambda(handlerPath: string): lambda.Function {
-    const lambdaFunction = this.lambdas[handlerPath]
-    if (!lambdaFunction) {
-      if (!handlerPath) {
-        throw new Error(`Lambda function '${handlerPath}' not found`)
-      }
+    // Keys are `${handlerPath}::${functionName}`; match all Lambdas for this handlerPath.
+    const matches = Object.entries(this.lambdas)
+      .filter(([key]) => key.startsWith(`${handlerPath}::`))
+      .map(([, fn]) => fn)
+
+    if (matches.length === 1) return matches[0]
+
+    if (matches.length === 0) {
+      throw new Error(`Lambda function for handler '${handlerPath}' not found`)
     }
 
-    return lambdaFunction
+    throw new Error(`Multiple Lambda functions found for handler '${handlerPath}'. Use getLambdaByFunctionName instead.`)
   }
 
   /**
@@ -580,6 +600,9 @@ export class LambdaFunctions {
     return this.lambdas
   }
 
+  /**
+   * Retrieves all API Gateway methods created by this helper.
+   */
   public getAllMethods(): apigateway.Method[] {
     return this.methods
   }
