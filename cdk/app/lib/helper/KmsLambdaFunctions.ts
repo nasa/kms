@@ -562,37 +562,6 @@ export class LambdaFunctions {
   }
 
   /**
-   * Retrieves a Lambda function by its handler path.
-   *
-   * Note: internally we cache Lambdas by a composite key of
-   * `${handlerPath}::${functionName}` because multiple API routes can share the same handler file.
-   *
-   * This helper is intentionally strict:
-   * - If no Lambda matches the handler path, it throws (call-site likely passed the wrong handlerPath).
-   * - If multiple Lambdas match the handler path, it throws to avoid route-order dependent behavior.
-   *   In that case, use `getLambdaByFunctionName()` to disambiguate.
-   *
-   * @param {string} handlerPath - The path to the Lambda handler file (as passed to `createNodejsLambda`).
-   * @returns {lambda.Function} The Lambda function associated to this handler.
-   * @throws {Error} If no Lambda is found for the handler, or if more than one Lambda matches.
-   */
-
-  public getLambda(handlerPath: string): lambda.Function {
-    // Keys are `${handlerPath}::${functionName}`; match all Lambdas for this handlerPath.
-    const matches = Object.entries(this.lambdas)
-      .filter(([key]) => key.startsWith(`${handlerPath}::`))
-      .map(([, fn]) => fn)
-
-    if (matches.length === 1) return matches[0]
-
-    if (matches.length === 0) {
-      throw new Error(`Lambda function for handler '${handlerPath}' not found`)
-    }
-
-    throw new Error(`Multiple Lambda functions found for handler '${handlerPath}'. Use getLambdaByFunctionName instead.`)
-  }
-
-  /**
    * Retrieves all Lambda functions
    * @returns {{ [handlerPath: string]: lambda.Function }} An object containing all Lambda functions, keyed by handler path
    */
@@ -605,16 +574,5 @@ export class LambdaFunctions {
    */
   public getAllMethods(): apigateway.Method[] {
     return this.methods
-  }
-
-  /**
-   * Retrieves a Lambda function by its function name
-   * @param {string} functionName - The name of the Lambda function
-   * @returns {lambda.Function | undefined} The Lambda function if found, undefined otherwise
-   */
-  public getLambdaByFunctionName(functionName: string): lambda.Function | undefined {
-    const handlerPath = Object.keys(this.lambdas).find((handlerKey) => this.lambdas[handlerKey].functionName === `${this.props.prefix}-${functionName}`)
-
-    return handlerPath ? this.lambdas[handlerPath] : undefined
   }
 }
