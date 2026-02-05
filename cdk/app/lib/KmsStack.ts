@@ -18,22 +18,22 @@ import { VpcSetup } from './helper/VpcSetup'
  * @interface
  */
 export interface KmsStackProps extends cdk.StackProps {
-  existingApiId: string | undefined;
-  prefix: string;
-  rootResourceId: string | undefined;
-  stage: string;
-  vpcId: string;
+  existingApiId: string | undefined
+  prefix: string
+  rootResourceId: string | undefined
+  stage: string
+  vpcId: string
   environment: {
-    CMR_BASE_URL: string;
-    EDL_PASSWORD: string;
-    KMS_CACHE_CLUSTER_ENABLED?: string;
-    KMS_CACHE_CLUSTER_SIZE_GB?: string;
-    KMS_CACHE_TTL_SECONDS?: string;
-    LOG_LEVEL: string;
-    RDF_BUCKET_NAME: string;
-    RDF4J_PASSWORD: string;
-    RDF4J_SERVICE_URL: string;
-    RDF4J_USER_NAME: string;
+    CMR_BASE_URL: string
+    EDL_PASSWORD: string
+    KMS_CACHE_CLUSTER_ENABLED?: string
+    KMS_CACHE_CLUSTER_SIZE_GB?: string
+    KMS_CACHE_TTL_SECONDS?: string
+    LOG_LEVEL: string
+    RDF_BUCKET_NAME: string
+    RDF4J_PASSWORD: string
+    RDF4J_SERVICE_URL: string
+    RDF4J_USER_NAME: string
   }
 }
 
