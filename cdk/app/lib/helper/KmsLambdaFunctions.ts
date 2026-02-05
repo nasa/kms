@@ -44,7 +44,15 @@ export class LambdaFunctions {
   /** Lambda function used as the API Gateway authorizer */
   public authorizerLambda: lambda.Function
 
-  /** Map of Lambda functions, keyed by handler path */
+  /** All created API Gateway methods (real methods + CORS OPTIONS) */
+  private methods: apigateway.Method[] = []
+
+  /**
+   * Map of Lambda functions.
+   *
+   * Important: do NOT key only by handlerPath. Multiple API routes can share the same handler file,
+   * and caching by handlerPath causes route-order dependent behavior (and unexpected CFN replacements).
+   */
   private lambdas: { [key: string]: lambda.Function } = {}
 
   /** Flag if use local stack */
@@ -463,7 +471,8 @@ export class LambdaFunctions {
     timeout: Duration,
     memorySize: number
   ): lambda.Function {
-    let lambdaFunction = this.lambdas[handlerPath]
+    const lambdaKey = `${handlerPath}::${functionName}`
+    let lambdaFunction = this.lambdas[lambdaKey]
     if (!lambdaFunction) {
       const nodejsFunctionProps: NodejsFunctionProps = {
         functionName: `${this.props.prefix}-${functionName}`,
@@ -488,7 +497,7 @@ export class LambdaFunctions {
 
       lambdaFunction = new NodejsFunction(scope, `${this.props.prefix}-${functionName}`, nodejsFunctionProps)
 
-      this.lambdas[handlerPath] = lambdaFunction
+      this.lambdas[lambdaKey] = lambdaFunction
     }
 
     return lambdaFunction
@@ -538,31 +547,16 @@ export class LambdaFunctions {
       }
     }
 
-    resource.addMethod(
+    const method = resource.addMethod(
       httpMethod,
       new apigateway.LambdaIntegration(lambdaFunction, integrationOptions),
       methodOptions
     )
+    this.methods.push(method)
 
     // Add CORS options to this resource
-    this.props.apiResources.addCorsOptionsToResource(resource)
-
-    return lambdaFunction
-  }
-
-  /**
-   * Retrieves a Lambda function by its handler path
-   * @param {string} handlerPath - The path to the Lambda handler file
-   * @returns {lambda.Function | undefined} The Lambda function if found, undefined otherwise
-   */
-
-  public getLambda(handlerPath: string): lambda.Function {
-    const lambdaFunction = this.lambdas[handlerPath]
-    if (!lambdaFunction) {
-      if (!handlerPath) {
-        throw new Error(`Lambda function '${handlerPath}' not found`)
-      }
-    }
+    const corsOptionsMethod = this.props.apiResources.addCorsOptionsToResource(resource)
+    if (corsOptionsMethod) this.methods.push(corsOptionsMethod)
 
     return lambdaFunction
   }
@@ -576,13 +570,9 @@ export class LambdaFunctions {
   }
 
   /**
-   * Retrieves a Lambda function by its function name
-   * @param {string} functionName - The name of the Lambda function
-   * @returns {lambda.Function | undefined} The Lambda function if found, undefined otherwise
+   * Retrieves all API Gateway methods created by this helper.
    */
-  public getLambdaByFunctionName(functionName: string): lambda.Function | undefined {
-    const handlerPath = Object.keys(this.lambdas).find((handlerKey) => this.lambdas[handlerKey].functionName === `${this.props.prefix}-${functionName}`)
-
-    return handlerPath ? this.lambdas[handlerPath] : undefined
+  public getAllMethods(): apigateway.Method[] {
+    return this.methods
   }
 }

@@ -49,6 +49,15 @@ export class ApiResources {
     ]
   }
 
+  private getCorsHeaderValues() {
+    return {
+      origin: '*',
+      headers: this.corsHeaders.join(','),
+      methods: 'GET,POST,PUT,DELETE,OPTIONS',
+      credentials: 'true'
+    }
+  }
+
   /**
    * Configures CORS for the entire API.
    * This method sets up gateway responses and adds CORS options to the root resource.
@@ -65,11 +74,13 @@ export class ApiResources {
    * @private
    */
   private getCorsHeaders() {
+    const corsValues = this.getCorsHeaderValues()
+
     return {
-      'Access-Control-Allow-Origin': '\'*\'',
-      'Access-Control-Allow-Headers': `'${this.corsHeaders.join(',')}'`,
-      'Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS'",
-      'Access-Control-Allow-Credentials': "'true'"
+      'Access-Control-Allow-Origin': `'${corsValues.origin}'`,
+      'Access-Control-Allow-Headers': `'${corsValues.headers}'`,
+      'Access-Control-Allow-Methods': `'${corsValues.methods}'`,
+      'Access-Control-Allow-Credentials': `'${corsValues.credentials}'`
     }
   }
 
@@ -133,15 +144,16 @@ export class ApiResources {
    * Adds CORS options to a specific API resource.
    * This method creates an OPTIONS method for the given resource with the appropriate CORS headers.
    * @param {apigateway.IResource} resource - The API resource to add CORS options to.
+   * @returns {apigateway.Method | undefined} The created OPTIONS method, or undefined if already processed.
    * @public
    */
-  public addCorsOptionsToResource(resource: apigateway.IResource): void {
+  public addCorsOptionsToResource(resource: apigateway.IResource): apigateway.Method | undefined {
     console.log(`Attempting to add/update CORS options for resource: ${resource.path}`)
 
     if (this.processedResources.has(resource.path)) {
       console.log(`CORS options already processed for resource ${resource.path}. Skipping.`)
 
-      return
+      return undefined
     }
 
     // Remove existing OPTIONS method if it exists
@@ -152,17 +164,18 @@ export class ApiResources {
     }
 
     // Add new OPTIONS method with explicit CORS configuration and integration
-    resource.addMethod(
+    const corsValues = this.getCorsHeaderValues()
+    const optionsMethod = resource.addMethod(
       'OPTIONS',
       new apigateway.MockIntegration({
         integrationResponses: [
           {
             statusCode: '200',
             responseParameters: {
-              'method.response.header.Access-Control-Allow-Headers': `'${this.corsHeaders.join(',')}'`,
-              'method.response.header.Access-Control-Allow-Methods': "'GET,POST,PUT,DELETE,OPTIONS'",
-              'method.response.header.Access-Control-Allow-Origin': '\'*\'',
-              'method.response.header.Access-Control-Allow-Credentials': "'true'"
+              'method.response.header.Access-Control-Allow-Headers': `'${corsValues.headers}'`,
+              'method.response.header.Access-Control-Allow-Methods': `'${corsValues.methods}'`,
+              'method.response.header.Access-Control-Allow-Origin': `'${corsValues.origin}'`,
+              'method.response.header.Access-Control-Allow-Credentials': `'${corsValues.credentials}'`
             }
           }
         ],
@@ -188,5 +201,7 @@ export class ApiResources {
 
     this.processedResources.add(resource.path)
     console.log(`CORS options processed for resource ${resource.path}`)
+
+    return optionsMethod
   }
 }
