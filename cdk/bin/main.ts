@@ -137,7 +137,10 @@ async function main() {
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
-      LOG_LEVEL: process.env.LOG_LEVEL || 'INFO'
+      LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
+      KMS_CACHE_TTL_SECONDS: process.env.KMS_CACHE_TTL_SECONDS || '3600',
+      KMS_CACHE_CLUSTER_SIZE_GB: process.env.KMS_CACHE_CLUSTER_SIZE_GB || '0.5',
+      KMS_CACHE_CLUSTER_ENABLED: process.env.KMS_CACHE_CLUSTER_ENABLED || 'true'
     }
   }
 

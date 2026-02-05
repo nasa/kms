@@ -6,7 +6,7 @@
     "start": "vite",
     "build": "vite build",
     "lint": "eslint . --ext .jsx,.js,.ts,.tsx",
-    "lint:fix": "eslint --fix \"serverless/src/**/*.{js,ts,jsx,tsx}\"",
+    "lint:fix": "eslint . --fix --ext .jsx,.js,.ts,.tsx",
     "preview": "vite preview",
     "test": "vitest",
     "cdk": "cdk",

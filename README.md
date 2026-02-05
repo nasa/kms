@@ -141,9 +141,11 @@ export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
 export bamboo_RDF_BUCKET_NAME=[name of bucket for storing archived versions]
 export bamboo_EXISTING_API_ID=[api id if deploying this into an existing api gateway]
 export bamboo_ROOT_RESOURCE_ID=[see CDK_MIGRATION.md for how to determine]
+export bamboo_KMS_CACHE_TTL_SECONDS=[optional, default 3600]
+export bamboo_KMS_CACHE_CLUSTER_SIZE_GB=[optional, default 0.5]
+export bamboo_KMS_CACHE_CLUSTER_ENABLED=[optional, default true]
 ```
 #### Deploy KMS Application
 ```
 ./bin/deploy-bamboo.sh
 ```
-
