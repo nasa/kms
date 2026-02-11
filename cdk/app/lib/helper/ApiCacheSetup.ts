@@ -46,7 +46,7 @@ export class ApiCacheSetup {
       'method.request.querystring.version': false
     }
 
-    const cacheKeyParameters = [
+    const baseCacheKeyParameters = [
       'method.request.querystring.page_num',
       'method.request.querystring.page_size',
       'method.request.querystring.format',
@@ -56,7 +56,8 @@ export class ApiCacheSetup {
     // Helper to configure a single resource
     const configureResource = (
       resourcePath: string[],
-      cacheNamespace: string
+      cacheNamespace: string,
+      pathParams: string[] = []
     ) => {
       const resource = resourcePath.reduce((acc, part) => {
         const child = acc.getResource(part)
@@ -71,11 +72,25 @@ export class ApiCacheSetup {
       const getMethod = resource.node.findChild('GET') as apigateway.Method
       if (getMethod) {
         const cfnMethod = getMethod.node.defaultChild as apigateway.CfnMethod
-        cfnMethod.requestParameters = queryParams
+
+        // Add path parameters to request parameters
+        const pathRequestParams = pathParams.reduce((acc, param) => {
+          acc[param] = true
+
+          return acc
+        }, {} as Record<string, boolean>)
+
+        cfnMethod.requestParameters = {
+          ...queryParams,
+          ...pathRequestParams
+        }
 
         const existingIntegration = cfnMethod.integration as
           apigateway.CfnMethod.IntegrationProperty
         if (existingIntegration) {
+          // Combine base cache key parameters with path parameters for this resource
+          const cacheKeyParameters = [...baseCacheKeyParameters, ...pathParams]
+
           /* eslint-disable max-len */
           cfnMethod.integration = {
             type: existingIntegration.type,
@@ -114,20 +129,24 @@ export class ApiCacheSetup {
     }
 
     // Configure method and integration request for all endpoints
-    configureResource(['concepts'], 'concepts')
+    configureResource(['concepts'], 'concepts', [])
+
     configureResource(
       ['concepts', 'concept_scheme', '{conceptScheme}'],
-      'concepts-scheme'
+      'concepts-scheme',
+      ['method.request.path.conceptScheme']
     )
 
-    configureResource([
-      'concepts',
-      'concept_scheme',
-      '{conceptScheme}',
-      'pattern',
-      '{pattern}'
-    ], 'concepts-scheme-pattern')
+    configureResource(
+      ['concepts', 'concept_scheme', '{conceptScheme}', 'pattern', '{pattern}'],
+      'concepts-scheme-pattern',
+      ['method.request.path.conceptScheme', 'method.request.path.pattern']
+    )
 
-    configureResource(['concepts', 'pattern', '{pattern}'], 'concepts-pattern')
+    configureResource(
+      ['concepts', 'pattern', '{pattern}'],
+      'concepts-pattern',
+      ['method.request.path.pattern']
+    )
   }
 }
