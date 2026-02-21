@@ -370,8 +370,9 @@ export const getConcepts = async (event, context) => {
       'X-Total-Pages': totalPages.toString()
     }
     let response
+    const isSamLocal = process.env.AWS_SAM_LOCAL === 'true' || process.env.IS_OFFLINE === 'true'
     // Check if the response body size exceeds the threshold for compression
-    if (contentSize < SIZE_THRESHOLD) {
+    if (contentSize < SIZE_THRESHOLD || isSamLocal) {
       // If the content is smaller than the threshold, return uncompressed
       response = {
         statusCode: 200,

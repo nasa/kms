@@ -23,3 +23,15 @@ cmr
 cdk.context.json
 cdk.out
 infrastructure/rdfdb/cdk/cdk.context.json
+
+# Spike/generated artifacts
+*.log
+log.txt
+cdk/log.txt
+data/mongo-spike/
+data/mongo-spike/**/*.json
+data/mongo-spike/**/*.ndjson
+data/mongo-spike/**/*.xml
+data/mongo-spike/**/*.rdf
+scripts/spike-express/file.rdf
+locust

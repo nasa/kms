@@ -60,6 +60,10 @@ npm run create-network
 ```
 npm run rdf4j:start
 ```
+#### Pull latest concepts RDF files from CMR
+```
+npm run rdf4j:pull
+```
 #### Setup and load data into the RDF database
 ```
 npm run rdf4j:setup

@@ -4,40 +4,98 @@
 import { promises as fs } from 'fs'
 import path from 'path'
 import url from 'url'
+import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 
-import { fetchVersions } from './lib/fetchVersions'
-
-const LEGACY_SERVER = process.env.LEGACY_SERVER || 'http://localhost:9700'
-
-const baseUrl = 'http://localhost:8080/rdf4j-server'
+const baseUrl = `${process.env.RDF4J_SERVICE_URL || 'http://127.0.0.1:8081'}/rdf4j-server`
 const repoId = 'kms'
 const rdf4jUrl = `${baseUrl}/repositories/${repoId}/statements`
 const username = process.env.RDF4J_USER_NAME || 'rdf4j'
 const password = process.env.RDF4J_PASSWORD || 'rdf4j'
 const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
+const pullOutDir = process.env.RDF4J_PULL_OUT_DIR || path.join('setup', 'data')
+const postCreateDelayMs = Number(process.env.RDF4J_POST_READY_DELAY_MS || '5000')
+const loadBatchSize = Number(process.env.RDF4J_LOAD_BATCH_SIZE || '1000')
+const interBatchDelayMs = Number(process.env.RDF4J_INTER_BATCH_DELAY_MS || '0')
+const shouldLoadSchemes = (process.env.RDF4J_LOAD_SCHEMES || 'true').toLowerCase() !== 'false'
+const serverCheckAttempts = Number(process.env.RDF4J_SERVER_CHECK_ATTEMPTS || '60')
+const serverCheckDelayMs = Number(process.env.RDF4J_SERVER_CHECK_DELAY_MS || '1000')
+
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@',
+  textNodeName: '#text',
+  isArray: (name) => name === 'skos:Concept'
+})
+
+const builder = new XMLBuilder({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@',
+  textNodeName: '#text',
+  format: false
+})
+
+const asArray = (value) => {
+  if (value === undefined || value === null) return []
+
+  return Array.isArray(value) ? value : [value]
+}
 
 /* eslint-disable no-restricted-syntax */
 const loadExport = async () => {
   const getAuthHeader = () => `Basic ${base64Credentials}`
+  const baseHeaders = {
+    Authorization: getAuthHeader(),
+    Connection: 'close'
+  }
+  // eslint-disable-next-line no-promise-executor-return
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  const waitForServer = async () => {
+    for (let attempt = 1; attempt <= serverCheckAttempts; attempt += 1) {
+      try {
+        const response = await fetch(`${baseUrl}/protocol`, {
+          headers: {
+            ...baseHeaders
+          }
+        })
+        if (response.ok) {
+          return
+        }
+      } catch {
+        // retry
+      }
+      await sleep(serverCheckDelayMs)
+    }
+    throw new Error(`RDF4J server not ready after ${serverCheckAttempts} attempts`)
+  }
 
   const recreateDatabase = async () => {
     try {
       // Step 1: Delete existing repository
       const deleteResponse = await fetch(`${baseUrl}/repositories/${repoId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: getAuthHeader()
-        }
+        headers: baseHeaders
       })
-      if (!deleteResponse.ok && deleteResponse.status !== 404) {
-        throw new Error(`Failed to delete repository: ${deleteResponse.status} ${deleteResponse.statusText}`)
+      if (!deleteResponse.ok) {
+        const responseText = await deleteResponse.text()
+        const isMissingRepoDelete = (
+          deleteResponse.status === 404
+          || (
+            deleteResponse.status === 400
+            && responseText.includes('could not locate repository configuration')
+          )
+        )
+
+        if (!isMissingRepoDelete) {
+          throw new Error(`Failed to delete repository: ${deleteResponse.status} ${deleteResponse.statusText} ${responseText}`)
+        }
       }
 
       console.log(`Deleted repository '${repoId}' (if it existed)`)
 
       // Step 2: Read config.ttl file
       const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-      const configPath = path.join(__dirname, '..', '..', 'cdk', 'rdbdb', 'docker', 'config', 'config.ttl')
+      const configPath = path.join(__dirname, '..', '..', 'cdk', 'rdfdb', 'docker', 'config', 'config.ttl')
       const createConfig = await fs.readFile(configPath, 'utf8')
 
       // Step 3: Create new repository
@@ -45,7 +103,7 @@ const loadExport = async () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'text/turtle',
-          Authorization: getAuthHeader()
+          ...baseHeaders
         },
         body: createConfig
       })
@@ -61,69 +119,111 @@ const loadExport = async () => {
   }
 
   const loadRDFXMLToRDF4J = async (filePath, graphId) => {
-    try {
-      const xmlData = await fs.readFile(filePath, 'utf8')
-      console.log(`Read ${xmlData.length} bytes from file`)
+    const xmlData = await fs.readFile(filePath, 'utf8')
+    console.log(`Read ${xmlData.length} bytes from file`)
 
-      const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
-      const postUrl = new URL(rdf4jUrl)
-      postUrl.searchParams.append('context', `<${graphUri}>`)
+    const parsed = parser.parse(xmlData)
+    const rdf = parsed?.['rdf:RDF']
+    if (!rdf) {
+      throw new Error(`Invalid RDF payload in ${filePath}`)
+    }
+
+    const rootAttrs = Object.keys(rdf)
+      .filter((key) => key.startsWith('@'))
+      .reduce((acc, key) => ({
+        ...acc,
+        [key]: rdf[key]
+      }), {})
+    const metadata = rdf['gcmd:gcmd']
+    const concepts = asArray(rdf['skos:Concept'])
+    const totalBatches = Math.ceil(concepts.length / loadBatchSize)
+
+    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
+    const postUrl = new URL(rdf4jUrl)
+    postUrl.searchParams.append('context', `<${graphUri}>`)
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex += 1) {
+      const start = batchIndex * loadBatchSize
+      const end = Math.min(start + loadBatchSize, concepts.length)
+      const chunkConcepts = concepts.slice(start, end)
+
+      const chunkDocument = {
+        'rdf:RDF': {
+          ...rootAttrs,
+          ...(metadata ? { 'gcmd:gcmd': metadata } : {}),
+          'skos:Concept': chunkConcepts
+        }
+      }
+
+      const chunkXml = builder.build(chunkDocument)
+      console.log(`Loading ${filePath} batch ${batchIndex + 1}/${totalBatches} concepts=${chunkConcepts.length}`)
 
       const response = await fetch(postUrl, {
         method: 'POST',
-        body: xmlData,
+        body: chunkXml,
         headers: {
           'Content-Type': 'application/rdf+xml',
-          Authorization: `Basic ${base64Credentials}`
+          ...baseHeaders
         }
       })
 
       if (!response.ok) {
         const responseText = await response.text()
-        console.log('Response text:', responseText)
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`Failed batch ${batchIndex + 1}/${totalBatches} for ${filePath}: ${response.status} ${response.statusText} ${responseText}`)
       }
 
-      console.log(`Successfully loaded ${filePath} into RDF4J`)
-    } catch (error) {
-      console.error(`Error loading ${filePath} into RDF4J:`, error)
+      if (interBatchDelayMs > 0) {
+        await sleep(interBatchDelayMs)
+      }
+    }
+
+    console.log(`Successfully loaded ${filePath} into RDF4J in ${totalBatches} batches`)
+  }
+
+  const loadRawRDFXMLToRDF4J = async (filePath, graphId) => {
+    const xmlData = await fs.readFile(filePath, 'utf8')
+    console.log(`Read ${xmlData.length} bytes from file`)
+
+    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
+    const postUrl = new URL(rdf4jUrl)
+    postUrl.searchParams.append('context', `<${graphUri}>`)
+
+    const response = await fetch(postUrl, {
+      method: 'POST',
+      body: xmlData,
+      headers: {
+        'Content-Type': 'application/rdf+xml',
+        ...baseHeaders
+      }
+    })
+    if (!response.ok) {
+      const responseText = await response.text()
+      throw new Error(`Failed loading ${filePath}: ${response.status} ${response.statusText} ${responseText}`)
     }
   }
 
-  // eslint-disable-next-line no-promise-executor-return
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
   try {
-    process.env.RDF4J_SERVICE_URL = 'http://localhost:8080'
+    process.env.RDF4J_SERVICE_URL = process.env.RDF4J_SERVICE_URL || 'http://127.0.0.1:8081'
+    await waitForServer()
 
     await recreateDatabase()
 
-    console.log('Sleeping for 1 minute before starting...')
-    await sleep(60000)
+    console.log(`Sleeping for ${postCreateDelayMs}ms before starting...`)
+    await sleep(postCreateDelayMs)
 
     const versionTypes = ['published', 'draft']
 
     for (const versionType of versionTypes) {
-      const versions = await fetchVersions(LEGACY_SERVER, versionType)
+      console.log(`\n*********** loading version ${versionType} ${versionType} ***********`)
+      const rdfOutputPath = path.join(pullOutDir, `concepts_${versionType}.rdf`)
+      const graphId = versionType
 
-      for (const version of versions) {
-        console.log(`\n*********** loading version ${version} ${versionType} ***********`)
-        const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-        let rdfOutputPath
-        let schemePath
-        let graphId
-        if (versionType === 'past_published') {
-          rdfOutputPath = path.join(__dirname, '..', 'data', 'export', 'rdf', `concepts_${version}.rdf`)
-          schemePath = path.join(__dirname, '..', 'data', 'export', 'rdf', `schemes_v${version}.rdf`)
-          graphId = version
-        } else {
-          rdfOutputPath = path.join(__dirname, '..', 'data', 'export', 'rdf', `concepts_${versionType}.rdf`)
-          schemePath = path.join(__dirname, '..', 'data', 'export', 'rdf', `schemes_${versionType}.rdf`)
-          graphId = versionType
-        }
+      await loadRDFXMLToRDF4J(rdfOutputPath, graphId)
 
-        await loadRDFXMLToRDF4J(rdfOutputPath, graphId)
-        await loadRDFXMLToRDF4J(schemePath, graphId)
+      if (shouldLoadSchemes) {
+        const schemesPath = path.join(pullOutDir, `schemes_${versionType}.rdf`)
+        console.log(`\n*********** loading schemes ${versionType} ${versionType} ***********`)
+        await loadRawRDFXMLToRDF4J(schemesPath, graphId)
       }
     }
   } catch (error) {
