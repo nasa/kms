@@ -1,4 +1,4 @@
-FROM eclipse/rdf4j-workbench:5.1.6-tomcat
+FROM eclipse/rdf4j-workbench:latest
 USER root
 
 # Create the directory for EFS mount and set permissions
