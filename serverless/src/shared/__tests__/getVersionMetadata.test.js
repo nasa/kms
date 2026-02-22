@@ -54,7 +54,7 @@ describe('getVersionMetadata', () => {
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         version: '1.0',
-        timeoutMs: 8000
+        timeoutMs: 30000
       })
     })
 

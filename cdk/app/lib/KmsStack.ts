@@ -25,6 +25,7 @@ export interface KmsStackProps extends cdk.StackProps {
   vpcId: string
   environment: {
     CMR_BASE_URL: string
+    CONCEPTS_READ_TIMEOUT_MS?: string
     EDL_PASSWORD: string
     KMS_CACHE_CLUSTER_ENABLED?: string
     KMS_CACHE_CLUSTER_SIZE_GB?: string
@@ -34,6 +35,10 @@ export interface KmsStackProps extends cdk.StackProps {
     RDF4J_PASSWORD: string
     RDF4J_SERVICE_URL: string
     RDF4J_USER_NAME: string
+    SPARQL_COLD_MAX_RETRIES?: string
+    SPARQL_REQUEST_TIMEOUT_MS?: string
+    SPARQL_WARM_MAX_RETRIES?: string
+    SPARQL_WARM_WINDOW_MS?: string
   }
 }
 

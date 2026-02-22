@@ -29,7 +29,6 @@ describe('createCsvForScheme', () => {
     // Reset all mocks before each test
     vi.resetAllMocks()
     resetCreateCsvForSchemeStateForTests()
-    delete process.env.LOG_IN_FLIGHT_REQUESTS
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(createCsvMetadata).mockReturnValue(['mocked metadata'])
   })
@@ -309,25 +308,17 @@ describe('createCsvForScheme', () => {
     })
   })
 
-  test('should reuse in-flight request for same scheme and version', async () => {
-    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    process.env.LOG_IN_FLIGHT_REQUESTS = 'true'
-
+  test('should issue separate requests for same scheme and version', async () => {
     const scheme = 'testScheme'
     const version = 'draft'
     const versionName = 'Test Version'
     const versionCreationDate = '2023-01-01'
     const mockDefaultHeaders = { 'Default-Header': 'value' }
 
-    let release
-    const hold = new Promise((resolve) => {
-      release = resolve
-    })
-
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
     createCsvMetadata.mockReturnValue({ some: 'metadata' })
     getCsvHeaders.mockResolvedValue(['Header1'])
-    getCsvPaths.mockImplementation(() => hold.then(() => [['A']]))
+    getCsvPaths.mockResolvedValue([['A']])
     createCsv.mockResolvedValue('csv,content')
 
     const first = createCsvForScheme({
@@ -343,11 +334,8 @@ describe('createCsvForScheme', () => {
       versionCreationDate
     })
 
-    expect(getCsvHeaders).toHaveBeenCalledTimes(1)
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('[single-flight] Reusing in-flight createCsvForScheme request'))
-
-    release()
     const [firstResult, secondResult] = await Promise.all([first, second])
+    expect(getCsvHeaders).toHaveBeenCalledTimes(2)
     expect(firstResult).toEqual(secondResult)
   })
 })

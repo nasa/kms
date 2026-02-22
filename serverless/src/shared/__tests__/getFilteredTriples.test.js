@@ -43,7 +43,7 @@ describe('getFilteredTriples', () => {
         accept: 'application/sparql-results+json',
         body: 'MOCK_CONCEPTS_QUERY',
         version: 'published',
-        timeoutMs: 8000
+        timeoutMs: 30000
       })
     })
 

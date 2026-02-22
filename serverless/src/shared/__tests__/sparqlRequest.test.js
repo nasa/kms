@@ -36,7 +36,6 @@ describe('sparqlRequest', () => {
     delete process.env.SPARQL_WARM_WINDOW_MS
     delete process.env.SPARQL_WARM_MAX_RETRIES
     delete process.env.SPARQL_COLD_MAX_RETRIES
-    delete process.env.LOG_IN_FLIGHT_REQUESTS
   })
 
   describe('when successful', () => {
@@ -242,16 +241,11 @@ describe('sparqlRequest', () => {
       expect(clearTimeoutSpy).toHaveBeenCalled()
     })
 
-    test('should reuse in-flight SPARQL query request with the same key', async () => {
-      process.env.LOG_IN_FLIGHT_REQUESTS = 'true'
-      let release
-      const hold = new Promise((resolve) => {
-        release = resolve
-      })
-      global.fetch.mockImplementation(() => hold.then(() => ({
+    test('should issue separate requests for identical SPARQL queries', async () => {
+      global.fetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ results: { bindings: [] } })
-      })))
+      })
 
       const request = {
         method: 'POST',
@@ -260,15 +254,10 @@ describe('sparqlRequest', () => {
         accept: 'application/sparql-results+json',
         version: 'draft'
       }
-      const first = sparqlRequest(request)
-      const second = sparqlRequest(request)
 
-      expect(global.fetch).toHaveBeenCalledTimes(1)
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[single-flight] Reusing in-flight sparqlRequest key='))
+      await Promise.all([sparqlRequest(request), sparqlRequest(request)])
 
-      release()
-      const [firstResult, secondResult] = await Promise.all([first, second])
-      expect(firstResult).toEqual(secondResult)
+      expect(global.fetch).toHaveBeenCalledTimes(2)
     })
 
     test('should use default endpoint URL if RDF4J_SERVICE_URL is not set', async () => {

@@ -85,7 +85,6 @@ import { delay } from '@/shared/delay'
  */
 const RETRY_DELAY = 1000 // 1 second
 let lastSuccessfulSparqlAt = 0
-const inFlightSparqlRequests = new Map()
 
 const resolveAdaptiveReadRetryPolicy = () => {
   const warmWindowMs = Number.parseInt(process.env.SPARQL_WARM_WINDOW_MS || '60000', 10)
@@ -116,8 +115,6 @@ export const sparqlRequest = async (props) => {
     retryCount = 0,
     timeoutMs = Number.parseInt(process.env.SPARQL_REQUEST_TIMEOUT_MS || '0', 10) // Defaults 0 (no timeout)
   } = props
-  const retryPolicy = resolveAdaptiveReadRetryPolicy()
-  const { effectiveMaxRetries } = retryPolicy
 
   let {
     body,
@@ -223,24 +220,6 @@ export const sparqlRequest = async (props) => {
   }
 
   const url = endpointUrl.toString()
-  const singleFlightEligible = retryCount === 0
-    && !transactionUrl
-    && contentType === 'application/sparql-query'
-  const singleFlightKey = singleFlightEligible
-    ? JSON.stringify({
-      method,
-      url,
-      contentType,
-      accept,
-      body
-    })
-    : null
-
-  if (singleFlightKey && inFlightSparqlRequests.has(singleFlightKey)) {
-    console.log(`[single-flight] Reusing in-flight sparqlRequest key=${singleFlightKey}`)
-
-    return inFlightSparqlRequests.get(singleFlightKey)
-  }
 
   const requestPromise = (async () => {
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
@@ -276,6 +255,8 @@ export const sparqlRequest = async (props) => {
       }
 
       // Implement retry logic
+      const retryPolicy = resolveAdaptiveReadRetryPolicy()
+      const { effectiveMaxRetries } = retryPolicy
       if (retryCount < effectiveMaxRetries) {
         console.log(
           '[retry] Retrying SPARQL request'
@@ -298,27 +279,21 @@ export const sparqlRequest = async (props) => {
         })
       }
 
-      console.error(`Max retries (${effectiveMaxRetries}) reached. Giving up.`)
+      console.error(
+        `Max retries (${effectiveMaxRetries}) reached. Giving up. isWarm=${retryPolicy.isWarm} ageSinceLastSuccessMs=${retryPolicy.ageSinceLastSuccessMs}`
+      )
+
       throw error
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
-
-      if (singleFlightKey) {
-        inFlightSparqlRequests.delete(singleFlightKey)
-      }
     }
   })()
-
-  if (singleFlightKey) {
-    inFlightSparqlRequests.set(singleFlightKey, requestPromise)
-  }
 
   return requestPromise
 }
 
 export const resetSparqlRequestStateForTests = () => {
   lastSuccessfulSparqlAt = 0
-  inFlightSparqlRequests.clear()
 }

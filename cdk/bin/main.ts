@@ -138,6 +138,11 @@ async function main() {
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
+      CONCEPTS_READ_TIMEOUT_MS: process.env.CONCEPTS_READ_TIMEOUT_MS || '30000',
+      SPARQL_WARM_WINDOW_MS: process.env.SPARQL_WARM_WINDOW_MS || '60000',
+      SPARQL_WARM_MAX_RETRIES: process.env.SPARQL_WARM_MAX_RETRIES || '0',
+      SPARQL_COLD_MAX_RETRIES: process.env.SPARQL_COLD_MAX_RETRIES || '1',
+      SPARQL_REQUEST_TIMEOUT_MS: process.env.SPARQL_REQUEST_TIMEOUT_MS || '0',
       KMS_CACHE_TTL_SECONDS: process.env.KMS_CACHE_TTL_SECONDS || '3600',
       KMS_CACHE_CLUSTER_SIZE_GB: process.env.KMS_CACHE_CLUSTER_SIZE_GB || '0.5',
       KMS_CACHE_CLUSTER_ENABLED: process.env.KMS_CACHE_CLUSTER_ENABLED || 'false'

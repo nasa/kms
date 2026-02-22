@@ -26,11 +26,17 @@ interface LambdaFunctionsProps {
   useLocalstack: boolean;
   environment: {
     CMR_BASE_URL: string;
+    CONCEPTS_READ_TIMEOUT_MS?: string;
     EDL_PASSWORD: string;
+    LOG_LEVEL?: string;
+    RDF_BUCKET_NAME: string,
     RDF4J_PASSWORD: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
-    RDF_BUCKET_NAME: string,
+    SPARQL_COLD_MAX_RETRIES?: string;
+    SPARQL_REQUEST_TIMEOUT_MS?: string;
+    SPARQL_WARM_MAX_RETRIES?: string;
+    SPARQL_WARM_WINDOW_MS?: string;
   };
 }
 
