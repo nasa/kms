@@ -93,7 +93,6 @@ const createUniqueRequestPaths = ({ prefLabels, schemes }) => {
   schemes.forEach((scheme) => {
     const encodedScheme = encodeURIComponent(scheme)
     paths.add(`/concepts/concept_scheme/${encodedScheme}?format=json`)
-    paths.add(`/concepts/concept_scheme/${encodedScheme}?format=csv`)
   })
 
   return Array.from(paths).sort((a, b) => a.localeCompare(b))
@@ -225,6 +224,14 @@ const main = async () => {
       }
 
       errorStatusCounts[result.status] = (errorStatusCounts[result.status] || 0) + 1
+      if (result.status === 404) {
+        if (args.printUrls) {
+          console.log(`Calling: ${fullUrl} - Result: Skip (Status: 404)`)
+        }
+
+        return
+      }
+
       if (args.printUrls) {
         console.log(`Calling: ${fullUrl} - Result: Failure (Status: ${result.status}) - Retrying immediately`)
       }
