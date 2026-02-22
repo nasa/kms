@@ -87,15 +87,23 @@ const RETRY_DELAY = 1000 // 1 second
 let lastSuccessfulSparqlAt = 0
 const inFlightSparqlRequests = new Map()
 
-const resolveAdaptiveReadMaxRetries = () => {
+const resolveAdaptiveReadRetryPolicy = () => {
   const warmWindowMs = Number.parseInt(process.env.SPARQL_WARM_WINDOW_MS || '60000', 10)
   const warmMaxRetries = Number.parseInt(process.env.SPARQL_WARM_MAX_RETRIES || '0', 10)
   const coldMaxRetries = Number.parseInt(process.env.SPARQL_COLD_MAX_RETRIES || '1', 10)
+  const ageSinceLastSuccessMs = Date.now() - lastSuccessfulSparqlAt
   const isWarm = Number.isFinite(warmWindowMs) && warmWindowMs > 0
-    ? (Date.now() - lastSuccessfulSparqlAt) < warmWindowMs
+    ? ageSinceLastSuccessMs < warmWindowMs
     : false
 
-  return isWarm ? warmMaxRetries : coldMaxRetries
+  return {
+    isWarm,
+    warmWindowMs,
+    warmMaxRetries,
+    coldMaxRetries,
+    ageSinceLastSuccessMs,
+    effectiveMaxRetries: isWarm ? warmMaxRetries : coldMaxRetries
+  }
 }
 
 export const sparqlRequest = async (props) => {
@@ -108,7 +116,8 @@ export const sparqlRequest = async (props) => {
     retryCount = 0,
     timeoutMs = Number.parseInt(process.env.SPARQL_REQUEST_TIMEOUT_MS || '0', 10) // Defaults 0 (no timeout)
   } = props
-  const effectiveMaxRetries = resolveAdaptiveReadMaxRetries()
+  const retryPolicy = resolveAdaptiveReadRetryPolicy()
+  const { effectiveMaxRetries } = retryPolicy
 
   let {
     body,
@@ -228,9 +237,7 @@ export const sparqlRequest = async (props) => {
     : null
 
   if (singleFlightKey && inFlightSparqlRequests.has(singleFlightKey)) {
-    if (process.env.LOG_IN_FLIGHT_REQUESTS === 'true') {
-      console.log(`[single-flight] Reusing in-flight sparqlRequest key=${singleFlightKey}`)
-    }
+    console.log(`[single-flight] Reusing in-flight sparqlRequest key=${singleFlightKey}`)
 
     return inFlightSparqlRequests.get(singleFlightKey)
   }
@@ -270,7 +277,19 @@ export const sparqlRequest = async (props) => {
 
       // Implement retry logic
       if (retryCount < effectiveMaxRetries) {
-        console.log(`Retrying request (attempt ${retryCount + 1} of ${effectiveMaxRetries})`)
+        console.log(
+          '[retry] Retrying SPARQL request'
+          + ` attempt=${retryCount + 1}/${effectiveMaxRetries}`
+          + ` isWarm=${retryPolicy.isWarm}`
+          + ` ageSinceLastSuccessMs=${retryPolicy.ageSinceLastSuccessMs}`
+          + ` warmWindowMs=${retryPolicy.warmWindowMs}`
+          + ` warmMaxRetries=${retryPolicy.warmMaxRetries}`
+          + ` coldMaxRetries=${retryPolicy.coldMaxRetries}`
+          + ` method=${method}`
+          + ` contentType=${contentType}`
+          + ` url=${url}`
+        )
+
         await delay(RETRY_DELAY)
 
         return sparqlRequest({

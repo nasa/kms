@@ -7,7 +7,6 @@ import { getCsvPaths } from './getCsvPaths'
 import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
 
 const inFlightCsvBySchemeVersion = new Map()
-const shouldLogInFlight = () => process.env.LOG_IN_FLIGHT_REQUESTS === 'true'
 
 export const resetCreateCsvForSchemeStateForTests = () => {
   inFlightCsvBySchemeVersion.clear()
@@ -33,9 +32,7 @@ export const createCsvForScheme = async ({
   })
   const inFlight = inFlightCsvBySchemeVersion.get(key)
   if (inFlight) {
-    if (shouldLogInFlight()) {
-      console.log(`[single-flight] Reusing in-flight createCsvForScheme request key=${key}`)
-    }
+    console.log(`[single-flight] Reusing in-flight createCsvForScheme request key=${key}`)
 
     return inFlight
   }
