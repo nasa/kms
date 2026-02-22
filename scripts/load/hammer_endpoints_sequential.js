@@ -36,6 +36,7 @@ const parseArgs = () => {
     basePath: '/kms',
     durationSeconds: 0,
     maxRequests: 500,
+    concurrentRequests: 100,
     timeoutSeconds: 30,
     sleepMs: 0,
     statusEvery: 200,
@@ -60,6 +61,9 @@ const parseArgs = () => {
       i += 1
     } else if (token === '--max-requests' && next) {
       args.maxRequests = Number(next)
+      i += 1
+    } else if (token === '--concurrent-requests' && next) {
+      args.concurrentRequests = Number(next)
       i += 1
     } else if (token === '--timeout-seconds' && next) {
       args.timeoutSeconds = Number(next)
@@ -176,10 +180,11 @@ const main = async () => {
   let exceptionCount = 0
   const start = Date.now()
   let nextPathIndex = 0
+  const workerCount = Math.max(1, Math.floor(args.concurrentRequests) || 1)
 
-  console.log('Starting sequential endpoint hammer')
+  console.log('Starting concurrent endpoint hammer')
   console.log(`baseUrl=${args.baseUrl} basePath=${basePath || '/'} timeoutSeconds=${args.timeoutSeconds}`)
-  console.log(`durationSeconds=${args.durationSeconds} maxRequests=${args.maxRequests}`)
+  console.log(`durationSeconds=${args.durationSeconds} maxRequests=${args.maxRequests} concurrentRequests=${workerCount}`)
   console.log(`uniqueUrls=${requestPaths.length}`)
 
   if (args.printUrls) {
@@ -196,6 +201,15 @@ const main = async () => {
     if (args.maxRequests > 0 && totalRequests >= args.maxRequests) return false
 
     return true
+  }
+
+  const getNextRequestPath = () => {
+    if (!shouldContinue()) return null
+
+    const requestPath = requestPaths[nextPathIndex]
+    nextPathIndex = (nextPathIndex + 1) % requestPaths.length
+
+    return requestPath
   }
 
   const callUntilSuccess = async (requestPath) => {
@@ -251,13 +265,12 @@ const main = async () => {
     }
   }
 
-  const runCycle = async () => {
-    if (!shouldContinue()) {
+  const runWorker = async () => {
+    const requestPath = getNextRequestPath()
+    if (!requestPath) {
       return
     }
 
-    const requestPath = requestPaths[nextPathIndex]
-    nextPathIndex = (nextPathIndex + 1) % requestPaths.length
     await callUntilSuccess(requestPath)
     if (args.statusEvery > 0 && totalRequests > 0 && totalRequests % args.statusEvery === 0) {
       const elapsedSeconds = Math.max((Date.now() - start) / 1000, 0.001)
@@ -272,10 +285,10 @@ const main = async () => {
       await sleep(args.sleepMs)
     }
 
-    await runCycle()
+    await runWorker()
   }
 
-  await runCycle()
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
 
   const elapsedSeconds = Math.max((Date.now() - start) / 1000, 0.001)
   const rps = totalRequests / elapsedSeconds
