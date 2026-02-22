@@ -111,9 +111,10 @@ export class KmsStack extends cdk.Stack {
 
     const cacheClusterSize = props.environment.KMS_CACHE_CLUSTER_SIZE_GB
 
-    const cacheMethodOptions = ApiCacheSetup.cacheMethodOptions(cacheTtl)
-
     const cacheClusterEnabled = props.environment.KMS_CACHE_CLUSTER_ENABLED !== 'false'
+    const cacheMethodOptions = cacheClusterEnabled
+      ? ApiCacheSetup.cacheMethodOptions(cacheTtl)
+      : undefined
 
     const accessLogGroupName = `/aws/apigateway/${prefix}-${stage}-access`
     const accessLogGroup = useLocalstack
@@ -191,7 +192,7 @@ export class KmsStack extends cdk.Stack {
             : {
               cacheClusterEnabled,
               cacheClusterSize,
-              methodOptions: cacheMethodOptions,
+              ...(cacheMethodOptions ? { methodOptions: cacheMethodOptions } : {}),
               ...accessLogOptions
             })
         },
@@ -256,7 +257,7 @@ export class KmsStack extends cdk.Stack {
           : {
             cacheClusterEnabled,
             cacheClusterSize,
-            methodOptions: cacheMethodOptions,
+            ...(cacheMethodOptions ? { methodOptions: cacheMethodOptions } : {}),
             ...accessLogOptions
           })
       })
@@ -281,7 +282,7 @@ export class KmsStack extends cdk.Stack {
     })
 
     // Configure API Gateway caching
-    if (existingApiId && !useLocalstack) {
+    if (existingApiId && !useLocalstack && cacheClusterEnabled) {
       ApiCacheSetup.configure(this, this.api)
     }
 
