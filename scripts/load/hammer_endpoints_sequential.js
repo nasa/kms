@@ -32,7 +32,7 @@ const normalizeBasePath = (value) => {
 
 const parseArgs = () => {
   const defaults = {
-    baseUrl: 'http://localhost:3013',
+    baseUrl: process.env.BASE_URL || 'http://localhost:3013',
     basePath: '/kms',
     durationSeconds: 0,
     maxRequests: 0,
@@ -41,7 +41,8 @@ const parseArgs = () => {
     seed: 42,
     statusEvery: 200,
     stopOnException: false,
-    insecure: false
+    insecure: false,
+    printUrls: false
   }
 
   const args = { ...defaults }
@@ -77,6 +78,8 @@ const parseArgs = () => {
       args.stopOnException = true
     } else if (token === '--insecure') {
       args.insecure = true
+    } else if (token === '--print-urls') {
+      args.printUrls = true
     }
   }
 
@@ -99,38 +102,26 @@ const createPrng = (seed) => {
 const pick = (items, rnd) => items[Math.floor(rnd() * items.length)]
 
 const createEndpoints = ({
-  uuids, prefLabels, schemes, rnd
+  prefLabels, schemes, rnd
 }) => {
   const endpoints = []
 
-  if (uuids.length > 0) {
-    endpoints.push({
-      name: '/concept/{conceptId}',
-      buildPath: () => `/concept/${pick(uuids, rnd)}`
-    })
-
-    endpoints.push({
-      name: '/concept_fullpaths/concept_uuid/{conceptId}',
-      buildPath: () => `/concept_fullpaths/concept_uuid/${pick(uuids, rnd)}`
-    })
-  }
-
   endpoints.push({
-    name: '/concepts',
-    buildPath: () => '/concepts'
+    name: '/concepts?format=json',
+    buildPath: () => '/concepts?format=json'
   })
 
   if (prefLabels.length > 0) {
     endpoints.push({
-      name: '/concepts/pattern/{pattern}',
-      buildPath: () => `/concepts/pattern/${encodePattern(pick(prefLabels, rnd))}`
+      name: '/concepts/pattern/{pattern}?format=json',
+      buildPath: () => `/concepts/pattern/${encodePattern(pick(prefLabels, rnd))}?format=json`
     })
   }
 
   if (schemes.length > 0) {
     endpoints.push({
-      name: '/concepts/concept_scheme/{conceptScheme}',
-      buildPath: () => `/concepts/concept_scheme/${encodeURIComponent(pick(schemes, rnd))}`
+      name: '/concepts/concept_scheme/{conceptScheme}?format=json',
+      buildPath: () => `/concepts/concept_scheme/${encodeURIComponent(pick(schemes, rnd))}?format=json`
     })
 
     endpoints.push({
@@ -138,11 +129,6 @@ const createEndpoints = ({
       buildPath: () => `/concepts/concept_scheme/${encodeURIComponent(pick(schemes, rnd))}?format=csv`
     })
   }
-
-  endpoints.push({
-    name: '/tree/concept_scheme/all',
-    buildPath: () => '/tree/concept_scheme/all'
-  })
 
   return endpoints
 }
@@ -203,12 +189,10 @@ const main = async () => {
   const parsed = new URL(args.baseUrl)
   const rnd = createPrng(args.seed)
 
-  const uuids = readLines('uuids.txt')
   const prefLabels = readLines('prefLabels.txt')
   const schemes = readLines('schemes.txt')
 
   const endpoints = createEndpoints({
-    uuids,
     prefLabels,
     schemes,
     rnd
@@ -229,7 +213,7 @@ const main = async () => {
   let exceptionCount = 0
   const start = Date.now()
 
-  console.log('Starting sequential endpoint hammer')
+  console.log('Starting async endpoint hammer')
   console.log(`baseUrl=${args.baseUrl} basePath=${basePath || '/'} timeoutSeconds=${args.timeoutSeconds}`)
   console.log(`durationSeconds=${args.durationSeconds} maxRequests=${args.maxRequests}`)
   console.log(`endpoints=${endpoints.length}`)
@@ -243,12 +227,14 @@ const main = async () => {
     return true
   }
 
-  while (shouldContinue()) {
+  const makeRequest = async () => {
     const endpoint = pick(endpoints, rnd)
     const requestPath = `${basePath}${endpoint.buildPath()}`
+    const fullUrl = new URL(requestPath, args.baseUrl).toString()
+
+    let resultMessage = ''
 
     try {
-      // eslint-disable-next-line no-await-in-loop
       const result = await sendRequest({
         protocol: parsed.protocol,
         hostname: parsed.hostname,
@@ -260,16 +246,29 @@ const main = async () => {
       totalRequests += 1
       totalBytes += result.bytes
       perEndpointCounts[endpoint.name] += 1
-      if (result.status >= 400) {
+      const isSuccessful = result.status < 400
+      resultMessage = `${isSuccessful ? 'Success' : 'Failure'} (Status: ${result.status})`
+      if (!isSuccessful) {
         errorStatusCounts[result.status] = (errorStatusCounts[result.status] || 0) + 1
       }
     } catch (error) {
       exceptionCount += 1
-      if (args.stopOnException) {
-        console.error(`Request exception on ${requestPath}: ${error.message || error}`)
-        break
-      }
+      resultMessage = `Failure (Exception: ${error.message || error})`
     }
+
+    if (args.printUrls) {
+      console.log(`Calling: ${fullUrl} - Result: ${resultMessage}`)
+    }
+
+    if (args.sleepMs > 0) {
+      await sleep(args.sleepMs)
+    }
+  }
+
+  const concurrentRequests = 100 // Adjust this number based on your needs
+  while (shouldContinue()) {
+    const requests = Array(concurrentRequests).fill().map(() => makeRequest())
+    await Promise.all(requests)
 
     if (args.statusEvery > 0 && totalRequests > 0 && totalRequests % args.statusEvery === 0) {
       const elapsedSeconds = Math.max((Date.now() - start) / 1000, 0.001)
@@ -278,11 +277,6 @@ const main = async () => {
         ? Object.entries(errorStatusCounts).map(([code, count]) => `${code}:${count}`).join(', ')
         : 'none'
       console.log(`progress requests=${totalRequests} rps=${rps.toFixed(2)} exceptions=${exceptionCount} httpErrors=${statusSummary}`)
-    }
-
-    if (args.sleepMs > 0) {
-      // eslint-disable-next-line no-await-in-loop
-      await sleep(args.sleepMs)
     }
   }
 
