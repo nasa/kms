@@ -35,14 +35,13 @@ const parseArgs = () => {
     baseUrl: process.env.BASE_URL || 'http://localhost:3013',
     basePath: '/kms',
     durationSeconds: 0,
-    maxRequests: 0,
+    maxRequests: 500,
     timeoutSeconds: 30,
     sleepMs: 0,
-    seed: 42,
     statusEvery: 200,
     stopOnException: false,
     insecure: false,
-    printUrls: false
+    printUrls: true
   }
 
   const args = { ...defaults }
@@ -68,9 +67,6 @@ const parseArgs = () => {
     } else if (token === '--sleep-ms' && next) {
       args.sleepMs = Number(next)
       i += 1
-    } else if (token === '--seed' && next) {
-      args.seed = Number(next)
-      i += 1
     } else if (token === '--status-every' && next) {
       args.statusEvery = Number(next)
       i += 1
@@ -86,51 +82,21 @@ const parseArgs = () => {
   return args
 }
 
-const createPrng = (seed) => {
-  let state = Number(seed)
-  if (!Number.isFinite(state)) state = 1
-  state = Math.floor(state) % 2147483647
-  if (state <= 0) state += 2147483646
+const createUniqueRequestPaths = ({ prefLabels, schemes }) => {
+  const paths = new Set()
+  paths.add('/concepts?format=json')
 
-  return () => {
-    state = (state * 16807) % 2147483647
-
-    return (state - 1) / 2147483646
-  }
-}
-
-const pick = (items, rnd) => items[Math.floor(rnd() * items.length)]
-
-const createEndpoints = ({
-  prefLabels, schemes, rnd
-}) => {
-  const endpoints = []
-
-  endpoints.push({
-    name: '/concepts?format=json',
-    buildPath: () => '/concepts?format=json'
+  prefLabels.forEach((pattern) => {
+    paths.add(`/concepts/pattern/${encodePattern(pattern)}?format=json`)
   })
 
-  if (prefLabels.length > 0) {
-    endpoints.push({
-      name: '/concepts/pattern/{pattern}?format=json',
-      buildPath: () => `/concepts/pattern/${encodePattern(pick(prefLabels, rnd))}?format=json`
-    })
-  }
+  schemes.forEach((scheme) => {
+    const encodedScheme = encodeURIComponent(scheme)
+    paths.add(`/concepts/concept_scheme/${encodedScheme}?format=json`)
+    paths.add(`/concepts/concept_scheme/${encodedScheme}?format=csv`)
+  })
 
-  if (schemes.length > 0) {
-    endpoints.push({
-      name: '/concepts/concept_scheme/{conceptScheme}?format=json',
-      buildPath: () => `/concepts/concept_scheme/${encodeURIComponent(pick(schemes, rnd))}?format=json`
-    })
-
-    endpoints.push({
-      name: '/concepts/concept_scheme/{conceptScheme}?format=csv',
-      buildPath: () => `/concepts/concept_scheme/${encodeURIComponent(pick(schemes, rnd))}?format=csv`
-    })
-  }
-
-  return endpoints
+  return Array.from(paths).sort((a, b) => a.localeCompare(b))
 }
 
 const sleep = (ms) => new Promise((resolve) => {
@@ -187,18 +153,16 @@ const sendRequest = async ({
 const main = async () => {
   const args = parseArgs()
   const parsed = new URL(args.baseUrl)
-  const rnd = createPrng(args.seed)
 
   const prefLabels = readLines('prefLabels.txt')
   const schemes = readLines('schemes.txt')
 
-  const endpoints = createEndpoints({
+  const requestPaths = createUniqueRequestPaths({
     prefLabels,
-    schemes,
-    rnd
+    schemes
   })
 
-  if (endpoints.length === 0) {
+  if (requestPaths.length === 0) {
     console.error('No endpoints to run. Check loadtest/locust/data files.')
     process.exit(1)
   }
@@ -206,17 +170,25 @@ const main = async () => {
   const basePath = normalizeBasePath(args.basePath)
   const timeoutMs = Math.max(1, Math.floor(args.timeoutSeconds * 1000))
 
-  const perEndpointCounts = Object.fromEntries(endpoints.map((endpoint) => [endpoint.name, 0]))
+  const perUrlCounts = Object.fromEntries(requestPaths.map((requestPath) => [requestPath, 0]))
   const errorStatusCounts = {}
   let totalRequests = 0
   let totalBytes = 0
   let exceptionCount = 0
   const start = Date.now()
+  let nextPathIndex = 0
 
-  console.log('Starting async endpoint hammer')
+  console.log('Starting sequential endpoint hammer')
   console.log(`baseUrl=${args.baseUrl} basePath=${basePath || '/'} timeoutSeconds=${args.timeoutSeconds}`)
   console.log(`durationSeconds=${args.durationSeconds} maxRequests=${args.maxRequests}`)
-  console.log(`endpoints=${endpoints.length}`)
+  console.log(`uniqueUrls=${requestPaths.length}`)
+
+  if (args.printUrls) {
+    console.log('Unique URL set:')
+    requestPaths.forEach((requestPath) => {
+      console.log(`  ${new URL(`${basePath}${requestPath}`, args.baseUrl).toString()}`)
+    })
+  }
 
   const shouldContinue = () => {
     const elapsedMs = Date.now() - start
@@ -227,49 +199,59 @@ const main = async () => {
     return true
   }
 
-  const makeRequest = async () => {
-    const endpoint = pick(endpoints, rnd)
-    const requestPath = `${basePath}${endpoint.buildPath()}`
-    const fullUrl = new URL(requestPath, args.baseUrl).toString()
-
-    let resultMessage = ''
-
+  const callUntilSuccess = async (requestPath) => {
+    const fullPath = `${basePath}${requestPath}`
+    const fullUrl = new URL(fullPath, args.baseUrl).toString()
     try {
       const result = await sendRequest({
         protocol: parsed.protocol,
         hostname: parsed.hostname,
         port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-        pathSuffix: requestPath,
+        pathSuffix: fullPath,
         timeoutMs,
         insecure: args.insecure
       })
+
       totalRequests += 1
       totalBytes += result.bytes
-      perEndpointCounts[endpoint.name] += 1
+      perUrlCounts[requestPath] += 1
       const isSuccessful = result.status < 400
-      resultMessage = `${isSuccessful ? 'Success' : 'Failure'} (Status: ${result.status})`
-      if (!isSuccessful) {
-        errorStatusCounts[result.status] = (errorStatusCounts[result.status] || 0) + 1
+      if (isSuccessful) {
+        if (args.printUrls) {
+          console.log(`Calling: ${fullUrl} - Result: Success (Status: ${result.status})`)
+        }
+
+        return
       }
+
+      errorStatusCounts[result.status] = (errorStatusCounts[result.status] || 0) + 1
+      if (args.printUrls) {
+        console.log(`Calling: ${fullUrl} - Result: Failure (Status: ${result.status}) - Retrying immediately`)
+      }
+
+      await callUntilSuccess(requestPath)
     } catch (error) {
       exceptionCount += 1
-      resultMessage = `Failure (Exception: ${error.message || error})`
-    }
+      if (args.printUrls) {
+        console.log(`Calling: ${fullUrl} - Result: Failure (Exception: ${error.message || error}) - Retrying immediately`)
+      }
 
-    if (args.printUrls) {
-      console.log(`Calling: ${fullUrl} - Result: ${resultMessage}`)
-    }
+      if (args.stopOnException) {
+        throw error
+      }
 
-    if (args.sleepMs > 0) {
-      await sleep(args.sleepMs)
+      await callUntilSuccess(requestPath)
     }
   }
 
-  const concurrentRequests = 100 // Adjust this number based on your needs
-  while (shouldContinue()) {
-    const requests = Array(concurrentRequests).fill().map(() => makeRequest())
-    await Promise.all(requests)
+  const runCycle = async () => {
+    if (!shouldContinue()) {
+      return
+    }
 
+    const requestPath = requestPaths[nextPathIndex]
+    nextPathIndex = (nextPathIndex + 1) % requestPaths.length
+    await callUntilSuccess(requestPath)
     if (args.statusEvery > 0 && totalRequests > 0 && totalRequests % args.statusEvery === 0) {
       const elapsedSeconds = Math.max((Date.now() - start) / 1000, 0.001)
       const rps = totalRequests / elapsedSeconds
@@ -278,7 +260,15 @@ const main = async () => {
         : 'none'
       console.log(`progress requests=${totalRequests} rps=${rps.toFixed(2)} exceptions=${exceptionCount} httpErrors=${statusSummary}`)
     }
+
+    if (args.sleepMs > 0) {
+      await sleep(args.sleepMs)
+    }
+
+    await runCycle()
   }
+
+  await runCycle()
 
   const elapsedSeconds = Math.max((Date.now() - start) / 1000, 0.001)
   const rps = totalRequests / elapsedSeconds
@@ -293,11 +283,11 @@ const main = async () => {
       })
   }
 
-  console.log('endpointCounts:')
-  Object.entries(perEndpointCounts)
+  console.log('urlCounts:')
+  Object.entries(perUrlCounts)
     .sort(([a], [b]) => a.localeCompare(b))
-    .forEach(([name, count]) => {
-      console.log(`  ${name}: ${count}`)
+    .forEach(([requestPath, count]) => {
+      console.log(`  ${requestPath}: ${count}`)
     })
 }
 
