@@ -7,7 +7,7 @@ const http = require('node:http')
 const https = require('node:https')
 const path = require('node:path')
 
-const dataDir = path.resolve(__dirname, '../../locust/data')
+const dataDir = path.resolve(__dirname, '../../loadtest/locust/data')
 
 const readLines = (fileName) => {
   const filePath = path.join(dataDir, fileName)
@@ -215,7 +215,7 @@ const main = async () => {
   })
 
   if (endpoints.length === 0) {
-    console.error('No endpoints to run. Check locust/data files.')
+    console.error('No endpoints to run. Check loadtest/locust/data files.')
     process.exit(1)
   }
 

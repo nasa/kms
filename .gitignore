@@ -34,4 +34,10 @@ data/mongo-spike/**/*.ndjson
 data/mongo-spike/**/*.xml
 data/mongo-spike/**/*.rdf
 scripts/spike-express/file.rdf
-locust
+loadtest/locust/.DS_Store
+loadtest/locust/**/__pycache__/
+loadtest/locust/**/*.pyc
+loadtest/locust/**/results*.csv
+loadtest/locust/**/locust_results.csv
+loadtest/locust/**/summary.csv
+loadtest/locust/**/summary.csv~
