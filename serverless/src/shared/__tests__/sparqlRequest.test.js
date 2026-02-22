@@ -9,13 +9,14 @@ import {
 
 import { delay } from '@/shared/delay'
 
-import { sparqlRequest } from '../sparqlRequest'
+import { resetSparqlRequestStateForTests, sparqlRequest } from '../sparqlRequest'
 
 global.fetch = vi.fn()
 
 describe('sparqlRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetSparqlRequestStateForTests()
     vi.mock('@/shared/delay', () => ({
       delay: vi.fn(() => Promise.resolve())
     }))
@@ -32,6 +33,10 @@ describe('sparqlRequest', () => {
     delete process.env.RDF4J_SERVICE_URL
     delete process.env.RDF4J_USER_NAME
     delete process.env.RDF4J_PASSWORD
+    delete process.env.SPARQL_WARM_WINDOW_MS
+    delete process.env.SPARQL_WARM_MAX_RETRIES
+    delete process.env.SPARQL_COLD_MAX_RETRIES
+    delete process.env.LOG_IN_FLIGHT_REQUESTS
   })
 
   describe('when successful', () => {
@@ -201,6 +206,71 @@ describe('sparqlRequest', () => {
       )
     })
 
+    test('should attach abort signal when timeout is provided', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      await sparqlRequest({
+        method: 'GET',
+        timeoutMs: 5
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          signal: expect.any(Object)
+        })
+      )
+    })
+
+    test('should clear timeout on successful request when timeout is provided', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
+      global.fetch.mockResolvedValue(mockResponse)
+
+      await sparqlRequest({
+        method: 'GET',
+        timeoutMs: 5
+      })
+
+      expect(clearTimeoutSpy).toHaveBeenCalled()
+    })
+
+    test('should reuse in-flight SPARQL query request with the same key', async () => {
+      process.env.LOG_IN_FLIGHT_REQUESTS = 'true'
+      let release
+      const hold = new Promise((resolve) => {
+        release = resolve
+      })
+      global.fetch.mockImplementation(() => hold.then(() => ({
+        ok: true,
+        json: () => Promise.resolve({ results: { bindings: [] } })
+      })))
+
+      const request = {
+        method: 'POST',
+        body: 'SELECT * WHERE { ?s ?p ?o }',
+        contentType: 'application/sparql-query',
+        accept: 'application/sparql-results+json',
+        version: 'draft'
+      }
+      const first = sparqlRequest(request)
+      const second = sparqlRequest(request)
+
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[single-flight] Reusing in-flight sparqlRequest key='))
+
+      release()
+      const [firstResult, secondResult] = await Promise.all([first, second])
+      expect(firstResult).toEqual(secondResult)
+    })
+
     test('should use default endpoint URL if RDF4J_SERVICE_URL is not set', async () => {
       delete process.env.RDF4J_SERVICE_URL
       const mockResponse = {
@@ -299,9 +369,23 @@ describe('sparqlRequest', () => {
 
   describe('when unsuccessful', () => {
     test('should throw an error if fetch fails', async () => {
+      process.env.SPARQL_COLD_MAX_RETRIES = '0'
       global.fetch.mockRejectedValue(new Error('Network error'))
 
       await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Network error')
+    })
+
+    test('should clear timeout when request fails with timeout enabled', async () => {
+      process.env.SPARQL_COLD_MAX_RETRIES = '0'
+      const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
+      global.fetch.mockRejectedValue(new Error('Network error'))
+
+      await expect(sparqlRequest({
+        method: 'GET',
+        timeoutMs: 5
+      })).rejects.toThrow('Network error')
+
+      expect(clearTimeoutSpy).toHaveBeenCalled()
     })
 
     test('should throw an error if response is not OK', async () => {
@@ -319,11 +403,12 @@ describe('sparqlRequest', () => {
         contentType: 'application/sparql-query'
       })).rejects.toThrow('HTTP error! status: 400, body: Invalid SPARQL query')
 
-      expect(global.fetch).toHaveBeenCalledTimes(11) // 10 retries
+      expect(global.fetch).toHaveBeenCalledTimes(2) // Initial + 1 cold retry by default
     })
 
     describe('when retrying', () => {
       test('should handle retrying by fetching multiple times', async () => {
+        process.env.SPARQL_COLD_MAX_RETRIES = '2'
         global.fetch
           .mockRejectedValueOnce(new Error('Network error'))
           .mockRejectedValueOnce(new Error('Network error'))
@@ -339,14 +424,50 @@ describe('sparqlRequest', () => {
         expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
       })
 
-      test('should retry MAX_RETRIES times and then throw an error', async () => {
+      test('should retry using cold adaptive retry count and then throw an error', async () => {
+        process.env.SPARQL_COLD_MAX_RETRIES = '10'
         global.fetch.mockRejectedValue(new Error('Persistent network error'))
 
         await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Persistent network error')
 
-        expect(global.fetch).toHaveBeenCalledTimes(11) // Initial attempt + MAX_RETRIES (10)
+        expect(global.fetch).toHaveBeenCalledTimes(11) // Initial attempt + cold retries (10)
         expect(delay).toHaveBeenCalledTimes(10) // Called for each retry
         expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
+      })
+
+      test('should use cold adaptive retry policy before any successful request', async () => {
+        process.env.SPARQL_WARM_WINDOW_MS = '60000'
+        process.env.SPARQL_WARM_MAX_RETRIES = '0'
+        process.env.SPARQL_COLD_MAX_RETRIES = '1'
+        global.fetch.mockRejectedValue(new Error('Cold error'))
+
+        await expect(sparqlRequest({
+          method: 'GET'
+        })).rejects.toThrow('Cold error')
+
+        expect(global.fetch).toHaveBeenCalledTimes(2) // Initial + 1 cold retry
+      })
+
+      test('should use warm adaptive retry policy after a successful request', async () => {
+        process.env.SPARQL_WARM_WINDOW_MS = '60000'
+        process.env.SPARQL_WARM_MAX_RETRIES = '0'
+        process.env.SPARQL_COLD_MAX_RETRIES = '1'
+        global.fetch.mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({})
+        })
+
+        await sparqlRequest({
+          method: 'GET'
+        })
+
+        global.fetch.mockRejectedValue(new Error('Warm error'))
+        await expect(sparqlRequest({
+          method: 'GET'
+        })).rejects.toThrow('Warm error')
+
+        // 1 successful call, then one failed warm call with no retry.
+        expect(global.fetch).toHaveBeenCalledTimes(2)
       })
     })
   })

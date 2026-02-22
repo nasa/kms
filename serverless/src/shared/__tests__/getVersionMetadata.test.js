@@ -53,7 +53,8 @@ describe('getVersionMetadata', () => {
         body: expect.stringContaining('SELECT ?versionType ?versionName ?created ?lastSynced'),
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
-        version: '1.0'
+        version: '1.0',
+        timeoutMs: 8000
       })
     })
 
@@ -101,6 +102,7 @@ describe('getVersionMetadata', () => {
 
       expect(result).toBeNull()
     })
+
   })
 
   describe('when an error occurs', () => {

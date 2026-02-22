@@ -68,7 +68,9 @@ export const getFilteredTriples = async ({
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: query,
-      version
+      version,
+      // For high-volume read endpoints, fail fast to avoid cascading retries/timeouts.
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '8000', 10)
     })
 
     if (!response.ok) {

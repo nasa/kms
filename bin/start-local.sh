@@ -12,6 +12,12 @@ trap cleanup SIGINT
 # Set environment variables for local development
 export RDF4J_SERVICE_URL=http://rdf4j-server:8080
 SAM_WARM_CONTAINERS=${SAM_WARM_CONTAINERS:-EAGER}
+SAM_LOCAL_WATCH=${SAM_LOCAL_WATCH:-false}
+
+SAM_WATCH_ARGS=()
+if [ "$SAM_LOCAL_WATCH" = "true" ]; then
+  SAM_WATCH_ARGS+=(--beta-features --watch)
+fi
 
 # Synthesize the CDK stack
 cd cdk
@@ -23,7 +29,8 @@ sam local start-api \
   --warm-containers "${SAM_WARM_CONTAINERS}" \
   --port 3013 \
   --docker-network kms-network \
-  --env-vars env.json
+  --env-vars env.json \
+  "${SAM_WATCH_ARGS[@]}"
 
 # Wait for the SAM process
 wait $!

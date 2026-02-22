@@ -6,7 +6,7 @@ import {
 } from 'vitest'
 
 import { createCsv } from '../createCsv'
-import { createCsvForScheme } from '../createCsvForScheme'
+import { createCsvForScheme, resetCreateCsvForSchemeStateForTests } from '../createCsvForScheme'
 import { createCsvMetadata } from '../createCsvMetadata'
 import { generateCsvHeaders } from '../generateCsvHeaders'
 import { getApplicationConfig } from '../getConfig'
@@ -28,6 +28,8 @@ describe('createCsvForScheme', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     vi.resetAllMocks()
+    resetCreateCsvForSchemeStateForTests()
+    delete process.env.LOG_IN_FLIGHT_REQUESTS
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(createCsvMetadata).mockReturnValue(['mocked metadata'])
   })
@@ -305,5 +307,47 @@ describe('createCsvForScheme', () => {
       scheme,
       versionCreationDate: 'N/A'
     })
+  })
+
+  test('should reuse in-flight request for same scheme and version', async () => {
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    process.env.LOG_IN_FLIGHT_REQUESTS = 'true'
+
+    const scheme = 'testScheme'
+    const version = 'draft'
+    const versionName = 'Test Version'
+    const versionCreationDate = '2023-01-01'
+    const mockDefaultHeaders = { 'Default-Header': 'value' }
+
+    let release
+    const hold = new Promise((resolve) => {
+      release = resolve
+    })
+
+    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
+    createCsvMetadata.mockReturnValue({ some: 'metadata' })
+    getCsvHeaders.mockResolvedValue(['Header1'])
+    getCsvPaths.mockImplementation(() => hold.then(() => [['A']]))
+    createCsv.mockResolvedValue('csv,content')
+
+    const first = createCsvForScheme({
+      scheme,
+      version,
+      versionName,
+      versionCreationDate
+    })
+    const second = createCsvForScheme({
+      scheme,
+      version,
+      versionName,
+      versionCreationDate
+    })
+
+    expect(getCsvHeaders).toHaveBeenCalledTimes(1)
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('[single-flight] Reusing in-flight createCsvForScheme request'))
+
+    release()
+    const [firstResult, secondResult] = await Promise.all([first, second])
+    expect(firstResult).toEqual(secondResult)
   })
 })

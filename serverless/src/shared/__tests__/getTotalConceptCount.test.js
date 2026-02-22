@@ -60,4 +60,5 @@ describe('when fetching count', () => {
       version: 'published'
     })).rejects.toThrow('HTTP error! status: 500')
   })
+
 })

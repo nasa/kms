@@ -57,7 +57,8 @@ export const getNarrowersMap = async (scheme, version) => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: getNarrowerConceptsQuery(scheme),
-      version
+      version,
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '8000', 10)
     })
 
     // Check if the response is successful

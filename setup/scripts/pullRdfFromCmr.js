@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 
-const fs = require('fs')
-const path = require('path')
-
+const fs = require('node:fs')
+const path = require('node:path')
 const { XMLBuilder, XMLParser } = require('fast-xml-parser')
 
 const DEFAULT_PAGE_SIZE = Number(process.env.CMR_PAGE_SIZE || '2000')
@@ -83,7 +82,8 @@ const downloadConceptsForVersion = async (version) => {
 
   const metadata = firstRdf['gcmd:gcmd']
   const concepts = [...asArray(firstRdf['skos:Concept'])]
-  for (let pageNum = 2; pageNum <= totalPages; pageNum += 1) {
+  const pageNumbers = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => index + 2)
+  const pageConceptSets = await Promise.all(pageNumbers.map(async (pageNum) => {
     const pageUrl = buildPageUrl(version, pageNum, DEFAULT_PAGE_SIZE)
     console.log(`[${version}] downloading page ${pageNum}/${totalPages}`)
     const response = await fetch(pageUrl)
@@ -94,8 +94,10 @@ const downloadConceptsForVersion = async (version) => {
     const body = await response.text()
     const parsed = parser.parse(body)
     const rdf = parsed?.['rdf:RDF']
-    concepts.push(...asArray(rdf?.['skos:Concept']))
-  }
+
+    return asArray(rdf?.['skos:Concept'])
+  }))
+  concepts.push(...pageConceptSets.flat())
 
   const merged = {
     'rdf:RDF': {
@@ -197,8 +199,7 @@ const downloadVersionMetadata = async (version) => {
 const main = async () => {
   fs.mkdirSync(DEFAULT_OUT_DIR, { recursive: true })
   const versions = ['published', 'draft']
-
-  for (const version of versions) {
+  const processVersion = async (version) => {
     console.log(`[${version}] Pulling concepts from CMR`)
     const result = await downloadConceptsForVersion(version)
     const outputFile = path.join(DEFAULT_OUT_DIR, `concepts_${version}.rdf`)
@@ -221,11 +222,14 @@ const main = async () => {
         'dcterms:modified': versionMetadata.created
       } : {})
     }
+
     const schemesXmlWithVersion = builder.build({ 'rdf:RDF': schemeRdf })
     const schemesFile = path.join(DEFAULT_OUT_DIR, `schemes_${version}.rdf`)
     fs.writeFileSync(schemesFile, `${schemesXmlWithVersion.trim()}\n`, 'utf8')
     console.log(`[${version}] wrote ${schemesFile}`)
   }
+
+  await Promise.all(versions.map(processVersion))
 }
 
 main().catch((error) => {

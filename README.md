@@ -32,6 +32,11 @@ To start local server (including rdf4j database server, cdk synth and sam)
 npm run start-local
 ```
 
+To run local server with SAM watch mode enabled
+```
+npm run start-local:watch
+```
+
 ## Local Testing
 
 To run the test suite, run:
@@ -54,7 +59,7 @@ npm run rdf4j:build
 ```
 #### Create a docker network
 ```
-npm run create-network
+npm run rdf4j:create-network
 ```
 #### Run the docker image
 ```

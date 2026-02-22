@@ -42,7 +42,8 @@ describe('getFilteredTriples', () => {
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         body: 'MOCK_CONCEPTS_QUERY',
-        version: 'published'
+        version: 'published',
+        timeoutMs: 8000
       })
     })
 
@@ -86,6 +87,7 @@ describe('getFilteredTriples', () => {
 
       expect(result).toEqual(mockBindings)
     })
+
   })
 
   describe('when unsuccessful', () => {

@@ -28,7 +28,8 @@ export const createPrefLabelMap = async (version) => {
       body: getConceptIdAndPrefLabelQuery(),
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
-      version
+      version,
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '8000', 10)
     })
 
     if (!response.ok) {

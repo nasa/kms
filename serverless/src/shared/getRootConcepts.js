@@ -48,7 +48,8 @@ export const getRootConcepts = async (version) => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: getRootConceptsQuery(),
-      version
+      version,
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '8000', 10)
     })
 
     if (!response.ok) {

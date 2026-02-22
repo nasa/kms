@@ -60,7 +60,8 @@ export const getCsvHeaders = async (scheme, version) => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: getConceptSchemeDetailsQuery(scheme),
-      version
+      version,
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '8000', 10)
     })
 
     // Check if the response is successful
