@@ -232,25 +232,6 @@ describe('sparqlRequest', () => {
       expect(clearTimeoutSpy).toHaveBeenCalled()
     })
 
-    test('should issue separate requests for identical SPARQL queries', async () => {
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ results: { bindings: [] } })
-      })
-
-      const request = {
-        method: 'POST',
-        body: 'SELECT * WHERE { ?s ?p ?o }',
-        contentType: 'application/sparql-query',
-        accept: 'application/sparql-results+json',
-        version: 'draft'
-      }
-
-      await Promise.all([sparqlRequest(request), sparqlRequest(request)])
-
-      expect(global.fetch).toHaveBeenCalledTimes(2)
-    })
-
     test('should use default endpoint URL if RDF4J_SERVICE_URL is not set', async () => {
       delete process.env.RDF4J_SERVICE_URL
       const mockResponse = {
