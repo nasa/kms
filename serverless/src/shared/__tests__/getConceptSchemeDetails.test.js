@@ -164,7 +164,6 @@ describe('getConceptSchemeDetails', () => {
 
       expect(result).toBeNull()
     })
-
   })
 
   describe('when unsuccessful', () => {

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /* eslint-disable no-console */
 
 const fs = require('node:fs')
 const path = require('node:path')
+
 const { XMLBuilder, XMLParser } = require('fast-xml-parser')
 
 const DEFAULT_PAGE_SIZE = Number(process.env.CMR_PAGE_SIZE || '2000')

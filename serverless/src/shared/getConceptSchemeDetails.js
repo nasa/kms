@@ -53,7 +53,7 @@ export const getConceptSchemeDetails = async ({
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       version,
-      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '30000', 10)
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '25000', 10)
     })
 
     if (!response.ok) {

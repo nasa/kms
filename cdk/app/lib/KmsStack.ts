@@ -30,6 +30,8 @@ export interface KmsStackProps extends cdk.StackProps {
     KMS_CACHE_CLUSTER_ENABLED?: string
     KMS_CACHE_CLUSTER_SIZE_GB?: string
     KMS_CACHE_TTL_SECONDS?: string
+    KMS_CONCEPTS_THROTTLE_BURST_LIMIT?: string
+    KMS_CONCEPTS_THROTTLE_RATE_LIMIT?: string
     LOG_LEVEL: string
     RDF_BUCKET_NAME: string
     RDF4J_PASSWORD: string
@@ -115,6 +117,20 @@ export class KmsStack extends cdk.Stack {
     const cacheMethodOptions = cacheClusterEnabled
       ? ApiCacheSetup.cacheMethodOptions(cacheTtl)
       : undefined
+
+    const throttleRate = Number(props.environment.KMS_CONCEPTS_THROTTLE_RATE_LIMIT || '8')
+    const throttleBurst = Number(props.environment.KMS_CONCEPTS_THROTTLE_BURST_LIMIT || '12')
+    const throttleMethodOptions = Number.isFinite(throttleRate)
+      && Number.isFinite(throttleBurst)
+      && throttleRate > 0
+      && throttleBurst > 0
+      ? ApiCacheSetup.throttleMethodOptions(throttleRate, throttleBurst)
+      : undefined
+
+    const methodOptions = ApiCacheSetup.mergeMethodOptions(
+      cacheMethodOptions,
+      throttleMethodOptions
+    )
     const cacheStageOptions = cacheClusterEnabled
       ? {
         cacheClusterEnabled: true,
@@ -197,7 +213,7 @@ export class KmsStack extends cdk.Stack {
             ? {}
             : {
               ...cacheStageOptions,
-              ...(cacheMethodOptions ? { methodOptions: cacheMethodOptions } : {}),
+              ...(methodOptions ? { methodOptions } : {}),
               ...accessLogOptions
             })
         },
@@ -261,7 +277,7 @@ export class KmsStack extends cdk.Stack {
           ? {}
           : {
             ...cacheStageOptions,
-            ...(cacheMethodOptions ? { methodOptions: cacheMethodOptions } : {}),
+            ...(methodOptions ? { methodOptions } : {}),
             ...accessLogOptions
           })
       })

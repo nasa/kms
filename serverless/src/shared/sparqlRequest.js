@@ -113,7 +113,7 @@ export const sparqlRequest = async (props) => {
     transaction = {},
     version,
     retryCount = 0,
-    timeoutMs = Number.parseInt(process.env.SPARQL_REQUEST_TIMEOUT_MS || '0', 10) // Defaults 0 (no timeout)
+    timeoutMs = Number.parseInt(process.env.SPARQL_REQUEST_TIMEOUT_MS || '25000', 10)
   } = props
 
   let {

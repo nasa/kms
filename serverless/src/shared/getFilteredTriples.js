@@ -70,7 +70,7 @@ export const getFilteredTriples = async ({
       body: query,
       version,
       // For high-volume read endpoints, fail fast to avoid cascading retries/timeouts.
-      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '30000', 10)
+      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '25000', 10)
     })
 
     if (!response.ok) {

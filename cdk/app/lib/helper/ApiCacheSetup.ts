@@ -6,18 +6,18 @@ import { Construct } from 'constructs'
  * Helper class to configure API Gateway caching for multiple endpoints
  */
 export class ApiCacheSetup {
+  private static readonly conceptsMethodPaths = [
+    '/concepts/GET',
+    '/concepts/concept_scheme/{conceptScheme}/GET',
+    '/concepts/concept_scheme/{conceptScheme}/pattern/{pattern}/GET',
+    '/concepts/pattern/{pattern}/GET'
+  ]
+
   public static cacheMethodOptions(
     cacheTtl: cdk.Duration
   ): { [path: string]: apigateway.MethodDeploymentOptions } {
-    const cachePaths = [
-      '/concepts/GET',
-      '/concepts/concept_scheme/{conceptScheme}/GET',
-      '/concepts/concept_scheme/{conceptScheme}/pattern/{pattern}/GET',
-      '/concepts/pattern/{pattern}/GET'
-    ]
-
     return Object.fromEntries(
-      cachePaths.map((path) => [
+      this.conceptsMethodPaths.map((path) => [
         path,
         {
           cachingEnabled: true,
@@ -25,6 +25,40 @@ export class ApiCacheSetup {
         }
       ])
     ) as { [path: string]: apigateway.MethodDeploymentOptions }
+  }
+
+  public static throttleMethodOptions(
+    throttlingRateLimit: number,
+    throttlingBurstLimit: number
+  ): { [path: string]: apigateway.MethodDeploymentOptions } {
+    return Object.fromEntries(
+      this.conceptsMethodPaths.map((path) => [
+        path,
+        {
+          throttlingRateLimit,
+          throttlingBurstLimit
+        }
+      ])
+    ) as { [path: string]: apigateway.MethodDeploymentOptions }
+  }
+
+  public static mergeMethodOptions(
+    ...options: Array<{ [path: string]: apigateway.MethodDeploymentOptions } | undefined>
+  ): { [path: string]: apigateway.MethodDeploymentOptions } | undefined {
+    const merged = options.reduce((acc, optionSet) => {
+      if (!optionSet) return acc
+
+      Object.entries(optionSet).forEach(([path, option]) => {
+        acc[path] = {
+          ...(acc[path] || {}),
+          ...option
+        }
+      })
+
+      return acc
+    }, {} as { [path: string]: apigateway.MethodDeploymentOptions })
+
+    return Object.keys(merged).length ? merged : undefined
   }
 
   /**

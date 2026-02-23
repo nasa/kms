@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
@@ -25,7 +26,11 @@ const sleep = (ms) => new Promise((resolve) => {
 })
 
 const waitForServer = async () => {
-  for (let attempt = 1; attempt <= serverCheckAttempts; attempt += 1) {
+  const checkAttempt = async (attempt) => {
+    if (attempt > serverCheckAttempts) {
+      throw new Error(`RDF4J server not ready after ${serverCheckAttempts} attempts`)
+    }
+
     try {
       console.log(`Checking RDF4J server (${attempt}/${serverCheckAttempts}) at ${baseUrl}`)
       const response = await fetch(`${baseUrl}/protocol`, {
@@ -42,9 +47,11 @@ const waitForServer = async () => {
     }
 
     await sleep(serverCheckDelayMs)
+
+    await checkAttempt(attempt + 1)
   }
 
-  throw new Error(`RDF4J server not ready after ${serverCheckAttempts} attempts`)
+  await checkAttempt(1)
 }
 
 const recreateRepository = async () => {
