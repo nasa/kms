@@ -33,10 +33,6 @@ interface LambdaFunctionsProps {
     RDF4J_PASSWORD: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
-    SPARQL_COLD_MAX_RETRIES?: string;
-    SPARQL_REQUEST_TIMEOUT_MS?: string;
-    SPARQL_WARM_MAX_RETRIES?: string;
-    SPARQL_WARM_WINDOW_MS?: string;
   };
 }
 

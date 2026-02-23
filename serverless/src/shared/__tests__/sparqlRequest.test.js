@@ -33,9 +33,6 @@ describe('sparqlRequest', () => {
     delete process.env.RDF4J_SERVICE_URL
     delete process.env.RDF4J_USER_NAME
     delete process.env.RDF4J_PASSWORD
-    delete process.env.SPARQL_WARM_WINDOW_MS
-    delete process.env.SPARQL_WARM_MAX_RETRIES
-    delete process.env.SPARQL_COLD_MAX_RETRIES
   })
 
   describe('when successful', () => {
@@ -175,7 +172,7 @@ describe('sparqlRequest', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://test-server.com/rdf4j-server/repositories/kms',
-        {
+        expect.objectContaining({
           method: 'POST',
           headers: {
             'Content-Type': 'application/sparql-query',
@@ -183,7 +180,7 @@ describe('sparqlRequest', () => {
             Authorization: 'Basic dGVzdHVzZXI6dGVzdHBhc3M='
           },
           body: 'SELECT * FROM <https://gcmd.earthdata.nasa.gov/kms/version/draft> WHERE { ?s ?p ?o }'
-        }
+        })
       )
     })
 
@@ -358,14 +355,12 @@ describe('sparqlRequest', () => {
 
   describe('when unsuccessful', () => {
     test('should throw an error if fetch fails', async () => {
-      process.env.SPARQL_COLD_MAX_RETRIES = '0'
       global.fetch.mockRejectedValue(new Error('Network error'))
 
       await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Network error')
     })
 
     test('should clear timeout when request fails with timeout enabled', async () => {
-      process.env.SPARQL_COLD_MAX_RETRIES = '0'
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
       global.fetch.mockRejectedValue(new Error('Network error'))
 
@@ -397,9 +392,7 @@ describe('sparqlRequest', () => {
 
     describe('when retrying', () => {
       test('should handle retrying by fetching multiple times', async () => {
-        process.env.SPARQL_COLD_MAX_RETRIES = '2'
         global.fetch
-          .mockRejectedValueOnce(new Error('Network error'))
           .mockRejectedValueOnce(new Error('Network error'))
           .mockResolvedValueOnce({
             ok: true,
@@ -408,26 +401,22 @@ describe('sparqlRequest', () => {
 
         await expect(sparqlRequest({ method: 'GET' })).resolves.toBeDefined()
 
-        expect(global.fetch).toHaveBeenCalledTimes(3)
-        expect(delay).toHaveBeenCalledTimes(2)
+        expect(global.fetch).toHaveBeenCalledTimes(2)
+        expect(delay).toHaveBeenCalledTimes(1)
         expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
       })
 
       test('should retry using cold adaptive retry count and then throw an error', async () => {
-        process.env.SPARQL_COLD_MAX_RETRIES = '10'
         global.fetch.mockRejectedValue(new Error('Persistent network error'))
 
         await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Persistent network error')
 
-        expect(global.fetch).toHaveBeenCalledTimes(11) // Initial attempt + cold retries (10)
-        expect(delay).toHaveBeenCalledTimes(10) // Called for each retry
+        expect(global.fetch).toHaveBeenCalledTimes(2) // Initial attempt + cold retry (1)
+        expect(delay).toHaveBeenCalledTimes(1) // Called for retry
         expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
       })
 
       test('should use cold adaptive retry policy before any successful request', async () => {
-        process.env.SPARQL_WARM_WINDOW_MS = '60000'
-        process.env.SPARQL_WARM_MAX_RETRIES = '0'
-        process.env.SPARQL_COLD_MAX_RETRIES = '1'
         global.fetch.mockRejectedValue(new Error('Cold error'))
 
         await expect(sparqlRequest({
@@ -438,9 +427,6 @@ describe('sparqlRequest', () => {
       })
 
       test('should use warm adaptive retry policy after a successful request', async () => {
-        process.env.SPARQL_WARM_WINDOW_MS = '60000'
-        process.env.SPARQL_WARM_MAX_RETRIES = '0'
-        process.env.SPARQL_COLD_MAX_RETRIES = '1'
         global.fetch.mockResolvedValueOnce({
           ok: true,
           json: () => Promise.resolve({})

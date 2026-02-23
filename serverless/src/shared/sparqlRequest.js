@@ -84,24 +84,25 @@ import { delay } from '@/shared/delay'
  * {@link addWithClause}
  */
 const RETRY_DELAY = 1000 // 1 second
+const SPARQL_REQUEST_TIMEOUT_MS = 25000
+const SPARQL_WARM_WINDOW_MS = 60000
+const SPARQL_WARM_MAX_RETRIES = 0
+const SPARQL_COLD_MAX_RETRIES = 1
 let lastSuccessfulSparqlAt = 0
 
 const resolveAdaptiveReadRetryPolicy = () => {
-  const warmWindowMs = Number.parseInt(process.env.SPARQL_WARM_WINDOW_MS || '60000', 10)
-  const warmMaxRetries = Number.parseInt(process.env.SPARQL_WARM_MAX_RETRIES || '0', 10)
-  const coldMaxRetries = Number.parseInt(process.env.SPARQL_COLD_MAX_RETRIES || '1', 10)
   const ageSinceLastSuccessMs = Date.now() - lastSuccessfulSparqlAt
-  const isWarm = Number.isFinite(warmWindowMs) && warmWindowMs > 0
-    ? ageSinceLastSuccessMs < warmWindowMs
+  const isWarm = Number.isFinite(SPARQL_WARM_WINDOW_MS) && SPARQL_WARM_WINDOW_MS > 0
+    ? ageSinceLastSuccessMs < SPARQL_WARM_WINDOW_MS
     : false
 
   return {
     isWarm,
-    warmWindowMs,
-    warmMaxRetries,
-    coldMaxRetries,
+    warmWindowMs: SPARQL_WARM_WINDOW_MS,
+    warmMaxRetries: SPARQL_WARM_MAX_RETRIES,
+    coldMaxRetries: SPARQL_COLD_MAX_RETRIES,
     ageSinceLastSuccessMs,
-    effectiveMaxRetries: isWarm ? warmMaxRetries : coldMaxRetries
+    effectiveMaxRetries: isWarm ? SPARQL_WARM_MAX_RETRIES : SPARQL_COLD_MAX_RETRIES
   }
 }
 
@@ -113,7 +114,7 @@ export const sparqlRequest = async (props) => {
     transaction = {},
     version,
     retryCount = 0,
-    timeoutMs = Number.parseInt(process.env.SPARQL_REQUEST_TIMEOUT_MS || '25000', 10)
+    timeoutMs = SPARQL_REQUEST_TIMEOUT_MS
   } = props
 
   let {
