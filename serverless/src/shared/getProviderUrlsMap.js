@@ -32,8 +32,7 @@ export const getProviderUrlsMap = async (scheme, version) => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: getProviderUrlsQuery(scheme),
-      version,
-      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '25000', 10)
+      version
     })
 
     // Check if the response is successful

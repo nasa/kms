@@ -51,8 +51,7 @@ export const getTotalConceptCount = async ({ conceptScheme, pattern, version }) 
         conceptScheme,
         pattern
       }),
-      version,
-      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '25000', 10)
+      version
     })
 
     if (!response.ok) {

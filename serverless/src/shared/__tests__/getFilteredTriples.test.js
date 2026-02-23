@@ -42,8 +42,7 @@ describe('getFilteredTriples', () => {
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         body: 'MOCK_CONCEPTS_QUERY',
-        version: 'published',
-        timeoutMs: 25000
+        version: 'published'
       })
     })
 

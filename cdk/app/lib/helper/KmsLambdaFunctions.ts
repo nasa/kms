@@ -26,7 +26,6 @@ interface LambdaFunctionsProps {
   useLocalstack: boolean;
   environment: {
     CMR_BASE_URL: string;
-    CONCEPTS_READ_TIMEOUT_MS?: string;
     EDL_PASSWORD: string;
     LOG_LEVEL?: string;
     RDF_BUCKET_NAME: string,

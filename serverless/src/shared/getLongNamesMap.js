@@ -47,8 +47,7 @@ export const getLongNamesMap = async (scheme, version) => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: getLongNamesQuery(scheme),
-      version,
-      timeoutMs: Number.parseInt(process.env.CONCEPTS_READ_TIMEOUT_MS || '25000', 10)
+      version
     })
 
     // Check if the response is successful

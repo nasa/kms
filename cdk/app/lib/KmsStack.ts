@@ -25,7 +25,6 @@ export interface KmsStackProps extends cdk.StackProps {
   vpcId: string
   environment: {
     CMR_BASE_URL: string
-    CONCEPTS_READ_TIMEOUT_MS?: string
     EDL_PASSWORD: string
     KMS_CACHE_CLUSTER_ENABLED?: string
     KMS_CACHE_CLUSTER_SIZE_GB?: string
