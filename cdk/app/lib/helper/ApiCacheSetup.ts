@@ -45,18 +45,18 @@ export class ApiCacheSetup {
   public static mergeMethodOptions(
     ...options: Array<{ [path: string]: apigateway.MethodDeploymentOptions } | undefined>
   ): { [path: string]: apigateway.MethodDeploymentOptions } | undefined {
-    const merged = options.reduce((acc, optionSet) => {
-      if (!optionSet) return acc
+    const merged: { [path: string]: apigateway.MethodDeploymentOptions } = {}
+
+    options.forEach((optionSet) => {
+      if (!optionSet) return
 
       Object.entries(optionSet).forEach(([path, option]) => {
-        acc[path] = {
-          ...(acc[path] || {}),
+        merged[path] = {
+          ...(merged[path] || {}),
           ...option
         }
       })
-
-      return acc
-    }, {} as { [path: string]: apigateway.MethodDeploymentOptions })
+    })
 
     return Object.keys(merged).length ? merged : undefined
   }
