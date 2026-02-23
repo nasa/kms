@@ -6,7 +6,7 @@ import {
 } from 'vitest'
 
 import { createCsv } from '../createCsv'
-import { createCsvForScheme, resetCreateCsvForSchemeStateForTests } from '../createCsvForScheme'
+import { createCsvForScheme } from '../createCsvForScheme'
 import { createCsvMetadata } from '../createCsvMetadata'
 import { generateCsvHeaders } from '../generateCsvHeaders'
 import { getApplicationConfig } from '../getConfig'
@@ -28,7 +28,6 @@ describe('createCsvForScheme', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     vi.resetAllMocks()
-    resetCreateCsvForSchemeStateForTests()
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(createCsvMetadata).mockReturnValue(['mocked metadata'])
   })

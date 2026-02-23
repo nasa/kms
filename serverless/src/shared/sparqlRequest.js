@@ -91,6 +91,8 @@ const SPARQL_COLD_MAX_RETRIES = 1
 let lastSuccessfulSparqlAt = 0
 
 const resolveAdaptiveReadRetryPolicy = () => {
+  // First-hit requests can be less stable (service/JVM warm-up, connection setup, cache priming).
+  // We allow one cold retry for that case, but disable warm retries to avoid retry-driven load escalation.
   const ageSinceLastSuccessMs = Date.now() - lastSuccessfulSparqlAt
   const isWarm = Number.isFinite(SPARQL_WARM_WINDOW_MS) && SPARQL_WARM_WINDOW_MS > 0
     ? ageSinceLastSuccessMs < SPARQL_WARM_WINDOW_MS

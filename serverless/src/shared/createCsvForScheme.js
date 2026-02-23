@@ -6,8 +6,6 @@ import { getCsvHeaders } from './getCsvHeaders'
 import { getCsvPaths } from './getCsvPaths'
 import { getMaxLengthOfSubArray } from './getMaxLengthOfSubArray'
 
-export const resetCreateCsvForSchemeStateForTests = () => {}
-
 /**
  * Creates a CSV file for the specified scheme.
  *
