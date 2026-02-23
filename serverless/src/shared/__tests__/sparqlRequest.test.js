@@ -202,17 +202,14 @@ describe('sparqlRequest', () => {
       )
     })
 
-    test('should attach abort signal when timeout is provided', async () => {
+    test('should attach abort signal by default', async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({})
       }
       global.fetch.mockResolvedValue(mockResponse)
 
-      await sparqlRequest({
-        method: 'GET',
-        timeoutMs: 5
-      })
+      await sparqlRequest({ method: 'GET' })
 
       expect(global.fetch).toHaveBeenCalledWith(
         expect.any(String),
@@ -222,7 +219,7 @@ describe('sparqlRequest', () => {
       )
     })
 
-    test('should clear timeout on successful request when timeout is provided', async () => {
+    test('should clear timeout on successful request', async () => {
       const mockResponse = {
         ok: true,
         json: () => Promise.resolve({})
@@ -230,10 +227,7 @@ describe('sparqlRequest', () => {
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
       global.fetch.mockResolvedValue(mockResponse)
 
-      await sparqlRequest({
-        method: 'GET',
-        timeoutMs: 5
-      })
+      await sparqlRequest({ method: 'GET' })
 
       expect(clearTimeoutSpy).toHaveBeenCalled()
     })
@@ -360,14 +354,11 @@ describe('sparqlRequest', () => {
       await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Network error')
     })
 
-    test('should clear timeout when request fails with timeout enabled', async () => {
+    test('should clear timeout when request fails', async () => {
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
       global.fetch.mockRejectedValue(new Error('Network error'))
 
-      await expect(sparqlRequest({
-        method: 'GET',
-        timeoutMs: 5
-      })).rejects.toThrow('Network error')
+      await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Network error')
 
       expect(clearTimeoutSpy).toHaveBeenCalled()
     })

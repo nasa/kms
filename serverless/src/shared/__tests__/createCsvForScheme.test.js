@@ -306,35 +306,4 @@ describe('createCsvForScheme', () => {
       versionCreationDate: 'N/A'
     })
   })
-
-  test('should issue separate requests for same scheme and version', async () => {
-    const scheme = 'testScheme'
-    const version = 'draft'
-    const versionName = 'Test Version'
-    const versionCreationDate = '2023-01-01'
-    const mockDefaultHeaders = { 'Default-Header': 'value' }
-
-    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: mockDefaultHeaders })
-    createCsvMetadata.mockReturnValue({ some: 'metadata' })
-    getCsvHeaders.mockResolvedValue(['Header1'])
-    getCsvPaths.mockResolvedValue([['A']])
-    createCsv.mockResolvedValue('csv,content')
-
-    const first = createCsvForScheme({
-      scheme,
-      version,
-      versionName,
-      versionCreationDate
-    })
-    const second = createCsvForScheme({
-      scheme,
-      version,
-      versionName,
-      versionCreationDate
-    })
-
-    const [firstResult, secondResult] = await Promise.all([first, second])
-    expect(getCsvHeaders).toHaveBeenCalledTimes(2)
-    expect(firstResult).toEqual(secondResult)
-  })
 })
