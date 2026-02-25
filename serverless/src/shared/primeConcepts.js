@@ -81,7 +81,8 @@ export const primeConcepts = async ({
       }
 
       const firstResponse = await getConcepts(firstEntry.event, {})
-      const totalPages = getTotalPagesFromResponse(firstResponse)
+      // CSV responses do not provide reliable paging headers in this path; prime page 1 only.
+      const totalPages = format.toLowerCase() === 'csv' ? 1 : getTotalPagesFromResponse(firstResponse)
       const firstResponseEntry = {
         entry: firstEntryWithKey,
         response: firstResponse
