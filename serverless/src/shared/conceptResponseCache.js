@@ -56,3 +56,47 @@ export const setCachedConceptResponse = async ({
 
   await redisClient.set(cacheKey, JSON.stringify(response))
 }
+
+/**
+ * Clears all concept response cache keys under the configured prefix.
+ *
+ * Uses incremental SCAN + DEL to avoid blocking Redis with KEYS.
+ *
+ * @returns {Promise<number>} Number of keys deleted.
+ */
+export const clearConceptResponseCache = async () => {
+  const redisClient = await getRedisClient()
+  if (!redisClient) return 0
+
+  const seenCursors = new Set()
+  const scanAndDelete = async (cursor = '0', deleted = 0) => {
+    const { cursor: nextCursor, keys } = await redisClient.scan(cursor, {
+      MATCH: `${CONCEPT_CACHE_KEY_PREFIX}:*`,
+      COUNT: 500
+    })
+
+    const deletedCount = keys.length > 0 ? await redisClient.del(keys) : 0
+    const nextDeleted = deleted + deletedCount
+    const normalizedCursor = String(nextCursor)
+
+    logger.debug(
+      `[cache-prime] clear-scan cursor=${cursor} nextCursor=${normalizedCursor} keys=${keys.length} deletedBatch=${deletedCount} deletedTotal=${nextDeleted}`
+    )
+
+    if (seenCursors.has(normalizedCursor)) {
+      logger.warn(
+        `[cache-prime] clear-scan detected repeated cursor=${normalizedCursor}; stopping to prevent scan loop`
+      )
+
+      return nextDeleted
+    }
+
+    seenCursors.add(normalizedCursor)
+
+    if (normalizedCursor === '0') return nextDeleted
+
+    return scanAndDelete(normalizedCursor, nextDeleted)
+  }
+
+  return scanAndDelete()
+}

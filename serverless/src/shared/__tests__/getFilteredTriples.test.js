@@ -7,16 +7,21 @@ import {
 } from 'vitest'
 
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
+import { logger } from '@/shared/logger'
 import { getConceptsQuery } from '@/shared/operations/queries/getConceptsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/operations/queries/getConceptsQuery')
+vi.mock('@/shared/logger', () => ({
+  logger: {
+    error: vi.fn()
+  }
+}))
 
 describe('getFilteredTriples', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    vi.spyOn(console, 'error').mockImplementation(() => {})
 
     sparqlRequest.mockResolvedValue({
       ok: true,
@@ -99,7 +104,7 @@ describe('getFilteredTriples', () => {
         pageSize: 10
       })).rejects.toThrow('SPARQL request failed')
 
-      expect(console.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
+      expect(logger.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
     })
 
     test('should handle non-ok response from SPARQL request', async () => {
@@ -115,7 +120,7 @@ describe('getFilteredTriples', () => {
         pageSize: 10
       })).rejects.toThrow('HTTP error! status: 500')
 
-      expect(console.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
+      expect(logger.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
     })
 
     test('should handle JSON parsing error', async () => {
@@ -131,7 +136,7 @@ describe('getFilteredTriples', () => {
         pageSize: 10
       })).rejects.toThrow('Invalid JSON')
 
-      expect(console.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
+      expect(logger.error).toHaveBeenCalledWith('Error fetching triples:', expect.any(Error))
     })
 
     test('should calculate offset correctly', async () => {

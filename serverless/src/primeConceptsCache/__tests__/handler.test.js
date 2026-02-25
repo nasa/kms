@@ -9,22 +9,28 @@ import {
 import { getConcepts } from '@/getConcepts/handler'
 import { getKeywordsTree } from '@/getKeywordsTree/handler'
 import { primeConceptsCache } from '@/primeConceptsCache/handler'
+import { clearConceptResponseCache } from '@/shared/conceptResponseCache'
 import { CACHE_VERSION_KEY, clearConceptsResponseCache } from '@/shared/conceptsResponseCache'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getRedisClient } from '@/shared/getRedisClient'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { clearTreeResponseCache } from '@/shared/treeResponseCache'
 
 vi.mock('@/getConcepts/handler')
 vi.mock('@/getKeywordsTree/handler')
+vi.mock('@/shared/conceptResponseCache')
 vi.mock('@/shared/conceptsResponseCache')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/getRedisClient')
+vi.mock('@/shared/treeResponseCache')
 vi.mock('@/shared/getVersionMetadata')
 
 describe('when priming concepts cache', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    clearConceptResponseCache.mockResolvedValue(0)
     clearConceptsResponseCache.mockResolvedValue(0)
+    clearTreeResponseCache.mockResolvedValue(0)
     getConceptSchemeDetails.mockResolvedValue([])
     getConcepts.mockResolvedValue({ statusCode: 200 })
     getKeywordsTree.mockResolvedValue({ statusCode: 200 })
@@ -64,6 +70,8 @@ describe('when priming concepts cache', () => {
     }
     getRedisClient.mockResolvedValue(redisClient)
     clearConceptsResponseCache.mockResolvedValue(12)
+    clearConceptResponseCache.mockResolvedValue(4)
+    clearTreeResponseCache.mockResolvedValue(3)
     getConceptSchemeDetails.mockResolvedValue([
       { notation: 'platforms' }
     ])
@@ -72,8 +80,11 @@ describe('when priming concepts cache', () => {
     const body = JSON.parse(response.body)
 
     expect(response.statusCode).toBe(200)
-    expect(body.deletedKeys).toBe(12)
+    expect(body.deletedKeys).toBe(19)
     expect(body.warmed).toBeGreaterThan(0)
+    expect(clearConceptsResponseCache).toHaveBeenCalledTimes(1)
+    expect(clearConceptResponseCache).toHaveBeenCalledTimes(1)
+    expect(clearTreeResponseCache).toHaveBeenCalledTimes(1)
     expect(getKeywordsTree).toHaveBeenCalledWith(
       expect.objectContaining({
         path: '/tree/concept_scheme/all'

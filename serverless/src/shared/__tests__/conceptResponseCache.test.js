@@ -7,12 +7,14 @@ import {
 } from 'vitest'
 
 import {
+  clearConceptResponseCache,
   CONCEPT_CACHE_KEY_PREFIX,
   createConceptResponseCacheKey,
   getCachedConceptResponse,
   setCachedConceptResponse
 } from '@/shared/conceptResponseCache'
 import { getRedisClient } from '@/shared/getRedisClient'
+import { logger } from '@/shared/logger'
 
 vi.mock('@/shared/getRedisClient')
 
@@ -105,5 +107,81 @@ describe('when handling concept response cache', () => {
       cacheKey: 'cache-key',
       response: { statusCode: 200 }
     })).resolves.toBeUndefined()
+  })
+
+  test('clears concept cache keys by prefix', async () => {
+    const del = vi.fn().mockResolvedValue(2)
+    const scan = vi.fn().mockResolvedValue({
+      cursor: '0',
+      keys: [`${CONCEPT_CACHE_KEY_PREFIX}:a`, `${CONCEPT_CACHE_KEY_PREFIX}:b`]
+    })
+    getRedisClient.mockResolvedValue({
+      scan,
+      del
+    })
+
+    const deleted = await clearConceptResponseCache()
+
+    expect(deleted).toBe(2)
+    expect(del).toHaveBeenCalledWith([`${CONCEPT_CACHE_KEY_PREFIX}:a`, `${CONCEPT_CACHE_KEY_PREFIX}:b`])
+  })
+
+  test('returns zero when clearing concept cache and redis is unavailable', async () => {
+    getRedisClient.mockResolvedValue(null)
+
+    const deleted = await clearConceptResponseCache()
+
+    expect(deleted).toBe(0)
+  })
+
+  test('continues clearing concept cache until scan cursor reaches zero', async () => {
+    const del = vi.fn()
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+    const scan = vi.fn()
+      .mockResolvedValueOnce({
+        cursor: '1',
+        keys: [`${CONCEPT_CACHE_KEY_PREFIX}:a`]
+      })
+      .mockResolvedValueOnce({
+        cursor: '0',
+        keys: [`${CONCEPT_CACHE_KEY_PREFIX}:b`]
+      })
+    getRedisClient.mockResolvedValue({
+      scan,
+      del
+    })
+
+    const deleted = await clearConceptResponseCache()
+
+    expect(deleted).toBe(2)
+    expect(scan).toHaveBeenCalledTimes(2)
+  })
+
+  test('stops clearing concept cache when scan cursor repeats to prevent loop', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const del = vi.fn()
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+    const scan = vi.fn()
+      .mockResolvedValueOnce({
+        cursor: '1',
+        keys: [`${CONCEPT_CACHE_KEY_PREFIX}:a`]
+      })
+      .mockResolvedValueOnce({
+        cursor: '1',
+        keys: [`${CONCEPT_CACHE_KEY_PREFIX}:b`]
+      })
+    getRedisClient.mockResolvedValue({
+      scan,
+      del
+    })
+
+    const deleted = await clearConceptResponseCache()
+
+    expect(deleted).toBe(2)
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[cache-prime] clear-scan detected repeated cursor=1; stopping to prevent scan loop'
+    )
   })
 })

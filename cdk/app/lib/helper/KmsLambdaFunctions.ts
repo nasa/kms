@@ -1,6 +1,6 @@
 import * as path from 'path'
 
-import { Duration } from 'aws-cdk-lib'
+import { Duration, Stack } from 'aws-cdk-lib'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as events from 'aws-cdk-lib/aws-events'
@@ -128,9 +128,10 @@ export class LambdaFunctions {
   private createApiLambdas(scope: Construct) {
     this.createReadApiLambdas(scope)
     this.createTreeOperationApiLambdas(scope)
-    this.createCrudOperationApiLambdas(scope)
+    const cachePrimeLambda = this.createCachePrimeLambda(scope)
+    this.createNightlyCachePrimeCron(scope, cachePrimeLambda)
+    this.createCrudOperationApiLambdas(scope, cachePrimeLambda)
     this.createExportRdfCrons(scope)
-    this.createNightlyCachePrimeCron(scope)
   }
 
   /**
@@ -323,7 +324,7 @@ export class LambdaFunctions {
    * @param {Construct} scope - The scope in which to define these constructs
    * @private
    */
-  private createCrudOperationApiLambdas(scope: Construct) {
+  private createCrudOperationApiLambdas(scope: Construct, cachePrimeLambda: lambda.Function) {
     this.createApiLambda(
       scope,
       'createConcept/handler.js',
@@ -354,7 +355,7 @@ export class LambdaFunctions {
       true
     )
 
-    this.createApiLambda(
+    const publishLambda = this.createApiLambda(
       scope,
       'publish/handler.js',
       'publish',
@@ -363,6 +364,8 @@ export class LambdaFunctions {
       'POST',
       true
     )
+
+    this.createPublishTriggeredCachePrime(scope, publishLambda, cachePrimeLambda)
 
     this.createApiLambda(
       scope,
@@ -433,12 +436,12 @@ export class LambdaFunctions {
   }
 
   /**
-   * Creates a nightly Lambda cron to refresh Redis cache for published concepts.
+   * Creates the Lambda used to refresh Redis cache for published concepts.
    * It is intentionally not exposed as an API route.
    * @param {Construct} scope - The scope in which to define these constructs
    * @private
    */
-  private createNightlyCachePrimeCron(scope: Construct) {
+  private createCachePrimeLambda(scope: Construct): lambda.Function {
     const cachePrimeLambda = this.createLambdaFunction(
       scope,
       'primeConceptsCache/handler.js',
@@ -448,14 +451,64 @@ export class LambdaFunctions {
       2048
     )
 
+    return cachePrimeLambda
+  }
+
+  /**
+   * Schedules a nightly cache-prime invocation for published cache refresh.
+   * @param {Construct} scope - Construct scope.
+   * @param {lambda.Function} cachePrimeLambda - Cache-prime Lambda target.
+   * @private
+   */
+  private createNightlyCachePrimeCron(
+    scope: Construct,
+    cachePrimeLambda: lambda.Function
+  ) {
     this.setupCronJob(
       scope,
       cachePrimeLambda,
-      // Run every 30 minutes; most invocations do a lightweight version-marker check and return.
-      'cron(0/30 * * * ? *)',
+      // EventBridge cron is UTC; 06:00 UTC is 01:00 EST (New York, standard time).
+      'cron(0 6 * * ? *)',
       { version: 'published' },
       'NightlyConceptsCachePrime'
     )
+  }
+
+  /**
+   * Wires publish-complete events to cache-prime Lambda.
+   *
+   * Also grants the publish Lambda permission to emit events to the default
+   * EventBridge bus.
+   *
+   * @param {Construct} scope - Construct scope.
+   * @param {lambda.Function} publishLambda - Publish Lambda that emits events.
+   * @param {lambda.Function} cachePrimeLambda - Cache-prime Lambda target.
+   * @private
+   */
+  private createPublishTriggeredCachePrime(
+    scope: Construct,
+    publishLambda: lambda.Function,
+    cachePrimeLambda: lambda.Function
+  ) {
+    const defaultEventBusArn = Stack.of(scope).formatArn({
+      service: 'events',
+      resource: 'event-bus',
+      resourceName: 'default'
+    })
+
+    publishLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['events:PutEvents'],
+      resources: [defaultEventBusArn]
+    }))
+
+    const rule = new events.Rule(scope, `${this.props.prefix}-PublishToPrimeCacheRule`, {
+      eventPattern: {
+        source: ['kms.publish'],
+        detailType: ['kms.published.version.changed']
+      }
+    })
+
+    rule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
   }
 
   /**

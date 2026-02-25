@@ -1,5 +1,6 @@
 import { getConcepts } from '@/getConcepts/handler'
 import { getKeywordsTree } from '@/getKeywordsTree/handler'
+import { clearConceptResponseCache } from '@/shared/conceptResponseCache'
 import {
   CACHE_VERSION_KEY,
   clearConceptsResponseCache,
@@ -11,7 +12,7 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { primeConcepts } from '@/shared/primeConcepts'
 import { primeKeywordTrees } from '@/shared/primeKeywordTrees'
-import { createTreeResponseCacheKey } from '@/shared/treeResponseCache'
+import { clearTreeResponseCache, createTreeResponseCacheKey } from '@/shared/treeResponseCache'
 
 const PRIME_VERSION = 'published'
 const PAGE_SIZE = 2000
@@ -30,6 +31,12 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+/**
+ * Builds a normalized concepts-cache key using route/query values from a Lambda proxy event.
+ *
+ * @param {Object} event - API Gateway/Lambda proxy event.
+ * @returns {string} Redis cache key for concepts responses.
+ */
 const createConceptsCacheKeyFromEvent = (event) => {
   const pageNum = parsePositiveInt(event?.queryStringParameters?.page_num, 1)
   const pageSize = parsePositiveInt(event?.queryStringParameters?.page_size, PAGE_SIZE)
@@ -46,12 +53,30 @@ const createConceptsCacheKeyFromEvent = (event) => {
   })
 }
 
+/**
+ * Builds a normalized tree-cache key using route/query values from a Lambda proxy event.
+ *
+ * @param {Object} event - API Gateway/Lambda proxy event.
+ * @returns {string} Redis cache key for tree responses.
+ */
 const createTreeCacheKeyFromEvent = (event) => createTreeResponseCacheKey({
   version: event?.queryStringParameters?.version || PRIME_VERSION,
   conceptScheme: event?.pathParameters?.conceptScheme || '',
   filter: event?.queryStringParameters?.filter || ''
 })
 
+/**
+ * Aggregates prime results and counts warmed vs failed requests.
+ *
+ * A non-200 response is counted as failure except HTTP 400, which is treated as
+ * expected/ignorable during cache warming.
+ *
+ * @param {Object} params - Aggregation inputs.
+ * @param {Array<PromiseSettledResult<{response:{statusCode:number},entry:{label:string,cacheKey:string}}>>} params.settledResults
+ * @param {string} params.rejectedLogPrefix - Prefix for rejected promise logs.
+ * @param {string} params.non200LogPrefix - Prefix for non-200 response logs.
+ * @returns {{warmed:number, failed:number}} Count summary.
+ */
 const countPrimeResults = ({
   settledResults,
   rejectedLogPrefix,
@@ -93,8 +118,8 @@ const countPrimeResults = ({
  * Behavior:
  * 1. Reads current published version metadata.
  * 2. Compares version marker against Redis marker key.
- * 3. If marker changed, clears old concepts cache keys.
- * 4. Warms `/concepts` and `/concepts/concept_scheme/{conceptScheme}` pages/formats.
+ * 3. If marker changed, clears old `/concepts`, `/concept`, and `/tree` cache keys.
+ * 4. Warms `/concepts`, `/concepts/concept_scheme/{conceptScheme}`, and tree routes.
  * 5. Stores the new marker.
  *
  * The function is idempotent for unchanged published versions and safe to rerun.
@@ -145,7 +170,12 @@ export const primeConceptsCache = async () => {
   }
 
   logger.debug('[cache-prime] checkpoint=before_clear_cache')
-  const deletedKeys = await clearConceptsResponseCache()
+  const [deletedConceptsKeys, deletedConceptKeys, deletedTreeKeys] = await Promise.all([
+    clearConceptsResponseCache(),
+    clearConceptResponseCache(),
+    clearTreeResponseCache()
+  ])
+  const deletedKeys = deletedConceptsKeys + deletedConceptKeys + deletedTreeKeys
   logger.info(`[cache-prime] cleared_keys=${deletedKeys}`)
 
   const getTotalPagesFromResponse = (response) => {

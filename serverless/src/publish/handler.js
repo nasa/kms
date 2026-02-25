@@ -1,7 +1,48 @@
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge'
+
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
+
+const PUBLISH_EVENT_SOURCE = 'kms.publish'
+const PUBLISH_EVENT_DETAIL_TYPE = 'kms.published.version.changed'
+
+const publishEventClient = new EventBridgeClient({})
+
+/**
+ * Emits a publish-version-changed event to EventBridge so cache-prime can run asynchronously.
+ *
+ * @async
+ * @param {Object} params - Event payload details.
+ * @param {string} params.versionName - Published version name.
+ * @param {string} params.publishDate - ISO publish timestamp.
+ * @returns {Promise<void>}
+ * @throws {Error} When EventBridge reports failed entries.
+ */
+const emitPublishEvent = async ({ versionName, publishDate }) => {
+  const eventBusName = process.env.PRIME_CACHE_EVENT_BUS_NAME || 'default'
+
+  const response = await publishEventClient.send(new PutEventsCommand({
+    Entries: [
+      {
+        EventBusName: eventBusName,
+        Source: PUBLISH_EVENT_SOURCE,
+        DetailType: PUBLISH_EVENT_DETAIL_TYPE,
+        Detail: JSON.stringify({
+          version: 'published',
+          versionName,
+          publishDate
+        })
+      }
+    ]
+  }))
+
+  if (response.FailedEntryCount && response.FailedEntryCount > 0) {
+    throw new Error(`Failed to emit publish event. failedEntryCount=${response.FailedEntryCount}`)
+  }
+}
 
 /**
  * Initiates the publication process for a new version of the keyword set.
@@ -82,6 +123,18 @@ export const publish = async (event, context) => {
       throw new Error(`Failed to execute publish update: ${response.status} ${response.statusText}`)
     }
 
+    try {
+      await emitPublishEvent({
+        versionName: name,
+        publishDate: updateDate
+      })
+
+      logger.info(`[publish] emitted cache-prime event for version=${name}`)
+    } catch (eventError) {
+      // Publish operation succeeded; do not fail publish if event emit fails.
+      logger.error(`[publish] failed to emit cache-prime event error=${eventError}`)
+    }
+
     return {
       statusCode: 200,
       headers: defaultResponseHeaders,
@@ -92,7 +145,7 @@ export const publish = async (event, context) => {
       })
     }
   } catch (error) {
-    console.error('Error in publish process:', error)
+    logger.error('Error in publish process:', error)
 
     return {
       statusCode: 500,

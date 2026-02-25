@@ -7,7 +7,9 @@ import {
 } from 'vitest'
 
 import { getRedisClient } from '@/shared/getRedisClient'
+import { logger } from '@/shared/logger'
 import {
+  clearTreeResponseCache,
   createTreeResponseCacheKey,
   getCachedTreeResponse,
   setCachedTreeResponse,
@@ -102,6 +104,84 @@ describe('when using tree response cache', () => {
       })
 
       expect(set).toHaveBeenCalledWith('key', '{"statusCode":200}')
+    })
+  })
+
+  describe('when clearing cached responses', () => {
+    test('should clear tree cache keys by prefix', async () => {
+      const del = vi.fn().mockResolvedValue(2)
+      const scan = vi.fn().mockResolvedValue({
+        cursor: '0',
+        keys: [`${TREE_CACHE_KEY_PREFIX}:a`, `${TREE_CACHE_KEY_PREFIX}:b`]
+      })
+      getRedisClient.mockResolvedValue({
+        scan,
+        del
+      })
+
+      const deleted = await clearTreeResponseCache()
+
+      expect(deleted).toBe(2)
+      expect(del).toHaveBeenCalledWith([`${TREE_CACHE_KEY_PREFIX}:a`, `${TREE_CACHE_KEY_PREFIX}:b`])
+    })
+
+    test('should return zero when clearing tree cache and redis is unavailable', async () => {
+      getRedisClient.mockResolvedValue(null)
+
+      const deleted = await clearTreeResponseCache()
+
+      expect(deleted).toBe(0)
+    })
+
+    test('should continue clearing tree cache until scan cursor reaches zero', async () => {
+      const del = vi.fn()
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+      const scan = vi.fn()
+        .mockResolvedValueOnce({
+          cursor: '1',
+          keys: [`${TREE_CACHE_KEY_PREFIX}:a`]
+        })
+        .mockResolvedValueOnce({
+          cursor: '0',
+          keys: [`${TREE_CACHE_KEY_PREFIX}:b`]
+        })
+      getRedisClient.mockResolvedValue({
+        scan,
+        del
+      })
+
+      const deleted = await clearTreeResponseCache()
+
+      expect(deleted).toBe(2)
+      expect(scan).toHaveBeenCalledTimes(2)
+    })
+
+    test('should stop clearing tree cache when scan cursor repeats to prevent loop', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+      const del = vi.fn()
+        .mockResolvedValueOnce(1)
+        .mockResolvedValueOnce(1)
+      const scan = vi.fn()
+        .mockResolvedValueOnce({
+          cursor: '1',
+          keys: [`${TREE_CACHE_KEY_PREFIX}:a`]
+        })
+        .mockResolvedValueOnce({
+          cursor: '1',
+          keys: [`${TREE_CACHE_KEY_PREFIX}:b`]
+        })
+      getRedisClient.mockResolvedValue({
+        scan,
+        del
+      })
+
+      const deleted = await clearTreeResponseCache()
+
+      expect(deleted).toBe(2)
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[cache-prime] clear-scan detected repeated cursor=1; stopping to prevent scan loop'
+      )
     })
   })
 })
