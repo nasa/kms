@@ -12,7 +12,6 @@ config="`cat static.config.json`"
 # update keys for deployment
 config="`jq '.application.version = $newValue' --arg newValue ${RELEASE_VERSION} <<< $config`"
 config="`jq '.application.env = $newValue' --arg newValue $bamboo_STAGE_NAME <<< $config`"
-config="`jq '.application.defaultResponseHeaders[\"Access-Control-Allow-Origin\"] = $newValue' --arg newValue $bamboo_CORS_ORIGIN <<< $config`"
 config="`jq '.edl.host = $newValue' --arg newValue $bamboo_EDL_HOST <<< $config`"
 config="`jq '.edl.uid = $newValue' --arg newValue $bamboo_EDL_UID <<< $config`"
 

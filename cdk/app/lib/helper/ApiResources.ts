@@ -51,7 +51,7 @@ export class ApiResources {
 
   private getCorsHeaderValues() {
     return {
-      origin: process.env.CORS_ORIGIN as string,
+      origin: '*',
       headers: this.corsHeaders.join(','),
       methods: 'GET,POST,PUT,DELETE,OPTIONS',
       credentials: 'true'
