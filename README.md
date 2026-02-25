@@ -95,8 +95,10 @@ export REDIS_ENABLED=false
 
 ### Invoke cache-prime cron locally
 
-Use this to run the same Lambda target used by the hourly cron:
-```
+Runs the same Lambda used by the scheduled EventBridge cache-prime target, locally via SAM.
+The script re-synthesizes `cdk/cdk.out/KmsStack.template.json` each run so local Redis env settings are baked into the template.
+
+```bash
 npm run prime-cache:invoke-local
 ```
 
