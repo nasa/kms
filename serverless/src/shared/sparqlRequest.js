@@ -76,8 +76,7 @@ import { delay } from '@/shared/delay'
  * - The `action` parameter is required for transaction operations and should be set, i.e, 'ADD', 'UPDATE'
  * - When a transaction is active, the request is sent to the transaction URL instead of the regular endpoint.
  *
- * The function includes a retry mechanism for failed requests, with a maximum of 10 retries
- * and a 1-second delay between retries.
+ * The function includes a retry mechanism for failed requests.
  *
  * @see Related functions:
  * {@link addFromClause}

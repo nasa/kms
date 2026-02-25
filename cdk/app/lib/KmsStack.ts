@@ -5,7 +5,6 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import { Construct } from 'constructs'
 
-import { ApiCacheSetup } from './helper/ApiCacheSetup'
 import { ApiResources } from './helper/ApiResources'
 import { IamSetup } from './helper/IamSetup'
 import { LambdaFunctions } from './helper/KmsLambdaFunctions'
@@ -24,12 +23,10 @@ export interface KmsStackProps extends cdk.StackProps {
   environment: {
     CMR_BASE_URL: string
     EDL_PASSWORD: string
-    KMS_CACHE_CLUSTER_ENABLED?: string
-    KMS_CACHE_CLUSTER_SIZE_GB?: string
-    KMS_CACHE_TTL_SECONDS?: string
-    KMS_CONCEPTS_THROTTLE_BURST_LIMIT?: string
-    KMS_CONCEPTS_THROTTLE_RATE_LIMIT?: string
     LOG_LEVEL: string
+    REDIS_ENABLED?: string
+    REDIS_HOST?: string
+    REDIS_PORT?: string
     RDF_BUCKET_NAME: string
     RDF4J_PASSWORD: string
     RDF4J_SERVICE_URL: string
@@ -99,38 +96,6 @@ export class KmsStack extends cdk.Stack {
     )
     this.lambdaRole = iamSetup.lambdaRole
 
-    const cacheTtlSeconds = Number(props.environment.KMS_CACHE_TTL_SECONDS)
-    const cacheTtl = Number.isFinite(cacheTtlSeconds) && cacheTtlSeconds > 0
-      ? cdk.Duration.seconds(cacheTtlSeconds)
-      : cdk.Duration.hours(1)
-
-    const cacheClusterSize = props.environment.KMS_CACHE_CLUSTER_SIZE_GB
-
-    const cacheClusterEnabled = props.environment.KMS_CACHE_CLUSTER_ENABLED !== 'false'
-    const cacheMethodOptions = cacheClusterEnabled
-      ? ApiCacheSetup.cacheMethodOptions(cacheTtl)
-      : undefined
-
-    const throttleRate = Number(props.environment.KMS_CONCEPTS_THROTTLE_RATE_LIMIT || '8')
-    const throttleBurst = Number(props.environment.KMS_CONCEPTS_THROTTLE_BURST_LIMIT || '12')
-    const throttleMethodOptions = Number.isFinite(throttleRate)
-      && Number.isFinite(throttleBurst)
-      && throttleRate > 0
-      && throttleBurst > 0
-      ? ApiCacheSetup.throttleMethodOptions(throttleRate, throttleBurst)
-      : undefined
-
-    const methodOptions = ApiCacheSetup.mergeMethodOptions(
-      cacheMethodOptions,
-      throttleMethodOptions
-    )
-    const cacheStageOptions = cacheClusterEnabled
-      ? {
-        cacheClusterEnabled: true,
-        cacheClusterSize
-      }
-      : {}
-
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(
@@ -149,13 +114,7 @@ export class KmsStack extends cdk.Stack {
         endpointTypes: [apigateway.EndpointType.PRIVATE],
         deploy: true,
         deployOptions: {
-          stageName: stage,
-          ...(useLocalstack
-            ? {}
-            : {
-              ...cacheStageOptions,
-              ...(methodOptions ? { methodOptions } : {})
-            })
+          stageName: stage
         },
         policy: iamSetup.createApiGatewayPolicy()
       })
@@ -212,13 +171,7 @@ export class KmsStack extends cdk.Stack {
       new apigateway.Stage(this, 'ApiStage', {
         deployment,
         stageName: stage,
-        description: `${stage} stage name for KMS API`,
-        ...(useLocalstack
-          ? {}
-          : {
-            ...cacheStageOptions,
-            ...(methodOptions ? { methodOptions } : {})
-          })
+        description: `${stage} stage name for KMS API`
       })
     } else {
       // For new API, stage is auto-created
@@ -231,11 +184,6 @@ export class KmsStack extends cdk.Stack {
       description: 'ID of the new API Gateway deployment',
       exportName: `${prefix}-NewApiDeploymentId`
     })
-
-    // Configure API Gateway caching
-    if (existingApiId && !useLocalstack && cacheClusterEnabled) {
-      ApiCacheSetup.configure(this, this.api)
-    }
 
     this.addOutputs(prefix)
   }

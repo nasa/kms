@@ -17,6 +17,7 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
+import { getCachedTreeResponse } from '@/shared/treeResponseCache'
 
 import { getKeywordsTree } from '../handler'
 
@@ -33,6 +34,16 @@ vi.mock('@/shared/sortKeywordNodes')
 vi.mock('@/shared/sortKeywordSchemes')
 vi.mock('@/shared/toTitleCase')
 vi.mock('@/shared/getVersionMetadata')
+vi.mock('@/shared/treeResponseCache', async () => {
+  const actual = await vi.importActual('@/shared/treeResponseCache')
+
+  return {
+    ...actual,
+    getCachedTreeResponse: vi.fn(),
+    setCachedTreeResponse: vi.fn()
+  }
+})
+
 vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn()
 }))
@@ -57,13 +68,47 @@ vi.mocked(getVersionMetadata).mockResolvedValue({
 
 describe('getKeywordsTree', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(sortKeywordNodes).mockImplementation((arr) => arr)
     vi.mocked(sortKeywordSchemes).mockImplementation(() => 0)
+
+    vi.mocked(getVersionMetadata).mockResolvedValue({
+      version: 'published',
+      versionName: '20.8',
+      versionType: 'published',
+      created: '2023-01-01T00:00:00Z',
+      modified: '2023-01-01T00:00:00Z'
+    })
+
+    vi.mocked(getCachedTreeResponse).mockReset()
+    vi.mocked(getCachedTreeResponse).mockResolvedValue(null)
 
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   describe('When successful', () => {
+    test('should return cached tree response for published version', async () => {
+      vi.mocked(getApplicationConfig).mockReturnValue({
+        defaultResponseHeaders: { 'X-Custom-Header': 'value' }
+      })
+
+      vi.mocked(getCachedTreeResponse).mockResolvedValue({
+        statusCode: 200,
+        body: JSON.stringify({ cached: true }),
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      })
+
+      const result = await getKeywordsTree({
+        pathParameters: { conceptScheme: 'instruments' },
+        queryStringParameters: { version: 'published' }
+      })
+
+      expect(result.statusCode).toBe(200)
+      expect(getNarrowersMap).not.toHaveBeenCalled()
+      expect(getRootConceptForScheme).not.toHaveBeenCalled()
+      expect(result.headers['X-Custom-Header']).toBe('value')
+    })
+
     test('should handle "all" concept scheme with Other Keywords correctly', async () => {
       vi.mocked(getNarrowersMap).mockResolvedValue({})
       vi.mocked(getRootConceptsForAllSchemes).mockResolvedValue([
@@ -529,8 +574,8 @@ describe('getKeywordsTree', () => {
       expect(parsedBody.tree.treeData).toHaveLength(1)
       expect(parsedBody.tree.treeData[0].title).toBe('Keywords')
 
-      // Check if filterKeywordTree was called for each root concept
-      expect(filterKeywordTree).toHaveBeenCalledTimes(2)
+      // For `all` schemes we filter the merged keywords tree payload.
+      expect(filterKeywordTree).toHaveBeenCalledTimes(1)
 
       // Check if the filtered property is present in the result
       expect(parsedBody.tree.treeData[0].children).toEqual(

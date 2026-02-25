@@ -4,6 +4,11 @@ import zlib from 'zlib'
 
 import { XMLBuilder } from 'fast-xml-parser'
 
+import {
+  createConceptsResponseCacheKey,
+  getCachedConceptsResponse,
+  setCachedConceptsResponse
+} from '@/shared/conceptsResponseCache'
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
@@ -178,6 +183,36 @@ export const getConcepts = async (event, context) => {
   }
 
   try {
+    const cacheKey = createConceptsResponseCacheKey({
+      version,
+      path: event?.resource || event?.path,
+      endpointPath: event?.path,
+      conceptScheme,
+      pattern,
+      pageNum,
+      pageSize,
+      format
+    })
+
+    try {
+      const cachedResponse = await getCachedConceptsResponse(cacheKey)
+      if (cachedResponse) {
+        console.log(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
+        if (format.toLowerCase() === 'csv') {
+          console.log(`[cache] csv hit endpoint=getConcepts key=${cacheKey}`)
+        }
+
+        return cachedResponse
+      }
+
+      console.log(`[cache] miss endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
+      if (format.toLowerCase() === 'csv') {
+        console.log(`[cache] csv miss endpoint=getConcepts key=${cacheKey}`)
+      }
+    } catch (cacheReadError) {
+      console.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
+    }
+
     // CSV case
     if (format.toLowerCase() === 'csv') {
       if (!conceptScheme) {
@@ -196,12 +231,28 @@ export const getConcepts = async (event, context) => {
         }
       }
 
-      return createCsvForScheme({
+      const csvResponse = await createCsvForScheme({
         scheme: conceptScheme,
         version,
         versionName: keywordVersion,
         versionCreationDate
       })
+
+      if (csvResponse.statusCode === 200) {
+        try {
+          console.log(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
+          await setCachedConceptsResponse({
+            cacheKey,
+            response: csvResponse
+          })
+        } catch (cacheWriteError) {
+          console.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
+        }
+      } else {
+        console.log(`[cache] csv skip-write endpoint=getConcepts status=${csvResponse.statusCode} key=${cacheKey}`)
+      }
+
+      return csvResponse
     }
 
     let triples
@@ -403,6 +454,18 @@ export const getConcepts = async (event, context) => {
           body: responseBody,
           headers
         }
+      }
+    }
+
+    if (response.statusCode === 200) {
+      try {
+        console.log(`[cache] write endpoint=getConcepts key=${cacheKey}`)
+        await setCachedConceptsResponse({
+          cacheKey,
+          response
+        })
+      } catch (cacheWriteError) {
+        console.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
       }
     }
 

@@ -7,6 +7,7 @@ import {
 } from 'vitest'
 
 import { getConcept } from '@/getConcept/handler'
+import { getCachedConceptResponse, setCachedConceptResponse } from '@/shared/conceptResponseCache'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
   createConceptToConceptSchemeShortNameMap
@@ -32,6 +33,15 @@ vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/toLegacyXML')
 vi.mock('@/shared/getVersionMetadata')
+vi.mock('@/shared/conceptResponseCache', async () => {
+  const actual = await vi.importActual('@/shared/conceptResponseCache')
+
+  return {
+    ...actual,
+    getCachedConceptResponse: vi.fn(),
+    setCachedConceptResponse: vi.fn()
+  }
+})
 
 describe('getConcept', () => {
   const mockDefaultHeaders = { 'X-Custom-Header': 'value' }
@@ -47,6 +57,8 @@ describe('getConcept', () => {
     getConceptSchemeDetails.mockResolvedValue({})
     toLegacyJSON.mockReturnValue({})
     toLegacyXML.mockReturnValue({})
+    getCachedConceptResponse.mockResolvedValue(null)
+    setCachedConceptResponse.mockResolvedValue(undefined)
 
     vi.mocked(getVersionMetadata).mockResolvedValue({
       version: 'published',
@@ -142,6 +154,96 @@ describe('getConcept', () => {
   })
 
   describe('when successful', () => {
+    describe('when redis cache errors occur', () => {
+      test('continues normally when redis concept cache read throws', async () => {
+        getCachedConceptResponse.mockRejectedValue(new Error('cache read failed'))
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': { _text: 'Test PrefLabel' },
+          'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        const result = await getConcept({
+          pathParameters: { conceptId: '123' },
+          queryStringParameters: {
+            format: 'rdf',
+            version: 'published'
+          }
+        })
+
+        expect(result.statusCode).toBe(200)
+      })
+
+      test('continues normally when redis concept cache write throws', async () => {
+        setCachedConceptResponse.mockRejectedValue(new Error('cache write failed'))
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': { _text: 'Test PrefLabel' },
+          'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        const result = await getConcept({
+          pathParameters: { conceptId: '123' },
+          queryStringParameters: {
+            format: 'rdf',
+            version: 'published'
+          }
+        })
+
+        expect(result.statusCode).toBe(200)
+      })
+    })
+
+    describe('when redis cache has response', () => {
+      test('returns cached payload for concept id lookup without querying RDF store', async () => {
+        getCachedConceptResponse.mockResolvedValue({
+          statusCode: 200,
+          headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+          body: '<rdf:RDF/>'
+        })
+
+        const result = await getConcept({
+          resource: '/concept/{conceptId}',
+          path: '/concept/123',
+          pathParameters: {
+            conceptId: '123'
+          },
+          queryStringParameters: {
+            version: 'published',
+            format: 'rdf'
+          }
+        })
+
+        expect(result.statusCode).toBe(200)
+        expect(getSkosConcept).not.toHaveBeenCalled()
+      })
+
+      test('returns cached payload for full path lookup without querying RDF store', async () => {
+        getCachedConceptResponse.mockResolvedValue({
+          statusCode: 200,
+          headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+          body: '<rdf:RDF/>'
+        })
+
+        const result = await getConcept({
+          resource: '/concept/full_path/{fullPath+}',
+          path: '/concept/full_path/platforms%7Cearth%20observation',
+          pathParameters: {
+            fullPath: 'platforms%7Cearth%20observation'
+          },
+          queryStringParameters: {
+            version: 'published',
+            format: 'rdf'
+          }
+        })
+
+        expect(result.statusCode).toBe(200)
+        expect(getSkosConcept).not.toHaveBeenCalled()
+      })
+    })
+
     describe('when retrieving by concept identifier', () => {
       test('returns successfully with concept and return RDF/XML representation', async () => {
         const mockEvent = { pathParameters: { conceptId: '123' } }
@@ -321,6 +423,62 @@ describe('getConcept', () => {
         expect(result.headers['Content-Type']).toBe('application/xml; charset=utf-8')
         expect(result.body).toContain('<concept id="123">')
         expect(result.body).toContain('<label>Test Concept</label>')
+      })
+
+      test('writes successful concept id responses to redis cache', async () => {
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': { _text: 'Test PrefLabel' },
+          'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        const result = await getConcept({
+          resource: '/concept/{conceptId}',
+          path: '/concept/123',
+          pathParameters: {
+            conceptId: '123'
+          },
+          queryStringParameters: {
+            version: 'published',
+            format: 'rdf'
+          }
+        })
+
+        expect(result.statusCode).toBe(200)
+        expect(setCachedConceptResponse).toHaveBeenCalledWith(
+          expect.objectContaining({
+            cacheKey: expect.stringContaining('kms:concept:published:/concept/{conceptid}:/concept/123:rdf:123')
+          })
+        )
+      })
+
+      test('writes successful full path responses to redis cache', async () => {
+        const mockSkosConcept = {
+          '@rdf:about': '123',
+          'skos:prefLabel': { _text: 'Test PrefLabel' },
+          'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+        }
+        mockSuccessfulResponse(mockSkosConcept)
+
+        const result = await getConcept({
+          resource: '/concept/full_path/{fullPath+}',
+          path: '/concept/full_path/platforms%7Cearth%20observation',
+          pathParameters: {
+            fullPath: 'platforms%7Cearth%20observation'
+          },
+          queryStringParameters: {
+            version: 'published',
+            format: 'rdf'
+          }
+        })
+
+        expect(result.statusCode).toBe(200)
+        expect(setCachedConceptResponse).toHaveBeenCalledWith(
+          expect.objectContaining({
+            cacheKey: expect.stringContaining('kms:concept:published:/concept/full_path/{fullpath+}:/concept/full_path/platforms%7cearth%20observation:rdf')
+          })
+        )
       })
     })
 

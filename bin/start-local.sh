@@ -11,6 +11,9 @@ trap cleanup SIGINT
 
 # Set environment variables for local development
 export RDF4J_SERVICE_URL=http://rdf4j-server:8080
+export REDIS_ENABLED="${REDIS_ENABLED:-true}"
+export REDIS_HOST="${REDIS_HOST:-kms-redis-local}"
+export REDIS_PORT="${REDIS_PORT:-6379}"
 SAM_WARM_CONTAINERS=${SAM_WARM_CONTAINERS:-EAGER}
 SAM_LOCAL_WATCH=${SAM_LOCAL_WATCH:-false}
 
@@ -29,7 +32,6 @@ sam local start-api \
   --warm-containers "${SAM_WARM_CONTAINERS}" \
   --port 3013 \
   --docker-network kms-network \
-  --env-vars env.json \
   "${SAM_WATCH_ARGS[@]}"
 
 # Wait for the SAM process

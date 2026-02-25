@@ -70,11 +70,8 @@ dockerRun() {
         --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
         --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
         --env "LOG_LEVEL=$bamboo_LOG_LEVEL" \
-        --env "KMS_CACHE_TTL_SECONDS=${bamboo_KMS_CACHE_TTL_SECONDS}" \
-        --env "KMS_CACHE_CLUSTER_SIZE_GB=${bamboo_KMS_CACHE_CLUSTER_SIZE_GB}" \
-        --env "KMS_CACHE_CLUSTER_ENABLED=${bamboo_KMS_CACHE_CLUSTER_ENABLED}" \
-        --env "KMS_CONCEPTS_THROTTLE_RATE_LIMIT=${bamboo_KMS_CONCEPTS_THROTTLE_RATE_LIMIT:-8}" \
-        --env "KMS_CONCEPTS_THROTTLE_BURST_LIMIT=${bamboo_KMS_CONCEPTS_THROTTLE_BURST_LIMIT:-12}" \
+        --env "KMS_REDIS_ENABLED=${bamboo_KMS_REDIS_ENABLED:-true}" \
+        --env "KMS_REDIS_NODE_TYPE=${bamboo_KMS_REDIS_NODE_TYPE:-cache.t3.micro}" \
     $dockerTag "$@"
 }
 

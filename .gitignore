@@ -41,3 +41,6 @@ loadtest/locust/**/results*.csv
 loadtest/locust/**/locust_results.csv
 loadtest/locust/**/summary.csv
 loadtest/locust/**/summary.csv~
+loadtest/locust/
+scripts/load/hammer_endpoints_sequential.js
+data/scheme-size*

@@ -27,6 +27,9 @@ interface LambdaFunctionsProps {
   environment: {
     CMR_BASE_URL: string;
     EDL_PASSWORD: string;
+    REDIS_ENABLED?: string;
+    REDIS_HOST?: string;
+    REDIS_PORT?: string;
     LOG_LEVEL?: string;
     RDF_BUCKET_NAME: string,
     RDF4J_PASSWORD: string;
@@ -127,6 +130,7 @@ export class LambdaFunctions {
     this.createTreeOperationApiLambdas(scope)
     this.createCrudOperationApiLambdas(scope)
     this.createExportRdfCrons(scope)
+    this.createNightlyCachePrimeCron(scope)
   }
 
   /**
@@ -429,6 +433,32 @@ export class LambdaFunctions {
   }
 
   /**
+   * Creates a nightly Lambda cron to refresh Redis cache for published concepts.
+   * It is intentionally not exposed as an API route.
+   * @param {Construct} scope - The scope in which to define these constructs
+   * @private
+   */
+  private createNightlyCachePrimeCron(scope: Construct) {
+    const cachePrimeLambda = this.createLambdaFunction(
+      scope,
+      'primeConceptsCache/handler.js',
+      'prime-concepts-cache',
+      'primeConceptsCache',
+      Duration.minutes(15),
+      2048
+    )
+
+    this.setupCronJob(
+      scope,
+      cachePrimeLambda,
+      // Run hourly; most invocations do a lightweight version-marker check and return.
+      'cron(0 * * * ? *)',
+      { version: 'published' },
+      'NightlyConceptsCachePrime'
+    )
+  }
+
+  /**
    * Sets up a CloudWatch Events Rule to trigger a Lambda function on a schedule.
    *
    * @param {Construct} scope - The construct scope in which to create the CloudWatch Events Rule.
@@ -442,7 +472,7 @@ export class LambdaFunctions {
     scope: Construct,
     lambdaFunction: lambda.Function,
     cronExpression: string,
-    input: { [key: string]: 'published' | 'draft' },
+    input: { [key: string]: string },
     ruleSuffix: string
   ) {
     const ruleId = `${this.props.prefix}-${lambdaFunction.node.id}-${ruleSuffix}-CronRule`

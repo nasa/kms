@@ -13,6 +13,11 @@ import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
+import {
+  createTreeResponseCacheKey,
+  getCachedTreeResponse,
+  setCachedTreeResponse
+} from '@/shared/treeResponseCache'
 
 /**
  * Retrieves and processes a keywords tree based on the provided concept scheme and version.
@@ -122,6 +127,12 @@ export const getKeywordsTree = async (event, context) => {
   const encodedConceptScheme = event.pathParameters.conceptScheme
   const conceptScheme = decodeURIComponent(encodedConceptScheme)
   const version = queryStringParameters?.version || 'published'
+  const shouldUseTreeCache = version === 'published'
+  const treeCacheKey = createTreeResponseCacheKey({
+    version,
+    conceptScheme,
+    filter
+  })
 
   logAnalyticsData({
     event,
@@ -142,6 +153,23 @@ export const getKeywordsTree = async (event, context) => {
   }
 
   try {
+    if (shouldUseTreeCache) {
+      const cachedResponse = await getCachedTreeResponse(treeCacheKey)
+      if (cachedResponse) {
+        console.log(`[cache] hit endpoint=getKeywordsTree key=${treeCacheKey}`)
+
+        return {
+          ...cachedResponse,
+          headers: {
+            ...defaultResponseHeaders,
+            ...(cachedResponse.headers || {})
+          }
+        }
+      }
+
+      console.log(`[cache] miss endpoint=getKeywordsTree key=${treeCacheKey}`)
+    }
+
     let keywordTree = []
     const lowerCaseConceptScheme = conceptScheme.toLowerCase()
     const isAllSchemes = lowerCaseConceptScheme === 'all'
@@ -240,8 +268,10 @@ export const getKeywordsTree = async (event, context) => {
     }
 
     // Retrieve concept scheme details and process them
-    const conceptSchemes = await getConceptSchemeDetails({ version })
-    const versionInfo = await getVersionMetadata(version)
+    const [conceptSchemes, versionInfo] = await Promise.all([
+      getConceptSchemeDetails({ version }),
+      getVersionMetadata(version)
+    ])
 
     let idCounter = 0 // Initialize a counter for generating unique IDs
 
@@ -307,11 +337,22 @@ export const getKeywordsTree = async (event, context) => {
     }
 
     // Return successful response with tree data
-    return {
+    const response = {
       statusCode: 200,
-      body: JSON.stringify(treeData, null, 2),
+      body: JSON.stringify(treeData),
       headers: defaultResponseHeaders
     }
+
+    if (shouldUseTreeCache) {
+      await setCachedTreeResponse({
+        cacheKey: treeCacheKey,
+        response
+      })
+
+      console.log(`[cache] write endpoint=getKeywordsTree key=${treeCacheKey}`)
+    }
+
+    return response
   } catch (error) {
     // Log and return error response
     console.error(`Error retrieving concept, error=${error.toString()}`)

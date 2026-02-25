@@ -1,5 +1,10 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
+import {
+  createConceptResponseCacheKey,
+  getCachedConceptResponse,
+  setCachedConceptResponse
+} from '@/shared/conceptResponseCache'
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
@@ -105,12 +110,43 @@ export const getConcept = async (event, context) => {
       return decodeURIComponent(str.replace(/\+/g, ' '))
     }
 
+    const decodedConceptId = conceptId ? decode(conceptId) : null
+    const decodedShortName = shortName ? decode(shortName) : null
+    const decodedAltLabel = altLabel ? decode(altLabel) : null
+    const decodedFullPath = fullPath ? decode(fullPath) : null
+    const decodedScheme = scheme ? decode(scheme) : null
+
+    const conceptCacheKey = createConceptResponseCacheKey({
+      version,
+      path: event?.resource || event?.path,
+      endpointPath: event?.path,
+      format,
+      conceptId: decodedConceptId,
+      shortName: decodedShortName,
+      altLabel: decodedAltLabel,
+      fullPath: decodedFullPath,
+      scheme: decodedScheme
+    })
+
+    try {
+      const cachedResponse = await getCachedConceptResponse(conceptCacheKey)
+      if (cachedResponse) {
+        console.log(`[cache] hit endpoint=getConcept key=${conceptCacheKey}`)
+
+        return cachedResponse
+      }
+
+      console.log(`[cache] miss endpoint=getConcept key=${conceptCacheKey}`)
+    } catch (cacheReadError) {
+      console.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
+    }
+
     const concept = await getSkosConcept({
-      conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
-      shortName: shortName ? decode(shortName) : null,
-      altLabel: altLabel ? decode(altLabel) : null,
-      fullPath: fullPath ? decode(fullPath) : null,
-      scheme: scheme ? decode(scheme) : null,
+      conceptIRI: decodedConceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${decodedConceptId}` : null,
+      shortName: decodedShortName,
+      altLabel: decodedAltLabel,
+      fullPath: decodedFullPath,
+      scheme: decodedScheme,
       version
     })
 
@@ -200,7 +236,7 @@ export const getConcept = async (event, context) => {
       contentType = 'application/xml'
     }
 
-    return {
+    const response = {
       statusCode: 200,
       body: responseBody,
       headers: {
@@ -208,6 +244,20 @@ export const getConcept = async (event, context) => {
         'Content-Type': `${contentType}; charset=utf-8`
       }
     }
+
+    if (response.statusCode === 200) {
+      try {
+        console.log(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
+        await setCachedConceptResponse({
+          cacheKey: conceptCacheKey,
+          response
+        })
+      } catch (cacheWriteError) {
+        console.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
+      }
+    }
+
+    return response
   } catch (error) {
     console.error(`Error retrieving concept, error=${error.toString()}`)
 

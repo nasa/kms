@@ -37,6 +37,69 @@ To run local server with SAM watch mode enabled
 npm run start-local:watch
 ```
 
+### Optional: Enable Redis cache in local SAM/LocalStack
+
+By default, local `start-local` does not provision Redis in CDK. You can still test Redis caching by running Redis in Docker and using environment variables from your shell.
+
+1. Ensure the docker network exists:
+```
+npm run rdf4j:create-network
+```
+
+2. Start Redis on the same docker network used by SAM:
+```
+npm run redis:start
+```
+
+3. (Optional) override defaults if needed:
+```
+export REDIS_ENABLED=true
+export REDIS_HOST=kms-redis-local
+export REDIS_PORT=6379
+```
+
+4. Start local API:
+```
+npm run start-local
+```
+
+5. Verify cache behavior (published reads only):
+- `GET /concepts?version=published`
+- `GET /concepts/concept_scheme/{scheme}?version=published`
+
+6. Check Redis cache memory usage:
+```
+npm run redis:memory_used
+```
+
+### Redis node types and memory (ElastiCache)
+
+Common burstable node types for Redis/Valkey:
+
+| Node type | Memory (GiB) |
+| --- | --- |
+| `cache.t4g.micro` | `0.5` |
+| `cache.t4g.small` | `1.37` |
+| `cache.t4g.medium` | `3.09` |
+| `cache.t3.micro` | `0.5` |
+| `cache.t3.small` | `1.37` |
+| `cache.t3.medium` | `3.09` |
+
+For full and latest node-family capacities (m/r/t and region support), see:
+https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheNodes.SupportedTypes.html
+
+To disable local Redis cache again:
+```
+export REDIS_ENABLED=false
+```
+
+### Invoke cache-prime cron locally
+
+Use this to run the same Lambda target used by the hourly cron:
+```
+npm run prime-cache:invoke-local
+```
+
 ## Local Testing
 
 To run the test suite, run:
@@ -150,9 +213,6 @@ export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
 export bamboo_RDF_BUCKET_NAME=[name of bucket for storing archived versions]
 export bamboo_EXISTING_API_ID=[api id if deploying this into an existing api gateway]
 export bamboo_ROOT_RESOURCE_ID=[see CDK_MIGRATION.md for how to determine]
-export bamboo_KMS_CACHE_TTL_SECONDS=[optional, default 3600]
-export bamboo_KMS_CACHE_CLUSTER_SIZE_GB=[optional, default 0.5]
-export bamboo_KMS_CACHE_CLUSTER_ENABLED=[optional, default true]
 ```
 #### Deploy KMS Application
 ```
