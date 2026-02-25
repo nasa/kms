@@ -19,6 +19,7 @@ import { getCsvHeaders } from '@/shared/getCsvHeaders'
 import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logger } from '@/shared/logger'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
 
@@ -584,10 +585,11 @@ describe('getConcept', () => {
       const mockEvent = { pathParameters: { conceptId: '123' } }
       const testError = new Error('Test error')
       getSkosConcept.mockRejectedValue(testError)
+      const loggerErrorSpy = vi.spyOn(logger, 'error')
 
       await getConcept(mockEvent)
 
-      expect(console.error).toHaveBeenCalledWith(`Error retrieving concept, error=${testError.toString()}`)
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Error retrieving concept, error=${testError.toString()}`)
     })
 
     test('should return 404 when concept is not found', async () => {

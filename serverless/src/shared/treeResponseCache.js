@@ -1,4 +1,5 @@
 import { getRedisClient } from '@/shared/getRedisClient'
+import { logger } from '@/shared/logger'
 
 export const TREE_CACHE_KEY_PREFIX = 'kms:tree'
 
@@ -26,7 +27,7 @@ export const getCachedTreeResponse = async (cacheKey) => {
   try {
     return JSON.parse(cachedString)
   } catch (error) {
-    console.error(`Failed parsing cached tree response key=${cacheKey}, error=${error}`)
+    logger.error(`Failed parsing cached tree response key=${cacheKey}, error=${error}`)
 
     return null
   }

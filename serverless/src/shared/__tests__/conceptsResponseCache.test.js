@@ -14,6 +14,7 @@ import {
   setCachedConceptsResponse
 } from '@/shared/conceptsResponseCache'
 import { getRedisClient } from '@/shared/getRedisClient'
+import { logger } from '@/shared/logger'
 
 vi.mock('@/shared/getRedisClient')
 
@@ -263,7 +264,7 @@ describe('conceptsResponseCache', () => {
     })
 
     test('stops when redis scan returns a repeated cursor to prevent scan loop', async () => {
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const loggerWarnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {})
       const del = vi.fn()
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(1)
@@ -286,7 +287,7 @@ describe('conceptsResponseCache', () => {
 
       expect(deleted).toBe(2)
       expect(scan).toHaveBeenCalledTimes(2)
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
         '[cache-prime] clear-scan detected repeated cursor=1; stopping to prevent scan loop'
       )
     })

@@ -8,6 +8,7 @@ import {
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getRedisClient } from '@/shared/getRedisClient'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logger } from '@/shared/logger'
 import { primeConcepts } from '@/shared/primeConcepts'
 import { primeKeywordTrees } from '@/shared/primeKeywordTrees'
 import { createTreeResponseCacheKey } from '@/shared/treeResponseCache'
@@ -62,7 +63,7 @@ const countPrimeResults = ({
   settledResults.forEach((result) => {
     if (result.status === 'rejected') {
       failed += 1
-      console.error(`${rejectedLogPrefix}${result.reason}`)
+      logger.error(`${rejectedLogPrefix}${result.reason}`)
 
       return
     }
@@ -76,7 +77,7 @@ const countPrimeResults = ({
 
     if (response.statusCode !== 400) {
       failed += 1
-      console.error(`${non200LogPrefix}route=${entry.label}, key=${entry.cacheKey}, statusCode=${response.statusCode}`)
+      logger.error(`${non200LogPrefix}route=${entry.label}, key=${entry.cacheKey}, statusCode=${response.statusCode}`)
     }
   })
 
@@ -103,10 +104,10 @@ const countPrimeResults = ({
  * @returns {Promise<{statusCode:number, body:string}>} Lambda-style response payload.
  */
 export const primeConceptsCache = async () => {
-  console.log('[cache-prime] start')
+  logger.info('[cache-prime] start')
   const redisClient = await getRedisClient()
   if (!redisClient) {
-    console.log('[cache-prime] skip reason=redis_not_configured')
+    logger.info('[cache-prime] skip reason=redis_not_configured')
 
     return {
       statusCode: 200,
@@ -118,7 +119,7 @@ export const primeConceptsCache = async () => {
 
   const versionMetadata = await getVersionMetadata(PRIME_VERSION)
   if (!versionMetadata) {
-    console.log('[cache-prime] skip reason=missing_published_version_metadata')
+    logger.info('[cache-prime] skip reason=missing_published_version_metadata')
 
     return {
       statusCode: 404,
@@ -130,9 +131,9 @@ export const primeConceptsCache = async () => {
 
   const marker = versionMetadata.versionName
   const currentMarker = await redisClient.get(CACHE_VERSION_KEY)
-  console.log(`[cache-prime] marker current=${currentMarker || 'none'} target=${marker}`)
+  logger.info(`[cache-prime] marker current=${currentMarker || 'none'} target=${marker}`)
   if (currentMarker === marker) {
-    console.log('[cache-prime] skip reason=already_primed')
+    logger.info('[cache-prime] skip reason=already_primed')
 
     return {
       statusCode: 200,
@@ -143,9 +144,9 @@ export const primeConceptsCache = async () => {
     }
   }
 
-  console.log('[cache-prime] checkpoint=before_clear_cache')
+  logger.debug('[cache-prime] checkpoint=before_clear_cache')
   const deletedKeys = await clearConceptsResponseCache()
-  console.log(`[cache-prime] cleared_keys=${deletedKeys}`)
+  logger.info(`[cache-prime] cleared_keys=${deletedKeys}`)
 
   const getTotalPagesFromResponse = (response) => {
     const headerValue = response?.headers?.['X-Total-Pages']
@@ -154,7 +155,7 @@ export const primeConceptsCache = async () => {
     return parsePositiveInt(headerValue, FALLBACK_MAX_PAGES)
   }
 
-  console.log('[cache-prime] checkpoint=before_get_concept_scheme_details')
+  logger.debug('[cache-prime] checkpoint=before_get_concept_scheme_details')
   const schemes = await getConceptSchemeDetails({
     version: PRIME_VERSION
   }) || []

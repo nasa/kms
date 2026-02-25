@@ -10,6 +10,7 @@ import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -111,7 +112,7 @@ export const getKeywordsTree = async (event, context) => {
 
   // Check if pathParameters exists
   if (!event.pathParameters) {
-    console.error('Missing pathParameters')
+    logger.error('Missing pathParameters')
 
     return {
       headers: defaultResponseHeaders,
@@ -141,7 +142,7 @@ export const getKeywordsTree = async (event, context) => {
   })
 
   if (!event.pathParameters || !event.pathParameters.conceptScheme) {
-    console.error('Missing conceptScheme parameter')
+    logger.error('Missing conceptScheme parameter')
 
     return {
       headers: defaultResponseHeaders,
@@ -156,7 +157,7 @@ export const getKeywordsTree = async (event, context) => {
     if (shouldUseTreeCache) {
       const cachedResponse = await getCachedTreeResponse(treeCacheKey)
       if (cachedResponse) {
-        console.log(`[cache] hit endpoint=getKeywordsTree key=${treeCacheKey}`)
+        logger.info(`[cache] hit endpoint=getKeywordsTree key=${treeCacheKey}`)
 
         return {
           ...cachedResponse,
@@ -167,7 +168,7 @@ export const getKeywordsTree = async (event, context) => {
         }
       }
 
-      console.log(`[cache] miss endpoint=getKeywordsTree key=${treeCacheKey}`)
+      logger.info(`[cache] miss endpoint=getKeywordsTree key=${treeCacheKey}`)
     }
 
     let keywordTree = []
@@ -349,13 +350,13 @@ export const getKeywordsTree = async (event, context) => {
         response
       })
 
-      console.log(`[cache] write endpoint=getKeywordsTree key=${treeCacheKey}`)
+      logger.debug(`[cache] write endpoint=getKeywordsTree key=${treeCacheKey}`)
     }
 
     return response
   } catch (error) {
     // Log and return error response
-    console.error(`Error retrieving concept, error=${error.toString()}`)
+    logger.error(`Error retrieving concept, error=${error.toString()}`)
 
     return {
       headers: defaultResponseHeaders,

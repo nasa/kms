@@ -1,4 +1,5 @@
 import { getRedisClient } from '@/shared/getRedisClient'
+import { logger } from '@/shared/logger'
 
 /** Prefix used for all concepts response cache keys in Redis. */
 export const CACHE_KEY_PREFIX = 'kms:concepts'
@@ -67,7 +68,7 @@ export const getCachedConceptsResponse = async (cacheKey) => {
   try {
     return JSON.parse(cachedString)
   } catch (error) {
-    console.error(`Failed parsing cached response key=${cacheKey}, error=${error}`)
+    logger.error(`Failed parsing cached response key=${cacheKey}, error=${error}`)
 
     return null
   }
@@ -113,12 +114,12 @@ export const clearConceptsResponseCache = async () => {
     const nextDeleted = deleted + deletedCount
     const normalizedCursor = String(nextCursor)
 
-    console.log(
+    logger.debug(
       `[cache-prime] clear-scan cursor=${cursor} nextCursor=${normalizedCursor} keys=${keys.length} deletedBatch=${deletedCount} deletedTotal=${nextDeleted}`
     )
 
     if (seenCursors.has(normalizedCursor)) {
-      console.warn(
+      logger.warn(
         `[cache-prime] clear-scan detected repeated cursor=${normalizedCursor}; stopping to prevent scan loop`
       )
 

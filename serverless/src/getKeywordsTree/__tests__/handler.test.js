@@ -14,6 +14,7 @@ import { getNarrowersMap } from '@/shared/getNarrowersMap'
 import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logger } from '@/shared/logger'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -670,8 +671,7 @@ describe('getKeywordsTree', () => {
 
       vi.mocked(getApplicationConfig).mockReturnValue({ defaultResponseHeaders: {} })
 
-      // Mock console.error to capture the error log
-      const consoleErrorMock = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const loggerErrorMock = vi.spyOn(logger, 'error').mockImplementation(() => {})
 
       const event = {
         pathParameters: { conceptScheme: 'Earth Science' },
@@ -689,12 +689,11 @@ describe('getKeywordsTree', () => {
       expect(parsedBody.error).toContain(errorMessage)
 
       // Verify that the error was logged
-      expect(consoleErrorMock).toHaveBeenCalledWith(
+      expect(loggerErrorMock).toHaveBeenCalledWith(
         expect.stringContaining(`Error retrieving concept, error=Error: ${errorMessage}`)
       )
 
-      // Restore console.error
-      consoleErrorMock.mockRestore()
+      loggerErrorMock.mockRestore()
     })
   })
 })

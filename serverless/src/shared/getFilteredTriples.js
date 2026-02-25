@@ -1,3 +1,4 @@
+import { logger } from '@/shared/logger'
 import { getConceptsQuery } from '@/shared/operations/queries/getConceptsQuery'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
@@ -80,7 +81,7 @@ export const getFilteredTriples = async ({
 
     return results.results.bindings
   } catch (error) {
-    console.error('Error fetching triples:', error)
+    logger.error('Error fetching triples:', error)
     throw error
   }
 }

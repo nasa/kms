@@ -1,4 +1,5 @@
 import { getRedisClient } from '@/shared/getRedisClient'
+import { logger } from '@/shared/logger'
 
 export const CONCEPT_CACHE_KEY_PREFIX = 'kms:concept'
 
@@ -40,7 +41,7 @@ export const getCachedConceptResponse = async (cacheKey) => {
   try {
     return JSON.parse(cachedString)
   } catch (error) {
-    console.error(`Failed parsing cached concept response key=${cacheKey}, error=${error}`)
+    logger.error(`Failed parsing cached concept response key=${cacheKey}, error=${error}`)
 
     return null
   }

@@ -18,6 +18,7 @@ import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
 
@@ -131,14 +132,14 @@ export const getConcept = async (event, context) => {
     try {
       const cachedResponse = await getCachedConceptResponse(conceptCacheKey)
       if (cachedResponse) {
-        console.log(`[cache] hit endpoint=getConcept key=${conceptCacheKey}`)
+        logger.info(`[cache] hit endpoint=getConcept key=${conceptCacheKey}`)
 
         return cachedResponse
       }
 
-      console.log(`[cache] miss endpoint=getConcept key=${conceptCacheKey}`)
+      logger.info(`[cache] miss endpoint=getConcept key=${conceptCacheKey}`)
     } catch (cacheReadError) {
-      console.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
+      logger.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
     }
 
     const concept = await getSkosConcept({
@@ -247,19 +248,19 @@ export const getConcept = async (event, context) => {
 
     if (response.statusCode === 200) {
       try {
-        console.log(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
+        logger.debug(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
         await setCachedConceptResponse({
           cacheKey: conceptCacheKey,
           response
         })
       } catch (cacheWriteError) {
-        console.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
+        logger.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
       }
     }
 
     return response
   } catch (error) {
-    console.error(`Error retrieving concept, error=${error.toString()}`)
+    logger.error(`Error retrieving concept, error=${error.toString()}`)
 
     return {
       headers: defaultResponseHeaders,

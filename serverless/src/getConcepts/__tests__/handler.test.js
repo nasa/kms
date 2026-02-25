@@ -26,6 +26,7 @@ import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getRootConcepts } from '@/shared/getRootConcepts'
 import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
+import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -672,7 +673,7 @@ describe('getConcepts', () => {
       })
       zlib.gzip = mockGzip
 
-      const consoleSpy = vi.spyOn(console, 'error')
+      const loggerErrorSpy = vi.spyOn(logger, 'error')
 
       const event = {}
       const result = await getConcepts(event)
@@ -683,7 +684,7 @@ describe('getConcepts', () => {
       expect(result.headers['Content-Length']).toBeUndefined()
       expect(result.body).toContain('<skos:Concept rdf:about="http://example.com/concept1">')
       expect(result.body).toContain(`<skos:prefLabel>${largeResponseBody}</skos:prefLabel>`)
-      expect(consoleSpy).toHaveBeenCalledWith('Error compressing response:', expect.any(Error))
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error compressing response:', expect.any(Error))
       expect(mockGzip).toHaveBeenCalledTimes(1)
     })
 
@@ -1222,6 +1223,7 @@ describe('getConcepts', () => {
     test('returns 500 status code and error message when an exception is thrown', async () => {
       const mockError = new Error('Test error')
       getFilteredTriples.mockRejectedValue(mockError)
+      const loggerErrorSpy = vi.spyOn(logger, 'error')
 
       const event = {} // Empty event object
       const result = await getConcepts(event)
@@ -1234,7 +1236,7 @@ describe('getConcepts', () => {
         })
       })
 
-      expect(console.error).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
     })
   })
 
@@ -1324,11 +1326,11 @@ describe('getConcepts', () => {
       const mockError = new Error('Test error')
       getFilteredTriples.mockRejectedValue(mockError)
 
-      const consoleSpy = vi.spyOn(console, 'error')
+      const loggerErrorSpy = vi.spyOn(logger, 'error')
 
       await getConcepts({})
 
-      expect(consoleSpy).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
+      expect(loggerErrorSpy).toHaveBeenCalledWith(`Error retrieving concepts, error=${mockError.toString()}`)
     })
   })
 })

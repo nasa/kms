@@ -1,5 +1,7 @@
 import { parse } from 'csv/sync'
 
+import { logger } from '@/shared/logger'
+
 /**
  * Parses concept-scheme CSV output into full-path values.
  *
@@ -22,7 +24,7 @@ const parseCsvFullPaths = (csvBody) => {
       .map((row) => row.filter((value) => value).join('|'))
       .filter((value) => Boolean(value))
   } catch (error) {
-    console.error(`Cache prime failed parsing CSV full paths, error=${error}`)
+    logger.error(`Cache prime failed parsing CSV full paths, error=${error}`)
 
     return []
   }
@@ -93,7 +95,7 @@ export const primeFullPaths = async ({
       ]
       const pagesWithData = 1
       const pagesAttempted = pagesWithData
-      console.log(`[cache-prime] summary full-paths scheme=${scheme.notation} totalPages=${totalPages} attemptedPages=${pagesAttempted} pagesWithData=${pagesWithData} csvPaths=${fullPathValues.length}`)
+      logger.info(`[cache-prime] summary full-paths scheme=${scheme.notation} totalPages=${totalPages} attemptedPages=${pagesAttempted} pagesWithData=${pagesWithData} csvPaths=${fullPathValues.length}`)
 
       const fullPathEntries = fullPathValues.flatMap((value) => (
         formats.map((format) => {

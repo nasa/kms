@@ -6,6 +6,7 @@
  */
 
 import { delay } from '@/shared/delay'
+import { logger } from '@/shared/logger'
 
 /**
  * Sends a request to the SPARQL endpoint with the specified parameters, supporting RDF4J transactions.
@@ -154,7 +155,7 @@ export const sparqlRequest = async (props) => {
   function addFromClause(query, graphUri) {
     // Check if the query already contains a FROM clause
     if (/FROM\s*</i.test(query)) {
-      console.warn('Query already contains a FROM clause. Skipping automatic graph insertion.')
+      logger.warn('Query already contains a FROM clause. Skipping automatic graph insertion.')
 
       return query
     }
@@ -169,7 +170,7 @@ export const sparqlRequest = async (props) => {
   function addWithClause(update, graphUri) {
     // Check if the update already contains a WITH clause
     if (/WITH\s*</i.test(update)) {
-      console.warn('Update already contains a WITH clause. Skipping automatic graph insertion.')
+      logger.warn('Update already contains a WITH clause. Skipping automatic graph insertion.')
 
       return update
     }
@@ -244,7 +245,7 @@ export const sparqlRequest = async (props) => {
 
       if (!response.ok) {
         const responseText = await response.text()
-        console.error(`Error response body: ${responseText}`)
+        logger.error(`Error response body: ${responseText}`)
         throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`)
       }
 
@@ -260,7 +261,7 @@ export const sparqlRequest = async (props) => {
       const retryPolicy = resolveAdaptiveReadRetryPolicy()
       const { effectiveMaxRetries } = retryPolicy
       if (retryCount < effectiveMaxRetries) {
-        console.log(
+        logger.info(
           '[retry] Retrying SPARQL request'
           + ` attempt=${retryCount + 1}/${effectiveMaxRetries}`
           + ` isWarm=${retryPolicy.isWarm}`
@@ -281,7 +282,7 @@ export const sparqlRequest = async (props) => {
         })
       }
 
-      console.error(
+      logger.error(
         `Max retries (${effectiveMaxRetries}) reached. Giving up. isWarm=${retryPolicy.isWarm} ageSinceLastSuccessMs=${retryPolicy.ageSinceLastSuccessMs}`
       )
 

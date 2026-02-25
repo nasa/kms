@@ -1,3 +1,5 @@
+import { logger } from '@/shared/logger'
+
 /**
  * Primes /tree/concept_scheme/all and /tree/concept_scheme/{scheme}.
  *
@@ -55,7 +57,7 @@ export const primeKeywordTrees = async ({
   const treeSettled = await entries.reduce(async (accPromise, entry) => {
     const acc = await accPromise
     try {
-      console.log(`[cache-prime] iter tree route=${entry.label}`)
+      logger.debug(`[cache-prime] iter tree route=${entry.label}`)
       const response = await getKeywordsTree(entry.event, {})
       acc.push({
         status: 'fulfilled',

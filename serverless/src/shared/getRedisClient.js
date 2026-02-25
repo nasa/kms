@@ -1,5 +1,7 @@
 import { createClient } from 'redis'
 
+import { logger } from '@/shared/logger'
+
 let redisClientPromise
 let hasLoggedRedisConfig = false
 
@@ -15,7 +17,7 @@ export const getRedisClient = async () => {
   if (!isRedisConfigured()) {
     if (!hasLoggedRedisConfig) {
       hasLoggedRedisConfig = true
-      console.log(`Redis disabled or not configured: REDIS_ENABLED=${REDIS_ENABLED}, REDIS_HOST=${REDIS_HOST}, REDIS_PORT=${REDIS_PORT}`)
+      logger.info(`Redis disabled or not configured: REDIS_ENABLED=${REDIS_ENABLED}, REDIS_HOST=${REDIS_HOST}, REDIS_PORT=${REDIS_PORT}`)
     }
 
     return null
@@ -25,7 +27,7 @@ export const getRedisClient = async () => {
     redisClientPromise = (async () => {
       if (!hasLoggedRedisConfig) {
         hasLoggedRedisConfig = true
-        console.log(`Redis configured: host=${REDIS_HOST}, port=${REDIS_PORT}`)
+        logger.info(`Redis configured: host=${REDIS_HOST}, port=${REDIS_PORT}`)
       }
 
       const client = createClient({
@@ -36,17 +38,17 @@ export const getRedisClient = async () => {
       })
 
       client.on('error', (error) => {
-        console.error(`Redis client error: ${error}`)
+        logger.error(`Redis client error: ${error}`)
       })
 
       await client.connect()
-      console.log('Redis connected')
+      logger.info('Redis connected')
 
       return client
     })().catch((error) => {
       redisClientPromise = null
 
-      console.error(`Redis connect failed: ${error}`)
+      logger.error(`Redis connect failed: ${error}`)
 
       return null
     })

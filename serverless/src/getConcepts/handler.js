@@ -24,6 +24,7 @@ import { getRootConcepts } from '@/shared/getRootConcepts'
 import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -197,20 +198,20 @@ export const getConcepts = async (event, context) => {
     try {
       const cachedResponse = await getCachedConceptsResponse(cacheKey)
       if (cachedResponse) {
-        console.log(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
+        logger.info(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
         if (format.toLowerCase() === 'csv') {
-          console.log(`[cache] csv hit endpoint=getConcepts key=${cacheKey}`)
+          logger.info(`[cache] csv hit endpoint=getConcepts key=${cacheKey}`)
         }
 
         return cachedResponse
       }
 
-      console.log(`[cache] miss endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
+      logger.info(`[cache] miss endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
       if (format.toLowerCase() === 'csv') {
-        console.log(`[cache] csv miss endpoint=getConcepts key=${cacheKey}`)
+        logger.info(`[cache] csv miss endpoint=getConcepts key=${cacheKey}`)
       }
     } catch (cacheReadError) {
-      console.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
+      logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
     }
 
     // CSV case
@@ -240,16 +241,16 @@ export const getConcepts = async (event, context) => {
 
       if (csvResponse.statusCode === 200) {
         try {
-          console.log(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
+          logger.debug(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
           await setCachedConceptsResponse({
             cacheKey,
             response: csvResponse
           })
         } catch (cacheWriteError) {
-          console.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
+          logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
         }
       } else {
-        console.log(`[cache] csv skip-write endpoint=getConcepts status=${csvResponse.statusCode} key=${cacheKey}`)
+        logger.debug(`[cache] csv skip-write endpoint=getConcepts status=${csvResponse.statusCode} key=${cacheKey}`)
       }
 
       return csvResponse
@@ -406,7 +407,7 @@ export const getConcepts = async (event, context) => {
 
     const endTime = performance.now()
     performanceMetrics.totalTime = (endTime - startTime).toFixed(2)
-    console.log('get concepts performance=', JSON.stringify(performanceMetrics))
+    logger.info('get concepts performance=', JSON.stringify(performanceMetrics))
 
     // API Gateway has a hard limit of responses at 6MB
     const SIZE_THRESHOLD = 5 * 1024 * 1024 // Set threshold to 5MB to have some buffer
@@ -447,7 +448,7 @@ export const getConcepts = async (event, context) => {
         }
       } catch (compressionError) {
         // Log the error if compression fails
-        console.error('Error compressing response:', compressionError)
+        logger.error('Error compressing response:', compressionError)
         // Fallback to uncompressed response if compression fails
         response = {
           statusCode: 200,
@@ -459,19 +460,19 @@ export const getConcepts = async (event, context) => {
 
     if (response.statusCode === 200) {
       try {
-        console.log(`[cache] write endpoint=getConcepts key=${cacheKey}`)
+        logger.debug(`[cache] write endpoint=getConcepts key=${cacheKey}`)
         await setCachedConceptsResponse({
           cacheKey,
           response
         })
       } catch (cacheWriteError) {
-        console.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
+        logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
       }
     }
 
     return response
   } catch (error) {
-    console.error(`Error retrieving concepts, error=${error}`)
+    logger.error(`Error retrieving concepts, error=${error}`)
 
     return {
       headers: defaultResponseHeaders,
