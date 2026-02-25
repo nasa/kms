@@ -30,16 +30,12 @@ export class RedisStack extends cdk.Stack {
       vpcId
     })
 
-    const preferredSubnets = vpc.selectSubnets({
+    const redisSubnets = vpc.selectSubnets({
       subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
     }).subnets
-    const fallbackSubnets = vpc.selectSubnets({
-      subnetType: ec2.SubnetType.PRIVATE_ISOLATED
-    }).subnets
-    const redisSubnets = preferredSubnets.length > 0 ? preferredSubnets : fallbackSubnets
 
     if (redisSubnets.length === 0) {
-      throw new Error('No private subnets found for Redis. Add PRIVATE_WITH_EGRESS or PRIVATE_ISOLATED subnets.')
+      throw new Error('No PRIVATE_WITH_EGRESS subnets found for Redis in the selected VPC.')
     }
 
     const redisSecurityGroup = new ec2.SecurityGroup(this, `${prefix}-RedisSecurityGroup`, {
