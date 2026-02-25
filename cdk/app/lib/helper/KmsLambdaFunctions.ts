@@ -451,8 +451,8 @@ export class LambdaFunctions {
     this.setupCronJob(
       scope,
       cachePrimeLambda,
-      // Run hourly; most invocations do a lightweight version-marker check and return.
-      'cron(0 * * * ? *)',
+      // Run every 30 minutes; most invocations do a lightweight version-marker check and return.
+      'cron(0/30 * * * ? *)',
       { version: 'published' },
       'NightlyConceptsCachePrime'
     )
