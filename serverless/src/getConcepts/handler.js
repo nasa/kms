@@ -104,40 +104,6 @@ export const getConcepts = async (event, context) => {
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
-  // Check existence of version
-  let keywordVersion = 'n/a'
-  let versionCreationDate = 'n/a'
-  const versionInfo = await getVersionMetadata(version)
-  if (versionInfo) {
-    keywordVersion = versionInfo.versionName
-    versionCreationDate = versionInfo.created
-  } else {
-    return {
-      headers: defaultResponseHeaders,
-      statusCode: 404,
-      body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
-    }
-  }
-
-  // Check existence of scheme if given
-  if (conceptScheme) {
-    if (conceptScheme.toLowerCase() === 'granuledataformat') {
-      conceptScheme = 'dataformat'
-    }
-
-    const scheme = await getConceptSchemeDetails({
-      schemeName: conceptScheme,
-      version
-    })
-    if (scheme === null) {
-      return {
-        headers: defaultResponseHeaders,
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
-      }
-    }
-  }
-
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
   const pageSize = parseInt(pageSizeStr, 10)
@@ -181,6 +147,11 @@ export const getConcepts = async (event, context) => {
   }
 
   try {
+    // Normalize known alias before cache key generation.
+    if (conceptScheme?.toLowerCase() === 'granuledataformat') {
+      conceptScheme = 'dataformat'
+    }
+
     const cacheKey = createConceptsResponseCacheKey({
       version,
       path: event?.resource || event?.path,
@@ -212,6 +183,36 @@ export const getConcepts = async (event, context) => {
       }
     } catch (cacheReadError) {
       logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
+    }
+
+    // Check existence of version only after cache miss.
+    let keywordVersion = 'n/a'
+    let versionCreationDate = 'n/a'
+    const versionInfo = await getVersionMetadata(version)
+    if (versionInfo) {
+      keywordVersion = versionInfo.versionName
+      versionCreationDate = versionInfo.created
+    } else {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+      }
+    }
+
+    // Check existence of scheme if given only after cache miss.
+    if (conceptScheme) {
+      const scheme = await getConceptSchemeDetails({
+        schemeName: conceptScheme,
+        version
+      })
+      if (scheme === null) {
+        return {
+          headers: defaultResponseHeaders,
+          statusCode: 404,
+          body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
+        }
+      }
     }
 
     // CSV case

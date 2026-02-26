@@ -87,21 +87,6 @@ export const getConcept = async (event, context) => {
   })
 
   try {
-    // Check existence of version
-    let keywordVersion = 'n/a'
-    let versionCreationDate = 'n/a'
-    const versionInfo = await getVersionMetadata(version)
-    if (versionInfo) {
-      keywordVersion = versionInfo.versionName
-      versionCreationDate = versionInfo.created
-    } else {
-      return {
-        headers: defaultResponseHeaders,
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
-      }
-    }
-
     const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
 
     const decodedConceptId = conceptId ? decode(conceptId) : null
@@ -136,6 +121,21 @@ export const getConcept = async (event, context) => {
       logger.info(`[cache] miss endpoint=getConcept key=${conceptCacheKey}`)
     } catch (cacheReadError) {
       logger.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
+    }
+
+    // Check existence of version only after cache miss.
+    let keywordVersion = 'n/a'
+    let versionCreationDate = 'n/a'
+    const versionInfo = await getVersionMetadata(version)
+    if (versionInfo) {
+      keywordVersion = versionInfo.versionName
+      versionCreationDate = versionInfo.created
+    } else {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+      }
     }
 
     const concept = await getSkosConcept({
