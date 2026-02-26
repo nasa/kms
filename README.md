@@ -171,7 +171,6 @@ export bamboo_KMS_REDIS_ENABLED=[true|false]
 export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
 Notes:
-- `bin/deploy-bamboo.sh` does not provide defaults for `bamboo_KMS_REDIS_ENABLED` or `bamboo_KMS_REDIS_NODE_TYPE`; both must be set.
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 
 #### Deploy KMS Application
