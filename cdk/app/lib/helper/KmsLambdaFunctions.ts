@@ -128,9 +128,9 @@ export class LambdaFunctions {
   private createApiLambdas(scope: Construct) {
     this.createReadApiLambdas(scope)
     this.createTreeOperationApiLambdas(scope)
-    const cachePrimeLambda = this.createCachePrimeLambda(scope)
-    this.createNightlyCachePrimeCron(scope, cachePrimeLambda)
-    this.createCrudOperationApiLambdas(scope, cachePrimeLambda)
+    this.createNightlyCachePrimeCron(scope)
+    this.createCrudOperationApiLambdas(scope)
+    this.createPublishEventBridgeFlow(scope)
     this.createExportRdfCrons(scope)
   }
 
@@ -324,7 +324,7 @@ export class LambdaFunctions {
    * @param {Construct} scope - The scope in which to define these constructs
    * @private
    */
-  private createCrudOperationApiLambdas(scope: Construct, cachePrimeLambda: lambda.Function) {
+  private createCrudOperationApiLambdas(scope: Construct) {
     this.createApiLambda(
       scope,
       'createConcept/handler.js',
@@ -355,7 +355,7 @@ export class LambdaFunctions {
       true
     )
 
-    const publishLambda = this.createApiLambda(
+    this.createApiLambda(
       scope,
       'publish/handler.js',
       'publish',
@@ -364,8 +364,6 @@ export class LambdaFunctions {
       'POST',
       true
     )
-
-    this.createPublishTriggeredCachePrime(scope, publishLambda, cachePrimeLambda)
 
     this.createApiLambda(
       scope,
@@ -396,6 +394,46 @@ export class LambdaFunctions {
       'PUT',
       true
     )
+  }
+
+  /**
+   * Creates EventBridge wiring for publish events and cache-prime target execution.
+   *
+   * This method:
+   * 1. Resolves the publish Lambda from the internal lambda map.
+   * 2. Grants publish permission to put events on the default EventBridge bus.
+   * 3. Wires an EventBridge rule to trigger cache-prime on publish-complete events.
+   *
+   * @param {Construct} scope - Construct scope.
+   * @private
+   */
+  private createPublishEventBridgeFlow(scope: Construct) {
+    const publishLambdaKey = 'publish/handler.js::publish'
+    const publishLambda = this.lambdas[publishLambdaKey]
+    if (!publishLambda) {
+      throw new Error(`Expected publish lambda to exist in map for key=${publishLambdaKey}`)
+    }
+
+    const cachePrimeLambda = this.createCachePrimeLambda(scope)
+    const defaultEventBusArn = Stack.of(scope).formatArn({
+      service: 'events',
+      resource: 'event-bus',
+      resourceName: 'default'
+    })
+
+    publishLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['events:PutEvents'],
+      resources: [defaultEventBusArn]
+    }))
+
+    const rule = new events.Rule(scope, `${this.props.prefix}-PublishToPrimeCacheRule`, {
+      eventPattern: {
+        source: ['kms.publish'],
+        detailType: ['kms.published.version.changed']
+      }
+    })
+
+    rule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
   }
 
   /**
@@ -461,9 +499,9 @@ export class LambdaFunctions {
    * @private
    */
   private createNightlyCachePrimeCron(
-    scope: Construct,
-    cachePrimeLambda: lambda.Function
+    scope: Construct
   ) {
+    const cachePrimeLambda = this.createCachePrimeLambda(scope)
     this.setupCronJob(
       scope,
       cachePrimeLambda,
@@ -472,43 +510,6 @@ export class LambdaFunctions {
       { version: 'published' },
       'NightlyConceptsCachePrime'
     )
-  }
-
-  /**
-   * Wires publish-complete events to cache-prime Lambda.
-   *
-   * Also grants the publish Lambda permission to emit events to the default
-   * EventBridge bus.
-   *
-   * @param {Construct} scope - Construct scope.
-   * @param {lambda.Function} publishLambda - Publish Lambda that emits events.
-   * @param {lambda.Function} cachePrimeLambda - Cache-prime Lambda target.
-   * @private
-   */
-  private createPublishTriggeredCachePrime(
-    scope: Construct,
-    publishLambda: lambda.Function,
-    cachePrimeLambda: lambda.Function
-  ) {
-    const defaultEventBusArn = Stack.of(scope).formatArn({
-      service: 'events',
-      resource: 'event-bus',
-      resourceName: 'default'
-    })
-
-    publishLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['events:PutEvents'],
-      resources: [defaultEventBusArn]
-    }))
-
-    const rule = new events.Rule(scope, `${this.props.prefix}-PublishToPrimeCacheRule`, {
-      eventPattern: {
-        source: ['kms.publish'],
-        detailType: ['kms.published.version.changed']
-      }
-    })
-
-    rule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
   }
 
   /**

@@ -3,22 +3,49 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as elasticache from 'aws-cdk-lib/aws-elasticache'
 import { Construct } from 'constructs'
 
+/**
+ * Configuration properties for {@link RedisStack}.
+ */
 export interface RedisStackProps extends cdk.StackProps {
+  /** Prefix used for resource naming and exported outputs. */
   prefix: string
+  /** Deployment stage name (for example, `dev`, `sit`, `prod`). */
   stage: string
+  /** Existing VPC ID where Redis will be provisioned. */
   vpcId: string
+  /** ElastiCache node type (for example, `cache.t3.micro`). */
   nodeType?: string
 }
 
+/**
+ * Provisions a single-node Redis ElastiCache cluster for KMS response caching.
+ *
+ * This stack creates:
+ * 1. A Redis security group that allows VPC-internal TCP/6379 access.
+ * 2. A Redis subnet group from `PRIVATE_WITH_EGRESS` subnets in the target VPC.
+ * 3. A Redis cache cluster and CloudFormation outputs for endpoint address/port.
+ */
 export class RedisStack extends cdk.Stack {
+  /** DNS endpoint address for the Redis cluster. */
   public readonly endpointAddress: string
 
+  /** Port exposed by the Redis cluster endpoint. */
   public readonly endpointPort: string
 
+  /** CloudFormation output for Redis endpoint address. */
   public readonly redisEndpointAddressOutput: cdk.CfnOutput
 
+  /** CloudFormation output for Redis endpoint port. */
   public readonly redisEndpointPortOutput: cdk.CfnOutput
 
+  /**
+   * Creates a Redis cache stack in an existing VPC.
+   *
+   * @param {Construct} scope - Parent construct.
+   * @param {string} id - Construct identifier.
+   * @param {RedisStackProps} props - Stack configuration.
+   * @throws {Error} When the target VPC has no `PRIVATE_WITH_EGRESS` subnets.
+   */
   constructor(scope: Construct, id: string, props: RedisStackProps) {
     super(scope, id, props)
 
