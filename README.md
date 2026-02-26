@@ -141,60 +141,15 @@ npm run rdf4j:stop
 ```
 
 # Deployments
-## Deploying RDF Database to AWS
+## Deploying KMS Application to AWS
 ### Prerequisites
 #### Copy your AWS credentials and set these up as env variables
 ```
-export AWS_ACCESS_KEY_ID=${your access key id}
-export AWS_SECRET_ACCESS_KEY=${your secret access key}
-export AWS_SESSION_TOKEN=${your session token}
-export VPC_ID={your vpc id}
-```
-#### Set the RDFDB user name and password
-```
-export RDF4J_USER_NAME=[your rdfdb user name]
-export RDF4J_PASSWORD=[your rdfdb password]
-export RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
-```
-
-#### Deploy Docker Container to Registry
-```
-cd cdk/rdfdb/bin
-./deploy_to_ecr.sh
-```
-
-#### Deploy ECS Service to AWS
-#### Deploy IAM, EBS, LB, and ECS stacks
-```
-export RDF4J_USER_NAME=[your rdfdb user name]
-export RDF4J_PASSWORD=[your rdfdb password]
-export RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
-export RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
-
-cd cdk
-cdk deploy rdf4jIamStack
-cdk deploy rdf4jEbsStack
-cdk deploy rdf4jLbStack
-cdk deploy rdf4jEcsStack
-cdk deploy rdf4jSnapshotStack
-cdk deploy KmsStack
-```
-#### Alternatively, you can deploy all stacks at once
-```
-cd cdk
-cdk deploy --all
-```
-One thing to note is if you destroy the rdf4jEbsStack and redeploy, this will create a new EBS file system.  You will need to copy the data from the old EBS file system to the new one.  This can be done by mounting the old EBS file system to an EC2 instance and copying the data to the new EBS file system.
-
-## Deploying KMS to AWS
-### Prerequisites
-#### Copy your AWS credentials and set these up as env variables
-```
+export RELEASE_VERSION=[app release version]
 export bamboo_STAGE_NAME=[sit|uat|prod]
 export bamboo_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 export bamboo_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 export bamboo_AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-export bamboo_LAMBDA_TIMEOUT=30
 export bamboo_SUBNET_ID_A={subnet #1}
 export bamboo_SUBNET_ID_B={subnet #2}
 export bamboo_SUBNET_ID_C={subnet #3}
@@ -211,7 +166,14 @@ export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
 export bamboo_RDF_BUCKET_NAME=[name of bucket for storing archived versions]
 export bamboo_EXISTING_API_ID=[api id if deploying this into an existing api gateway]
 export bamboo_ROOT_RESOURCE_ID=[see CDK_MIGRATION.md for how to determine]
+export bamboo_LOG_LEVEL=[INFO|DEBUG|WARN|ERROR]
+export bamboo_KMS_REDIS_ENABLED=[true|false]
+export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
+Notes:
+- `bin/deploy-bamboo.sh` does not provide defaults for `bamboo_KMS_REDIS_ENABLED` or `bamboo_KMS_REDIS_NODE_TYPE`; both must be set.
+- If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
+
 #### Deploy KMS Application
 ```
 ./bin/deploy-bamboo.sh
