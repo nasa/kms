@@ -7,7 +7,6 @@ import {
 } from 'vitest'
 
 import { getConcept } from '@/getConcept/handler'
-import { getCachedConceptResponse, setCachedConceptResponse } from '@/shared/conceptResponseCache'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
   createConceptToConceptSchemeShortNameMap
@@ -20,6 +19,7 @@ import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
 
@@ -34,13 +34,13 @@ vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/toLegacyXML')
 vi.mock('@/shared/getVersionMetadata')
-vi.mock('@/shared/conceptResponseCache', async () => {
-  const actual = await vi.importActual('@/shared/conceptResponseCache')
+vi.mock('@/shared/redisCacheStore', async () => {
+  const actual = await vi.importActual('@/shared/redisCacheStore')
 
   return {
     ...actual,
-    getCachedConceptResponse: vi.fn(),
-    setCachedConceptResponse: vi.fn()
+    getCachedJsonResponse: vi.fn(),
+    setCachedJsonResponse: vi.fn()
   }
 })
 
@@ -58,8 +58,8 @@ describe('getConcept', () => {
     getConceptSchemeDetails.mockResolvedValue({})
     toLegacyJSON.mockReturnValue({})
     toLegacyXML.mockReturnValue({})
-    getCachedConceptResponse.mockResolvedValue(null)
-    setCachedConceptResponse.mockResolvedValue(undefined)
+    getCachedJsonResponse.mockResolvedValue(null)
+    setCachedJsonResponse.mockResolvedValue(undefined)
 
     vi.mocked(getVersionMetadata).mockResolvedValue({
       version: 'published',
@@ -154,52 +154,52 @@ describe('getConcept', () => {
     })
   })
 
-  describe('when successful', () => {
-    describe('when redis cache errors occur', () => {
-      test('continues normally when redis concept cache read throws', async () => {
-        getCachedConceptResponse.mockRejectedValue(new Error('cache read failed'))
-        const mockSkosConcept = {
-          '@rdf:about': '123',
-          'skos:prefLabel': { _text: 'Test PrefLabel' },
-          'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+  describe('when redis cache errors occur', () => {
+    test('continues normally when redis concept cache read throws', async () => {
+      getCachedJsonResponse.mockRejectedValue(new Error('cache read failed'))
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+
+      const result = await getConcept({
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {
+          format: 'rdf',
+          version: 'published'
         }
-        mockSuccessfulResponse(mockSkosConcept)
-
-        const result = await getConcept({
-          pathParameters: { conceptId: '123' },
-          queryStringParameters: {
-            format: 'rdf',
-            version: 'published'
-          }
-        })
-
-        expect(result.statusCode).toBe(200)
       })
 
-      test('continues normally when redis concept cache write throws', async () => {
-        setCachedConceptResponse.mockRejectedValue(new Error('cache write failed'))
-        const mockSkosConcept = {
-          '@rdf:about': '123',
-          'skos:prefLabel': { _text: 'Test PrefLabel' },
-          'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
-        }
-        mockSuccessfulResponse(mockSkosConcept)
-
-        const result = await getConcept({
-          pathParameters: { conceptId: '123' },
-          queryStringParameters: {
-            format: 'rdf',
-            version: 'published'
-          }
-        })
-
-        expect(result.statusCode).toBe(200)
-      })
+      expect(result.statusCode).toBe(200)
     })
 
+    test('continues normally when redis concept cache write throws', async () => {
+      setCachedJsonResponse.mockRejectedValue(new Error('cache write failed'))
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+
+      const result = await getConcept({
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {
+          format: 'rdf',
+          version: 'published'
+        }
+      })
+
+      expect(result.statusCode).toBe(200)
+    })
+  })
+
+  describe('when successful', () => {
     describe('when redis cache has response', () => {
       test('returns cached payload for concept id lookup without querying RDF store', async () => {
-        getCachedConceptResponse.mockResolvedValue({
+        getCachedJsonResponse.mockResolvedValue({
           statusCode: 200,
           headers: { 'Content-Type': 'application/xml; charset=utf-8' },
           body: '<rdf:RDF/>'
@@ -222,7 +222,7 @@ describe('getConcept', () => {
       })
 
       test('returns cached payload for full path lookup without querying RDF store', async () => {
-        getCachedConceptResponse.mockResolvedValue({
+        getCachedJsonResponse.mockResolvedValue({
           statusCode: 200,
           headers: { 'Content-Type': 'application/xml; charset=utf-8' },
           body: '<rdf:RDF/>'
@@ -246,7 +246,7 @@ describe('getConcept', () => {
     })
 
     describe('when retrieving by concept identifier', () => {
-      test('returns successfully with concept and return RDF/XML representation', async () => {
+      test('returns concept in RDF/XML representation', async () => {
         const mockEvent = { pathParameters: { conceptId: '123' } }
         const mockSkosConcept = {
           '@rdf:about': '123',
@@ -265,7 +265,7 @@ describe('getConcept', () => {
     })
 
     describe('when retrieving by short name', () => {
-      test('should successfully with concept using short name', async () => {
+      test('should successfully retrieve concept using short name', async () => {
         const mockEvent = { pathParameters: { shortName: 'Test+Short+Name' } }
         const mockSkosConcept = {
           '@rdf:about': '123',
@@ -282,7 +282,7 @@ describe('getConcept', () => {
     })
 
     describe('when retrieving by altLabel', () => {
-      test('should successfully with concept using altLabel', async () => {
+      test('should successfully retrieve concept using altLabel', async () => {
         const mockEvent = { pathParameters: { altLabel: 'Alt%2BLabel' } }
         const mockSkosConcept = {
           '@rdf:about': '123',
@@ -320,7 +320,7 @@ describe('getConcept', () => {
     })
 
     describe('when retrieving by altLabel with scheme', () => {
-      test('should successfully with concept using altLabel and scheme', async () => {
+      test('should successfully retrieve concept using altLabel and scheme', async () => {
         const mockEvent = {
           pathParameters: { altLabel: 'Alt%2BLabel' },
           queryStringParameters: { scheme: 'Test%20Scheme' }
@@ -337,24 +337,6 @@ describe('getConcept', () => {
           altLabel: 'Alt+Label',
           scheme: 'Test Scheme'
         }))
-      })
-
-      describe('when concept is not found', () => {
-        test('returns 404 status code', async () => {
-          const mockEvent = {
-            pathParameters: { conceptId: 'nonexistent' },
-            queryStringParameters: {}
-          }
-          getSkosConcept.mockResolvedValue(null)
-
-          const result = await getConcept(mockEvent)
-
-          expect(result.statusCode).toBe(404)
-          expect(result.headers['Content-Type']).toBe('application/json')
-          expect(JSON.parse(result.body)).toEqual({
-            error: 'Concept not found'
-          })
-        })
       })
     })
 
@@ -425,7 +407,9 @@ describe('getConcept', () => {
         expect(result.body).toContain('<concept id="123">')
         expect(result.body).toContain('<label>Test Concept</label>')
       })
+    })
 
+    describe('when writing responses to redis cache', () => {
       test('writes successful concept id responses to redis cache', async () => {
         const mockSkosConcept = {
           '@rdf:about': '123',
@@ -447,7 +431,7 @@ describe('getConcept', () => {
         })
 
         expect(result.statusCode).toBe(200)
-        expect(setCachedConceptResponse).toHaveBeenCalledWith(
+        expect(setCachedJsonResponse).toHaveBeenCalledWith(
           expect.objectContaining({
             cacheKey: expect.stringContaining('kms:concept:published:/concept/{conceptid}:/concept/123:rdf:123')
           })
@@ -475,7 +459,7 @@ describe('getConcept', () => {
         })
 
         expect(result.statusCode).toBe(200)
-        expect(setCachedConceptResponse).toHaveBeenCalledWith(
+        expect(setCachedJsonResponse).toHaveBeenCalledWith(
           expect.objectContaining({
             cacheKey: expect.stringContaining('kms:concept:published:/concept/full_path/{fullpath+}:/concept/full_path/platforms%7cearth%20observation:rdf')
           })
@@ -527,6 +511,20 @@ describe('getConcept', () => {
 
         await getConcept(mockEvent)
 
+        expect(getSkosConcept).toHaveBeenCalledWith(expect.objectContaining({
+          shortName: null,
+          altLabel: null,
+          conceptIRI: null
+        }))
+      })
+
+      test('should handle missing pathParameters object', async () => {
+        const mockEvent = {}
+        getSkosConcept.mockResolvedValue(null)
+
+        const result = await getConcept(mockEvent)
+
+        expect(result.statusCode).toBe(404)
         expect(getSkosConcept).toHaveBeenCalledWith(expect.objectContaining({
           shortName: null,
           altLabel: null,

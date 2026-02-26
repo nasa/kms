@@ -39,7 +39,8 @@ npm run start-local:watch
 
 ### Optional: Enable Redis cache in local SAM/LocalStack
 
-By default, local `start-local` does not provision Redis in CDK. You can still test Redis caching by running Redis in Docker and using environment variables from your shell.
+By default, local `start-local` does not provision Redis in CDK. You can still test Redis caching by running Redis in Docker.
+Local defaults are centralized in `bin/env/local_env.sh`.
 
 1. Ensure the docker network exists:
 ```
@@ -51,11 +52,9 @@ npm run rdf4j:create-network
 npm run redis:start
 ```
 
-3. (Optional) override defaults if needed:
+3. (Optional) override defaults in `bin/env/local_env.sh` or per-command, for example:
 ```
-export REDIS_ENABLED=true
-export REDIS_HOST=kms-redis-local
-export REDIS_PORT=6379
+REDIS_ENABLED=true REDIS_HOST=kms-redis-local REDIS_PORT=6379 npm run start-local
 ```
 
 4. Start local API:
@@ -90,7 +89,7 @@ https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheNodes.SupportedType
 
 To disable local Redis cache again:
 ```
-export REDIS_ENABLED=false
+REDIS_ENABLED=false npm run start-local
 ```
 
 ### Invoke cache-prime cron locally
@@ -112,11 +111,8 @@ npm run test
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.
 ### Prerequisites
-#### Set the RDFDB user name and password
-```
-export RDF4J_USER_NAME=[user name]
-export RDF4J_PASSWORD=[password]
-```
+RDF4J local defaults are in `bin/env/local_env.sh`.
+If needed, override per command (for example: `RDF4J_USER_NAME=... RDF4J_PASSWORD=... npm run rdf4j:setup`).
 ### Building and Running the RDF Database
 #### Build the docker image
 ```

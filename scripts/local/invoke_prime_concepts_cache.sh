@@ -3,14 +3,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bin/env/local_env.sh
+source "${ROOT_DIR}/bin/env/local_env.sh"
+
 TEMPLATE_FILE="${TEMPLATE_FILE:-${ROOT_DIR}/cdk/cdk.out/KmsStack.template.json}"
 EVENT_FILE="${EVENT_FILE:-/tmp/prime-concepts-cache-event.json}"
 LOG_FILE="${LOG_FILE:-/tmp/prime-concepts-cache.log}"
 SAM_INVOKE_IMAGE="${SAM_INVOKE_IMAGE:-public.ecr.aws/lambda/nodejs:22-rapid-x86_64}"
-REDIS_ENABLED="${REDIS_ENABLED:-true}"
-REDIS_HOST="${REDIS_HOST:-kms-redis-local}"
-REDIS_PORT="${REDIS_PORT:-6379}"
-RDF4J_SERVICE_URL="${RDF4J_SERVICE_URL:-http://rdf4j-server:8080}"
 
 echo "Synthesizing local template with REDIS_ENABLED=${REDIS_ENABLED}, REDIS_HOST=${REDIS_HOST}, REDIS_PORT=${REDIS_PORT}"
 (
@@ -63,7 +62,7 @@ trap cleanup EXIT
 
 sam local invoke \
   -t "${TEMPLATE_FILE}" \
-  --docker-network kms-network \
+  --docker-network "${KMS_DOCKER_NETWORK}" \
   --skip-pull-image \
   --invoke-image "${SAM_INVOKE_IMAGE}" \
   --log-file "${LOG_FILE}" \

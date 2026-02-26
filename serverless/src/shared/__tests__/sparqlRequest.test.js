@@ -247,6 +247,48 @@ describe('sparqlRequest', () => {
         expect.any(Object)
       )
     })
+
+    test('should append context for statements path when version is set for non-query/update content type', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      await sparqlRequest({
+        method: 'POST',
+        path: '/statements',
+        body: 'x',
+        contentType: 'text/plain',
+        version: 'published'
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/statements?context=%3Chttps%3A%2F%2Fgcmd.earthdata.nasa.gov%2Fkms%2Fversion%2Fpublished%3E'),
+        expect.any(Object)
+      )
+    })
+
+    test('should not append context for non-statements path when version is set for non-query/update content type', async () => {
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({})
+      }
+      global.fetch.mockResolvedValue(mockResponse)
+
+      await sparqlRequest({
+        method: 'POST',
+        path: '/custom',
+        body: 'x',
+        contentType: 'text/plain',
+        version: 'published'
+      })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://test-server.com/rdf4j-server/repositories/kms/custom',
+        expect.any(Object)
+      )
+    })
   })
 
   describe('when using transactions', () => {
@@ -360,6 +402,73 @@ describe('sparqlRequest', () => {
       })).rejects.toThrow('HTTP error! status: 400, body: Invalid SPARQL query')
 
       expect(global.fetch).toHaveBeenCalledTimes(2) // Initial + 1 cold retry by default
+    })
+
+    test('should skip timeout setup when timeoutMs is 0', async () => {
+      global.fetch.mockRejectedValue(new Error('No timeout configured'))
+      const setTimeoutSpy = vi.spyOn(global, 'setTimeout')
+      const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
+
+      await expect(sparqlRequest({
+        method: 'GET',
+        timeoutMs: 0
+      })).rejects.toThrow('No timeout configured')
+
+      expect(setTimeoutSpy).not.toHaveBeenCalled()
+      expect(clearTimeoutSpy).not.toHaveBeenCalled()
+    })
+
+    test('should handle missing AbortController by sending request without signal', async () => {
+      const originalAbortController = global.AbortController
+      const originalIsFinite = Number.isFinite
+
+      Number.isFinite = vi.fn().mockReturnValue(false)
+      global.AbortController = undefined
+
+      global.fetch.mockRejectedValue(new Error('No controller'))
+
+      await expect(sparqlRequest({
+        method: 'GET',
+        timeoutMs: 25000
+      })).rejects.toThrow('No controller')
+
+      const [, requestOptions] = global.fetch.mock.calls[0]
+      expect(requestOptions.signal).toBeUndefined()
+
+      global.AbortController = originalAbortController
+      Number.isFinite = originalIsFinite
+    })
+
+    test('should execute timeout abort callback when request exceeds timeout', async () => {
+      const originalSetTimeout = global.setTimeout
+      const originalClearTimeout = global.clearTimeout
+
+      const abort = vi.fn()
+      global.AbortController = vi.fn(() => ({
+        signal: {},
+        abort
+      }))
+
+      global.setTimeout = vi.fn((fn) => {
+        fn()
+
+        return 123
+      })
+
+      global.clearTimeout = vi.fn()
+
+      global.fetch.mockRejectedValue(new Error('timed out'))
+
+      await expect(sparqlRequest({
+        method: 'GET',
+        timeoutMs: 1
+      })).rejects.toThrow('timed out')
+
+      expect(abort).toHaveBeenCalled()
+      expect(global.clearTimeout).toHaveBeenCalled()
+
+      global.setTimeout = originalSetTimeout
+      global.clearTimeout = originalClearTimeout
     })
 
     describe('when retrying', () => {

@@ -9,10 +9,6 @@ import {
 } from 'vitest'
 
 import { getConcepts } from '@/getConcepts/handler'
-import {
-  getCachedConceptsResponse,
-  setCachedConceptsResponse
-} from '@/shared/conceptsResponseCache'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
   createConceptToConceptSchemeShortNameMap
@@ -28,6 +24,7 @@ import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
@@ -45,13 +42,13 @@ vi.mock('@/shared/createConceptSchemeMap')
 vi.mock('@/shared/createConceptToConceptSchemeShortNameMap')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/getVersionMetadata')
-vi.mock('@/shared/conceptsResponseCache', async () => {
-  const actual = await vi.importActual('@/shared/conceptsResponseCache')
+vi.mock('@/shared/redisCacheStore', async () => {
+  const actual = await vi.importActual('@/shared/redisCacheStore')
 
   return {
     ...actual,
-    getCachedConceptsResponse: vi.fn(),
-    setCachedConceptsResponse: vi.fn()
+    getCachedJsonResponse: vi.fn(),
+    setCachedJsonResponse: vi.fn()
   }
 })
 
@@ -76,8 +73,8 @@ describe('getConcepts', () => {
     createConceptSchemeMap.mockResolvedValue(new Map())
     createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map())
     getVersionMetadata.mockResolvedValue({ versionName: '21.0' })
-    getCachedConceptsResponse.mockResolvedValue(null)
-    setCachedConceptsResponse.mockResolvedValue(undefined)
+    getCachedJsonResponse.mockResolvedValue(null)
+    setCachedJsonResponse.mockResolvedValue(undefined)
     toLegacyJSON.mockReturnValue({})
   })
 
@@ -106,7 +103,7 @@ describe('getConcepts', () => {
 
   describe('when redis cache has a response for /concepts', () => {
     test('returns cached payload without fetching triples', async () => {
-      getCachedConceptsResponse.mockResolvedValue({
+      getCachedJsonResponse.mockResolvedValue({
         statusCode: 200,
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ hits: 1 })
@@ -126,12 +123,12 @@ describe('getConcepts', () => {
       expect(getFilteredTriples).not.toHaveBeenCalled()
       expect(getRootConcepts).not.toHaveBeenCalled()
 
-      expect(getCachedConceptsResponse).toHaveBeenCalled()
+      expect(getCachedJsonResponse).toHaveBeenCalled()
     })
 
     test('continues normally when redis cache read throws', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      getCachedConceptsResponse.mockRejectedValue(new Error('cache read failed'))
+      getCachedJsonResponse.mockRejectedValue(new Error('cache read failed'))
       getFilteredTriples.mockResolvedValue([])
       processTriples.mockReturnValue({
         bNodeMap: {},
@@ -181,9 +178,9 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
 
       expect(result.statusCode).toBe(200)
-      expect(setCachedConceptsResponse).toHaveBeenCalledWith(
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
         expect.objectContaining({
-          cacheKey: expect.stringContaining('/concepts/concept_scheme/{conceptScheme}'),
+          cacheKey: expect.stringContaining('/concepts/concept_scheme/{conceptscheme}'),
           response: expect.objectContaining({ statusCode: 200 })
         })
       )
@@ -191,7 +188,7 @@ describe('getConcepts', () => {
 
     test('continues normally when redis cache write throws', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      setCachedConceptsResponse.mockRejectedValue(new Error('cache write failed'))
+      setCachedJsonResponse.mockRejectedValue(new Error('cache write failed'))
       getConceptSchemeDetails.mockResolvedValue({})
       getFilteredTriples.mockResolvedValue([])
       processTriples.mockReturnValue({
@@ -245,9 +242,9 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
 
       expect(result.statusCode).toBe(200)
-      expect(setCachedConceptsResponse).toHaveBeenCalledWith(
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
         expect.objectContaining({
-          cacheKey: expect.stringContaining('/concepts/concept_scheme/{conceptScheme}/pattern/{pattern}:/concepts/concept_scheme/sciencekeywords/pattern/water:sciencekeywords:water:1:2000:rdf'),
+          cacheKey: expect.stringContaining('/concepts/concept_scheme/{conceptscheme}/pattern/{pattern}:/concepts/concept_scheme/sciencekeywords/pattern/water:sciencekeywords:water:1:2000:rdf'),
           response: expect.objectContaining({ statusCode: 200 })
         })
       )
@@ -402,7 +399,7 @@ describe('getConcepts', () => {
 
   describe('when format is CSV', () => {
     test('returns cached CSV payload without creating CSV', async () => {
-      getCachedConceptsResponse.mockResolvedValue({
+      getCachedJsonResponse.mockResolvedValue({
         statusCode: 200,
         headers: { 'Content-Type': 'text/csv' },
         body: 'cached,csv'
@@ -461,7 +458,7 @@ describe('getConcepts', () => {
         versionCreationDate: '2023-01-01T00:00:00Z'
       })
 
-      expect(setCachedConceptsResponse).toHaveBeenCalledWith(
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           response: mockCsvResponse,
           cacheKey: expect.stringContaining(':testScheme::1:2000:csv')
@@ -473,7 +470,7 @@ describe('getConcepts', () => {
 
     test('continues normally when redis cache write throws for CSV response', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      setCachedConceptsResponse.mockRejectedValue(new Error('cache write failed'))
+      setCachedJsonResponse.mockRejectedValue(new Error('cache write failed'))
 
       const mockCsvResponse = {
         statusCode: 200,
@@ -526,7 +523,7 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
 
       expect(result).toEqual(mockCsvResponse)
-      expect(setCachedConceptsResponse).not.toHaveBeenCalled()
+      expect(setCachedJsonResponse).not.toHaveBeenCalled()
     })
 
     test('returns 400 when format is csv but conceptScheme is not provided', async () => {

@@ -103,5 +103,19 @@ describe('publish handler', () => {
       expect(body.error).toBe('Unexpected error')
       expect(logger.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
     })
+
+    test('should continue publish when EventBridge emit reports failed entries', async () => {
+      const event = { queryStringParameters: { name: 'v1.0.1' } }
+      getPublishUpdateQuery.mockReturnValue('mock query')
+      sparqlRequest.mockResolvedValue({ ok: true })
+      sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
+
+      const result = await publish(event)
+      const body = JSON.parse(result.body)
+
+      expect(result.statusCode).toBe(200)
+      expect(body.version).toBe('v1.0.1')
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('[publish] failed to emit cache-prime event error='))
+    })
   })
 })

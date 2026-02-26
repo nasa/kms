@@ -1,10 +1,5 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
-import {
-  createConceptResponseCacheKey,
-  getCachedConceptResponse,
-  setCachedConceptResponse
-} from '@/shared/conceptResponseCache'
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
@@ -19,6 +14,8 @@ import { getSkosConcept } from '@/shared/getSkosConcept'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
+import { createConceptResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
 
@@ -105,11 +102,7 @@ export const getConcept = async (event, context) => {
       }
     }
 
-    const decode = (str) => {
-      if (!str) return null
-
-      return decodeURIComponent(str.replace(/\+/g, ' '))
-    }
+    const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
 
     const decodedConceptId = conceptId ? decode(conceptId) : null
     const decodedShortName = shortName ? decode(shortName) : null
@@ -130,7 +123,10 @@ export const getConcept = async (event, context) => {
     })
 
     try {
-      const cachedResponse = await getCachedConceptResponse(conceptCacheKey)
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey: conceptCacheKey,
+        entityLabel: 'concept response'
+      })
       if (cachedResponse) {
         logger.info(`[cache] hit endpoint=getConcept key=${conceptCacheKey}`)
 
@@ -246,16 +242,14 @@ export const getConcept = async (event, context) => {
       }
     }
 
-    if (response.statusCode === 200) {
-      try {
-        logger.debug(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
-        await setCachedConceptResponse({
-          cacheKey: conceptCacheKey,
-          response
-        })
-      } catch (cacheWriteError) {
-        logger.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
-      }
+    try {
+      logger.debug(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
+      await setCachedJsonResponse({
+        cacheKey: conceptCacheKey,
+        response
+      })
+    } catch (cacheWriteError) {
+      logger.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
     }
 
     return response

@@ -1,18 +1,19 @@
 import { getConcepts } from '@/getConcepts/handler'
 import { getKeywordsTree } from '@/getKeywordsTree/handler'
-import { clearConceptResponseCache } from '@/shared/conceptResponseCache'
-import {
-  CACHE_VERSION_KEY,
-  clearConceptsResponseCache,
-  createConceptsResponseCacheKey
-} from '@/shared/conceptsResponseCache'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
-import { getRedisClient } from '@/shared/getRedisClient'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { primeConcepts } from '@/shared/primeConcepts'
 import { primeKeywordTrees } from '@/shared/primeKeywordTrees'
-import { clearTreeResponseCache, createTreeResponseCacheKey } from '@/shared/treeResponseCache'
+import {
+  CONCEPT_CACHE_KEY_PREFIX,
+  CONCEPTS_CACHE_KEY_PREFIX,
+  CONCEPTS_CACHE_VERSION_KEY,
+  createConceptsResponseCacheKey,
+  createTreeResponseCacheKey,
+  TREE_CACHE_KEY_PREFIX
+} from '@/shared/redisCacheKeys'
+import { clearCachedByPrefix, getRedisClient } from '@/shared/redisCacheStore'
 
 const PRIME_VERSION = 'published'
 const PAGE_SIZE = 2000
@@ -37,7 +38,7 @@ const parsePositiveInt = (value, fallback) => {
  * @param {Object} event - API Gateway/Lambda proxy event.
  * @returns {string} Redis cache key for concepts responses.
  */
-const createConceptsCacheKeyFromEvent = (event) => {
+export const createConceptsCacheKeyFromEvent = (event) => {
   const pageNum = parsePositiveInt(event?.queryStringParameters?.page_num, 1)
   const pageSize = parsePositiveInt(event?.queryStringParameters?.page_size, PAGE_SIZE)
 
@@ -59,7 +60,7 @@ const createConceptsCacheKeyFromEvent = (event) => {
  * @param {Object} event - API Gateway/Lambda proxy event.
  * @returns {string} Redis cache key for tree responses.
  */
-const createTreeCacheKeyFromEvent = (event) => createTreeResponseCacheKey({
+export const createTreeCacheKeyFromEvent = (event) => createTreeResponseCacheKey({
   version: event?.queryStringParameters?.version || PRIME_VERSION,
   conceptScheme: event?.pathParameters?.conceptScheme || '',
   filter: event?.queryStringParameters?.filter || ''
@@ -117,10 +118,10 @@ const countPrimeResults = ({
  *
  * Behavior:
  * 1. Reads current published version metadata.
- * 2. Compares version marker against Redis marker key.
- * 3. If marker changed, clears old `/concepts`, `/concept`, and `/tree` cache keys.
+ * 2. Compares version marker against Redis version marker key.
+ * 3. If version marker changed, clears old `/concepts`, `/concept`, and `/tree` cache keys.
  * 4. Warms `/concepts`, `/concepts/concept_scheme/{conceptScheme}`, and tree routes.
- * 5. Stores the new marker.
+ * 5. Stores the new version marker.
  *
  * The function is idempotent for unchanged published versions and safe to rerun.
  *
@@ -154,26 +155,32 @@ export const primeConceptsCache = async () => {
     }
   }
 
-  const marker = versionMetadata.versionName
-  const currentMarker = await redisClient.get(CACHE_VERSION_KEY)
-  logger.info(`[cache-prime] marker current=${currentMarker || 'none'} target=${marker}`)
-  if (currentMarker === marker) {
+  const versionMarker = versionMetadata.versionName
+  const currentVersionMarker = await redisClient.get(CONCEPTS_CACHE_VERSION_KEY)
+  logger.info(`[cache-prime] version-marker current=${currentVersionMarker || 'none'} target=${versionMarker}`)
+  if (currentVersionMarker === versionMarker) {
     logger.info('[cache-prime] skip reason=already_primed')
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Cache already primed for current published version',
-        marker
+        versionMarker
       })
     }
   }
 
   logger.debug('[cache-prime] checkpoint=before_clear_cache')
   const [deletedConceptsKeys, deletedConceptKeys, deletedTreeKeys] = await Promise.all([
-    clearConceptsResponseCache(),
-    clearConceptResponseCache(),
-    clearTreeResponseCache()
+    clearCachedByPrefix({
+      keyPrefix: CONCEPTS_CACHE_KEY_PREFIX
+    }),
+    clearCachedByPrefix({
+      keyPrefix: CONCEPT_CACHE_KEY_PREFIX
+    }),
+    clearCachedByPrefix({
+      keyPrefix: TREE_CACHE_KEY_PREFIX
+    })
   ])
   const deletedKeys = deletedConceptsKeys + deletedConceptKeys + deletedTreeKeys
   logger.info(`[cache-prime] cleared_keys=${deletedKeys}`)
@@ -238,12 +245,12 @@ export const primeConceptsCache = async () => {
     + schemeResultsSummary.failed
     + treeResultsSummary.failed
 
-  await redisClient.set(CACHE_VERSION_KEY, marker)
+  await redisClient.set(CONCEPTS_CACHE_VERSION_KEY, versionMarker)
 
   return {
     statusCode: failed > 0 ? 500 : 200,
     body: JSON.stringify({
-      marker,
+      versionMarker,
       deletedKeys,
       warmed,
       failed,

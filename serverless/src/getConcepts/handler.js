@@ -4,11 +4,6 @@ import zlib from 'zlib'
 
 import { XMLBuilder } from 'fast-xml-parser'
 
-import {
-  createConceptsResponseCacheKey,
-  getCachedConceptsResponse,
-  setCachedConceptsResponse
-} from '@/shared/conceptsResponseCache'
 import { namespaces } from '@/shared/constants/namespaces'
 import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
@@ -26,6 +21,8 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
+import { createConceptsResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
@@ -196,7 +193,10 @@ export const getConcepts = async (event, context) => {
     })
 
     try {
-      const cachedResponse = await getCachedConceptsResponse(cacheKey)
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey,
+        entityLabel: 'response'
+      })
       if (cachedResponse) {
         logger.info(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
         if (format.toLowerCase() === 'csv') {
@@ -242,7 +242,7 @@ export const getConcepts = async (event, context) => {
       if (csvResponse.statusCode === 200) {
         try {
           logger.debug(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
-          await setCachedConceptsResponse({
+          await setCachedJsonResponse({
             cacheKey,
             response: csvResponse
           })
@@ -458,16 +458,14 @@ export const getConcepts = async (event, context) => {
       }
     }
 
-    if (response.statusCode === 200) {
-      try {
-        logger.debug(`[cache] write endpoint=getConcepts key=${cacheKey}`)
-        await setCachedConceptsResponse({
-          cacheKey,
-          response
-        })
-      } catch (cacheWriteError) {
-        logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
-      }
+    try {
+      logger.debug(`[cache] write endpoint=getConcepts key=${cacheKey}`)
+      await setCachedJsonResponse({
+        cacheKey,
+        response
+      })
+    } catch (cacheWriteError) {
+      logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
     }
 
     return response

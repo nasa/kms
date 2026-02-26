@@ -11,14 +11,11 @@ import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSche
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
+import { createTreeResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
-import {
-  createTreeResponseCacheKey,
-  getCachedTreeResponse,
-  setCachedTreeResponse
-} from '@/shared/treeResponseCache'
 
 /**
  * Retrieves and processes a keywords tree based on the provided concept scheme and version.
@@ -155,7 +152,10 @@ export const getKeywordsTree = async (event, context) => {
 
   try {
     if (shouldUseTreeCache) {
-      const cachedResponse = await getCachedTreeResponse(treeCacheKey)
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey: treeCacheKey,
+        entityLabel: 'tree response'
+      })
       if (cachedResponse) {
         logger.info(`[cache] hit endpoint=getKeywordsTree key=${treeCacheKey}`)
 
@@ -345,7 +345,7 @@ export const getKeywordsTree = async (event, context) => {
     }
 
     if (shouldUseTreeCache) {
-      await setCachedTreeResponse({
+      await setCachedJsonResponse({
         cacheKey: treeCacheKey,
         response
       })

@@ -1,5 +1,5 @@
 import staticConfig from '../../../../static.config.json'
-import { getApplicationConfig } from '../getConfig'
+import { getApplicationConfig, getEdlConfig } from '../getConfig'
 
 describe('getConfig', () => {
   const originalEnv = process.env
@@ -38,6 +38,22 @@ describe('getConfig', () => {
         process.env.RDF4J_SERVICE_URL = 'http://test-rdf4j-service-2'
         const config2 = getApplicationConfig()
         expect(config2.sparqlEndpoint).toBe('http://test-rdf4j-service-2/rdf4j-server/repositories/kms')
+      })
+
+      test('uses default sparqlEndpoint when RDF4J_SERVICE_URL is unset', () => {
+        delete process.env.RDF4J_SERVICE_URL
+
+        const applicationConfig = getApplicationConfig()
+
+        expect(applicationConfig.sparqlEndpoint).toBe('http://localhost:8081/rdf4j-server/repositories/kms')
+      })
+    })
+  })
+
+  describe('getEdlConfig', () => {
+    describe('when called', () => {
+      test('returns static edl config', () => {
+        expect(getEdlConfig()).toEqual(staticConfig.edl)
       })
     })
   })

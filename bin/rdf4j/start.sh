@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NETWORK_NAME="${RDF4J_DOCKER_NETWORK:-kms-network}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=bin/env/local_env.sh
+source "${SCRIPT_DIR}/../env/local_env.sh"
+
+NETWORK_NAME="${RDF4J_DOCKER_NETWORK:-${KMS_DOCKER_NETWORK:-kms-network}}"
 CONTAINER_NAME="${RDF4J_CONTAINER_NAME:-rdf4j-server}"
 RDF4J_USER_NAME="${RDF4J_USER_NAME:-rdf4j}"
 RDF4J_PASSWORD="${RDF4J_PASSWORD:-rdf4j}"
