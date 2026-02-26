@@ -1,4 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+/**
+ * Bootstraps an RDF4J repository with published/draft concept RDF data.
+ *
+ * The script optionally recreates the repository, clears target graph contexts,
+ * and loads RDF/XML files into:
+ * - `https://gcmd.earthdata.nasa.gov/kms/version/published`
+ * - `https://gcmd.earthdata.nasa.gov/kms/version/draft`
+ *
+ * Runtime behavior is controlled by environment variables (service URL, credentials,
+ * file paths, recreate/skip flags, and wait delays).
+ */
 const fs = require('node:fs/promises')
 const path = require('node:path')
 
@@ -20,11 +31,29 @@ const draftFile = process.env.RDF4J_DRAFT_FILE || 'setup/data/concepts_draft.rdf
 const schemesPublishedFile = process.env.RDF4J_SCHEMES_PUBLISHED_FILE || 'setup/data/schemes_published.rdf'
 const schemesDraftFile = process.env.RDF4J_SCHEMES_DRAFT_FILE || 'setup/data/schemes_draft.rdf'
 
+/**
+ * Builds the HTTP Basic auth header for RDF4J admin/repository calls.
+ *
+ * @returns {string} Basic auth header value.
+ */
 const getAuthHeader = () => `Basic ${base64Credentials}`
+
+/**
+ * Sleeps for the provided delay.
+ *
+ * @param {number} ms - Milliseconds to wait.
+ * @returns {Promise<void>}
+ */
 const sleep = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms)
 })
 
+/**
+ * Polls RDF4J protocol endpoint until the server is ready or attempts are exhausted.
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} If server is not reachable within configured attempts.
+ */
 const waitForServer = async () => {
   const checkAttempt = async (attempt) => {
     if (attempt > serverCheckAttempts) {
@@ -54,6 +83,12 @@ const waitForServer = async () => {
   await checkAttempt(1)
 }
 
+/**
+ * Deletes and recreates the configured RDF4J repository using local TTL config.
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} If delete/create calls fail unexpectedly.
+ */
 const recreateRepository = async () => {
   const configPath = path.join(process.cwd(), 'cdk', 'rdfdb', 'docker', 'config', 'config.ttl')
   const createConfig = await fs.readFile(configPath, 'utf8')
@@ -91,6 +126,11 @@ const recreateRepository = async () => {
   console.log(`Created repository '${repoId}'`)
 }
 
+/**
+ * Checks whether the configured repository exists and is queryable.
+ *
+ * @returns {Promise<boolean>} `true` when repository responds to `/size`.
+ */
 const checkRepository = async () => {
   const response = await fetch(`${baseUrl}/repositories/${repoId}/size`, {
     headers: {
@@ -106,6 +146,13 @@ const checkRepository = async () => {
   return true
 }
 
+/**
+ * Clears a graph context in the repository for a given version.
+ *
+ * @param {string} version - Graph version (for example `published` or `draft`).
+ * @returns {Promise<void>}
+ * @throws {Error} If context delete fails.
+ */
 const clearContext = async (version) => {
   const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
   const url = new URL(rdf4jStatementsUrl)
@@ -121,6 +168,14 @@ const clearContext = async (version) => {
   }
 }
 
+/**
+ * Loads a local RDF/XML file into the RDF4J statements endpoint for the target context.
+ *
+ * @param {string} filePath - Local path to RDF/XML file.
+ * @param {string} version - Context version (for example `published` or `draft`).
+ * @returns {Promise<void>}
+ * @throws {Error} If file read or POST load fails.
+ */
 const loadRdfFile = async (filePath, version) => {
   const xmlData = await fs.readFile(filePath, 'utf8')
   console.log(`Read ${xmlData.length} bytes from file: ${filePath}`)
@@ -145,6 +200,14 @@ const loadRdfFile = async (filePath, version) => {
   console.log(`Successfully loaded ${filePath} into context '${version}'`)
 }
 
+/**
+ * Executes end-to-end RDF4J setup:
+ * 1. Wait for server readiness.
+ * 2. Recreate repository (or validate existing).
+ * 3. Clear/load published and draft contexts (concepts and optionally schemes).
+ *
+ * @returns {Promise<void>}
+ */
 const main = async () => {
   try {
     await waitForServer()
