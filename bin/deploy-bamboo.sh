@@ -3,8 +3,74 @@
 # Bail on unset variables, errors and trace execution
 set -eux
 
+require_env() {
+  local name="$1"
+  if [ -z "${!name:-}" ]; then
+    echo "ERROR: Required environment variable '$name' is not set." >&2
+    exit 1
+  fi
+}
+
+warn_if_not_referenced_in_cdk() {
+  local name="$1"
+  if ! rg -q "process\\.env\\.${name}\\b" cdk/bin cdk/app; then
+    echo "WARN: '$name' is set but not referenced in CDK sources (cdk/bin, cdk/app)." >&2
+  fi
+}
+
 # Deployment configuration/variables
 ####################################
+
+required_env_vars=(
+  RELEASE_VERSION
+  bamboo_STAGE_NAME
+  bamboo_EDL_HOST
+  bamboo_EDL_UID
+  bamboo_AWS_ACCESS_KEY_ID
+  bamboo_AWS_SECRET_ACCESS_KEY
+  bamboo_AWS_SESSION_TOKEN
+  bamboo_SUBNET_ID_A
+  bamboo_SUBNET_ID_B
+  bamboo_SUBNET_ID_C
+  bamboo_VPC_ID
+  bamboo_RDF4J_USER_NAME
+  bamboo_RDF4J_PASSWORD
+  bamboo_EDL_PASSWORD
+  bamboo_CMR_BASE_URL
+  bamboo_CORS_ORIGIN
+  bamboo_RDF4J_INSTANCE_TYPE
+  bamboo_RDF4J_CONTAINER_MEMORY_LIMIT
+  bamboo_RDF_BUCKET_NAME
+  bamboo_EXISTING_API_ID
+  bamboo_ROOT_RESOURCE_ID
+  bamboo_LOG_LEVEL
+  bamboo_KMS_REDIS_ENABLED
+  bamboo_KMS_REDIS_NODE_TYPE
+)
+
+for var_name in "${required_env_vars[@]}"; do
+  require_env "$var_name"
+done
+
+cdk_backed_vars=(
+  STAGE_NAME
+  VPC_ID
+  RDF4J_USER_NAME
+  RDF4J_PASSWORD
+  EDL_PASSWORD
+  CMR_BASE_URL
+  CORS_ORIGIN
+  RDF_BUCKET_NAME
+  EXISTING_API_ID
+  ROOT_RESOURCE_ID
+  LOG_LEVEL
+  KMS_REDIS_ENABLED
+  KMS_REDIS_NODE_TYPE
+)
+
+for cdk_var in "${cdk_backed_vars[@]}"; do
+  warn_if_not_referenced_in_cdk "$cdk_var"
+done
 
 # read in static.config.json
 config="`cat static.config.json`"
@@ -70,8 +136,8 @@ dockerRun() {
         --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
         --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
         --env "LOG_LEVEL=$bamboo_LOG_LEVEL" \
-        --env "KMS_REDIS_ENABLED=${bamboo_KMS_REDIS_ENABLED:-true}" \
-        --env "KMS_REDIS_NODE_TYPE=${bamboo_KMS_REDIS_NODE_TYPE:-cache.t3.micro}" \
+        --env "KMS_REDIS_ENABLED=$bamboo_KMS_REDIS_ENABLED" \
+        --env "KMS_REDIS_NODE_TYPE=$bamboo_KMS_REDIS_NODE_TYPE" \
     $dockerTag "$@"
 }
 
