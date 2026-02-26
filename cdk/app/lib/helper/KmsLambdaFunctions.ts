@@ -130,7 +130,7 @@ export class LambdaFunctions {
     this.createTreeOperationApiLambdas(scope)
     this.createNightlyCachePrimeCron(scope)
     this.createCrudOperationApiLambdas(scope)
-    this.createPublishEventBridgeFlow(scope)
+    this.createPublishEventBridgeWiring(scope)
     this.createExportRdfCrons(scope)
   }
 
@@ -407,7 +407,7 @@ export class LambdaFunctions {
    * @param {Construct} scope - Construct scope.
    * @private
    */
-  private createPublishEventBridgeFlow(scope: Construct) {
+  private createPublishEventBridgeWiring(scope: Construct) {
     const publishLambdaKey = 'publish/handler.js::publish'
     const publishLambda = this.lambdas[publishLambdaKey]
     if (!publishLambda) {
