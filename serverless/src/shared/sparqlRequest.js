@@ -86,27 +86,9 @@ import { logger } from '@/shared/logger'
 const RETRY_DELAY = 1000 // 1 second
 const SPARQL_REQUEST_TIMEOUT_MS = 25000
 const SPARQL_WARM_WINDOW_MS = 60000
-const SPARQL_WARM_MAX_RETRIES = 0
 const SPARQL_COLD_MAX_RETRIES = 1
+const SPARQL_WARM_MAX_RETRIES = 0
 let lastSuccessfulSparqlAt = 0
-
-const resolveAdaptiveReadRetryPolicy = () => {
-  // First-hit requests can be less stable (service/JVM warm-up, connection setup, cache priming).
-  // We allow one cold retry for that case, but disable warm retries to avoid retry-driven load escalation.
-  const ageSinceLastSuccessMs = Date.now() - lastSuccessfulSparqlAt
-  const isWarm = Number.isFinite(SPARQL_WARM_WINDOW_MS) && SPARQL_WARM_WINDOW_MS > 0
-    ? ageSinceLastSuccessMs < SPARQL_WARM_WINDOW_MS
-    : false
-
-  return {
-    isWarm,
-    warmWindowMs: SPARQL_WARM_WINDOW_MS,
-    warmMaxRetries: SPARQL_WARM_MAX_RETRIES,
-    coldMaxRetries: SPARQL_COLD_MAX_RETRIES,
-    ageSinceLastSuccessMs,
-    effectiveMaxRetries: isWarm ? SPARQL_WARM_MAX_RETRIES : SPARQL_COLD_MAX_RETRIES
-  }
-}
 
 export const sparqlRequest = async (props) => {
   const {
@@ -257,18 +239,18 @@ export const sparqlRequest = async (props) => {
         clearTimeout(timeoutId)
       }
 
-      // Implement retry logic
-      const retryPolicy = resolveAdaptiveReadRetryPolicy()
-      const { effectiveMaxRetries } = retryPolicy
-      if (retryCount < effectiveMaxRetries) {
+      const isWarm = (
+        Number.isFinite(SPARQL_WARM_WINDOW_MS)
+        && SPARQL_WARM_WINDOW_MS > 0
+        && (Date.now() - lastSuccessfulSparqlAt) < SPARQL_WARM_WINDOW_MS
+      )
+      const maxRetries = isWarm ? SPARQL_WARM_MAX_RETRIES : SPARQL_COLD_MAX_RETRIES
+
+      if (retryCount < maxRetries) {
         logger.info(
           '[retry] Retrying SPARQL request'
-          + ` attempt=${retryCount + 1}/${effectiveMaxRetries}`
-          + ` isWarm=${retryPolicy.isWarm}`
-          + ` ageSinceLastSuccessMs=${retryPolicy.ageSinceLastSuccessMs}`
-          + ` warmWindowMs=${retryPolicy.warmWindowMs}`
-          + ` warmMaxRetries=${retryPolicy.warmMaxRetries}`
-          + ` coldMaxRetries=${retryPolicy.coldMaxRetries}`
+          + ` attempt=${retryCount + 1}/${maxRetries}`
+          + ` isWarm=${isWarm}`
           + ` method=${method}`
           + ` contentType=${contentType}`
           + ` url=${url}`
@@ -282,9 +264,11 @@ export const sparqlRequest = async (props) => {
         })
       }
 
-      logger.error(
-        `Max retries (${effectiveMaxRetries}) reached. Giving up. isWarm=${retryPolicy.isWarm} ageSinceLastSuccessMs=${retryPolicy.ageSinceLastSuccessMs}`
-      )
+      if (maxRetries === 0) {
+        logger.error(`SPARQL request failed without retry. isWarm=${isWarm}`)
+      } else {
+        logger.error(`SPARQL request failed after ${maxRetries} retry. isWarm=${isWarm}`)
+      }
 
       throw error
     } finally {

@@ -492,38 +492,34 @@ describe('sparqlRequest', () => {
 
         await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Persistent network error')
 
-        expect(global.fetch).toHaveBeenCalledTimes(2) // Initial attempt + cold retry (1)
+        expect(global.fetch).toHaveBeenCalledTimes(2) // Initial attempt + one retry
         expect(delay).toHaveBeenCalledTimes(1) // Called for retry
         expect(delay).toHaveBeenCalledWith(1000) // RETRY_DELAY value
       })
 
-      test('should use cold adaptive retry policy before any successful request', async () => {
-        global.fetch.mockRejectedValue(new Error('Cold error'))
+      test('should retry once before throwing when request keeps failing', async () => {
+        global.fetch.mockRejectedValue(new Error('Persistent error'))
 
         await expect(sparqlRequest({
           method: 'GET'
-        })).rejects.toThrow('Cold error')
+        })).rejects.toThrow('Persistent error')
 
-        expect(global.fetch).toHaveBeenCalledTimes(2) // Initial + 1 cold retry
+        expect(global.fetch).toHaveBeenCalledTimes(2)
       })
 
-      test('should use warm adaptive retry policy after a successful request', async () => {
-        global.fetch.mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({})
-        })
+      test('should not retry when request is warm', async () => {
+        global.fetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({})
+          })
+          .mockRejectedValueOnce(new Error('Warm error'))
 
-        await sparqlRequest({
-          method: 'GET'
-        })
+        await sparqlRequest({ method: 'GET' })
+        await expect(sparqlRequest({ method: 'GET' })).rejects.toThrow('Warm error')
 
-        global.fetch.mockRejectedValue(new Error('Warm error'))
-        await expect(sparqlRequest({
-          method: 'GET'
-        })).rejects.toThrow('Warm error')
-
-        // 1 successful call, then one failed warm call with no retry.
         expect(global.fetch).toHaveBeenCalledTimes(2)
+        expect(delay).toHaveBeenCalledTimes(0)
       })
     })
   })
