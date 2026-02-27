@@ -1,199 +1,246 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const fs = require('fs').promises
+/* eslint-disable @typescript-eslint/no-require-imports */
+/**
+ * Bootstraps an RDF4J repository with published/draft concept RDF data.
+ *
+ * The script optionally recreates the repository, clears target graph contexts,
+ * and loads RDF/XML files into:
+ * - `https://gcmd.earthdata.nasa.gov/kms/version/published`
+ * - `https://gcmd.earthdata.nasa.gov/kms/version/draft`
+ *
+ * Runtime behavior is controlled by environment variables (service URL, credentials,
+ * file paths, recreate/skip flags, and wait delays).
+ */
+const fs = require('node:fs/promises')
+const path = require('node:path')
 
-const baseUrl = 'http://localhost:8080/rdf4j-server'
-const repoId = 'kms'
-const rdf4jUrl = `${baseUrl}/repositories/${repoId}/statements`
+const serviceUrl = process.env.RDF4J_SERVICE_URL || 'http://127.0.0.1:8081'
+const baseUrl = `${serviceUrl}/rdf4j-server`
+const repoId = process.env.RDF4J_REPOSITORY_ID || 'kms'
+const rdf4jStatementsUrl = `${baseUrl}/repositories/${repoId}/statements`
 const username = process.env.RDF4J_USER_NAME || 'rdf4j'
 const password = process.env.RDF4J_PASSWORD || 'rdf4j'
 const base64Credentials = Buffer.from(`${username}:${password}`).toString('base64')
+const shouldRecreateRepository = (process.env.RDF4J_RECREATE_REPOSITORY || 'true').toLowerCase() === 'true'
+const shouldLoadSchemes = (process.env.RDF4J_LOAD_SCHEMES || 'true').toLowerCase() !== 'false'
+const serverCheckAttempts = Number(process.env.RDF4J_SERVER_CHECK_ATTEMPTS || '60')
+const serverCheckDelayMs = Number(process.env.RDF4J_SERVER_CHECK_DELAY_MS || '1000')
+const postCreateDelayMs = Number(process.env.RDF4J_POST_READY_DELAY_MS || '5000')
+
+const publishedFile = process.env.RDF4J_PUBLISHED_FILE || 'setup/data/concepts_published.rdf'
+const draftFile = process.env.RDF4J_DRAFT_FILE || 'setup/data/concepts_draft.rdf'
+const schemesPublishedFile = process.env.RDF4J_SCHEMES_PUBLISHED_FILE || 'setup/data/schemes_published.rdf'
+const schemesDraftFile = process.env.RDF4J_SCHEMES_DRAFT_FILE || 'setup/data/schemes_draft.rdf'
 
 /**
- * Checks if the RDF4J server is running and accessible.
+ * Builds the HTTP Basic auth header for RDF4J admin/repository calls.
  *
- * @async
- * @returns {Promise<boolean>} True if the server is running, false otherwise.
+ * @returns {string} Basic auth header value.
  */
-const checkRDF4JServer = async () => {
-  try {
-    const response = await fetch(`${baseUrl}/protocol`, {
-      headers: {
-        Authorization: `Basic ${base64Credentials}`
-      }
-    })
-    if (response.ok) {
-      console.log('RDF4J server is up and running')
+const getAuthHeader = () => `Basic ${base64Credentials}`
 
-      return true
+/**
+ * Sleeps for the provided delay.
+ *
+ * @param {number} ms - Milliseconds to wait.
+ * @returns {Promise<void>}
+ */
+const sleep = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms)
+})
+
+/**
+ * Polls RDF4J protocol endpoint until the server is ready or attempts are exhausted.
+ *
+ * @returns {Promise<void>}
+ * @throws {Error} If server is not reachable within configured attempts.
+ */
+const waitForServer = async () => {
+  const checkAttempt = async (attempt) => {
+    if (attempt > serverCheckAttempts) {
+      throw new Error(`RDF4J server not ready after ${serverCheckAttempts} attempts`)
     }
-  } catch (error) {
-    console.error('Error connecting to RDF4J server:', error)
+
+    try {
+      console.log(`Checking RDF4J server (${attempt}/${serverCheckAttempts}) at ${baseUrl}`)
+      const response = await fetch(`${baseUrl}/protocol`, {
+        headers: { Authorization: getAuthHeader() }
+      })
+      if (response.ok) {
+        console.log('RDF4J server is up and running')
+
+        return
+      }
+    } catch (error) {
+      const code = error?.cause?.code || error?.code || error?.message || 'unknown'
+      console.log(`RDF4J server check failed (${attempt}/${serverCheckAttempts}): ${code}`)
+    }
+
+    await sleep(serverCheckDelayMs)
+
+    await checkAttempt(attempt + 1)
   }
 
-  return false
+  await checkAttempt(1)
 }
 
 /**
- * Checks if the specified repository exists and retrieves its size.
+ * Deletes and recreates the configured RDF4J repository using local TTL config.
  *
- * @async
- * @returns {Promise<boolean>} True if the repository exists, false otherwise.
+ * @returns {Promise<void>}
+ * @throws {Error} If delete/create calls fail unexpectedly.
+ */
+const recreateRepository = async () => {
+  const configPath = path.join(process.cwd(), 'cdk', 'rdfdb', 'docker', 'config', 'config.ttl')
+  const createConfig = await fs.readFile(configPath, 'utf8')
+
+  const deleteResponse = await fetch(`${baseUrl}/repositories/${repoId}`, {
+    method: 'DELETE',
+    headers: { Authorization: getAuthHeader() }
+  })
+  if (!deleteResponse.ok && deleteResponse.status !== 404) {
+    const responseText = await deleteResponse.text()
+    const isMissingRepoDelete = (
+      deleteResponse.status === 400
+      && responseText.includes('could not locate repository configuration')
+    )
+    if (!isMissingRepoDelete) {
+      throw new Error(`Failed to delete repository: ${deleteResponse.status} ${deleteResponse.statusText} ${responseText}`)
+    }
+  }
+
+  console.log(`Deleted repository '${repoId}' (if it existed)`)
+
+  const createResponse = await fetch(`${baseUrl}/repositories/${repoId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'text/turtle',
+      Authorization: getAuthHeader()
+    },
+    body: createConfig
+  })
+  if (!createResponse.ok) {
+    const text = await createResponse.text()
+    throw new Error(`Failed to create repository: ${createResponse.status} ${createResponse.statusText} ${text}`)
+  }
+
+  console.log(`Created repository '${repoId}'`)
+}
+
+/**
+ * Checks whether the configured repository exists and is queryable.
+ *
+ * @returns {Promise<boolean>} `true` when repository responds to `/size`.
  */
 const checkRepository = async () => {
-  try {
-    const response = await fetch(`${baseUrl}/repositories/${repoId}/size`, {
-      headers: {
-        Authorization: `Basic ${base64Credentials}`,
-        Accept: 'text/plain'
-      }
-    })
-    if (response.ok) {
-      const size = await response.text()
-      console.log(`Repository '${repoId}' exists and contains ${size} statements`)
-
-      return true
+  const response = await fetch(`${baseUrl}/repositories/${repoId}/size`, {
+    headers: {
+      Authorization: getAuthHeader(),
+      Accept: 'text/plain'
     }
-  } catch (error) {
-    console.error(`Error checking repository '${repoId}':`, error)
-  }
+  })
+  if (!response.ok) return false
 
-  return false
+  const size = await response.text()
+  console.log(`Repository '${repoId}' exists and contains ${size} statements`)
+
+  return true
 }
 
 /**
- * Waits for the repository to become available, checking at regular intervals.
+ * Clears a graph context in the repository for a given version.
  *
- * @async
- * @param {Object} options - The options for waiting.
- * @param {number} [options.maxAttempts=30] - Maximum number of attempts.
- * @param {number} [options.interval=5000] - Interval between attempts in milliseconds.
- * @param {number} [options.currentAttempt=1] - Current attempt number.
- * @returns {Promise<boolean>} True if the repository becomes available, false otherwise.
+ * @param {string} version - Graph version (for example `published` or `draft`).
+ * @returns {Promise<void>}
+ * @throws {Error} If context delete fails.
  */
-const waitForRepository = async ({
-  maxAttempts = 30, interval = 5000, currentAttempt = 1
-}) => {
-  console.log(`Checking for repository '${repoId}' (attempt ${currentAttempt}/${maxAttempts})`)
+const clearContext = async (version) => {
+  const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
+  const url = new URL(rdf4jStatementsUrl)
+  url.searchParams.append('context', `<${graphUri}>`)
 
-  if (await checkRepository()) {
-    return true
-  }
-
-  if (currentAttempt >= maxAttempts) {
-    console.log(`Repository '${repoId}' not found after ${maxAttempts} attempts`)
-
-    return false
-  }
-
-  await new Promise((resolve) => {
-    setTimeout(resolve, interval)
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: getAuthHeader() }
   })
-
-  return waitForRepository({
-    baseUrl,
-    repoId,
-    maxAttempts,
-    interval,
-    currentAttempt: currentAttempt + 1
-  })
+  if (!response.ok && response.status !== 404) {
+    const text = await response.text()
+    throw new Error(`Failed to clear context ${version}: ${response.status} ${response.statusText} ${text}`)
+  }
 }
 
 /**
- * Loads RDF/XML data from a file into the RDF4J repository.
+ * Loads a local RDF/XML file into the RDF4J statements endpoint for the target context.
  *
- * @async
- * @param {string} filePath - Path to the RDF/XML file.
+ * @param {string} filePath - Local path to RDF/XML file.
+ * @param {string} version - Context version (for example `published` or `draft`).
+ * @returns {Promise<void>}
+ * @throws {Error} If file read or POST load fails.
  */
-const loadRDFXMLToRDF4J = async (filePath, version) => {
-  try {
-    const xmlData = await fs.readFile(filePath, 'utf8')
-    console.log(`Read ${xmlData.length} bytes from file`)
+const loadRdfFile = async (filePath, version) => {
+  const xmlData = await fs.readFile(filePath, 'utf8')
+  console.log(`Read ${xmlData.length} bytes from file: ${filePath}`)
 
-    const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
-    const url = new URL(rdf4jUrl)
-    url.searchParams.append('context', `<${graphUri}>`)
+  const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
+  const postUrl = new URL(rdf4jStatementsUrl)
+  postUrl.searchParams.append('context', `<${graphUri}>`)
 
-    const response = await fetch(url, {
-      method: 'POST',
-      body: xmlData,
-      headers: {
-        'Content-Type': 'application/rdf+xml',
-        Authorization: `Basic ${base64Credentials}`
-      }
-    })
-
-    if (!response.ok) {
-      const responseText = await response.text()
-      console.log('Response text:', responseText)
-      throw new Error(`HTTP error! status: ${response.status}`)
+  const response = await fetch(postUrl, {
+    method: 'POST',
+    body: xmlData,
+    headers: {
+      'Content-Type': 'application/rdf+xml',
+      Authorization: getAuthHeader()
     }
-
-    console.log(`Successfully loaded ${filePath} into RDF4J`)
-  } catch (error) {
-    console.error(`Error loading ${filePath} into RDF4J:`, error)
+  })
+  if (!response.ok) {
+    const responseText = await response.text()
+    throw new Error(`Failed loading ${filePath}: ${response.status} ${response.statusText} ${responseText}`)
   }
+
+  console.log(`Successfully loaded ${filePath} into context '${version}'`)
 }
 
 /**
- * Main function to execute the RDF4J setup process.
+ * Executes end-to-end RDF4J setup:
+ * 1. Wait for server readiness.
+ * 2. Recreate repository (or validate existing).
+ * 3. Clear/load published and draft contexts (concepts and optionally schemes).
  *
- * This function orchestrates the setup of the RDF4J server and repository,
- * and loads initial data into the repository. It performs the following steps:
- *
- * 1. Checks if the RDF4J server is running and accessible.
- * 2. Waits for the specified repository ('kms') to become available.
- * 3. Loads RDF/XML data into both the 'published' and 'draft' versions of the repository.
- *
- * The function loads four RDF/XML files:
- * - 'setup/data/concepts_published.rdf' into the 'published' version
- * - 'setup/data/schemes_published.rdf' into the 'published' version
- * - 'setup/data/concepts_draft.rdf' into the 'draft' version
- * - 'setup/data/schemes_draft.rdf' into the 'draft' version
- *
- * @async
- * @function main
- * @throws {Error} If there's an issue connecting to the RDF4J server, accessing the repository,
- *                 or loading the RDF/XML data.
- *
- * @example
- * // To run the setup process:
- * main().catch(error => console.error('Setup failed:', error));
- *
- * @note This function relies on environment variables RDF4J_USER_NAME and RDF4J_PASSWORD
- *       for authentication with the RDF4J server. If not set, it defaults to 'rdf4j' for both.
- *
- * @see Related functions:
- * {@link checkRDF4JServer}
- * {@link waitForRepository}
- * {@link loadRDFXMLToRDF4J}
+ * @returns {Promise<void>}
  */
 const main = async () => {
   try {
-    const serverRunning = await checkRDF4JServer(baseUrl)
-    if (!serverRunning) {
-      console.error(`RDF4J server is not running. Please start the server and try again.   
-        If you just started it, give it a minute to fully start up, then try running setup again.`)
+    await waitForServer()
 
-      return
+    if (shouldRecreateRepository) {
+      console.log(`Recreating repository '${repoId}'`)
+      await recreateRepository()
+      if (postCreateDelayMs > 0) {
+        console.log(`Sleeping for ${postCreateDelayMs}ms before loading`)
+        await sleep(postCreateDelayMs)
+      }
+    } else {
+      console.log(`Skipping repository recreation for '${repoId}' (RDF4J_RECREATE_REPOSITORY=false)`)
+      const exists = await checkRepository()
+      if (!exists) {
+        throw new Error(`Repository '${repoId}' does not exist. Run with RDF4J_RECREATE_REPOSITORY=true`)
+      }
     }
 
-    console.log(`Waiting for repository '${repoId}' to be available...`)
-    const repoExists = await waitForRepository({
-      baseUrl,
-      repoId
-    })
-    if (!repoExists) {
-      console.error(`Repository '${repoId}' did not become available within the specified time. Please check the repository creation process.`)
-
-      return
+    await clearContext('published')
+    await loadRdfFile(publishedFile, 'published')
+    if (shouldLoadSchemes) {
+      await loadRdfFile(schemesPublishedFile, 'published')
     }
 
-    await loadRDFXMLToRDF4J('setup/data/concepts_published.rdf', 'published')
-    await loadRDFXMLToRDF4J('setup/data/schemes_published.rdf', 'published')
-    await loadRDFXMLToRDF4J('setup/data/concepts_draft.rdf', 'draft')
-    await loadRDFXMLToRDF4J('setup/data/schemes_draft.rdf', 'draft')
+    await clearContext('draft')
+    await loadRdfFile(draftFile, 'draft')
+    if (shouldLoadSchemes) {
+      await loadRdfFile(schemesDraftFile, 'draft')
+    }
   } catch (error) {
-    console.error('An error occurred:', error)
+    console.error('RDF4J setup failed:', error)
+    process.exit(1)
   }
 }
 

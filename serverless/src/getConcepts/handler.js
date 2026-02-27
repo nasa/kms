@@ -19,7 +19,10 @@ import { getRootConcepts } from '@/shared/getRootConcepts'
 import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
+import { createConceptsResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
 
@@ -101,40 +104,6 @@ export const getConcepts = async (event, context) => {
   const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
 
-  // Check existence of version
-  let keywordVersion = 'n/a'
-  let versionCreationDate = 'n/a'
-  const versionInfo = await getVersionMetadata(version)
-  if (versionInfo) {
-    keywordVersion = versionInfo.versionName
-    versionCreationDate = versionInfo.created
-  } else {
-    return {
-      headers: defaultResponseHeaders,
-      statusCode: 404,
-      body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
-    }
-  }
-
-  // Check existence of scheme if given
-  if (conceptScheme) {
-    if (conceptScheme.toLowerCase() === 'granuledataformat') {
-      conceptScheme = 'dataformat'
-    }
-
-    const scheme = await getConceptSchemeDetails({
-      schemeName: conceptScheme,
-      version
-    })
-    if (scheme === null) {
-      return {
-        headers: defaultResponseHeaders,
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
-      }
-    }
-  }
-
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
   const pageSize = parseInt(pageSizeStr, 10)
@@ -178,6 +147,74 @@ export const getConcepts = async (event, context) => {
   }
 
   try {
+    // Normalize known alias before cache key generation.
+    if (conceptScheme?.toLowerCase() === 'granuledataformat') {
+      conceptScheme = 'dataformat'
+    }
+
+    const cacheKey = createConceptsResponseCacheKey({
+      version,
+      path: event?.resource || event?.path,
+      endpointPath: event?.path,
+      conceptScheme,
+      pattern,
+      pageNum,
+      pageSize,
+      format
+    })
+
+    try {
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey,
+        entityLabel: 'response'
+      })
+      if (cachedResponse) {
+        logger.info(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
+        if (format.toLowerCase() === 'csv') {
+          logger.info(`[cache] csv hit endpoint=getConcepts key=${cacheKey}`)
+        }
+
+        return cachedResponse
+      }
+
+      logger.info(`[cache] miss endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
+      if (format.toLowerCase() === 'csv') {
+        logger.info(`[cache] csv miss endpoint=getConcepts key=${cacheKey}`)
+      }
+    } catch (cacheReadError) {
+      logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
+    }
+
+    // Check existence of version only after cache miss.
+    let keywordVersion = 'n/a'
+    let versionCreationDate = 'n/a'
+    const versionInfo = await getVersionMetadata(version)
+    if (versionInfo) {
+      keywordVersion = versionInfo.versionName
+      versionCreationDate = versionInfo.created
+    } else {
+      return {
+        headers: defaultResponseHeaders,
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
+      }
+    }
+
+    // Check existence of scheme if given only after cache miss.
+    if (conceptScheme) {
+      const scheme = await getConceptSchemeDetails({
+        schemeName: conceptScheme,
+        version
+      })
+      if (scheme === null) {
+        return {
+          headers: defaultResponseHeaders,
+          statusCode: 404,
+          body: JSON.stringify({ error: 'Invalid concept scheme parameter. Concept scheme not found' })
+        }
+      }
+    }
+
     // CSV case
     if (format.toLowerCase() === 'csv') {
       if (!conceptScheme) {
@@ -196,12 +233,28 @@ export const getConcepts = async (event, context) => {
         }
       }
 
-      return createCsvForScheme({
+      const csvResponse = await createCsvForScheme({
         scheme: conceptScheme,
         version,
         versionName: keywordVersion,
         versionCreationDate
       })
+
+      if (csvResponse.statusCode === 200) {
+        try {
+          logger.debug(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
+          await setCachedJsonResponse({
+            cacheKey,
+            response: csvResponse
+          })
+        } catch (cacheWriteError) {
+          logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
+        }
+      } else {
+        logger.debug(`[cache] csv skip-write endpoint=getConcepts status=${csvResponse.statusCode} key=${cacheKey}`)
+      }
+
+      return csvResponse
     }
 
     let triples
@@ -355,7 +408,7 @@ export const getConcepts = async (event, context) => {
 
     const endTime = performance.now()
     performanceMetrics.totalTime = (endTime - startTime).toFixed(2)
-    console.log('get concepts performance=', JSON.stringify(performanceMetrics))
+    logger.info('get concepts performance=', JSON.stringify(performanceMetrics))
 
     // API Gateway has a hard limit of responses at 6MB
     const SIZE_THRESHOLD = 5 * 1024 * 1024 // Set threshold to 5MB to have some buffer
@@ -370,8 +423,9 @@ export const getConcepts = async (event, context) => {
       'X-Total-Pages': totalPages.toString()
     }
     let response
+    const isSamLocal = process.env.AWS_SAM_LOCAL === 'true' || process.env.IS_OFFLINE === 'true'
     // Check if the response body size exceeds the threshold for compression
-    if (contentSize < SIZE_THRESHOLD) {
+    if (contentSize < SIZE_THRESHOLD || isSamLocal) {
       // If the content is smaller than the threshold, return uncompressed
       response = {
         statusCode: 200,
@@ -395,7 +449,7 @@ export const getConcepts = async (event, context) => {
         }
       } catch (compressionError) {
         // Log the error if compression fails
-        console.error('Error compressing response:', compressionError)
+        logger.error('Error compressing response:', compressionError)
         // Fallback to uncompressed response if compression fails
         response = {
           statusCode: 200,
@@ -405,9 +459,19 @@ export const getConcepts = async (event, context) => {
       }
     }
 
+    try {
+      logger.debug(`[cache] write endpoint=getConcepts key=${cacheKey}`)
+      await setCachedJsonResponse({
+        cacheKey,
+        response
+      })
+    } catch (cacheWriteError) {
+      logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
+    }
+
     return response
   } catch (error) {
-    console.error(`Error retrieving concepts, error=${error}`)
+    logger.error(`Error retrieving concepts, error=${error}`)
 
     return {
       headers: defaultResponseHeaders,

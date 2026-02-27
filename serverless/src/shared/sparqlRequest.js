@@ -6,6 +6,7 @@
  */
 
 import { delay } from '@/shared/delay'
+import { logger } from '@/shared/logger'
 
 /**
  * Sends a request to the SPARQL endpoint with the specified parameters, supporting RDF4J transactions.
@@ -76,15 +77,18 @@ import { delay } from '@/shared/delay'
  * - The `action` parameter is required for transaction operations and should be set, i.e, 'ADD', 'UPDATE'
  * - When a transaction is active, the request is sent to the transaction URL instead of the regular endpoint.
  *
- * The function includes a retry mechanism for failed requests, with a maximum of 10 retries
- * and a 1-second delay between retries.
+ * The function includes a retry mechanism for failed requests.
  *
  * @see Related functions:
  * {@link addFromClause}
  * {@link addWithClause}
  */
-const MAX_RETRIES = 10
 const RETRY_DELAY = 1000 // 1 second
+const SPARQL_REQUEST_TIMEOUT_MS = 25000
+const SPARQL_WARM_WINDOW_MS = 60000
+const SPARQL_COLD_MAX_RETRIES = 1
+const SPARQL_WARM_MAX_RETRIES = 0
+let lastSuccessfulSparqlAt = 0
 
 export const sparqlRequest = async (props) => {
   const {
@@ -93,7 +97,8 @@ export const sparqlRequest = async (props) => {
     method,
     transaction = {},
     version,
-    retryCount = 0
+    retryCount = 0,
+    timeoutMs = SPARQL_REQUEST_TIMEOUT_MS
   } = props
 
   let {
@@ -132,7 +137,7 @@ export const sparqlRequest = async (props) => {
   function addFromClause(query, graphUri) {
     // Check if the query already contains a FROM clause
     if (/FROM\s*</i.test(query)) {
-      console.warn('Query already contains a FROM clause. Skipping automatic graph insertion.')
+      logger.warn('Query already contains a FROM clause. Skipping automatic graph insertion.')
 
       return query
     }
@@ -147,7 +152,7 @@ export const sparqlRequest = async (props) => {
   function addWithClause(update, graphUri) {
     // Check if the update already contains a WITH clause
     if (/WITH\s*</i.test(update)) {
-      console.warn('Update already contains a WITH clause. Skipping automatic graph insertion.')
+      logger.warn('Update already contains a WITH clause. Skipping automatic graph insertion.')
 
       return update
     }
@@ -201,33 +206,81 @@ export const sparqlRequest = async (props) => {
 
   const url = endpointUrl.toString()
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers,
-      body
-    })
-
-    if (!response.ok) {
-      const responseText = await response.text()
-      console.error(`Error response body: ${responseText}`)
-      throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`)
+  const requestPromise = (async () => {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+    let timeoutId
+    if (controller && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      timeoutId = setTimeout(() => controller.abort(new Error(`SPARQL request timeout after ${timeoutMs}ms`)), timeoutMs)
     }
 
-    return response
-  } catch (error) {
-    // Implement retry logic
-    if (retryCount < MAX_RETRIES) {
-      console.log(`Retrying request (attempt ${retryCount + 1} of ${MAX_RETRIES})`)
-      await delay(RETRY_DELAY)
+    try {
+      const requestOptions = {
+        method,
+        headers,
+        body
+      }
+      if (controller && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+        requestOptions.signal = controller.signal
+      }
 
-      return sparqlRequest({
-        ...props,
-        retryCount: retryCount + 1
-      })
+      const response = await fetch(url, requestOptions)
+
+      if (!response.ok) {
+        const responseText = await response.text()
+        logger.error(`Error response body: ${responseText}`)
+        throw new Error(`HTTP error! status: ${response.status}, body: ${responseText}`)
+      }
+
+      lastSuccessfulSparqlAt = Date.now()
+
+      return response
+    } catch (error) {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+
+      const isWarm = (
+        Number.isFinite(SPARQL_WARM_WINDOW_MS)
+        && SPARQL_WARM_WINDOW_MS > 0
+        && (Date.now() - lastSuccessfulSparqlAt) < SPARQL_WARM_WINDOW_MS
+      )
+      const maxRetries = isWarm ? SPARQL_WARM_MAX_RETRIES : SPARQL_COLD_MAX_RETRIES
+
+      if (retryCount < maxRetries) {
+        logger.info(
+          '[retry] Retrying SPARQL request'
+          + ` attempt=${retryCount + 1}/${maxRetries}`
+          + ` isWarm=${isWarm}`
+          + ` method=${method}`
+          + ` contentType=${contentType}`
+          + ` url=${url}`
+        )
+
+        await delay(RETRY_DELAY)
+
+        return sparqlRequest({
+          ...props,
+          retryCount: retryCount + 1
+        })
+      }
+
+      if (maxRetries === 0) {
+        logger.error(`SPARQL request failed without retry. isWarm=${isWarm}`)
+      } else {
+        logger.error(`SPARQL request failed after ${maxRetries} retry. isWarm=${isWarm}`)
+      }
+
+      throw error
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
+  })()
 
-    console.error(`Max retries (${MAX_RETRIES}) reached. Giving up.`)
-    throw error
-  }
+  return requestPromise
+}
+
+export const resetSparqlRequestStateForTests = () => {
+  lastSuccessfulSparqlAt = 0
 }

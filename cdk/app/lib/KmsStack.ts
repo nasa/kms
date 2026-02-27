@@ -3,11 +3,8 @@ import * as cdk from 'aws-cdk-lib'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
-import * as logs from 'aws-cdk-lib/aws-logs'
-import * as cr from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
-import { ApiCacheSetup } from './helper/ApiCacheSetup'
 import { ApiResources } from './helper/ApiResources'
 import { IamSetup } from './helper/IamSetup'
 import { LambdaFunctions } from './helper/KmsLambdaFunctions'
@@ -26,10 +23,10 @@ export interface KmsStackProps extends cdk.StackProps {
   environment: {
     CMR_BASE_URL: string
     EDL_PASSWORD: string
-    KMS_CACHE_CLUSTER_ENABLED?: string
-    KMS_CACHE_CLUSTER_SIZE_GB?: string
-    KMS_CACHE_TTL_SECONDS?: string
     LOG_LEVEL: string
+    REDIS_ENABLED?: string
+    REDIS_HOST?: string
+    REDIS_PORT?: string
     RDF_BUCKET_NAME: string
     RDF4J_PASSWORD: string
     RDF4J_SERVICE_URL: string
@@ -99,69 +96,6 @@ export class KmsStack extends cdk.Stack {
     )
     this.lambdaRole = iamSetup.lambdaRole
 
-    const cacheTtlSeconds = Number(props.environment.KMS_CACHE_TTL_SECONDS)
-    const cacheTtl = Number.isFinite(cacheTtlSeconds) && cacheTtlSeconds > 0
-      ? cdk.Duration.seconds(cacheTtlSeconds)
-      : cdk.Duration.hours(1)
-
-    const cacheClusterSize = props.environment.KMS_CACHE_CLUSTER_SIZE_GB
-
-    const cacheMethodOptions = ApiCacheSetup.cacheMethodOptions(cacheTtl)
-
-    const cacheClusterEnabled = props.environment.KMS_CACHE_CLUSTER_ENABLED !== 'false'
-
-    const accessLogGroupName = `/aws/apigateway/${prefix}-${stage}-access`
-    const accessLogGroup = useLocalstack
-      ? undefined
-      : logs.LogGroup.fromLogGroupName(this, 'ApiAccessLogs', accessLogGroupName)
-
-    const ensureAccessLogGroup = useLocalstack
-      ? undefined
-      : new cr.AwsCustomResource(this, 'EnsureApiAccessLogGroup', {
-        onCreate: {
-          service: 'CloudWatchLogs',
-          action: 'createLogGroup',
-          parameters: {
-            logGroupName: accessLogGroupName
-          },
-          physicalResourceId: cr.PhysicalResourceId.of(accessLogGroupName),
-          ignoreErrorCodesMatching: 'ResourceAlreadyExistsException'
-        },
-        onUpdate: {
-          service: 'CloudWatchLogs',
-          action: 'createLogGroup',
-          parameters: {
-            logGroupName: accessLogGroupName
-          },
-          ignoreErrorCodesMatching: 'ResourceAlreadyExistsException'
-        },
-        policy: cr.AwsCustomResourcePolicy.fromStatements([
-          new iam.PolicyStatement({
-            actions: ['logs:CreateLogGroup'],
-            resources: ['*']
-          })
-        ])
-      })
-
-    const accessLogOptions = useLocalstack
-      ? {}
-      : {
-        accessLogDestination: new apigateway.LogGroupLogDestination(
-            accessLogGroup as logs.ILogGroup
-        ),
-        accessLogFormat: apigateway.AccessLogFormat.custom(
-          JSON.stringify({
-            requestId: '$context.requestId',
-            method: '$context.httpMethod',
-            path: '$context.path',
-            queryString: '$context.queryString',
-            status: '$context.status',
-            responseLatency: '$context.responseLatency',
-            integrationLatency: '$context.integrationLatency'
-          })
-        )
-      }
-
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
       this.api = apigateway.RestApi.fromRestApiAttributes(
@@ -180,15 +114,7 @@ export class KmsStack extends cdk.Stack {
         endpointTypes: [apigateway.EndpointType.PRIVATE],
         deploy: true,
         deployOptions: {
-          stageName: stage,
-          ...(useLocalstack
-            ? {}
-            : {
-              cacheClusterEnabled,
-              cacheClusterSize,
-              methodOptions: cacheMethodOptions,
-              ...accessLogOptions
-            })
+          stageName: stage
         },
         policy: iamSetup.createApiGatewayPolicy()
       })
@@ -242,30 +168,14 @@ export class KmsStack extends cdk.Stack {
     // Create Stage for the deployment
     if (existingApiId) {
       // For existing API, create a new Stage managed by CDK
-      const stageResource = new apigateway.Stage(this, 'ApiStage', {
+      new apigateway.Stage(this, 'ApiStage', {
         deployment,
         stageName: stage,
-        description: `${stage} stage name for KMS API`,
-        ...(useLocalstack
-          ? {}
-          : {
-            cacheClusterEnabled,
-            cacheClusterSize,
-            methodOptions: cacheMethodOptions,
-            ...accessLogOptions
-          })
+        description: `${stage} stage name for KMS API`
       })
-
-      if (ensureAccessLogGroup) {
-        stageResource.node.addDependency(ensureAccessLogGroup)
-      }
     } else {
       // For new API, stage is auto-created
       this.api.deploymentStage?.node.addDependency(deployment)
-
-      if (ensureAccessLogGroup) {
-        this.api.deploymentStage?.node.addDependency(ensureAccessLogGroup)
-      }
     }
 
     // Output the new deployment ID
@@ -274,11 +184,6 @@ export class KmsStack extends cdk.Stack {
       description: 'ID of the new API Gateway deployment',
       exportName: `${prefix}-NewApiDeploymentId`
     })
-
-    // Configure API Gateway caching
-    if (existingApiId && !useLocalstack) {
-      ApiCacheSetup.configure(this, this.api)
-    }
 
     this.addOutputs(prefix)
   }

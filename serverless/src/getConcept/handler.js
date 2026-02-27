@@ -13,6 +13,9 @@ import { getGcmdMetadata } from '@/shared/getGcmdMetadata'
 import { getSkosConcept } from '@/shared/getSkosConcept'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
+import { createConceptResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toLegacyXML } from '@/shared/toLegacyXML'
 
@@ -84,7 +87,43 @@ export const getConcept = async (event, context) => {
   })
 
   try {
-    // Check existence of version
+    const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
+
+    const decodedConceptId = conceptId ? decode(conceptId) : null
+    const decodedShortName = shortName ? decode(shortName) : null
+    const decodedAltLabel = altLabel ? decode(altLabel) : null
+    const decodedFullPath = fullPath ? decode(fullPath) : null
+    const decodedScheme = scheme ? decode(scheme) : null
+
+    const conceptCacheKey = createConceptResponseCacheKey({
+      version,
+      path: event?.resource || event?.path,
+      endpointPath: event?.path,
+      format,
+      conceptId: decodedConceptId,
+      shortName: decodedShortName,
+      altLabel: decodedAltLabel,
+      fullPath: decodedFullPath,
+      scheme: decodedScheme
+    })
+
+    try {
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey: conceptCacheKey,
+        entityLabel: 'concept response'
+      })
+      if (cachedResponse) {
+        logger.info(`[cache] hit endpoint=getConcept key=${conceptCacheKey}`)
+
+        return cachedResponse
+      }
+
+      logger.info(`[cache] miss endpoint=getConcept key=${conceptCacheKey}`)
+    } catch (cacheReadError) {
+      logger.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
+    }
+
+    // Check existence of version only after cache miss.
     let keywordVersion = 'n/a'
     let versionCreationDate = 'n/a'
     const versionInfo = await getVersionMetadata(version)
@@ -99,18 +138,12 @@ export const getConcept = async (event, context) => {
       }
     }
 
-    const decode = (str) => {
-      if (!str) return null
-
-      return decodeURIComponent(str.replace(/\+/g, ' '))
-    }
-
     const concept = await getSkosConcept({
-      conceptIRI: conceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}` : null,
-      shortName: shortName ? decode(shortName) : null,
-      altLabel: altLabel ? decode(altLabel) : null,
-      fullPath: fullPath ? decode(fullPath) : null,
-      scheme: scheme ? decode(scheme) : null,
+      conceptIRI: decodedConceptId ? `https://gcmd.earthdata.nasa.gov/kms/concept/${decodedConceptId}` : null,
+      shortName: decodedShortName,
+      altLabel: decodedAltLabel,
+      fullPath: decodedFullPath,
+      scheme: decodedScheme,
       version
     })
 
@@ -200,7 +233,7 @@ export const getConcept = async (event, context) => {
       contentType = 'application/xml'
     }
 
-    return {
+    const response = {
       statusCode: 200,
       body: responseBody,
       headers: {
@@ -208,8 +241,20 @@ export const getConcept = async (event, context) => {
         'Content-Type': `${contentType}; charset=utf-8`
       }
     }
+
+    try {
+      logger.debug(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
+      await setCachedJsonResponse({
+        cacheKey: conceptCacheKey,
+        response
+      })
+    } catch (cacheWriteError) {
+      logger.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
+    }
+
+    return response
   } catch (error) {
-    console.error(`Error retrieving concept, error=${error.toString()}`)
+    logger.error(`Error retrieving concept, error=${error.toString()}`)
 
     return {
       headers: defaultResponseHeaders,

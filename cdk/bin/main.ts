@@ -2,6 +2,7 @@
 import * as cdk from 'aws-cdk-lib'
 
 import { KmsStack, KmsStackProps } from '../app/lib/KmsStack'
+import { RedisStack } from '../app/lib/RedisStack'
 import { EbsStack } from '../rdfdb/lib/EbsStack'
 import { EcsStack } from '../rdfdb/lib/EcsStack'
 import { IamStack } from '../rdfdb/lib/IamStack'
@@ -71,6 +72,8 @@ async function main() {
   let ebsStack: EbsStack | undefined
   let ecsStack: EcsStack | undefined
   let snapshotStack: SnapshotStack | undefined
+  let redisStack: RedisStack | undefined
+  const redisEnabled = !useLocalstack && process.env.KMS_REDIS_ENABLED !== 'false'
   if (!useLocalstack) {
     // Create IAM Stack
     iamStack = new IamStack(app, 'rdf4jIamStack', {
@@ -110,6 +113,17 @@ async function main() {
       stackName: 'rdf4jSnapshotStack'
     })
 
+    if (redisEnabled) {
+      redisStack = new RedisStack(app, `${prefix}-RedisStack`, {
+        env,
+        vpcId,
+        prefix,
+        stage,
+        stackName: `${prefix}-RedisStack`,
+        nodeType: process.env.KMS_REDIS_NODE_TYPE || 'cache.t3.micro'
+      })
+    }
+
     // Add dependencies
     ebsStack.addDependency(iamStack)
     lbStack.addDependency(iamStack)
@@ -118,6 +132,14 @@ async function main() {
     ecsStack.addDependency(lbStack)
     snapshotStack.addDependency(ebsStack)
   }
+
+  const redisConfigured = redisEnabled && Boolean(redisStack)
+  const localRedisEnabled = process.env.REDIS_ENABLED === 'true'
+  const localRedisHost = process.env.REDIS_HOST
+  const localRedisPort = process.env.REDIS_PORT
+  const redisEnabledValue = useLocalstack
+    ? String(localRedisEnabled)
+    : String(redisConfigured)
 
   // Create KmsStack
   const kmsStackProps: KmsStackProps = {
@@ -131,16 +153,16 @@ async function main() {
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
         ? 'http://rdf4j-server:8080'
-        : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8080'),
+        : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'),
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
-      KMS_CACHE_TTL_SECONDS: process.env.KMS_CACHE_TTL_SECONDS || '3600',
-      KMS_CACHE_CLUSTER_SIZE_GB: process.env.KMS_CACHE_CLUSTER_SIZE_GB || '0.5',
-      KMS_CACHE_CLUSTER_ENABLED: process.env.KMS_CACHE_CLUSTER_ENABLED || 'true'
+      REDIS_ENABLED: redisEnabledValue,
+      REDIS_HOST: useLocalstack ? localRedisHost : redisStack?.endpointAddress,
+      REDIS_PORT: useLocalstack ? localRedisPort : redisStack?.endpointPort
     }
   }
 
@@ -148,6 +170,10 @@ async function main() {
   // Add dependency only if ecsStack is defined
   if (!useLocalstack && ecsStack) {
     kmsStack.addDependency(ecsStack)
+  }
+
+  if (!useLocalstack && redisStack) {
+    kmsStack.addDependency(redisStack)
   }
 
   app.synth()

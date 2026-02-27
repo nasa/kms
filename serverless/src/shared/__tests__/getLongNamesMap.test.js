@@ -47,12 +47,12 @@ describe('getLongNamesMap', () => {
       'https://gcmd.earthdata.nasa.gov/kms/concept/879d697c-381f-45df-a48d-2d9095bc5c54': 'NSF/NCAR Gulfstream GV Aircraft'
     })
 
-    expect(sparqlRequest).toHaveBeenCalledWith({
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: expect.any(String)
-    })
+    }))
   })
 
   test('should throw an error when the response is not ok', async () => {

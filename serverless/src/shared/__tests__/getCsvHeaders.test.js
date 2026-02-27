@@ -43,12 +43,12 @@ describe('getCsvHeaders', () => {
 
       const result = await getCsvHeaders('testScheme')
       expect(result).toEqual(['header1', 'header2', 'header3'])
-      expect(sparqlRequest).toHaveBeenCalledWith({
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         method: 'POST',
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         body: expect.any(String)
-      })
+      }))
     })
 
     test('should return an empty array when no CSV headers are found', async () => {

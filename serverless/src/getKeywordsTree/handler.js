@@ -10,6 +10,9 @@ import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
+import { logger } from '@/shared/logger'
+import { createTreeResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { keywordSchemeSequence, sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -106,7 +109,7 @@ export const getKeywordsTree = async (event, context) => {
 
   // Check if pathParameters exists
   if (!event.pathParameters) {
-    console.error('Missing pathParameters')
+    logger.error('Missing pathParameters')
 
     return {
       headers: defaultResponseHeaders,
@@ -122,6 +125,12 @@ export const getKeywordsTree = async (event, context) => {
   const encodedConceptScheme = event.pathParameters.conceptScheme
   const conceptScheme = decodeURIComponent(encodedConceptScheme)
   const version = queryStringParameters?.version || 'published'
+  const shouldUseTreeCache = version === 'published'
+  const treeCacheKey = createTreeResponseCacheKey({
+    version,
+    conceptScheme,
+    filter
+  })
 
   logAnalyticsData({
     event,
@@ -130,7 +139,7 @@ export const getKeywordsTree = async (event, context) => {
   })
 
   if (!event.pathParameters || !event.pathParameters.conceptScheme) {
-    console.error('Missing conceptScheme parameter')
+    logger.error('Missing conceptScheme parameter')
 
     return {
       headers: defaultResponseHeaders,
@@ -142,6 +151,26 @@ export const getKeywordsTree = async (event, context) => {
   }
 
   try {
+    if (shouldUseTreeCache) {
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey: treeCacheKey,
+        entityLabel: 'tree response'
+      })
+      if (cachedResponse) {
+        logger.info(`[cache] hit endpoint=getKeywordsTree key=${treeCacheKey}`)
+
+        return {
+          ...cachedResponse,
+          headers: {
+            ...defaultResponseHeaders,
+            ...(cachedResponse.headers || {})
+          }
+        }
+      }
+
+      logger.info(`[cache] miss endpoint=getKeywordsTree key=${treeCacheKey}`)
+    }
+
     let keywordTree = []
     const lowerCaseConceptScheme = conceptScheme.toLowerCase()
     const isAllSchemes = lowerCaseConceptScheme === 'all'
@@ -240,8 +269,10 @@ export const getKeywordsTree = async (event, context) => {
     }
 
     // Retrieve concept scheme details and process them
-    const conceptSchemes = await getConceptSchemeDetails({ version })
-    const versionInfo = await getVersionMetadata(version)
+    const [conceptSchemes, versionInfo] = await Promise.all([
+      getConceptSchemeDetails({ version }),
+      getVersionMetadata(version)
+    ])
 
     let idCounter = 0 // Initialize a counter for generating unique IDs
 
@@ -307,14 +338,25 @@ export const getKeywordsTree = async (event, context) => {
     }
 
     // Return successful response with tree data
-    return {
+    const response = {
       statusCode: 200,
-      body: JSON.stringify(treeData, null, 2),
+      body: JSON.stringify(treeData),
       headers: defaultResponseHeaders
     }
+
+    if (shouldUseTreeCache) {
+      await setCachedJsonResponse({
+        cacheKey: treeCacheKey,
+        response
+      })
+
+      logger.debug(`[cache] write endpoint=getKeywordsTree key=${treeCacheKey}`)
+    }
+
+    return response
   } catch (error) {
     // Log and return error response
-    console.error(`Error retrieving concept, error=${error.toString()}`)
+    logger.error(`Error retrieving concept, error=${error.toString()}`)
 
     return {
       headers: defaultResponseHeaders,

@@ -45,13 +45,13 @@ describe('getRootConcept', () => {
 
     const result = await getRootConceptForScheme(mockScheme, 'published')
 
-    expect(sparqlRequest).toHaveBeenCalledWith({
+    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
       method: 'POST',
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       body: mockQuery,
       version: 'published'
-    })
+    }))
 
     expect(getRootConceptsBySchemeQuery).toHaveBeenCalledWith(mockScheme, 'published')
     expect(result).toEqual([{ concept: 'root concept' }])

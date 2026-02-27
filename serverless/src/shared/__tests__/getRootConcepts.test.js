@@ -46,12 +46,12 @@ describe('getRootConcepts', () => {
 
       const result = await getRootConcepts()
 
-      expect(sparqlRequest).toHaveBeenCalledWith({
+      expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         method: 'POST',
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         body: expect.any(String)
-      })
+      }))
 
       expect(result).toEqual([
         {

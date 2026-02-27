@@ -49,12 +49,12 @@ describe('getProviderUrlsMap', () => {
         subject2: ['http://example2.com', 'http://example3.com']
       })
 
-      expect(sparqlRequestModule.sparqlRequest).toHaveBeenCalledWith({
+      expect(sparqlRequestModule.sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
         method: 'POST',
         contentType: 'application/sparql-query',
         accept: 'application/sparql-results+json',
         body: expect.any(String)
-      })
+      }))
     })
 
     test('should ignore "provider" values (case-insensitive)', async () => {

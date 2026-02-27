@@ -13,7 +13,7 @@ const getConfig = () => staticConfig
 const applicationConfig = {
   ...getConfig().application,
   get sparqlEndpoint() {
-    return `${process.env.RDF4J_SERVICE_URL}/rdf4j-server/repositories/kms`
+    return `${process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'}/rdf4j-server/repositories/kms`
   }
 }
 
