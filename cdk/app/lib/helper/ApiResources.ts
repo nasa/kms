@@ -42,6 +42,7 @@ export class ApiResources {
       'X-Api-Key',
       'X-Amz-Security-Token',
       'X-Amz-User-Agent',
+      'client-id',
       'Access-Control-Allow-Origin',
       'Access-Control-Allow-Credentials',
       'Access-Control-Request-Headers',
