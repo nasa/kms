@@ -72,7 +72,6 @@ dockerRun() {
         --env "LOG_LEVEL=$bamboo_LOG_LEVEL" \
         --env "KMS_REDIS_ENABLED=$bamboo_KMS_REDIS_ENABLED" \
         --env "KMS_REDIS_NODE_TYPE=$bamboo_KMS_REDIS_NODE_TYPE" \
-        --env "CORS_HEADERS=$bamboo_CORS_HEADERS" \
     $dockerTag "$@"
 }
 
