@@ -15,6 +15,7 @@ import { VpcSetup } from './helper/VpcSetup'
  * @interface
  */
 export interface KmsStackProps extends cdk.StackProps {
+  corsHeaders?: string
   existingApiId: string | undefined
   prefix: string
   rootResourceId: string | undefined
@@ -122,7 +123,8 @@ export class KmsStack extends cdk.Stack {
 
     const apiResources = new ApiResources({
       api: this.api,
-      prefix: props.prefix
+      prefix: props.prefix,
+      corsHeaders: props.corsHeaders
     })
     // Configure CORS for the entire API
     apiResources.configureCors(this, prefix)

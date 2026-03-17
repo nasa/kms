@@ -150,6 +150,7 @@ async function main() {
     stage,
     existingApiId,
     rootResourceId,
+    corsHeaders: process.env.CORS_HEADERS,
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
         ? 'http://rdf4j-server:8080'

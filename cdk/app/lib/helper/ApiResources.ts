@@ -11,6 +11,8 @@ export interface ApiResourcesProps {
   api: apigateway.IRestApi;
   /** The prefix to use for naming resources */
   prefix: string;
+  /** Optional comma-separated list of CORS headers */
+  corsHeaders?: string;
 }
 
 /**
@@ -32,22 +34,30 @@ export class ApiResources {
    * @param {ApiResourcesProps} props - The properties to configure the ApiResources.
    */
   constructor(props: ApiResourcesProps) {
-    const { api } = props
+    const { api, corsHeaders } = props
     this.api = api
 
-    this.corsHeaders = [
-      'Content-Type',
-      'X-Amz-Date',
-      'Authorization',
-      'X-Api-Key',
-      'X-Amz-Security-Token',
-      'X-Amz-User-Agent',
-      'client-id',
-      'Access-Control-Allow-Origin',
-      'Access-Control-Allow-Credentials',
-      'Access-Control-Request-Headers',
-      'Access-Control-Request-Methods'
-    ]
+    // Use custom CORS headers if provided, otherwise use defaults
+    if (corsHeaders && corsHeaders.trim()) {
+      this.corsHeaders = corsHeaders.split(',').map((header) => header.trim())
+      console.log(`Using custom CORS headers: ${this.corsHeaders.join(', ')}`)
+    } else {
+      this.corsHeaders = [
+        'Content-Type',
+        'X-Amz-Date',
+        'Authorization',
+        'X-Api-Key',
+        'X-Amz-Security-Token',
+        'X-Amz-User-Agent',
+        'client-id',
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Credentials',
+        'Access-Control-Request-Headers',
+        'Access-Control-Request-Methods'
+      ]
+
+      console.log(`Using default CORS headers: ${this.corsHeaders.join(', ')}`)
+    }
   }
 
   private getCorsHeaderValues() {
