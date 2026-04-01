@@ -43,6 +43,138 @@ describe('when priming concepts cache', () => {
     })
   })
 
+  describe('when invoked by EventBridge event', () => {
+    test('uses versionName from event detail', async () => {
+      const redisClient = {
+        get: vi.fn().mockResolvedValue('99.0'),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      getRedisClient.mockResolvedValue(redisClient)
+      getConceptSchemeDetails.mockResolvedValue([])
+
+      const event = {
+        detail: {
+          versionName: '100.0',
+          publishDate: '2024-01-01T00:00:00Z',
+          keywordEvents: [
+            {
+              EventType: 'INSERTED',
+              Scheme: 'sciencekeywords',
+              UUID: 'uuid1'
+            },
+            {
+              EventType: 'UPDATED',
+              Scheme: 'platforms',
+              UUID: 'uuid2'
+            }
+          ]
+        }
+      }
+
+      const response = await primeConceptsCache(event)
+      const body = JSON.parse(response.body)
+
+      expect(response.statusCode).toBe(200)
+      expect(body.versionMarker).toBe('100.0')
+      expect(redisClient.set).toHaveBeenCalledWith(
+        CONCEPTS_CACHE_VERSION_KEY,
+        '100.0'
+      )
+
+      // Verify getVersionMetadata was NOT called when EventBridge event is provided
+      expect(getVersionMetadata).not.toHaveBeenCalled()
+    })
+
+    test('handles event with empty keywordEvents array', async () => {
+      const redisClient = {
+        get: vi.fn().mockResolvedValue('99.0'),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      getRedisClient.mockResolvedValue(redisClient)
+      getConceptSchemeDetails.mockResolvedValue([])
+
+      const event = {
+        detail: {
+          versionName: '100.0',
+          publishDate: '2024-01-01T00:00:00Z',
+          keywordEvents: []
+        }
+      }
+
+      const response = await primeConceptsCache(event)
+      const body = JSON.parse(response.body)
+
+      expect(response.statusCode).toBe(200)
+      expect(body.versionMarker).toBe('100.0')
+    })
+
+    test('handles event without keywordEvents property', async () => {
+      const redisClient = {
+        get: vi.fn().mockResolvedValue('99.0'),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      getRedisClient.mockResolvedValue(redisClient)
+      getConceptSchemeDetails.mockResolvedValue([])
+
+      const event = {
+        detail: {
+          versionName: '100.0',
+          publishDate: '2024-01-01T00:00:00Z'
+        }
+      }
+
+      const response = await primeConceptsCache(event)
+      const body = JSON.parse(response.body)
+
+      expect(response.statusCode).toBe(200)
+      expect(body.versionMarker).toBe('100.0')
+    })
+
+    test('skips priming when EventBridge version already cached', async () => {
+      const redisClient = {
+        get: vi.fn().mockResolvedValue('100.0')
+      }
+      getRedisClient.mockResolvedValue(redisClient)
+
+      const event = {
+        detail: {
+          versionName: '100.0',
+          publishDate: '2024-01-01T00:00:00Z',
+          keywordEvents: []
+        }
+      }
+
+      const response = await primeConceptsCache(event)
+      const body = JSON.parse(response.body)
+
+      expect(response.statusCode).toBe(200)
+      expect(body.message).toContain('already primed')
+      expect(clearCachedByPrefix).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('when invoked by cron schedule', () => {
+    test('fetches version metadata when no event provided', async () => {
+      const redisClient = {
+        get: vi.fn().mockResolvedValue('99.0'),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      getRedisClient.mockResolvedValue(redisClient)
+      getConceptSchemeDetails.mockResolvedValue([])
+      getVersionMetadata.mockResolvedValue({
+        versionName: '100.0',
+        created: '2026-02-24T00:00:00Z'
+      })
+
+      const response = await primeConceptsCache()
+      const body = JSON.parse(response.body)
+
+      expect(response.statusCode).toBe(200)
+      expect(body.versionMarker).toBe('100.0')
+      expect(getVersionMetadata).toHaveBeenCalledWith('published')
+    })
+  })
+
   describe('when redis is not configured', () => {
     test('returns skip message', async () => {
       getRedisClient.mockResolvedValue(null)

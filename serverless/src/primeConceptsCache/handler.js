@@ -114,10 +114,14 @@ const countPrimeResults = ({
 }
 
 /**
- * Nightly cache-prime job for published concepts endpoints.
+ * Cache-prime handler for published concepts endpoints.
+ *
+ * This function can be invoked in two ways:
+ * 1. As an EventBridge consumer (receives event from publisher with versionName, publishDate, keywordEvents)
+ * 2. As a scheduled cron job (no event detail, fetches version metadata directly)
  *
  * Behavior:
- * 1. Reads current published version metadata.
+ * 1. Reads version information (from event or metadata).
  * 2. Compares version marker against Redis version marker key.
  * 3. If version marker changed, clears old `/concepts`, `/concept`, and `/tree` cache keys.
  * 4. Warms `/concepts`, `/concepts/concept_scheme/{conceptScheme}`, and tree routes.
@@ -127,10 +131,28 @@ const countPrimeResults = ({
  *
  * @async
  * @function primeConceptsCache
+ * @param {Object} [event] - Optional EventBridge event from publisher.
+ * @param {Object} [event.detail] - Event detail containing version info and keyword events.
+ * @param {string} [event.detail.versionName] - Published version name.
+ * @param {string} [event.detail.publishDate] - ISO publish timestamp.
+ * @param {Array<Object>} [event.detail.keywordEvents] - Array of keyword change events.
  * @returns {Promise<{statusCode:number, body:string}>} Lambda-style response payload.
  */
-export const primeConceptsCache = async () => {
+export const primeConceptsCache = async (event) => {
+  console.log('@@@@@@@@@@@ primeConceptsCache invoked')
   logger.info('[cache-prime] start')
+
+  // Check if invoked by EventBridge event or cron
+  const eventDetail = event?.detail
+  const isEventBridgeInvocation = !!eventDetail?.versionName
+
+  if (isEventBridgeInvocation) {
+    logger.info(`[cache-prime] invoked by EventBridge event for version=${eventDetail.versionName}`)
+    logger.info(`[cache-prime] received ${eventDetail.keywordEvents?.length || 0} keyword events`)
+  } else {
+    logger.info('[cache-prime] invoked by cron schedule')
+  }
+
   const redisClient = await getRedisClient()
   if (!redisClient) {
     logger.info('[cache-prime] skip reason=redis_not_configured')
@@ -143,19 +165,26 @@ export const primeConceptsCache = async () => {
     }
   }
 
-  const versionMetadata = await getVersionMetadata(PRIME_VERSION)
-  if (!versionMetadata) {
-    logger.info('[cache-prime] skip reason=missing_published_version_metadata')
+  // Get version information from event or metadata
+  let versionMarker
+  if (isEventBridgeInvocation) {
+    versionMarker = eventDetail.versionName
+  } else {
+    const versionMetadata = await getVersionMetadata(PRIME_VERSION)
+    if (!versionMetadata) {
+      logger.info('[cache-prime] skip reason=missing_published_version_metadata')
 
-    return {
-      statusCode: 404,
-      body: JSON.stringify({
-        message: 'Published version metadata not found; cache priming skipped'
-      })
+      return {
+        statusCode: 404,
+        body: JSON.stringify({
+          message: 'Published version metadata not found; cache priming skipped'
+        })
+      }
     }
+
+    versionMarker = versionMetadata.versionName
   }
 
-  const versionMarker = versionMetadata.versionName
   const currentVersionMarker = await redisClient.get(CONCEPTS_CACHE_VERSION_KEY)
   logger.info(`[cache-prime] version-marker current=${currentVersionMarker || 'none'} target=${versionMarker}`)
   if (currentVersionMarker === versionMarker) {
