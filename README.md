@@ -47,6 +47,28 @@ Local development intentionally splits responsibilities between SAM and LocalSta
 
 We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts [`scripts/local/run_localstack_cmr_keyword_events_bridge.js`], which polls the LocalStack SQS queue and forwards messages into the local CMR consumer handler. This bridge exists because `sam local start-api` does not emulate SQS event source mappings the way AWS does in deployed environments.
 
+### Testing keyword event publishing in SIT
+
+After deploying to SIT, you can exercise the keyword event publisher with:
+
+```bash
+curl -X POST https://cmr.sit.earthdata.nasa.gov/keyword-events/test \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "event_type": "keyword_updated",
+    "scheme": "sciencekeywords",
+    "uuid": "1234-5678",
+    "old_keyword_path": "EARTH SCIENCE > ATMOSPHERE",
+    "new_keyword_path": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
+    "timestamp": "2026-04-02T12:00:00.000Z"
+  }'
+```
+
+Expected result:
+- the API returns `200`
+- the response includes the SNS topic ARN and message id
+- the CMR event processor is invoked from the subscribed queue in AWS
+
 ### Optional: Enable Redis cache in local SAM/LocalStack
 
 By default, local `start-local` does not provision Redis in CDK. You can still test Redis caching by running Redis in Docker.
