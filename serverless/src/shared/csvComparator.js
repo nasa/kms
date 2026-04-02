@@ -1,4 +1,4 @@
-import { parse } from 'csv-parse/sync'
+import { parse } from 'csv/sync'
 
 /**
  * Utility class to compare two CSV contents based on UUIDs and fullpaths
