@@ -52,7 +52,7 @@ We do not run the entire application stack inside LocalStack because the existin
 After deploying to SIT, you can exercise the keyword event publisher with:
 
 ```bash
-curl -X POST https://cmr.sit.earthdata.nasa.gov/keyword-events/test \
+curl -H "Authorization: Bearer $TOKEN" -X POST https://cmr.sit.earthdata.nasa.gov/kms/keyword-events/test \
   -H 'Content-Type: application/json' \
   -d '{
     "event_type": "keyword_updated",
