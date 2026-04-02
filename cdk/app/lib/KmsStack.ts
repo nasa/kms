@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 
 import { ApiResources } from './helper/ApiResources'
@@ -27,6 +28,7 @@ export interface KmsStackProps extends cdk.StackProps {
     REDIS_ENABLED?: string
     REDIS_HOST?: string
     REDIS_PORT?: string
+    AWS_ENDPOINT_URL?: string
     RDF_BUCKET_NAME: string
     RDF4J_PASSWORD: string
     RDF4J_SERVICE_URL: string
@@ -50,6 +52,8 @@ export class KmsStack extends cdk.Stack {
   public api: apigateway.IRestApi
 
   private readonly lambdaFunctions: LambdaFunctions
+
+  public readonly keywordEventsTopic: sns.Topic
 
   /**
    * Represents a CDK stack for KMS (Keyword Management System), API Gateway, and Lambda resources.
@@ -79,6 +83,8 @@ export class KmsStack extends cdk.Stack {
     this.stage = stage
 
     const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true'
+    const keywordEventsTopicName = `${prefix}-${stage}-keyword-events`
+    const localTopicArn = `arn:aws:sns:${this.region}:${this.account}:${keywordEventsTopicName}`
 
     // Set up VPC and Security Group
     const vpcSetup = new VpcSetup(this, prefix, vpcId, useLocalstack)
@@ -95,6 +101,10 @@ export class KmsStack extends cdk.Stack {
       this.stackName
     )
     this.lambdaRole = iamSetup.lambdaRole
+
+    this.keywordEventsTopic = new sns.Topic(this, 'KeywordEventsTopic', {
+      topicName: keywordEventsTopicName
+    })
 
     if (existingApiId && rootResourceId) {
       // Import existing API Gateway
@@ -126,12 +136,17 @@ export class KmsStack extends cdk.Stack {
     })
     // Configure CORS for the entire API
     apiResources.configureCors(this, prefix)
+    // Use a concrete ARN string during local synth so SAM can inject it into the Lambda env.
+    const keywordEventsTopicArn = useLocalstack ? localTopicArn : this.keywordEventsTopic.topicArn
 
     // Set up Lambda functions
     this.lambdaFunctions = new LambdaFunctions(this, {
       api: this.api,
       apiResources,
-      environment,
+      environment: {
+        ...environment,
+        KEYWORD_EVENTS_TOPIC_ARN: keywordEventsTopicArn
+      },
       lambdaRole: this.lambdaRole,
       prefix,
       securityGroup: this.securityGroup,
@@ -214,6 +229,12 @@ export class KmsStack extends cdk.Stack {
       description: 'The ID of the API Gateway',
       exportName: `${prefix}-KmsApiId`,
       value: this.api.restApiId
+    })
+
+    new cdk.CfnOutput(this, 'KeywordEventsTopicArn', {
+      description: 'ARN of the SNS topic used for keyword events',
+      exportName: `${prefix}-KeywordEventsTopicArn`,
+      value: this.keywordEventsTopic.topicArn
     })
 
     new cdk.CfnOutput(this, 'AuthorizerId', {
