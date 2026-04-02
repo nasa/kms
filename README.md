@@ -37,6 +37,16 @@ To run local server with SAM watch mode enabled
 npm run start-local:watch
 ```
 
+### Why local uses SAM and LocalStack
+
+Local development intentionally splits responsibilities between SAM and LocalStack:
+
+- SAM runs the API Gateway and Lambda side of KMS locally.
+- LocalStack emulates AWS-managed services that SAM does not model end-to-end for this repo, especially SNS and SQS.
+- RDF4J and Redis remain separate local services because they are not AWS services.
+
+We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts [`scripts/local/run_localstack_cmr_keyword_events_bridge.js`], which polls the LocalStack SQS queue and forwards messages into the local CMR consumer handler. This bridge exists because `sam local start-api` does not emulate SQS event source mappings the way AWS does in deployed environments.
+
 ### Optional: Enable Redis cache in local SAM/LocalStack
 
 By default, local `start-local` does not provision Redis in CDK. You can still test Redis caching by running Redis in Docker.
