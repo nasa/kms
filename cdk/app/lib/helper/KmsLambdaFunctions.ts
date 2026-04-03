@@ -502,7 +502,7 @@ export class LambdaFunctions {
       'publisher/handler.js',
       'publisher',
       'publisher',
-      Duration.minutes(10),
+      Duration.minutes(15),
       2048
     )
 
