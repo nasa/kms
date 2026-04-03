@@ -262,7 +262,7 @@ const emitPublisherEvent = async ({ versionName, publishDate, keywordEvents }) =
  * await publisher(event);
  */
 export const publisher = async (event) => {
-  console.log('@@@@@@@@@@@ publisher invoked')
+  logger.info('[publisher] start')
   try {
     const { versionName, publishDate } = event.detail || {}
 

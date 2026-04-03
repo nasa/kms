@@ -90,7 +90,7 @@ const emitPublishEvent = async ({ versionName, publishDate }) => {
  * // }
  */
 export const publish = async (event, context) => {
-  console.log('@@@@@@@@@@@ publish invoked')
+  logger.info('[publish] start')
   const { defaultResponseHeaders } = getApplicationConfig()
   const name = event.queryStringParameters?.name
 

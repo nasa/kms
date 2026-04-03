@@ -139,7 +139,6 @@ const countPrimeResults = ({
  * @returns {Promise<{statusCode:number, body:string}>} Lambda-style response payload.
  */
 export const primeConceptsCache = async (event) => {
-  console.log('@@@@@@@@@@@ primeConceptsCache invoked')
   logger.info('[cache-prime] start')
 
   // Check if invoked by EventBridge event or cron
