@@ -173,9 +173,9 @@ export const getKeywordChanges = async () => {
 
       logger.info(
         `Successfully processed ${notation}: `
-        + `${summary.addedCount} added, `
-        + `${summary.removedCount} removed, `
-        + `${summary.changedCount} changed`
+        + `Found ${summary.addedCount} keywords added, `
+        + `${summary.removedCount} keywords removed, `
+        + `${summary.changedCount} keywords changed`
       )
 
       return {

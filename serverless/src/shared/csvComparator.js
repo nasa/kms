@@ -1,7 +1,89 @@
 import { parse } from 'csv/sync'
 
 /**
- * Utility class to compare two CSV contents based on UUIDs and fullpaths
+ * Utility class to compare two CSV contents based on UUIDs and fullpaths.
+ *
+ * This class is designed to compare science keywords CSV files (draft vs published versions)
+ * and identify what has been added, removed, or changed between versions.
+ *
+ * @example
+ * // Compare draft and published CSV files
+ * const comparator = new CsvComparator()
+ * const oldCsv = fs.readFileSync('sciencekeywords-published.csv', 'utf-8')
+ * const newCsv = fs.readFileSync('sciencekeywords-draft.csv', 'utf-8')
+ *
+ * const result = comparator.compare(oldCsv, newCsv)
+ * // Result contains:
+ * // - addedKeywords: Map of new UUIDs with their paths
+ * // - removedKeywords: Map of removed UUIDs with their old paths
+ * // - changedKeywords: Map of UUIDs with modified paths
+ *
+ * @example
+ * // Example with actual data:
+ * // Old CSV contains:
+ * // "EARTH SCIENCE","OCEANS","COASTAL PROCESSES","SHORELINES","SHORELINE MAPPING","","","3472f70b-874f-4dc5-87db-4b3ebc4b9aaa"
+ *
+ * // New CSV contains:
+ * // "EARTH SCIENCE","OCEANS","COASTAL PROCESSES","SHORELINES","SHORELINE MAPPING","","","3472f70b-874f-4dc5-87db-4b3ebc4b9aaa"
+ * // "EARTH SCIENCE","OCEANS","COASTAL PROCESSES","SHORELINES","NEW SHORELINES","","","3472f70b-874f-6dc5-87db-4b3ebc4b9a73"
+ *
+ * const result = comparator.compare(oldCsv, newCsv)
+ *
+ * // result.addedKeywords will contain:
+ * // Map(1) {
+ * //   '3472f70b-874f-6dc5-87db-4b3ebc4b9a73' => {
+ * //     oldPath: undefined,
+ * //     newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES'
+ * //   }
+ * // }
+ *
+ * @example
+ * // Get summary statistics
+ * const summary = comparator.getSummary(result)
+ * console.log(summary)
+ * // Output: { addedCount: 1, removedCount: 0, changedCount: 0 }
+ *
+ * @example
+ * // Export to JSON format
+ * const json = comparator.toJSON(result)
+ * console.log(JSON.stringify(json, null, 2))
+ * // Output:
+ * // {
+ * //   "addedKeywords": {
+ * //     "3472f70b-874f-6dc5-87db-4b3ebc4b9a73": {
+ * //       "oldPath": null,
+ * //       "newPath": "EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES"
+ * //     }
+ * //   },
+ * //   "removedKeywords": {},
+ * //   "changedKeywords": {}
+ * // }
+ *
+ * @example
+ * // Example: Keyword path changed
+ * // Old: "EARTH SCIENCE","OCEANS","MARINE GEOPHYSICS","MARINE MAGNETICS","","","","7863ce31-0e06-42a5-bcf8-25981c44dec8"
+ * // New: "EARTH SCIENCE","OCEANS","MARINE GEOPHYSICS","MARINE MAGNETICS MODIFIED","","","","7863ce31-0e06-42a5-bcf8-25981c44dec8"
+ *
+ * // result.changedKeywords will contain:
+ * // Map(1) {
+ * //   '7863ce31-0e06-42a5-bcf8-25981c44dec8' => {
+ * //     oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS',
+ * //     newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED'
+ * //   }
+ * // }
+ *
+ * @example
+ * // Example: Keyword removed
+ * // Old: "EARTH SCIENCE","OCEANS","MARINE SEDIMENTS","DIAGENESIS","","","","4bfed15d-b8b4-4fb1-940b-ef342c4c2225"
+ * // New: (keyword not present)
+ *
+ * // result.removedKeywords will contain:
+ * // Map(1) {
+ * //   '4bfed15d-b8b4-4fb1-940b-ef342c4c2225' => {
+ * //     oldPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS',
+ * //     newPath: undefined
+ * //   }
+ * // }
  */
 export class CsvComparator {
   /**
