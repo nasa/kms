@@ -286,7 +286,7 @@ export const publisher = async (event) => {
     const keywordEvents = createKeywordEvents(keywordChanges)
 
     logger.info(`[publisher] Created ${keywordEvents.length} keyword events`)
-    logger.debug('[publisher] Keyword Events:', keywordEvents)
+    logger.info('[publisher] Keyword Events:', keywordEvents)
 
     // Execute the publish operation
     logger.info(`[publisher] Executing publish update for version=${versionName}`)
