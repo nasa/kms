@@ -208,7 +208,7 @@ export const getKeywordChanges = async () => {
  * @returns {Promise<void>}
  * @throws {Error} When EventBridge reports failed entries.
  */
-const emitPublisherEvent = async ({ versionName, publishDate, keywordEvents }) => {
+const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => {
   const eventBusName = process.env.PRIME_CACHE_EVENT_BUS_NAME || 'default'
 
   const response = await publisherEventClient.send(new PutEventsCommand({
@@ -308,7 +308,7 @@ export const publisher = async (event) => {
 
     // Emit event for cache-prime to consume
     try {
-      await emitPublisherEvent({
+      await emitCachingEvent({
         versionName,
         publishDate,
         keywordEvents
