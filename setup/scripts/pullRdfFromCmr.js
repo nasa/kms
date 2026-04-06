@@ -17,7 +17,8 @@ const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@',
   textNodeName: '#text',
-  isArray: (name) => name === 'skos:Concept'
+  isArray: (name) => name === 'skos:Concept',
+  processEntities: false
 })
 
 const builder = new XMLBuilder({
