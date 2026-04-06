@@ -18,6 +18,9 @@ const parser = new XMLParser({
   attributeNamePrefix: '@',
   textNodeName: '#text',
   isArray: (name) => name === 'skos:Concept',
+  // Disable entity expansion because CMR RDF payloads can trip fast-xml-parser's
+  // "Entity expansion limit exceeded" error. Keeping entities unprocessed avoids
+  // that parser failure during RDF pulls.
   processEntities: false
 })
 

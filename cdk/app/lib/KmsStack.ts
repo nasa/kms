@@ -138,15 +138,16 @@ export class KmsStack extends cdk.Stack {
     apiResources.configureCors(this, prefix)
     // Use a concrete ARN string during local synth so SAM can inject it into the Lambda env.
     const keywordEventsTopicArn = useLocalstack ? localTopicArn : this.keywordEventsTopic.topicArn
+    const lambdaEnvironment = {
+      ...environment,
+      KEYWORD_EVENTS_TOPIC_ARN: keywordEventsTopicArn
+    }
 
     // Set up Lambda functions
     this.lambdaFunctions = new LambdaFunctions(this, {
       api: this.api,
       apiResources,
-      environment: {
-        ...environment,
-        KEYWORD_EVENTS_TOPIC_ARN: keywordEventsTopicArn
-      },
+      environment: lambdaEnvironment,
       lambdaRole: this.lambdaRole,
       prefix,
       securityGroup: this.securityGroup,
