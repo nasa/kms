@@ -28,6 +28,12 @@ Prerequisites:
 - aws-sam-cli (`brew install aws-sam-cli`)
 
 To start local server (including rdf4j database server, cdk synth and sam)
+First, make sure to start LocalStack:
+```
+npm run localstack:start
+```
+
+Then, you can start the local server:
 ```
 npm run start-local
 ```
