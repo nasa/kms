@@ -293,6 +293,27 @@ describe('CsvComparator', () => {
       expect(result.size).toBe(0)
     })
 
+    test('should treat all published keywords as deleted when draft is empty', () => {
+      // This simulates when a scheme is not found in draft (renamed or deleted)
+      const result = comparator.compare(publishedCsv, '')
+
+      // All published keywords should be marked as removed
+      expect(result.removedKeywords.size).toBeGreaterThan(0)
+      expect(result.addedKeywords.size).toBe(0)
+      expect(result.changedKeywords.size).toBe(0)
+
+      // Verify some specific keywords are marked as removed
+      expect(result.removedKeywords.has('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toBe(true) // AQUACULTURE
+      expect(result.removedKeywords.get('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toEqual({
+        oldPath: 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > AQUACULTURE',
+        newPath: undefined
+      })
+
+      // Verify the count matches the total number of published keywords
+      const publishedRecords = comparator.parseCsvContent(publishedCsv)
+      expect(result.removedKeywords.size).toBe(publishedRecords.size)
+    })
+
     test('should handle custom skip header rows', () => {
       const customComparator = new CsvComparator(1, ' > ')
       const result = customComparator.parseCsvContent(publishedCsv)

@@ -150,25 +150,31 @@ export const getKeywordChanges = async () => {
       // Download draft version (new)
       logger.debug(`Downloading draft version for ${notation}`)
       let draftCsv
+      let comparison
+
       try {
         draftCsv = await downloadConcepts({
           conceptScheme: notation,
           format: 'csv',
           version: 'draft'
         })
+
+        // Compare the two CSV contents
+        comparison = csvComparator.compare(publishedCsv, draftCsv)
       } catch (error) {
-        // If draft version doesn't exist (scheme renamed or deleted), skip comparison
+        // If draft version doesn't exist (scheme renamed or deleted), treat all published keywords as deleted
         if (error.isSchemeNotFound) {
-          logger.info(`Skipping ${notation}: scheme does not exist in draft version (may have been renamed or deleted)`)
+          logger.info(`Scheme ${notation} does not exist in draft version (may have been renamed or deleted). All keywords will be marked as DELETED.`)
+
+          // Create comparison result with all published keywords as removed
+          comparison = csvComparator.compare(publishedCsv, '')
         } else {
           logger.warn(`Skipping ${notation}: error downloading draft version - ${error.message}`)
-        }
 
-        return null
+          return null
+        }
       }
 
-      // Compare the two CSV contents
-      const comparison = csvComparator.compare(publishedCsv, draftCsv)
       const summary = csvComparator.getSummary(comparison)
 
       logger.info(

@@ -257,7 +257,7 @@ describe('publisher handler', () => {
       expect(result.size).toBeLessThanOrEqual(2)
     })
 
-    test('should skip comparison when draft scheme does not exist', async () => {
+    test('should create DELETED events when draft scheme does not exist', async () => {
       const mockSchemes = [
         { notation: 'sciencekeywords' },
         { notation: 'deletedscheme' }
@@ -290,34 +290,54 @@ describe('publisher handler', () => {
         return Promise.reject(new Error('Unexpected call'))
       })
 
-      const mockComparison = {
+      const mockComparisonNormal = {
         addedKeywords: new Map(),
         removedKeywords: new Map(),
         changedKeywords: new Map()
       }
 
+      const mockComparisonDeleted = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map([['uuid-deleted', { oldPath: 'OLD PATH', newPath: undefined }]]),
+        changedKeywords: new Map()
+      }
+
       const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
+        compare: vi.fn()
+          .mockReturnValueOnce(mockComparisonNormal) // First call for sciencekeywords
+          .mockReturnValueOnce(mockComparisonDeleted), // Second call for deletedscheme with empty draft
+        getSummary: vi.fn()
+          .mockReturnValueOnce({
+            addedCount: 0,
+            removedCount: 0,
+            changedCount: 0
+          })
+          .mockReturnValueOnce({
+            addedCount: 0,
+            removedCount: 1,
+            changedCount: 0
+          })
       }
 
       CsvComparator.mockImplementation(() => mockComparator)
 
       const result = await getKeywordChanges()
 
-      // Should only have the first scheme that succeeded
-      expect(result.size).toBe(1)
+      // Should have both schemes - deletedscheme now creates DELETED events
+      expect(result.size).toBe(2)
       expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('deletedscheme')).toBe(false)
+      expect(result.has('deletedscheme')).toBe(true)
+
+      // Verify deletedscheme has removed keywords
+      expect(result.get('deletedscheme').removedKeywords.size).toBe(1)
 
       // Verify appropriate logging
       expect(logger.info).toHaveBeenCalledWith(
-        'Skipping deletedscheme: scheme does not exist in draft version (may have been renamed or deleted)'
+        'Scheme deletedscheme does not exist in draft version (may have been renamed or deleted). All keywords will be marked as DELETED.'
       )
+
+      // Verify compare was called with empty string for deletedscheme
+      expect(mockComparator.compare).toHaveBeenCalledWith('published csv content', '')
     })
 
     test('should skip comparison with warning when draft download fails with other error', async () => {
@@ -406,14 +426,14 @@ describe('publisher handler', () => {
 
       const result = await getKeywordChanges()
 
-      // Should only have the two successful schemes
-      expect(result.size).toBe(2)
+      // Should have all three schemes - deletedscheme now creates DELETED events
+      expect(result.size).toBe(3)
       expect(result.has('sciencekeywords')).toBe(true)
       expect(result.has('platforms')).toBe(true)
-      expect(result.has('deletedscheme')).toBe(false)
+      expect(result.has('deletedscheme')).toBe(true)
 
-      // Verify CSV comparator was called only for successful schemes
-      expect(mockComparator.compare).toHaveBeenCalledTimes(2)
+      // Verify CSV comparator was called for all three schemes (including deletedscheme with empty string)
+      expect(mockComparator.compare).toHaveBeenCalledTimes(3)
     })
   })
 
