@@ -2,6 +2,11 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
 
+const KEYWORD_EVENT_SCHEMA_URL = 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0'
+const KEYWORD_EVENT_SCHEMA_NAME = 'Kms-Keyword-Event'
+const KEYWORD_EVENT_SCHEMA_VERSION = '1.0'
+const VALID_EVENT_TYPES = ['INSERTED', 'UPDATED', 'DELETED']
+
 /**
  * Verifies that a timestamp is a strict ISO-8601 string that round-trips through `Date`.
  *
@@ -31,10 +36,10 @@ const validateKeywordEvent = (payload) => {
   }
 
   const requiredFields = [
-    'event_type',
-    'scheme',
-    'uuid',
-    'new_keyword_path'
+    'EventType',
+    'Scheme',
+    'UUID',
+    'NewKeywordPath'
   ]
 
   requiredFields.forEach((field) => {
@@ -43,22 +48,52 @@ const validateKeywordEvent = (payload) => {
     }
   })
 
+  if (!VALID_EVENT_TYPES.includes(payload.EventType)) {
+    throw new Error(`Invalid field: EventType must be one of ${VALID_EVENT_TYPES.join(', ')}`)
+  }
+
   if (
-    payload.old_keyword_path !== undefined
-    && payload.old_keyword_path !== null
-    && typeof payload.old_keyword_path !== 'string'
+    payload.OldKeywordPath !== undefined
+    && payload.OldKeywordPath !== null
+    && typeof payload.OldKeywordPath !== 'string'
   ) {
-    throw new Error('Invalid field: old_keyword_path')
+    throw new Error('Invalid field: OldKeywordPath')
   }
 
-  if (payload.timestamp === undefined || payload.timestamp === null) {
-    throw new Error('Missing or invalid field: timestamp')
+  if (payload.Timestamp === undefined || payload.Timestamp === null) {
+    throw new Error('Missing or invalid field: Timestamp')
   }
 
-  if (!isValidIsoTimestamp(payload.timestamp)) {
-    throw new Error('Invalid field: timestamp must be ISO-8601')
+  if (!isValidIsoTimestamp(payload.Timestamp)) {
+    throw new Error('Invalid field: Timestamp must be ISO-8601')
+  }
+
+  if (
+    payload.MetadataSpecification !== undefined
+    && (
+      typeof payload.MetadataSpecification !== 'object'
+      || payload.MetadataSpecification === null
+      || Array.isArray(payload.MetadataSpecification)
+    )
+  ) {
+    throw new Error('Invalid field: MetadataSpecification')
   }
 }
+
+/**
+ * Normalizes the event payload KMS publishes so it always carries the current metadata schema URL.
+ *
+ * @param {Record<string, unknown>} payload - Validated keyword event payload from the request.
+ * @returns {Record<string, unknown>} Keyword event payload enriched with metadata specification values.
+ */
+const buildKeywordEventPayload = (payload) => ({
+  ...payload,
+  MetadataSpecification: {
+    Name: payload.MetadataSpecification?.Name || KEYWORD_EVENT_SCHEMA_NAME,
+    URL: KEYWORD_EVENT_SCHEMA_URL,
+    Version: payload.MetadataSpecification?.Version || KEYWORD_EVENT_SCHEMA_VERSION
+  }
+})
 
 /**
  * Publishes a caller-supplied keyword event to the configured SNS topic.
@@ -85,8 +120,9 @@ export const keywordEventsTestPublish = async (event, context) => {
   try {
     const payload = JSON.parse(event?.body || '{}')
     validateKeywordEvent(payload)
+    const keywordEventPayload = buildKeywordEventPayload(payload)
 
-    const result = await publishKeywordEvent(payload)
+    const result = await publishKeywordEvent(keywordEventPayload)
 
     return {
       statusCode: 200,
@@ -95,7 +131,7 @@ export const keywordEventsTestPublish = async (event, context) => {
         message: 'Keyword event published successfully',
         topicArn: keywordEventsTopicArn || result.topicArn,
         messageId: result.messageId,
-        event: payload
+        event: keywordEventPayload
       })
     }
   } catch (error) {

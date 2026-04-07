@@ -31,10 +31,10 @@ const prefix = process.env.STACK_PREFIX || 'kms'
 const stage = process.env.STAGE_NAME || 'dev'
 const localstackPort = process.env.LOCALSTACK_PORT || '4566'
 const endpoint = process.env.LOCALSTACK_HOST_ENDPOINT || `http://localhost:${localstackPort}`
-const region = process.env.AWS_REGION || 'us-east-1'
+const region = 'us-east-1'
 const credentials = {
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test'
+  accessKeyId: 'test',
+  secretAccessKey: 'test'
 }
 
 const topicName = `${prefix}-${stage}-keyword-events`

@@ -61,12 +61,17 @@ After deploying to SIT, you can exercise the keyword event publisher with:
 curl -H "Authorization: Bearer $TOKEN" -X POST https://cmr.sit.earthdata.nasa.gov/kms/keyword-events/test \
   -H 'Content-Type: application/json' \
   -d '{
-    "event_type": "keyword_updated",
-    "scheme": "sciencekeywords",
-    "uuid": "1234-5678",
-    "old_keyword_path": "EARTH SCIENCE > ATMOSPHERE",
-    "new_keyword_path": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
-    "timestamp": "2026-04-02T12:00:00.000Z"
+    "EventType": "UPDATED",
+    "Scheme": "sciencekeywords",
+    "UUID": "4f81c61c-f100-4bc4-9664-d9b70d2f162f",
+    "OldKeywordPath": "Instruments > Solar/Space Observing Instruments > Passive Remote Sensing",
+    "NewKeywordPath": "Instruments > Earth Remote Sensing Instruments > Passive Remote Sensing",
+    "Timestamp": "2026-03-19T10:41:57.720Z",
+    "MetadataSpecification": {
+      "Name": "Kms-Keyword-Event",
+      "URL": "https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0",
+      "Version": "1.0"
+    }
   }'
 ```
 
@@ -74,6 +79,7 @@ Expected result:
 - the API returns `200`
 - the response includes the SNS topic ARN and message id
 - the CMR event processor is invoked from the subscribed queue in AWS
+- `EventType` must be one of `INSERTED`, `UPDATED`, or `DELETED`
 
 ### Optional: Enable Redis cache in local SAM/LocalStack
 

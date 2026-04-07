@@ -17,12 +17,20 @@ vi.mock('@/shared/logAnalyticsData')
 
 describe('when the keyword events publish handler is invoked', () => {
   const validPayload = {
-    event_type: 'keyword_updated',
-    scheme: 'sciencekeywords',
-    uuid: '1234-5678',
-    old_keyword_path: 'EARTH SCIENCE > ATMOSPHERE',
-    new_keyword_path: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
-    timestamp: '2026-04-02T12:00:00.000Z'
+    EventType: 'UPDATED',
+    Scheme: 'sciencekeywords',
+    UUID: '1234-5678',
+    OldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE',
+    NewKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+    Timestamp: '2026-04-02T12:00:00.000Z'
+  }
+  const expectedPublishedPayload = {
+    ...validPayload,
+    MetadataSpecification: {
+      Name: 'Kms-Keyword-Event',
+      URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
+      Version: '1.0'
+    }
   }
 
   beforeEach(() => {
@@ -46,12 +54,12 @@ describe('when the keyword events publish handler is invoked', () => {
         })
 
         expect(result.statusCode).toBe(200)
-        expect(publishKeywordEvent).toHaveBeenCalledWith(validPayload)
+        expect(publishKeywordEvent).toHaveBeenCalledWith(expectedPublishedPayload)
         expect(JSON.parse(result.body)).toMatchObject({
           message: 'Keyword event published successfully',
           topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events',
           messageId: 'message-123',
-          event: validPayload
+          event: expectedPublishedPayload
         })
       })
     })
@@ -68,7 +76,33 @@ describe('when the keyword events publish handler is invoked', () => {
 
         expect(result.statusCode).toBe(200)
         expect(JSON.parse(result.body)).toMatchObject({
-          topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events'
+          topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events',
+          event: expectedPublishedPayload
+        })
+      })
+    })
+
+    describe('when the request includes metadata specification values', () => {
+      test('should preserve provided metadata fields and replace the schema URL with the current version', async () => {
+        const result = await keywordEventsTestPublish({
+          body: JSON.stringify({
+            ...validPayload,
+            MetadataSpecification: {
+              Name: 'Existing-Name',
+              URL: 'https://example.com/old-schema',
+              Version: '2.0'
+            }
+          })
+        })
+
+        expect(result.statusCode).toBe(200)
+        expect(publishKeywordEvent).toHaveBeenCalledWith({
+          ...validPayload,
+          MetadataSpecification: {
+            Name: 'Existing-Name',
+            URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
+            Version: '2.0'
+          }
         })
       })
     })
@@ -91,7 +125,7 @@ describe('when the keyword events publish handler is invoked', () => {
         const result = await keywordEventsTestPublish({})
 
         expect(result.statusCode).toBe(400)
-        expect(JSON.parse(result.body).error).toBe('Missing or invalid field: event_type')
+        expect(JSON.parse(result.body).error).toBe('Missing or invalid field: EventType')
       })
     })
 
@@ -110,40 +144,54 @@ describe('when the keyword events publish handler is invoked', () => {
       test('should return a 400 response', async () => {
         const result = await keywordEventsTestPublish({
           body: JSON.stringify({
-            event_type: 'keyword_updated'
+            EventType: 'UPDATED'
           })
         })
 
         expect(result.statusCode).toBe(400)
-        expect(JSON.parse(result.body).error).toBe('Missing or invalid field: scheme')
+        expect(JSON.parse(result.body).error).toBe('Missing or invalid field: Scheme')
       })
     })
 
-    describe('when old_keyword_path is invalid', () => {
+    describe('when the event type is invalid', () => {
       test('should return a 400 response', async () => {
         const result = await keywordEventsTestPublish({
           body: JSON.stringify({
             ...validPayload,
-            old_keyword_path: 123
+            EventType: 'CREATED'
           })
         })
 
         expect(result.statusCode).toBe(400)
-        expect(JSON.parse(result.body).error).toBe('Invalid field: old_keyword_path')
+        expect(JSON.parse(result.body).error).toBe('Invalid field: EventType must be one of INSERTED, UPDATED, DELETED')
+      })
+    })
+
+    describe('when OldKeywordPath is invalid', () => {
+      test('should return a 400 response', async () => {
+        const result = await keywordEventsTestPublish({
+          body: JSON.stringify({
+            ...validPayload,
+            OldKeywordPath: 123
+          })
+        })
+
+        expect(result.statusCode).toBe(400)
+        expect(JSON.parse(result.body).error).toBe('Invalid field: OldKeywordPath')
       })
     })
 
     describe('when the timestamp is missing', () => {
       test('should return a 400 response', async () => {
         const payload = { ...validPayload }
-        delete payload.timestamp
+        delete payload.Timestamp
 
         const result = await keywordEventsTestPublish({
           body: JSON.stringify(payload)
         })
 
         expect(result.statusCode).toBe(400)
-        expect(JSON.parse(result.body).error).toBe('Missing or invalid field: timestamp')
+        expect(JSON.parse(result.body).error).toBe('Missing or invalid field: Timestamp')
       })
     })
 
@@ -152,12 +200,12 @@ describe('when the keyword events publish handler is invoked', () => {
         const result = await keywordEventsTestPublish({
           body: JSON.stringify({
             ...validPayload,
-            timestamp: 123
+            Timestamp: 123
           })
         })
 
         expect(result.statusCode).toBe(400)
-        expect(JSON.parse(result.body).error).toBe('Invalid field: timestamp must be ISO-8601')
+        expect(JSON.parse(result.body).error).toBe('Invalid field: Timestamp must be ISO-8601')
       })
     })
 
@@ -166,12 +214,26 @@ describe('when the keyword events publish handler is invoked', () => {
         const result = await keywordEventsTestPublish({
           body: JSON.stringify({
             ...validPayload,
-            timestamp: 'not-a-date'
+            Timestamp: 'not-a-date'
           })
         })
 
         expect(result.statusCode).toBe(400)
-        expect(JSON.parse(result.body).error).toBe('Invalid field: timestamp must be ISO-8601')
+        expect(JSON.parse(result.body).error).toBe('Invalid field: Timestamp must be ISO-8601')
+      })
+    })
+
+    describe('when MetadataSpecification is invalid', () => {
+      test('should return a 400 response', async () => {
+        const result = await keywordEventsTestPublish({
+          body: JSON.stringify({
+            ...validPayload,
+            MetadataSpecification: 'invalid'
+          })
+        })
+
+        expect(result.statusCode).toBe(400)
+        expect(JSON.parse(result.body).error).toBe('Invalid field: MetadataSpecification')
       })
     })
 
