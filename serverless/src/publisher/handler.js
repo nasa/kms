@@ -96,9 +96,13 @@ export const createKeywordEvents = (keywordChangesMap) => {
  * Get keyword changes for all concept schemes by comparing draft and published versions.
  *
  * This function:
- * 1. Fetches all published concept schemes
- * 2. For each scheme, downloads CSV data for both 'draft' and 'published' versions
+ * 1. Fetches concept schemes from both 'published' and 'draft' versions
+ * 2. For each scheme, downloads CSV data for both versions
  * 3. Compares the two versions and identifies added, removed, and changed keywords
+ * 4. Handles three cases:
+ *    - Schemes in both versions: normal comparison
+ *    - Schemes only in published: all keywords marked as DELETED
+ *    - Schemes only in draft: all keywords marked as INSERTED
  *
  * @async
  * @function getKeywordChanges
@@ -118,75 +122,102 @@ export const createKeywordEvents = (keywordChangesMap) => {
 export const getKeywordChanges = async () => {
   logger.info('Starting keyword changes detection')
 
-  // Get all published concept schemes
-  const conceptSchemes = await getConceptSchemeDetails({ version: 'published' })
+  // Get concept schemes from both versions
+  const [publishedSchemes, draftSchemes] = await Promise.all([
+    getConceptSchemeDetails({ version: 'published' }),
+    getConceptSchemeDetails({ version: 'draft' })
+  ])
 
-  if (!conceptSchemes || conceptSchemes.length === 0) {
-    logger.warn('No concept schemes found')
+  const publishedNotations = new Set((publishedSchemes || []).map((s) => s.notation))
+  const draftNotations = new Set((draftSchemes || []).map((s) => s.notation))
+
+  // Get all unique scheme notations from both versions
+  const allNotations = new Set([...publishedNotations, ...draftNotations])
+
+  if (allNotations.size === 0) {
+    logger.warn('No concept schemes found in either version')
 
     return new Map()
   }
 
-  logger.info(`Found ${conceptSchemes.length} concept schemes to process`)
+  logger.info(
+    `Found ${allNotations.size} total concept schemes to process `
+    + `(${publishedNotations.size} in published, ${draftNotations.size} in draft)`
+  )
 
   // Initialize CSV comparator
   const csvComparator = new CsvComparator()
 
   // Process each scheme and collect keyword changes
   const results = await Promise.allSettled(
-    conceptSchemes.map(async (scheme) => {
-      const { notation } = scheme
-
+    Array.from(allNotations).map(async (notation) => {
       logger.info(`Processing concept scheme: ${notation}`)
 
-      // Download published version (old)
-      logger.debug(`Downloading published version for ${notation}`)
-      const publishedCsv = await downloadConcepts({
-        conceptScheme: notation,
-        format: 'csv',
-        version: 'published'
-      })
-
-      // Download draft version (new)
-      logger.debug(`Downloading draft version for ${notation}`)
-      let draftCsv
+      const inPublished = publishedNotations.has(notation)
+      const inDraft = draftNotations.has(notation)
       let comparison
 
       try {
-        draftCsv = await downloadConcepts({
-          conceptScheme: notation,
-          format: 'csv',
-          version: 'draft'
-        })
+        if (inPublished && inDraft) {
+          // Normal case: scheme exists in both versions
+          logger.debug(`Downloading both versions for ${notation}`)
+          const [publishedCsv, draftCsv] = await Promise.all([
+            downloadConcepts({
+              conceptScheme: notation,
+              format: 'csv',
+              version: 'published'
+            }),
+            downloadConcepts({
+              conceptScheme: notation,
+              format: 'csv',
+              version: 'draft'
+            })
+          ])
 
-        // Compare the two CSV contents
-        comparison = csvComparator.compare(publishedCsv, draftCsv)
-      } catch (error) {
-        // If draft version doesn't exist (scheme renamed or deleted), treat all published keywords as deleted
-        if (error.isSchemeNotFound) {
-          logger.info(`Scheme ${notation} does not exist in draft version (may have been renamed or deleted). All keywords will be marked as DELETED.`)
+          comparison = csvComparator.compare(publishedCsv, draftCsv)
+        } else if (inPublished && !inDraft) {
+          // Scheme removed/renamed: all keywords marked as DELETED
+          logger.info(`Scheme ${notation} does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.`)
 
-          // Create comparison result with all published keywords as removed
+          const publishedCsv = await downloadConcepts({
+            conceptScheme: notation,
+            format: 'csv',
+            version: 'published'
+          })
+
+          // Compare with empty string to mark all as deleted
           comparison = csvComparator.compare(publishedCsv, '')
-        } else {
-          logger.warn(`Skipping ${notation}: error downloading draft version - ${error.message}`)
+        } else if (!inPublished && inDraft) {
+          // Scheme added: all keywords marked as INSERTED
+          logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
 
-          return null
+          const draftCsv = await downloadConcepts({
+            conceptScheme: notation,
+            format: 'csv',
+            version: 'draft'
+          })
+
+          // Compare empty string with draft to mark all as added
+          comparison = csvComparator.compare('', draftCsv)
         }
-      }
 
-      const summary = csvComparator.getSummary(comparison)
+        const summary = csvComparator.getSummary(comparison)
 
-      logger.info(
-        `Successfully processed ${notation}: `
-        + `Found ${summary.addedCount} keywords added, `
-        + `${summary.removedCount} keywords removed, `
-        + `${summary.changedCount} keywords changed`
-      )
+        logger.info(
+          `Successfully processed ${notation}: `
+          + `Found ${summary.addedCount} keywords added, `
+          + `${summary.removedCount} keywords removed, `
+          + `${summary.changedCount} keywords changed`
+        )
 
-      return {
-        notation,
-        comparison
+        return {
+          notation,
+          comparison
+        }
+      } catch (error) {
+        logger.warn(`Skipping ${notation}: error processing scheme - ${error.message}`)
+
+        return null
       }
     })
   )

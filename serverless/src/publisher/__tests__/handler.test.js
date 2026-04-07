@@ -201,6 +201,7 @@ describe('publisher handler', () => {
       expect(result).toBeInstanceOf(Map)
       expect(result.size).toBe(2)
       expect(getConceptSchemeDetails).toHaveBeenCalledWith({ version: 'published' })
+      expect(getConceptSchemeDetails).toHaveBeenCalledWith({ version: 'draft' })
       expect(downloadConcepts).toHaveBeenCalledTimes(4) // 2 schemes × 2 versions
     })
 
@@ -211,7 +212,7 @@ describe('publisher handler', () => {
 
       expect(result).toBeInstanceOf(Map)
       expect(result.size).toBe(0)
-      expect(logger.warn).toHaveBeenCalledWith('No concept schemes found')
+      expect(logger.warn).toHaveBeenCalledWith('No concept schemes found in either version')
     })
 
     test('should handle null concept schemes', async () => {
@@ -230,9 +231,16 @@ describe('publisher handler', () => {
       ]
 
       getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts
-        .mockResolvedValueOnce('csv content')
-        .mockRejectedValueOnce(new Error('Download failed'))
+
+      let callCount = 0
+      downloadConcepts.mockImplementation(() => {
+        callCount += 1
+        if (callCount <= 2) {
+          return Promise.resolve('csv content')
+        }
+
+        return Promise.reject(new Error('Download failed'))
+      })
 
       const mockComparison = {
         addedKeywords: new Map(),
@@ -258,12 +266,19 @@ describe('publisher handler', () => {
     })
 
     test('should create DELETED events when draft scheme does not exist', async () => {
-      const mockSchemes = [
+      const mockPublishedSchemes = [
         { notation: 'sciencekeywords' },
         { notation: 'deletedscheme' }
       ]
 
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' }
+        // Deletedscheme is not in draft
+      ]
+
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes) // First call for published
+        .mockResolvedValueOnce(mockDraftSchemes) // Second call for draft
 
       // Mock downloadConcepts with implementation that checks parameters
       downloadConcepts.mockImplementation(({ conceptScheme, version }) => {
@@ -290,33 +305,38 @@ describe('publisher handler', () => {
         return Promise.reject(new Error('Unexpected call'))
       })
 
-      const mockComparisonNormal = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparisonDeleted = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map([['uuid-deleted', { oldPath: 'OLD PATH', newPath: undefined }]]),
-        changedKeywords: new Map()
-      }
-
       const mockComparator = {
-        compare: vi.fn()
-          .mockReturnValueOnce(mockComparisonNormal) // First call for sciencekeywords
-          .mockReturnValueOnce(mockComparisonDeleted), // Second call for deletedscheme with empty draft
-        getSummary: vi.fn()
-          .mockReturnValueOnce({
-            addedCount: 0,
-            removedCount: 0,
-            changedCount: 0
-          })
-          .mockReturnValueOnce({
-            addedCount: 0,
-            removedCount: 1,
-            changedCount: 0
-          })
+        compare: vi.fn((published, draft) => {
+          if (published === 'csv content for sciencekeywords' && draft === 'csv content for sciencekeywords') {
+            return {
+              addedKeywords: new Map(),
+              removedKeywords: new Map(),
+              changedKeywords: new Map()
+            }
+          }
+
+          if (published === 'published csv content' && draft === '') {
+            return {
+              addedKeywords: new Map(),
+              removedKeywords: new Map([['uuid-deleted', {
+                oldPath: 'OLD PATH',
+                newPath: undefined
+              }]]),
+              changedKeywords: new Map()
+            }
+          }
+
+          return {
+            addedKeywords: new Map(),
+            removedKeywords: new Map(),
+            changedKeywords: new Map()
+          }
+        }),
+        getSummary: vi.fn((comparison) => ({
+          addedCount: comparison.addedKeywords.size,
+          removedCount: comparison.removedKeywords.size,
+          changedCount: comparison.changedKeywords.size
+        }))
       }
 
       CsvComparator.mockImplementation(() => mockComparator)
@@ -333,31 +353,27 @@ describe('publisher handler', () => {
 
       // Verify appropriate logging
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (may have been renamed or deleted). All keywords will be marked as DELETED.'
+        'Scheme deletedscheme does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.'
       )
 
       // Verify compare was called with empty string for deletedscheme
       expect(mockComparator.compare).toHaveBeenCalledWith('published csv content', '')
     })
 
-    test('should skip comparison with warning when draft download fails with other error', async () => {
-      const mockSchemes = [
+    test('should skip comparison with warning when download fails with other error', async () => {
+      const mockPublishedSchemes = [
         { notation: 'sciencekeywords' }
       ]
 
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' }
+      ]
 
-      downloadConcepts.mockImplementation(({ version }) => {
-        if (version === 'published') {
-          return Promise.resolve('published csv content')
-        }
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
 
-        if (version === 'draft') {
-          return Promise.reject(new Error('Network timeout'))
-        }
-
-        return Promise.reject(new Error('Unexpected call'))
-      })
+      downloadConcepts.mockRejectedValue(new Error('Network timeout'))
 
       const result = await getKeywordChanges()
 
@@ -366,38 +382,34 @@ describe('publisher handler', () => {
 
       // Verify warning log was called
       expect(logger.warn).toHaveBeenCalledWith(
-        'Skipping sciencekeywords: error downloading draft version - Network timeout'
+        'Skipping sciencekeywords: error processing scheme - Network timeout'
       )
     })
 
     test('should handle multiple schemes with mixed success and scheme not found', async () => {
-      const mockSchemes = [
+      const mockPublishedSchemes = [
         { notation: 'sciencekeywords' },
         { notation: 'deletedscheme' },
         { notation: 'platforms' }
       ]
 
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+        // Deletedscheme is not in draft
+      ]
 
-      downloadConcepts.mockImplementation(({ conceptScheme, version }) => {
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
+
+      downloadConcepts.mockImplementation(({ conceptScheme }) => {
         if (conceptScheme === 'sciencekeywords') {
           return Promise.resolve('csv content for sciencekeywords')
         }
 
         if (conceptScheme === 'deletedscheme') {
-          if (version === 'published') {
-            return Promise.resolve('published csv content')
-          }
-
-          if (version === 'draft') {
-            return Promise.reject(Object.assign(
-              new Error('Failed to download CSV. Status: 404 - Invalid concept scheme parameter. Concept scheme not found'),
-              {
-                statusCode: 404,
-                isSchemeNotFound: true
-              }
-            ))
-          }
+          return Promise.resolve('published csv content')
         }
 
         if (conceptScheme === 'platforms') {
@@ -434,6 +446,143 @@ describe('publisher handler', () => {
 
       // Verify CSV comparator was called for all three schemes (including deletedscheme with empty string)
       expect(mockComparator.compare).toHaveBeenCalledTimes(3)
+    })
+
+    test('should create INSERTED events when scheme only exists in draft', async () => {
+      const mockPublishedSchemes = [
+        { notation: 'sciencekeywords' }
+      ]
+
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'newscheme' }
+        // Newscheme is only in draft
+      ]
+
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
+
+      downloadConcepts.mockImplementation(({ conceptScheme }) => {
+        if (conceptScheme === 'sciencekeywords') {
+          return Promise.resolve('csv content for sciencekeywords')
+        }
+
+        if (conceptScheme === 'newscheme') {
+          return Promise.resolve('draft csv content for newscheme')
+        }
+
+        return Promise.reject(new Error('Unexpected call'))
+      })
+
+      const mockComparator = {
+        compare: vi.fn((published, draft) => {
+          if (published === 'csv content for sciencekeywords' && draft === 'csv content for sciencekeywords') {
+            return {
+              addedKeywords: new Map(),
+              removedKeywords: new Map(),
+              changedKeywords: new Map()
+            }
+          }
+
+          if (published === '' && draft === 'draft csv content for newscheme') {
+            return {
+              addedKeywords: new Map([['uuid-new', {
+                oldPath: undefined,
+                newPath: 'NEW PATH'
+              }]]),
+              removedKeywords: new Map(),
+              changedKeywords: new Map()
+            }
+          }
+
+          return {
+            addedKeywords: new Map(),
+            removedKeywords: new Map(),
+            changedKeywords: new Map()
+          }
+        }),
+        getSummary: vi.fn((comparison) => ({
+          addedCount: comparison.addedKeywords.size,
+          removedCount: comparison.removedKeywords.size,
+          changedCount: comparison.changedKeywords.size
+        }))
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await getKeywordChanges()
+
+      // Should have both schemes
+      expect(result.size).toBe(2)
+      expect(result.has('sciencekeywords')).toBe(true)
+      expect(result.has('newscheme')).toBe(true)
+
+      // Verify newscheme has added keywords
+      expect(result.get('newscheme').addedKeywords.size).toBe(1)
+
+      // Verify appropriate logging
+      expect(logger.info).toHaveBeenCalledWith(
+        'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
+      )
+
+      // Verify compare was called with empty string for newscheme published
+      expect(mockComparator.compare).toHaveBeenCalledWith('', 'draft csv content for newscheme')
+    })
+
+    test('should handle schemes only in published, only in draft, and in both', async () => {
+      const mockPublishedSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'deletedscheme' }
+      ]
+
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'newscheme' }
+      ]
+
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
+
+      downloadConcepts.mockImplementation(({ conceptScheme }) => Promise.resolve(`csv content for ${conceptScheme}`))
+
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await getKeywordChanges()
+
+      // Should have all three schemes
+      expect(result.size).toBe(3)
+      expect(result.has('sciencekeywords')).toBe(true)
+      expect(result.has('deletedscheme')).toBe(true)
+      expect(result.has('newscheme')).toBe(true)
+
+      // Verify comparator was called 3 times
+      expect(mockComparator.compare).toHaveBeenCalledTimes(3)
+
+      // Verify appropriate logs for each case
+      expect(logger.info).toHaveBeenCalledWith(
+        'Scheme deletedscheme does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.'
+      )
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
+      )
     })
   })
 
