@@ -40,7 +40,7 @@ describe('publish handler', () => {
 
       const result = await publish(event)
 
-      expect(result.statusCode).toBe(200)
+      expect(result.statusCode).toBe(202)
       const body = JSON.parse(result.body)
       expect(body.message).toBe('Publish process initiated for version v1.0.0')
       expect(body.version).toBe('v1.0.0')

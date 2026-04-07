@@ -119,7 +119,7 @@ export const publish = async (event, context) => {
     logger.info(`[publish] Initiated publish process for version=${name}`)
 
     return {
-      statusCode: 200,
+      statusCode: 202,
       headers: defaultResponseHeaders,
       body: JSON.stringify({
         message: `Publish process initiated for version ${name}`,

@@ -290,8 +290,7 @@ export const publisher = async (event) => {
 
     // Execute the publish operation
     logger.info(`[publisher] Executing publish update for version=${versionName}`)
-    const updateDate = new Date().toISOString()
-    const publishQuery = getPublishUpdateQuery(versionName, updateDate)
+    const publishQuery = getPublishUpdateQuery(versionName, publishDate)
 
     const response = await sparqlRequest({
       method: 'POST',
