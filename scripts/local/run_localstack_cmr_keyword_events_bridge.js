@@ -14,6 +14,7 @@ import {
 } from '@aws-sdk/client-sqs'
 
 import { cmrKeywordEventsListener } from '../../serverless/src/cmrKeywordEventsListener/handler'
+import { logger } from '../../serverless/src/shared/logger'
 
 /**
  * Local bridge that fills the gap between LocalStack-managed SNS/SQS and SAM-managed Lambdas.
@@ -172,7 +173,7 @@ const startPolling = async ({ queueUrl }) => {
         }))
       }
     } catch (error) {
-      console.error('[local-cmr-consumer] Failed to process queue message', error)
+      logger.error('[localstack-cmr-bridge] Failed to process queue message', error)
     }
   }
 
@@ -197,7 +198,7 @@ process.on('SIGTERM', () => {
 const main = async () => {
   const resources = await ensureLocalResources()
 
-  console.log('[localstack-cmr-bridge] Listening for keyword events', JSON.stringify(resources))
+  logger.info('[localstack-cmr-bridge] Listening for keyword events', resources)
 
   await startPolling({
     queueUrl: resources.queueUrl
@@ -205,6 +206,6 @@ const main = async () => {
 }
 
 main().catch((error) => {
-  console.error('[localstack-cmr-bridge] Failed to start LocalStack bridge', error)
+  logger.error('[localstack-cmr-bridge] Failed to start LocalStack bridge', error)
   process.exit(1)
 })

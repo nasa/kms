@@ -42,11 +42,13 @@ const validateKeywordEvent = (payload) => {
     'NewKeywordPath'
   ]
 
-  requiredFields.forEach((field) => {
-    if (!payload[field] || typeof payload[field] !== 'string') {
-      throw new Error(`Missing or invalid field: ${field}`)
-    }
-  })
+  const missingField = requiredFields.find(
+    (field) => !payload[field] || typeof payload[field] !== 'string'
+  )
+
+  if (missingField) {
+    throw new Error(`Missing or invalid field: ${missingField}`)
+  }
 
   if (!VALID_EVENT_TYPES.includes(payload.EventType)) {
     throw new Error(`Invalid field: EventType must be one of ${VALID_EVENT_TYPES.join(', ')}`)
@@ -108,8 +110,7 @@ const buildKeywordEventPayload = (payload) => ({
  */
 export const keywordEventsTestPublish = async (event, context) => {
   const {
-    defaultResponseHeaders,
-    keywordEventsTopicArn
+    defaultResponseHeaders
   } = getApplicationConfig()
 
   logAnalyticsData({
@@ -129,7 +130,7 @@ export const keywordEventsTestPublish = async (event, context) => {
       headers: defaultResponseHeaders,
       body: JSON.stringify({
         message: 'Keyword event published successfully',
-        topicArn: keywordEventsTopicArn || result.topicArn,
+        topicArn: result.topicArn,
         messageId: result.messageId,
         event: keywordEventPayload
       })

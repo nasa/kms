@@ -36,8 +36,7 @@ describe('when the keyword events publish handler is invoked', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({
-      defaultResponseHeaders: {},
-      keywordEventsTopicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events'
+      defaultResponseHeaders: {}
     })
 
     publishKeywordEvent.mockResolvedValue({
@@ -59,24 +58,6 @@ describe('when the keyword events publish handler is invoked', () => {
           message: 'Keyword event published successfully',
           topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events',
           messageId: 'message-123',
-          event: expectedPublishedPayload
-        })
-      })
-    })
-
-    describe('when the application config does not include a topic ARN', () => {
-      test('should fall back to the publish result topic ARN', async () => {
-        getApplicationConfig.mockReturnValue({
-          defaultResponseHeaders: {}
-        })
-
-        const result = await keywordEventsTestPublish({
-          body: JSON.stringify(validPayload)
-        })
-
-        expect(result.statusCode).toBe(200)
-        expect(JSON.parse(result.body)).toMatchObject({
-          topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events',
           event: expectedPublishedPayload
         })
       })

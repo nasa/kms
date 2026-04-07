@@ -1,3 +1,5 @@
+import { logger } from '@/shared/logger'
+
 /**
  * CMR event processor that consumes SNS notifications delivered through SQS.
  *
@@ -18,12 +20,12 @@ export const cmrKeywordEventsListener = async (event) => {
         ? JSON.parse(snsEnvelope.Message)
         : null
 
-      console.log('Received keyword event for CMR listener', JSON.stringify({
+      logger.info('Received keyword event for CMR listener', {
         messageId: record.messageId,
         keywordEvent
-      }))
+      })
     } catch (error) {
-      console.error('Failed to parse keyword event record', error)
+      logger.error('Failed to parse keyword event record', error)
       throw error
     }
   })

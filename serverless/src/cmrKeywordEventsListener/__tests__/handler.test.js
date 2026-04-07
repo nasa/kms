@@ -1,18 +1,30 @@
 import {
+  beforeEach,
   describe,
   expect,
   test,
   vi
 } from 'vitest'
 
+import { logger } from '@/shared/logger'
+
 import { cmrKeywordEventsListener } from '../handler'
 
+vi.mock('@/shared/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn()
+  }
+}))
+
 describe('when the CMR keyword events processor is invoked', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('when the invocation is successful', () => {
     describe('when the queue record contains a valid SNS notification', () => {
       test('should log the parsed keyword event and acknowledge the batch', async () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
         const result = await cmrKeywordEventsListener({
           Records: [
             {
@@ -28,23 +40,23 @@ describe('when the CMR keyword events processor is invoked', () => {
           ]
         })
 
-        expect(logSpy).toHaveBeenCalledWith(
+        expect(logger.info).toHaveBeenCalledWith(
           'Received keyword event for CMR listener',
-          expect.stringContaining('"event_type":"keyword_updated"')
+          expect.objectContaining({
+            keywordEvent: expect.objectContaining({
+              event_type: 'keyword_updated'
+            })
+          })
         )
 
         expect(result).toEqual({
           batchItemFailures: []
         })
-
-        logSpy.mockRestore()
       })
     })
 
     describe('when the SNS notification does not include a message payload', () => {
       test('should log a null keyword event and acknowledge the batch', async () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
         const result = await cmrKeywordEventsListener({
           Records: [
             {
@@ -56,23 +68,21 @@ describe('when the CMR keyword events processor is invoked', () => {
           ]
         })
 
-        expect(logSpy).toHaveBeenCalledWith(
+        expect(logger.info).toHaveBeenCalledWith(
           'Received keyword event for CMR listener',
-          expect.stringContaining('"keywordEvent":null')
+          expect.objectContaining({
+            keywordEvent: null
+          })
         )
 
         expect(result).toEqual({
           batchItemFailures: []
         })
-
-        logSpy.mockRestore()
       })
     })
 
     describe('when the queue record body is missing', () => {
       test('should treat the payload as an empty SNS envelope and acknowledge the batch', async () => {
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
         const result = await cmrKeywordEventsListener({
           Records: [
             {
@@ -81,16 +91,16 @@ describe('when the CMR keyword events processor is invoked', () => {
           ]
         })
 
-        expect(logSpy).toHaveBeenCalledWith(
+        expect(logger.info).toHaveBeenCalledWith(
           'Received keyword event for CMR listener',
-          expect.stringContaining('"keywordEvent":null')
+          expect.objectContaining({
+            keywordEvent: null
+          })
         )
 
         expect(result).toEqual({
           batchItemFailures: []
         })
-
-        logSpy.mockRestore()
       })
     })
   })
@@ -106,8 +116,6 @@ describe('when the CMR keyword events processor is invoked', () => {
 
     describe('when the queue record cannot be parsed', () => {
       test('should log the error and throw', async () => {
-        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
         await expect(cmrKeywordEventsListener({
           Records: [
             {
@@ -117,9 +125,7 @@ describe('when the CMR keyword events processor is invoked', () => {
           ]
         })).rejects.toThrow()
 
-        expect(errorSpy).toHaveBeenCalled()
-
-        errorSpy.mockRestore()
+        expect(logger.error).toHaveBeenCalled()
       })
     })
   })

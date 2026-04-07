@@ -164,6 +164,7 @@ async function main() {
       REDIS_ENABLED: redisEnabledValue,
       REDIS_HOST: useLocalstack ? localRedisHost : redisStack?.endpointAddress,
       REDIS_PORT: useLocalstack ? localRedisPort : redisStack?.endpointPort,
+      // Local-only SDK endpoint override so SAM Lambda containers talk to LocalStack SNS/SQS.
       AWS_ENDPOINT_URL: useLocalstack
         ? process.env.AWS_ENDPOINT_URL || 'http://localstack:4566'
         : undefined
