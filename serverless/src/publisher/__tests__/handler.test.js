@@ -448,7 +448,7 @@ describe('publisher handler', () => {
       expect(mockComparator.compare).toHaveBeenCalledTimes(3)
     })
 
-    test('should skip schemes that only exist in draft', async () => {
+    test('should create INSERTED events when scheme only exists in draft', async () => {
       const mockPublishedSchemes = [
         { notation: 'sciencekeywords' }
       ]
@@ -468,19 +468,44 @@ describe('publisher handler', () => {
           return Promise.resolve('csv content for sciencekeywords')
         }
 
+        if (conceptScheme === 'newscheme') {
+          return Promise.resolve('draft csv content for newscheme')
+        }
+
         return Promise.reject(new Error('Unexpected call'))
       })
 
       const mockComparator = {
-        compare: vi.fn(() => ({
-          addedKeywords: new Map(),
-          removedKeywords: new Map(),
-          changedKeywords: new Map()
-        })),
-        getSummary: vi.fn(() => ({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
+        compare: vi.fn((published, draft) => {
+          if (published === 'csv content for sciencekeywords' && draft === 'csv content for sciencekeywords') {
+            return {
+              addedKeywords: new Map(),
+              removedKeywords: new Map(),
+              changedKeywords: new Map()
+            }
+          }
+
+          if (published === '' && draft === 'draft csv content for newscheme') {
+            return {
+              addedKeywords: new Map([['uuid-new', {
+                oldPath: undefined,
+                newPath: 'NEW PATH'
+              }]]),
+              removedKeywords: new Map(),
+              changedKeywords: new Map()
+            }
+          }
+
+          return {
+            addedKeywords: new Map(),
+            removedKeywords: new Map(),
+            changedKeywords: new Map()
+          }
+        }),
+        getSummary: vi.fn((comparison) => ({
+          addedCount: comparison.addedKeywords.size,
+          removedCount: comparison.removedKeywords.size,
+          changedCount: comparison.changedKeywords.size
         }))
       }
 
@@ -488,18 +513,21 @@ describe('publisher handler', () => {
 
       const result = await getKeywordChanges()
 
-      // Should only have sciencekeywords, newscheme should be skipped
-      expect(result.size).toBe(1)
+      // Should have both schemes
+      expect(result.size).toBe(2)
       expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('newscheme')).toBe(false)
+      expect(result.has('newscheme')).toBe(true)
+
+      // Verify newscheme has added keywords
+      expect(result.get('newscheme').addedKeywords.size).toBe(1)
 
       // Verify appropriate logging
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme newscheme is new in draft version. Skipping as no existing data uses these keywords.'
+        'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
       )
 
-      // Verify compare was NOT called for newscheme
-      expect(mockComparator.compare).toHaveBeenCalledTimes(1)
+      // Verify compare was called with empty string for newscheme published
+      expect(mockComparator.compare).toHaveBeenCalledWith('', 'draft csv content for newscheme')
     })
 
     test('should handle schemes only in published, only in draft, and in both', async () => {
@@ -538,14 +566,14 @@ describe('publisher handler', () => {
 
       const result = await getKeywordChanges()
 
-      // Should only have two schemes (sciencekeywords and deletedscheme), newscheme should be skipped
-      expect(result.size).toBe(2)
+      // Should have all three schemes
+      expect(result.size).toBe(3)
       expect(result.has('sciencekeywords')).toBe(true)
       expect(result.has('deletedscheme')).toBe(true)
-      expect(result.has('newscheme')).toBe(false)
+      expect(result.has('newscheme')).toBe(true)
 
-      // Verify comparator was called 2 times (not 3, since newscheme is skipped)
-      expect(mockComparator.compare).toHaveBeenCalledTimes(2)
+      // Verify comparator was called 3 times
+      expect(mockComparator.compare).toHaveBeenCalledTimes(3)
 
       // Verify appropriate logs for each case
       expect(logger.info).toHaveBeenCalledWith(
@@ -553,7 +581,7 @@ describe('publisher handler', () => {
       )
 
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme newscheme is new in draft version. Skipping as no existing data uses these keywords.'
+        'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
       )
     })
   })
