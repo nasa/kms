@@ -14,6 +14,9 @@ const applicationConfig = {
   ...getConfig().application,
   get sparqlEndpoint() {
     return `${process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'}/rdf4j-server/repositories/kms`
+  },
+  get keywordEventsTopicArn() {
+    return process.env.KEYWORD_EVENTS_TOPIC_ARN
   }
 }
 

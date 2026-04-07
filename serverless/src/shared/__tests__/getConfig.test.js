@@ -47,6 +47,14 @@ describe('getConfig', () => {
 
         expect(applicationConfig.sparqlEndpoint).toBe('http://localhost:8081/rdf4j-server/repositories/kms')
       })
+
+      test('exposes keyword event configuration from environment variables', () => {
+        process.env.KEYWORD_EVENTS_TOPIC_ARN = 'arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events'
+
+        const applicationConfig = getApplicationConfig()
+
+        expect(applicationConfig.keywordEventsTopicArn).toBe('arn:aws:sns:us-east-1:000000000000:kms-dev-keyword-events')
+      })
     })
   })
 
