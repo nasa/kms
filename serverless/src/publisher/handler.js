@@ -99,10 +99,10 @@ export const createKeywordEvents = (keywordChangesMap) => {
  * 1. Fetches concept schemes from both 'published' and 'draft' versions
  * 2. For each scheme, downloads CSV data for both versions
  * 3. Compares the two versions and identifies added, removed, and changed keywords
- * 4. Handles three cases:
+ * 4. Handles two cases:
  *    - Schemes in both versions: normal comparison
  *    - Schemes only in published: all keywords marked as DELETED
- *    - Schemes only in draft: all keywords marked as INSERTED
+ *    - Schemes only in draft: skipped (no existing data uses them)
  *
  * @async
  * @function getKeywordChanges
@@ -176,7 +176,7 @@ export const getKeywordChanges = async () => {
 
           comparison = csvComparator.compare(publishedCsv, draftCsv)
         } else if (inPublished && !inDraft) {
-          // Scheme removed/renamed: all keywords marked as DELETED
+          // Scheme removed: all keywords marked as DELETED
           logger.info(`Scheme ${notation} does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.`)
 
           const publishedCsv = await downloadConcepts({
@@ -188,17 +188,10 @@ export const getKeywordChanges = async () => {
           // Compare with empty string to mark all as deleted
           comparison = csvComparator.compare(publishedCsv, '')
         } else if (!inPublished && inDraft) {
-          // Scheme added: all keywords marked as INSERTED
-          logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
+          // Scheme is new: skip processing since no existing data uses these keywords
+          logger.info(`Scheme ${notation} is new in draft version. Skipping as no existing data uses these keywords.`)
 
-          const draftCsv = await downloadConcepts({
-            conceptScheme: notation,
-            format: 'csv',
-            version: 'draft'
-          })
-
-          // Compare empty string with draft to mark all as added
-          comparison = csvComparator.compare('', draftCsv)
+          return null
         }
 
         const summary = csvComparator.getSummary(comparison)
