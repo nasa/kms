@@ -156,69 +156,94 @@ export const getKeywordChanges = async () => {
       const inPublished = publishedNotations.has(notation)
       const inDraft = draftNotations.has(notation)
       let comparison
+      let lastError
+      const maxRetries = 3 // 4 total attempts (initial + 3 retries)
 
-      try {
-        if (inPublished && inDraft) {
+      /* eslint-disable no-await-in-loop */
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            logger.info(`Retrying ${notation} (attempt ${attempt + 1}/${maxRetries + 1})`)
+          }
+
+          if (inPublished && inDraft) {
           // Normal case: scheme exists in both versions
-          logger.debug(`Downloading both versions for ${notation}`)
-          const [publishedCsv, draftCsv] = await Promise.all([
-            downloadConcepts({
+            logger.debug(`Downloading both versions for ${notation}`)
+            const [publishedCsv, draftCsv] = await Promise.all([
+              downloadConcepts({
+                conceptScheme: notation,
+                format: 'csv',
+                version: 'published'
+              }),
+              downloadConcepts({
+                conceptScheme: notation,
+                format: 'csv',
+                version: 'draft'
+              })
+            ])
+
+            comparison = csvComparator.compare(publishedCsv, draftCsv)
+          } else if (inPublished && !inDraft) {
+          // Scheme removed: all keywords marked as DELETED
+            logger.info(`Scheme ${notation} does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.`)
+
+            const publishedCsv = await downloadConcepts({
               conceptScheme: notation,
               format: 'csv',
               version: 'published'
-            }),
-            downloadConcepts({
+            })
+
+            // Compare with empty string to mark all as deleted
+            comparison = csvComparator.compare(publishedCsv, '')
+          } else if (!inPublished && inDraft) {
+          // Scheme added: all keywords marked as INSERTED
+            logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
+
+            const draftCsv = await downloadConcepts({
               conceptScheme: notation,
               format: 'csv',
               version: 'draft'
             })
-          ])
 
-          comparison = csvComparator.compare(publishedCsv, draftCsv)
-        } else if (inPublished && !inDraft) {
-          // Scheme removed: all keywords marked as DELETED
-          logger.info(`Scheme ${notation} does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.`)
+            // Compare empty string with draft to mark all as added
+            comparison = csvComparator.compare('', draftCsv)
+          }
 
-          const publishedCsv = await downloadConcepts({
-            conceptScheme: notation,
-            format: 'csv',
-            version: 'published'
+          const summary = csvComparator.getSummary(comparison)
+
+          logger.info(
+            `Successfully processed ${notation}: `
+            + `Found ${summary.addedCount} keywords added, `
+            + `${summary.removedCount} keywords removed, `
+            + `${summary.changedCount} keywords changed`
+          )
+
+          return {
+            notation,
+            comparison
+          }
+        } catch (error) {
+          lastError = error
+          logger.warn(`Error processing ${notation} on attempt ${attempt + 1}: ${error.message}`)
+
+          // If this was the last retry, don't wait - exit loop and return null
+          if (attempt === maxRetries) {
+            break
+          }
+
+          // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+          const delayMs = 2 ** attempt * 1000
+          logger.info(`Waiting ${delayMs}ms before retry for ${notation}`)
+          await new Promise((resolve) => {
+            setTimeout(resolve, delayMs)
           })
-
-          // Compare with empty string to mark all as deleted
-          comparison = csvComparator.compare(publishedCsv, '')
-        } else if (!inPublished && inDraft) {
-          // Scheme added: all keywords marked as INSERTED
-          logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
-
-          const draftCsv = await downloadConcepts({
-            conceptScheme: notation,
-            format: 'csv',
-            version: 'draft'
-          })
-
-          // Compare empty string with draft to mark all as added
-          comparison = csvComparator.compare('', draftCsv)
         }
-
-        const summary = csvComparator.getSummary(comparison)
-
-        logger.info(
-          `Successfully processed ${notation}: `
-          + `Found ${summary.addedCount} keywords added, `
-          + `${summary.removedCount} keywords removed, `
-          + `${summary.changedCount} keywords changed`
-        )
-
-        return {
-          notation,
-          comparison
-        }
-      } catch (error) {
-        logger.warn(`Skipping ${notation}: error processing scheme - ${error.message}`)
-
-        return null
       }
+
+      // All retries exhausted
+      logger.warn(`Skipping ${notation}: exhausted all ${maxRetries + 1} attempts - ${lastError?.message}`)
+
+      return null
     })
   )
 
@@ -343,6 +368,9 @@ export const publisher = async (event) => {
     logger.info(`[publisher] Publish update completed for version=${versionName}`)
 
     // Emit event for cache-prime to consume
+    let cachePrimeEventEmitted = false
+    const warnings = []
+
     try {
       await emitCachingEvent({
         versionName,
@@ -350,12 +378,28 @@ export const publisher = async (event) => {
         keywordEvents
       })
 
+      cachePrimeEventEmitted = true
       logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
     } catch (eventError) {
-      // Analysis succeeded; log error but don't fail the function
-      logger.error(`[publisher] Failed to emit cache-prime event error=${eventError}`)
-      throw eventError
+      // Analysis and publish succeeded; log error but don't fail the function
+      const warningMessage = 'Publish completed, but failed to emit cache-prime event'
+      warnings.push(warningMessage)
+      logger.error(`[publisher] ${warningMessage}. Error: ${eventError.message}`)
     }
+
+    const result = {
+      status: cachePrimeEventEmitted ? 'success' : 'partial_success',
+      versionName,
+      publishDate,
+      published: true,
+      cachePrimeEventEmitted,
+      keywordEventsCount: keywordEvents.length,
+      warnings
+    }
+
+    logger.info(`[publisher] Completed with status: ${result.status}`, result)
+
+    return result
   } catch (error) {
     logger.error('[publisher] Error in publisher handler:', error.message)
     throw error

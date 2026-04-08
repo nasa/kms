@@ -225,6 +225,8 @@ describe('publisher handler', () => {
     })
 
     test('should handle failed scheme processing', async () => {
+      vi.useFakeTimers()
+
       const mockSchemes = [
         { notation: 'sciencekeywords' },
         { notation: 'platforms' }
@@ -259,10 +261,121 @@ describe('publisher handler', () => {
 
       CsvComparator.mockImplementation(() => mockComparator)
 
-      const result = await getKeywordChanges()
+      const resultPromise = getKeywordChanges()
+
+      // Fast-forward through all retry delays
+      await vi.runAllTimersAsync()
+
+      const result = await resultPromise
 
       // Should only have the successful scheme
       expect(result.size).toBeLessThanOrEqual(2)
+
+      vi.useRealTimers()
+    })
+
+    test('should retry failed scheme downloads up to 4 times before giving up', async () => {
+      vi.useFakeTimers()
+
+      const mockSchemes = [
+        { notation: 'sciencekeywords' }
+      ]
+
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+
+      let attemptCount = 0
+      downloadConcepts.mockImplementation(() => {
+        attemptCount += 1
+
+        return Promise.reject(new Error('Download failed'))
+      })
+
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const resultPromise = getKeywordChanges()
+
+      // Fast-forward through all retry delays
+      await vi.runAllTimersAsync()
+
+      const result = await resultPromise
+
+      // Should have retried 4 times total (initial + 3 retries)
+      expect(attemptCount).toBe(8) // 4 attempts × 2 downloads (published + draft)
+      expect(result.size).toBe(0)
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Skipping sciencekeywords: exhausted all 4 attempts')
+      )
+
+      vi.useRealTimers()
+    })
+
+    test('should succeed on retry if download succeeds on second attempt', async () => {
+      vi.useFakeTimers()
+
+      const mockSchemes = [
+        { notation: 'sciencekeywords' }
+      ]
+
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+
+      let attemptCount = 0
+      downloadConcepts.mockImplementation(() => {
+        attemptCount += 1
+        // Fail first attempt, succeed on retry
+        if (attemptCount === 1 || attemptCount === 2) {
+          return Promise.reject(new Error('Download failed'))
+        }
+
+        return Promise.resolve('csv content')
+      })
+
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const resultPromise = getKeywordChanges()
+
+      // Fast-forward through retry delay
+      await vi.runAllTimersAsync()
+
+      const result = await resultPromise
+
+      // Should have succeeded after retry
+      expect(result.size).toBe(1)
+      expect(result.has('sciencekeywords')).toBe(true)
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Retrying sciencekeywords (attempt 2/4)')
+      )
+
+      vi.useRealTimers()
     })
 
     test('should create DELETED events when draft scheme does not exist', async () => {
@@ -361,6 +474,8 @@ describe('publisher handler', () => {
     })
 
     test('should skip comparison with warning when download fails with other error', async () => {
+      vi.useFakeTimers()
+
       const mockPublishedSchemes = [
         { notation: 'sciencekeywords' }
       ]
@@ -375,15 +490,22 @@ describe('publisher handler', () => {
 
       downloadConcepts.mockRejectedValue(new Error('Network timeout'))
 
-      const result = await getKeywordChanges()
+      const resultPromise = getKeywordChanges()
+
+      // Fast-forward through all retry delays
+      await vi.runAllTimersAsync()
+
+      const result = await resultPromise
 
       // Should have no schemes due to the error
       expect(result.size).toBe(0)
 
-      // Verify warning log was called
+      // Verify warning log was called (after all retries exhausted)
       expect(logger.warn).toHaveBeenCalledWith(
-        'Skipping sciencekeywords: error processing scheme - Network timeout'
+        'Skipping sciencekeywords: exhausted all 4 attempts - Network timeout'
       )
+
+      vi.useRealTimers()
     })
 
     test('should handle multiple schemes with mixed success and scheme not found', async () => {
@@ -624,7 +746,7 @@ describe('publisher handler', () => {
 
       CsvComparator.mockImplementation(() => mockComparator)
 
-      await publisher(mockEvent)
+      const result = await publisher(mockEvent)
 
       expect(logger.info).toHaveBeenCalledWith('[publisher] Starting analysis for version=v1.0.0')
       expect(getPublishUpdateQuery).toHaveBeenCalledWith('v1.0.0', expect.any(String))
@@ -637,6 +759,16 @@ describe('publisher handler', () => {
 
       expect(logger.info).toHaveBeenCalledWith('[publisher] Publish update completed for version=v1.0.0')
       expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+
+      expect(result).toEqual({
+        status: 'success',
+        versionName: 'v1.0.0',
+        publishDate: mockEvent.detail.publishDate,
+        published: true,
+        cachePrimeEventEmitted: true,
+        keywordEventsCount: 1,
+        warnings: []
+      })
     })
 
     test('should emit publisher event with keyword events', async () => {
@@ -664,7 +796,7 @@ describe('publisher handler', () => {
 
       CsvComparator.mockImplementation(() => mockComparator)
 
-      await publisher(mockEvent)
+      const result = await publisher(mockEvent)
 
       expect(PutEventsCommandMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -682,6 +814,9 @@ describe('publisher handler', () => {
       const detail = JSON.parse(detailString)
       expect(detail.keywordEvents).toHaveLength(1)
       expect(detail.totalEvents).toBe(1)
+
+      expect(result.status).toBe('success')
+      expect(result.cachePrimeEventEmitted).toBe(true)
     })
 
     test('should throw error when SPARQL update fails', async () => {
@@ -699,7 +834,7 @@ describe('publisher handler', () => {
       )
     })
 
-    test('should throw error when EventBridge emit fails', async () => {
+    test('should return partial_success when EventBridge emit fails', async () => {
       const mockSchemes = [{ notation: 'sciencekeywords' }]
       getConceptSchemeDetails.mockResolvedValue(mockSchemes)
       downloadConcepts.mockResolvedValue('csv content')
@@ -723,10 +858,20 @@ describe('publisher handler', () => {
 
       sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
 
-      await expect(publisher(mockEvent)).rejects.toThrow('Failed to emit publisher event')
+      const result = await publisher(mockEvent)
+
+      expect(result).toEqual({
+        status: 'partial_success',
+        versionName: 'v1.0.0',
+        publishDate: mockEvent.detail.publishDate,
+        published: true,
+        cachePrimeEventEmitted: false,
+        keywordEventsCount: 0,
+        warnings: ['Publish completed, but failed to emit cache-prime event']
+      })
 
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[publisher] Failed to emit cache-prime event error=')
+        expect.stringContaining('[publisher] Publish completed, but failed to emit cache-prime event')
       )
     })
 
