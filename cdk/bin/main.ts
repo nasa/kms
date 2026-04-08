@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib'
 
+import { CmrEventProcessingStack } from '../app/lib/CmrEventProcessingStack'
 import { KmsStack, KmsStackProps } from '../app/lib/KmsStack'
 import { RedisStack } from '../app/lib/RedisStack'
 import { EbsStack } from '../rdfdb/lib/EbsStack'
@@ -162,7 +163,11 @@ async function main() {
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
       REDIS_ENABLED: redisEnabledValue,
       REDIS_HOST: useLocalstack ? localRedisHost : redisStack?.endpointAddress,
-      REDIS_PORT: useLocalstack ? localRedisPort : redisStack?.endpointPort
+      REDIS_PORT: useLocalstack ? localRedisPort : redisStack?.endpointPort,
+      // Local-only SDK endpoint override so SAM Lambda containers talk to LocalStack SNS/SQS.
+      AWS_ENDPOINT_URL: useLocalstack
+        ? process.env.AWS_ENDPOINT_URL || 'http://localstack:4566'
+        : undefined
     }
   }
 
@@ -175,6 +180,16 @@ async function main() {
   if (!useLocalstack && redisStack) {
     kmsStack.addDependency(redisStack)
   }
+
+  const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
+    env,
+    prefix,
+    stage,
+    stackName: `${prefix}-CmrEventProcessingStack`,
+    topicArn: kmsStack.keywordEventsTopic.topicArn
+  })
+
+  cmrEventProcessingStack.addDependency(kmsStack)
 
   app.synth()
 }

@@ -30,11 +30,13 @@ interface LambdaFunctionsProps {
     REDIS_ENABLED?: string;
     REDIS_HOST?: string;
     REDIS_PORT?: string;
+    AWS_ENDPOINT_URL?: string;
     LOG_LEVEL?: string;
     RDF_BUCKET_NAME: string,
     RDF4J_PASSWORD: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
+    KEYWORD_EVENTS_TOPIC_ARN?: string;
   };
 }
 
@@ -74,6 +76,7 @@ export class LambdaFunctions {
     this.authorizer = this.createAuthorizer(scope, this.authorizerLambda)
 
     this.createApiLambdas(scope)
+    this.configureKeywordEventsPermissions()
   }
 
   /**
@@ -130,6 +133,7 @@ export class LambdaFunctions {
     this.createTreeOperationApiLambdas(scope)
     this.createNightlyCachePrimeCron(scope)
     this.createCrudOperationApiLambdas(scope)
+    this.createKeywordEventTestPublishApiLambda(scope)
     this.createPublishEventBridgeWiring(scope)
     this.createExportRdfCrons(scope)
   }
@@ -397,7 +401,25 @@ export class LambdaFunctions {
   }
 
   /**
-   * Creates EventBridge wiring for the publish event chain.
+   * Creates the keyword events test publish endpoint.
+   * Queue-based event consumption lives in CmrEventProcessingStack.
+   * @param {Construct} scope - The scope in which to define these constructs
+   * @private
+   */
+  private createKeywordEventTestPublishApiLambda(scope: Construct) {
+    this.createApiLambda(
+      scope,
+      'keywordEventsTestPublish/handler.js',
+      'keyword-events-test-publish',
+      'keywordEventsTestPublish',
+      '/keyword-events/test',
+      'POST',
+      true
+    )
+  }
+
+  /**
+   * Creates EventBridge wiring for publish events and cache-prime target execution.
    *
    * This method sets up a two-stage event pipeline:
    * 1. publish Lambda emits 'kms.published.version.changed' → triggers publisher Lambda
@@ -451,6 +473,23 @@ export class LambdaFunctions {
       }
     })
     publisherToPrimeCacheRule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
+  }
+
+  /**
+   * Grants the shared Lambda role permission to publish to the configured keyword events topic.
+   * @private
+   */
+  private configureKeywordEventsPermissions() {
+    const topicArn = this.props.environment.KEYWORD_EVENTS_TOPIC_ARN
+
+    if (!topicArn) {
+      throw new Error('Missing KEYWORD_EVENTS_TOPIC_ARN for Lambda permissions')
+    }
+
+    this.props.lambdaRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['sns:Publish'],
+      resources: [topicArn]
+    }))
   }
 
   /**
