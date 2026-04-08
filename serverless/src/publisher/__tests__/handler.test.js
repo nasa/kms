@@ -466,7 +466,7 @@ describe('publisher handler', () => {
 
       // Verify appropriate logging
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.'
+        'Scheme deletedscheme does not exist in draft version (scheme removed). All keywords will be marked as DELETED.'
       )
 
       // Verify compare was called with empty string for deletedscheme
@@ -699,7 +699,7 @@ describe('publisher handler', () => {
 
       // Verify appropriate logs for each case
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.'
+        'Scheme deletedscheme does not exist in draft version (scheme removed). All keywords will be marked as DELETED.'
       )
 
       expect(logger.info).toHaveBeenCalledWith(
