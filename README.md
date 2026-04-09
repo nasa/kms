@@ -60,8 +60,7 @@ We do not run the entire application stack inside LocalStack because the existin
 
 This bridge exists because `sam local start-api` does not emulate EventBridge targets or SQS event source mappings the way AWS does in deployed environments.
 
-For bridge implementation details and extension guidance, see [scripts/localstack/README.md](/Users/cgokey/Developer/nasa/kms/scripts/localstack/README.md).
-
+For bridge implementation details and extension guidance, see `scripts/localstack/README.md`
 
 ### Optional: Enable Redis cache in local SAM/LocalStack
 
