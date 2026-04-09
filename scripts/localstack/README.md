@@ -66,4 +66,4 @@ Current default flows are:
 - `kms.publisher` -> `primeConceptsCache`
 - `keyword-events` -> `cmrKeywordEventsListener`
 
-To add another bridged flow, add another registry entry in [run_bridge.sh](/Users/cgokey/Developer/nasa/kms/scripts/localstack/run_bridge.sh) and restart `npm run start-local`.
+To add another bridged flow, add another registry entry in `run_bridge.sh` and restart `npm run start-local`.
