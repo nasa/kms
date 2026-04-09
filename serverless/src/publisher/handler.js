@@ -200,8 +200,9 @@ export const getKeywordChanges = async () => {
 
             // Compare with empty string to mark all as deleted
             comparison = csvComparator.compare(publishedCsv, '')
-          } else if (!inPublished && inDraft) {
-          // Scheme added: all keywords marked as INSERTED
+          } else {
+          // All notations come from the union of published and draft scheme sets,
+          // so reaching this branch means the scheme only exists in draft.
             logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
 
             const draftCsv = await downloadConcepts({

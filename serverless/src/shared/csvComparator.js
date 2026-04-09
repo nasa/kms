@@ -140,59 +140,40 @@ export class CsvComparator {
     const oldRecords = this.parseCsvContent(oldCsvContent)
     const newRecords = this.parseCsvContent(newCsvContent)
 
-    const oldUuids = Array.from(oldRecords.keys())
-    const newUuids = Array.from(newRecords.keys())
-    const oldUuidsSet = new Set(oldUuids)
-    const newUuidsSet = new Set(newUuids)
+    const added = new Map()
+    const removed = new Map()
+    const changed = new Map()
 
-    // Find added UUIDs (in new but not in old)
-    const addedEntries = newUuids
-      .filter((uuid) => !oldUuidsSet.has(uuid))
-      .map((uuid) => [
-        uuid,
-        {
+    // Check all new records for additions and changes
+    Array.from(newRecords.entries()).forEach(([uuid, newPath]) => {
+      const oldPath = oldRecords.get(uuid)
+      if (oldPath === undefined) {
+        added.set(uuid, {
           oldPath: undefined,
-          newPath: newRecords.get(uuid)
-        }
-      ])
+          newPath
+        })
+      } else if (oldPath !== newPath) {
+        changed.set(uuid, {
+          oldPath,
+          newPath
+        })
+      }
+    })
 
-    // Find removed UUIDs (in old but not in new)
-    const removedEntries = oldUuids
-      .filter((uuid) => !newUuidsSet.has(uuid))
-      .map((uuid) => [
-        uuid,
-        {
-          oldPath: oldRecords.get(uuid),
+    // Check old records for removals
+    Array.from(oldRecords.entries()).forEach(([uuid, oldPath]) => {
+      if (!newRecords.has(uuid)) {
+        removed.set(uuid, {
+          oldPath,
           newPath: undefined
-        }
-      ])
-
-    // Find UUIDs with changed paths (present in both)
-    const changedEntries = oldUuids
-      .filter((uuid) => newUuidsSet.has(uuid))
-      .map((uuid) => {
-        const oldPath = oldRecords.get(uuid)
-        const newPath = newRecords.get(uuid)
-
-        return {
-          uuid,
-          oldPath,
-          newPath
-        }
-      })
-      .filter(({ oldPath, newPath }) => oldPath !== newPath)
-      .map(({ uuid, oldPath, newPath }) => [
-        uuid,
-        {
-          oldPath,
-          newPath
-        }
-      ])
+        })
+      }
+    })
 
     return {
-      addedKeywords: new Map(addedEntries),
-      removedKeywords: new Map(removedEntries),
-      changedKeywords: new Map(changedEntries)
+      addedKeywords: added,
+      removedKeywords: removed,
+      changedKeywords: changed
     }
   }
 

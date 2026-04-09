@@ -229,6 +229,40 @@ describe('downloadConcepts', () => {
       })).rejects.toThrow('Failed to download CSV. Status: 404 - Concept scheme not found')
     })
 
+    test('should keep isSchemeNotFound false for unrelated 404 errors', async () => {
+      getConcepts.mockResolvedValue({
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Repository not found' })
+      })
+
+      await expect(downloadConcepts({
+        conceptScheme: 'sciencekeywords',
+        format: 'csv',
+        version: 'published'
+      })).rejects.toMatchObject({
+        message: 'Failed to download CSV. Status: 404 - Repository not found',
+        isSchemeNotFound: false,
+        statusCode: 404
+      })
+    })
+
+    test('should keep isSchemeNotFound false when a 404 response omits the error field', async () => {
+      getConcepts.mockResolvedValue({
+        statusCode: 404,
+        body: JSON.stringify({ message: 'Missing resource' })
+      })
+
+      await expect(downloadConcepts({
+        conceptScheme: 'sciencekeywords',
+        format: 'csv',
+        version: 'published'
+      })).rejects.toMatchObject({
+        message: 'Failed to download CSV. Status: 404',
+        isSchemeNotFound: false,
+        statusCode: 404
+      })
+    })
+
     test('should throw error when getConcepts returns 500 status code', async () => {
       getConcepts.mockResolvedValue({
         statusCode: 500,

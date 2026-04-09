@@ -83,6 +83,27 @@ describe('getRedisClient', () => {
       expect(connect).toHaveBeenCalledTimes(1)
     })
 
+    test('configures a fail-fast reconnect strategy', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const connect = vi.fn().mockResolvedValue(undefined)
+      const on = vi.fn()
+      const { createClient } = await import('redis')
+      createClient.mockReturnValue({
+        connect,
+        on
+      })
+
+      const module = await import('@/shared/redisCacheStore')
+      await module.getRedisClient()
+
+      const [{ socket }] = createClient.mock.calls[0]
+
+      expect(socket.reconnectStrategy()).toBe(false)
+    })
+
     test('returns null and resets state when connect fails', async () => {
       vi.spyOn(console, 'log').mockImplementation(() => {})
       process.env.REDIS_ENABLED = 'true'

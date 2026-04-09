@@ -808,6 +808,28 @@ describe('publisher handler', () => {
         'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
       )
     })
+
+    test('should use Unknown error fallback when retries exhaust without an error message', async () => {
+      vi.useFakeTimers()
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockRejectedValue({})
+
+      const resultPromise = getKeywordChanges()
+      const expectation = expect(resultPromise).rejects.toThrow(
+        'Keyword changes detection failed for 1 scheme(s): sciencekeywords: Unknown error'
+      )
+
+      await vi.runAllTimersAsync()
+
+      await expectation
+      expect(logger.error).toHaveBeenCalledWith(
+        'Failed sciencekeywords: exhausted all 4 attempts - undefined'
+      )
+
+      vi.useRealTimers()
+    })
   })
 
   describe('publisher', () => {
@@ -1127,6 +1149,15 @@ describe('publisher handler', () => {
       const invalidEvent = { detail: {} }
 
       await expect(publisher(invalidEvent)).rejects.toThrow('versionName is required in event.detail')
+
+      expect(logger.error).toHaveBeenCalledWith(
+        '[publisher] Error in publisher handler:',
+        'versionName is required in event.detail'
+      )
+    })
+
+    test('should throw error when event.detail is missing', async () => {
+      await expect(publisher({})).rejects.toThrow('versionName is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
         '[publisher] Error in publisher handler:',

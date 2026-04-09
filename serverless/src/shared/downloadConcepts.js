@@ -58,19 +58,13 @@ export const downloadConcepts = async ({ conceptScheme, format = 'csv', version 
     const result = await getConcepts(event)
 
     if (result.statusCode !== 200) {
-      let errorMessage = `Failed to download ${format.toUpperCase()}. Status: ${result.statusCode}`
-      let isSchemeNotFound = false
-
       const errorBody = JSON.parse(result.body)
-      if (errorBody.error) {
-        errorMessage += ` - ${errorBody.error}`
-        // Check if the error indicates the scheme doesn't exist
-        if (result.statusCode === 404 && errorBody.error.includes('Concept scheme not found')) {
-          isSchemeNotFound = true
-        }
-      }
-
-      const error = new Error(errorMessage)
+      const detail = errorBody.error ? ` - ${errorBody.error}` : ''
+      const isSchemeNotFound = result.statusCode === 404
+        && (errorBody.error?.includes('Concept scheme not found') ?? false)
+      const error = new Error(
+        `Failed to download ${format.toUpperCase()}. Status: ${result.statusCode}${detail}`
+      )
       error.statusCode = result.statusCode
       error.isSchemeNotFound = isSchemeNotFound
       throw error
