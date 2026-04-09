@@ -5,10 +5,12 @@ import { downloadConcepts } from '@/shared/downloadConcepts'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 const PUBLISHER_EVENT_SOURCE = 'kms.publisher'
 const PUBLISHER_EVENT_DETAIL_TYPE = 'kms.publisher.analysis.completed'
+const KEYWORD_EVENT_PUBLISH_RETRIES = 3
 
 const publisherEventClient = new EventBridgeClient({})
 
@@ -147,10 +149,13 @@ export const getKeywordChanges = async () => {
 
   // Initialize CSV comparator
   const csvComparator = new CsvComparator()
+  const failedSchemes = []
 
-  // Process each scheme and collect keyword changes
-  const results = await Promise.allSettled(
-    Array.from(allNotations).map(async (notation) => {
+  // Process each scheme sequentially to avoid overwhelming local RDF4J with many
+  // concurrent CSV/SPARQL requests at once.
+  const results = await Array.from(allNotations).reduce(async (resultsPromise, notation) => {
+    const sequentialResults = await resultsPromise
+    const result = await (async () => {
       logger.info(`Processing concept scheme: ${notation}`)
 
       const inPublished = publishedNotations.has(notation)
@@ -241,18 +246,37 @@ export const getKeywordChanges = async () => {
       }
 
       // All retries exhausted
-      logger.warn(`Skipping ${notation}: exhausted all ${maxRetries + 1} attempts - ${lastError?.message}`)
+      logger.error(`Failed ${notation}: exhausted all ${maxRetries + 1} attempts - ${lastError?.message}`)
+      failedSchemes.push({
+        notation,
+        error: lastError?.message || 'Unknown error'
+      })
 
       return null
-    })
-  )
+    })()
+
+    sequentialResults.push(result)
+
+    return sequentialResults
+  }, Promise.resolve([]))
 
   // Collect all successful comparisons into a Map
   const keywordChangesMap = new Map(
     results
-      .filter((result) => result.status === 'fulfilled' && result.value)
-      .map((result) => [result.value.notation, result.value.comparison])
+      .filter(Boolean)
+      .map((result) => [result.notation, result.comparison])
   )
+
+  if (failedSchemes.length > 0) {
+    const failedSchemeSummary = failedSchemes
+      .map(({ notation, error }) => `${notation}: ${error}`)
+      .join('; ')
+
+    throw new Error(
+      `Keyword changes detection failed for ${failedSchemes.length} `
+      + `scheme(s): ${failedSchemeSummary}`
+    )
+  }
 
   logger.info(`Keyword changes detection completed. Processed ${keywordChangesMap.size} concept schemes.`)
 
@@ -296,13 +320,76 @@ const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => 
 }
 
 /**
+ * Publishes keyword events to SNS with bounded per-event retries.
+ *
+ * @async
+ * @param {Array<Object>} keywordEvents - Keyword event payloads to publish.
+ * @returns {Promise<{
+ *   attemptedCount: number,
+ *   publishedCount: number,
+ *   failedEvents: Array<{ keywordEvent: Object, error: string, attempts: number }>
+ * }>}
+ * SNS publish summary for the completed batch.
+ */
+const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
+  async (summaryPromise, keywordEvent) => {
+    const summary = await summaryPromise
+    let lastError
+    let attempts = 0
+
+    for (let retry = 0; retry <= KEYWORD_EVENT_PUBLISH_RETRIES; retry += 1) {
+      attempts += 1
+
+      try {
+        if (retry > 0) {
+          logger.info(
+            '[publisher] Retrying keyword event publish '
+              + `(attempt ${retry + 1}/${KEYWORD_EVENT_PUBLISH_RETRIES + 1}) `
+              + `uuid=${keywordEvent.UUID} type=${keywordEvent.EventType}`
+          )
+        }
+
+        await publishKeywordEvent(keywordEvent)
+        summary.publishedCount += 1
+        lastError = undefined
+        break
+      } catch (error) {
+        lastError = error
+        logger.warn(
+          '[publisher] Keyword event publish failed '
+            + `attempt=${retry + 1}/${KEYWORD_EVENT_PUBLISH_RETRIES + 1} `
+            + `uuid=${keywordEvent.UUID} type=${keywordEvent.EventType} `
+            + `scheme=${keywordEvent.Scheme} error=${error.message}`
+        )
+      }
+    }
+
+    if (lastError) {
+      summary.failedEvents.push({
+        keywordEvent,
+        error: lastError.message,
+        attempts
+      })
+    }
+
+    return summary
+  },
+  Promise.resolve({
+    attemptedCount: keywordEvents.length,
+    publishedCount: 0,
+    failedEvents: []
+  })
+)
+
+/**
  * Publisher event handler that consumes publish events from EventBridge.
  *
  * This function:
  * 1. Receives a publish event with versionName and publishDate
  * 2. Analyzes keyword changes between draft and published versions
- * 3. Creates keyword change events
- * 4. Emits a publisher-analysis-completed event for downstream consumers (cache-prime)
+ * 3. Executes the publish update
+ * 4. Creates and publishes keyword change events to SNS
+ * 5. Emits a publisher-analysis-completed event for downstream consumers (cache-prime)
  *
  * @async
  * @function publisher
@@ -310,8 +397,8 @@ const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => 
  * @param {Object} event.detail - Event detail containing versionName and publishDate.
  * @param {string} event.detail.versionName - The name of the published version.
  * @param {string} event.detail.publishDate - ISO timestamp of the publish operation.
- * @returns {Promise<void>}
- * @throws {Error} If there's an error analyzing keyword changes or emitting events.
+ * @returns {Promise<Object>} Publish result summary.
+ * @throws {Error} If there's an error analyzing keyword changes or executing the publish update.
  *
  * @example
  * // EventBridge event format
@@ -344,7 +431,6 @@ export const publisher = async (event) => {
     const totalSchemes = keywordChanges.size
     logger.info(`[publisher] Analysis completed. Processed ${totalSchemes} concept schemes.`)
 
-    // Create keyword events from the changes
     const keywordEvents = createKeywordEvents(keywordChanges)
 
     logger.info(`[publisher] Created ${keywordEvents.length} keyword events`)
@@ -367,9 +453,45 @@ export const publisher = async (event) => {
 
     logger.info(`[publisher] Publish update completed for version=${versionName}`)
 
+    let keywordEventsPublished = 0
+    const warnings = []
+
+    if (keywordEvents.length > 0) {
+      const publishSummary = await publishKeywordEvents(keywordEvents)
+      keywordEventsPublished = publishSummary.publishedCount
+
+      if (publishSummary.failedEvents.length > 0) {
+        warnings.push(
+          `Publish completed, but ${publishSummary.failedEvents.length} `
+          + 'keyword event publishes failed after retries'
+        )
+
+        publishSummary.failedEvents.forEach(({ keywordEvent, error, attempts }) => {
+          logger.error(
+            '[publisher] Keyword event publish exhausted retries',
+            {
+              uuid: keywordEvent.UUID,
+              scheme: keywordEvent.Scheme,
+              eventType: keywordEvent.EventType,
+              attempts,
+              error
+            }
+          )
+        })
+      }
+
+      logger.info(
+        '[publisher] Keyword event publish summary '
+        + `attempted=${publishSummary.attemptedCount} `
+        + `published=${publishSummary.publishedCount} `
+        + `failed=${publishSummary.failedEvents.length}`
+      )
+    } else {
+      logger.info('[publisher] No keyword events generated, skipping SNS publish')
+    }
+
     // Emit event for cache-prime to consume
     let cachePrimeEventEmitted = false
-    const warnings = []
 
     try {
       await emitCachingEvent({
@@ -381,17 +503,18 @@ export const publisher = async (event) => {
       cachePrimeEventEmitted = true
       logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
     } catch (eventError) {
-      // Analysis and publish succeeded; log error but don't fail the function
+      // Analysis and publish succeeded; log error but don't fail the function.
       const warningMessage = 'Publish completed, but failed to emit cache-prime event'
       warnings.push(warningMessage)
       logger.error(`[publisher] ${warningMessage}. Error: ${eventError.message}`)
     }
 
     const result = {
-      status: cachePrimeEventEmitted ? 'success' : 'partial_success',
+      status: warnings.length === 0 ? 'success' : 'partial_success',
       versionName,
       publishDate,
       published: true,
+      keywordEventsPublished,
       cachePrimeEventEmitted,
       keywordEventsCount: keywordEvents.length,
       warnings

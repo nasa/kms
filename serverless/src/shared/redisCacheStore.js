@@ -33,7 +33,9 @@ export const getRedisClient = async () => {
       const client = createClient({
         socket: {
           host: REDIS_HOST,
-          port: REDIS_PORT
+          port: REDIS_PORT,
+          connectTimeout: 5000,
+          reconnectStrategy: () => false
         }
       })
 

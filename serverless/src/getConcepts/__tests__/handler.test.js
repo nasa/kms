@@ -150,6 +150,32 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
       expect(result.statusCode).toBe(200)
     })
+
+    test('does not read from redis cache for draft requests', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        path: '/concepts',
+        queryStringParameters: {
+          version: 'draft',
+          format: 'json'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+
+      expect(getCachedJsonResponse).not.toHaveBeenCalled()
+    })
   })
 
   describe('when redis cache misses for /concepts/concept_scheme/{conceptScheme}', () => {
@@ -248,6 +274,33 @@ describe('getConcepts', () => {
           response: expect.objectContaining({ statusCode: 200 })
         })
       )
+    })
+
+    test('does not write successful draft csv responses to cache', async () => {
+      getConceptSchemeDetails.mockResolvedValue({})
+      createCsvForScheme.mockResolvedValue({
+        statusCode: 200,
+        body: 'uuid,prefLabel\n123,Draft Keyword',
+        headers: {
+          'Content-Type': 'text/csv'
+        }
+      })
+
+      const event = {
+        resource: '/concepts/concept_scheme/{conceptScheme}',
+        path: '/concepts/concept_scheme/sciencekeywords',
+        pathParameters: { conceptScheme: 'sciencekeywords' },
+        queryStringParameters: {
+          version: 'draft',
+          format: 'csv'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).not.toHaveBeenCalled()
+      expect(setCachedJsonResponse).not.toHaveBeenCalled()
     })
   })
 

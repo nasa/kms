@@ -27,15 +27,20 @@ Prerequisites:
 - Docker
 - aws-sam-cli (`brew install aws-sam-cli`)
 
-To start local server (including rdf4j database server, cdk synth and sam)
-First, make sure to start LocalStack:
+To start local server, first make sure to start LocalStack:
 ```
 npm run localstack:start
 ```
 
-Then, you can start the local server:
-```
+By default, `start-local` enables Redis with the local container settings from `bin/env/local_env.sh`, so the normal local startup path is:
+```bash
+npm run redis:start
 npm run start-local
+```
+
+If you do not need Redis for your local test, start local with Redis disabled:
+```bash
+REDIS_ENABLED=false npm run start-local
 ```
 
 To run local server with SAM watch mode enabled
@@ -51,7 +56,35 @@ Local development intentionally splits responsibilities between SAM and LocalSta
 - LocalStack emulates AWS-managed services that SAM does not model end-to-end for this repo, especially SNS and SQS.
 - RDF4J and Redis remain separate local services because they are not AWS services.
 
-We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts [`scripts/local/run_localstack_cmr_keyword_events_bridge.js`], which polls the LocalStack SQS queue and forwards messages into the local CMR consumer handler. This bridge exists because `sam local start-api` does not emulate SQS event source mappings the way AWS does in deployed environments.
+We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts `scripts/localstack/run_bridge.sh`, which runs `scripts/localstack/bridge.js` and now handles:
+
+- LocalStack EventBridge publish events to the local `publisher` handler
+- LocalStack EventBridge publisher-analysis-completed events to the local `primeConceptsCache` handler
+- LocalStack SNS/SQS delivery to the local CMR consumer handler
+
+This bridge exists because `sam local start-api` does not emulate EventBridge targets or SQS event source mappings the way AWS does in deployed environments.
+
+For bridge implementation details and extension guidance, see [scripts/localstack/README.md](/Users/cgokey/Developer/nasa/kms/scripts/localstack/README.md).
+
+### Testing the publish flow locally
+
+After starting RDF4J, LocalStack, Redis, and `start-local`, you can exercise the local publish flow with:
+
+```bash
+curl -X POST 'http://127.0.0.1:3013/publish?name=v1.0.0'
+```
+
+Expected local behavior:
+
+- the API returns `202`
+- the publish Lambda emits a LocalStack EventBridge event
+- the local bridge forwards that event into the real `publisher` handler
+- the publisher handler executes the publish update and continues with downstream event work
+
+If the bridge is running correctly, the `start-local` terminal should show log lines from both:
+
+- `[publish]`
+- `[publisher]`
 
 ### Testing keyword event publishing in SIT
 

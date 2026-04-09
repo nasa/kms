@@ -71,6 +71,15 @@ describe('getRedisClient', () => {
         on
       })
 
+      expect(createClient).toHaveBeenCalledWith({
+        socket: {
+          host: 'localhost',
+          port: 6379,
+          connectTimeout: 5000,
+          reconnectStrategy: expect.any(Function)
+        }
+      })
+
       expect(connect).toHaveBeenCalledTimes(1)
     })
 
