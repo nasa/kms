@@ -27,7 +27,7 @@ npm run start-local
 That starts both:
 
 - the SAM local API
-- the LocalStack bridge runner from [run_bridge.sh](/Users/cgokey/Developer/nasa/kms/scripts/localstack/run_bridge.sh)
+- the LocalStack bridge runner from `run_bridge.sh`
 
 You can also run the bridge by itself:
 
