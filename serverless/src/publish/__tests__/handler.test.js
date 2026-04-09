@@ -8,24 +8,21 @@ import {
 
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
-import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
-import { sparqlRequest } from '@/shared/sparqlRequest'
 
 import { publish } from '../handler'
 
-const { sendEventBridgeMock } = vi.hoisted(() => ({
-  sendEventBridgeMock: vi.fn()
+const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
+  sendEventBridgeMock: vi.fn(),
+  PutEventsCommandMock: vi.fn((input) => input)
 }))
 
 // Mock the imported functions
 vi.mock('@/shared/getConfig')
-vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
-vi.mock('@/shared/sparqlRequest')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
     send: sendEventBridgeMock
   })),
-  PutEventsCommand: vi.fn((input) => input)
+  PutEventsCommand: PutEventsCommandMock
 }))
 
 describe('publish handler', () => {
@@ -38,27 +35,32 @@ describe('publish handler', () => {
   })
 
   describe('when successful', () => {
-    test('should successfully publish a new version', async () => {
+    test('should successfully initiate publish process', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      getPublishUpdateQuery.mockReturnValue('mock query')
-      sparqlRequest.mockResolvedValue({ ok: true })
 
       const result = await publish(event)
 
-      expect(result.statusCode).toBe(200)
+      expect(result.statusCode).toBe(202)
       const body = JSON.parse(result.body)
-      expect(body.message).toBe('Publish process completed for version v1.0.0')
+      expect(body.message).toBe('Publish process initiated for version v1.0.0')
       expect(body.version).toBe('v1.0.0')
       expect(body.publishDate).toBeDefined()
-      expect(getPublishUpdateQuery).toHaveBeenCalledWith('v1.0.0', expect.any(String))
-      expect(sparqlRequest).toHaveBeenCalledWith({
-        method: 'POST',
-        contentType: 'application/sparql-update',
-        accept: 'application/sparql-results+json',
-        body: 'mock query'
-      })
 
+      // Should emit EventBridge event
       expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+      expect(PutEventsCommandMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Entries: expect.arrayContaining([
+            expect.objectContaining({
+              Source: 'kms.publish',
+              DetailType: 'kms.published.version.changed',
+              Detail: expect.stringContaining('v1.0.0')
+            })
+          ])
+        })
+      )
+
+      expect(logger.info).toHaveBeenCalledWith('[publish] Initiated publish process for version=v1.0.0')
     })
   })
 
@@ -71,51 +73,30 @@ describe('publish handler', () => {
       expect(JSON.parse(result.body).message).toContain('Error: "name" parameter is required')
     })
 
-    test('should handle errors during the SPARQL request', async () => {
+    test('should handle errors when emitting EventBridge event', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      getPublishUpdateQuery.mockReturnValue('mock query')
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error'
-      })
+      sendEventBridgeMock.mockRejectedValue(new Error('EventBridge error'))
 
       const result = await publish(event)
 
       expect(result.statusCode).toBe(500)
       const body = JSON.parse(result.body)
       expect(body.message).toBe('Error in publish process')
-      expect(body.error).toBe('Failed to execute publish update: 500 Internal Server Error')
+      expect(body.error).toBe('EventBridge error')
       expect(logger.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
     })
 
-    test('should handle unexpected errors', async () => {
+    test('should handle EventBridge failed entries', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      getPublishUpdateQuery.mockImplementation(() => {
-        throw new Error('Unexpected error')
-      })
-
-      const result = await publish(event)
-
-      expect(result.statusCode).toBe(500)
-      const body = JSON.parse(result.body)
-      expect(body.message).toBe('Error in publish process')
-      expect(body.error).toBe('Unexpected error')
-      expect(logger.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
-    })
-
-    test('should continue publish when EventBridge emit reports failed entries', async () => {
-      const event = { queryStringParameters: { name: 'v1.0.1' } }
-      getPublishUpdateQuery.mockReturnValue('mock query')
-      sparqlRequest.mockResolvedValue({ ok: true })
       sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
 
       const result = await publish(event)
-      const body = JSON.parse(result.body)
 
-      expect(result.statusCode).toBe(200)
-      expect(body.version).toBe('v1.0.1')
-      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('[publish] failed to emit cache-prime event error='))
+      expect(result.statusCode).toBe(500)
+      const body = JSON.parse(result.body)
+      expect(body.message).toBe('Error in publish process')
+      expect(body.error).toContain('Failed to emit publish event')
+      expect(logger.error).toHaveBeenCalledWith('Error in publish process:', expect.any(Error))
     })
   })
 })

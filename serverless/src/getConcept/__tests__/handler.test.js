@@ -196,6 +196,77 @@ describe('getConcept', () => {
     })
   })
 
+  describe('draft version caching behavior', () => {
+    test('skips cache read when version is draft', async () => {
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+      getVersionMetadata.mockResolvedValue({
+        versionName: 'draft',
+        created: '2023-01-01T00:00:00Z'
+      })
+
+      await getConcept({
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {
+          format: 'rdf',
+          version: 'draft'
+        }
+      })
+
+      expect(getCachedJsonResponse).not.toHaveBeenCalled()
+      expect(getSkosConcept).toHaveBeenCalled()
+    })
+
+    test('skips cache write when version is draft', async () => {
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+      getVersionMetadata.mockResolvedValue({
+        versionName: 'draft',
+        created: '2023-01-01T00:00:00Z'
+      })
+
+      const result = await getConcept({
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {
+          format: 'rdf',
+          version: 'draft'
+        }
+      })
+
+      expect(result.statusCode).toBe(200)
+      expect(setCachedJsonResponse).not.toHaveBeenCalled()
+    })
+
+    test('uses cache for non-draft versions', async () => {
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+
+      const result = await getConcept({
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {
+          format: 'rdf',
+          version: 'published'
+        }
+      })
+
+      expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalled()
+      expect(setCachedJsonResponse).toHaveBeenCalled()
+    })
+  })
+
   describe('when successful', () => {
     describe('when redis cache has response', () => {
       test('returns cached payload for concept id lookup without querying RDF store', async () => {

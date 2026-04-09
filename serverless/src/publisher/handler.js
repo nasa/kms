@@ -1,0 +1,409 @@
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge'
+
+import { CsvComparator } from '@/shared/csvComparator'
+import { downloadConcepts } from '@/shared/downloadConcepts'
+import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { logger } from '@/shared/logger'
+import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import { sparqlRequest } from '@/shared/sparqlRequest'
+
+const PUBLISHER_EVENT_SOURCE = 'kms.publisher'
+const PUBLISHER_EVENT_DETAIL_TYPE = 'kms.publisher.analysis.completed'
+
+const publisherEventClient = new EventBridgeClient({})
+
+/**
+ * Transform keyword changes map into a list of keyword events conforming to the schema.
+ *
+ * @async
+ * @function createKeywordEvents
+ * @param {Map<string, Object>} keywordChangesMap - Map where key is scheme notation and value contains addedKeywords, removedKeywords, and changedKeywords Maps
+ * @returns {Array<Object>} Array of keyword event objects conforming to the keyword-event-json-schema
+ *
+ * @example
+ * const keywordChangesMap = new Map([
+ *   ['sciencekeywords', {
+ *     addedKeywords: Map([['uuid1', { oldPath: undefined, newPath: 'EARTH SCIENCE > ATMOSPHERE' }]]),
+ *     removedKeywords: Map([['uuid2', { oldPath: 'OLD PATH', newPath: undefined }]]),
+ *     changedKeywords: Map([['uuid3', { oldPath: 'OLD PATH', newPath: 'NEW PATH' }]])
+ *   }]
+ * ]);
+ * const events = createKeywordEvents(keywordChangesMap);
+ * // [
+ * //   { EventType: 'INSERTED', Scheme: 'sciencekeywords', UUID: 'uuid1', NewKeywordPath: 'EARTH SCIENCE > ATMOSPHERE', ... },
+ * //   { EventType: 'DELETED', Scheme: 'sciencekeywords', UUID: 'uuid2', OldKeywordPath: 'OLD PATH', ... },
+ * //   { EventType: 'UPDATED', Scheme: 'sciencekeywords', UUID: 'uuid3', OldKeywordPath: 'OLD PATH', NewKeywordPath: 'NEW PATH', ... }
+ * // ]
+ */
+export const createKeywordEvents = (keywordChangesMap) => {
+  const timestamp = new Date().toISOString()
+  const metadataSpecification = {
+    URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
+    Name: 'Kms-Keyword-Event',
+    Version: '1.0'
+  }
+
+  const keywordEvents = []
+
+  // Process each scheme in the map
+  keywordChangesMap.forEach((changes, scheme) => {
+    const { addedKeywords, removedKeywords, changedKeywords } = changes
+
+    // Process added keywords (INSERTED events)
+    addedKeywords.forEach((pathInfo, uuid) => {
+      keywordEvents.push({
+        EventType: 'INSERTED',
+        Scheme: scheme,
+        UUID: uuid,
+        NewKeywordPath: pathInfo.newPath,
+        Timestamp: timestamp,
+        MetadataSpecification: metadataSpecification
+      })
+    })
+
+    // Process removed keywords (DELETED events)
+    removedKeywords.forEach((pathInfo, uuid) => {
+      keywordEvents.push({
+        EventType: 'DELETED',
+        Scheme: scheme,
+        UUID: uuid,
+        OldKeywordPath: pathInfo.oldPath,
+        Timestamp: timestamp,
+        MetadataSpecification: metadataSpecification
+      })
+    })
+
+    // Process changed keywords (UPDATED events)
+    changedKeywords.forEach((pathInfo, uuid) => {
+      keywordEvents.push({
+        EventType: 'UPDATED',
+        Scheme: scheme,
+        UUID: uuid,
+        OldKeywordPath: pathInfo.oldPath,
+        NewKeywordPath: pathInfo.newPath,
+        Timestamp: timestamp,
+        MetadataSpecification: metadataSpecification
+      })
+    })
+  })
+
+  logger.info(`Created ${keywordEvents.length} keyword events from ${keywordChangesMap.size} schemes`)
+
+  return keywordEvents
+}
+
+/**
+ * Get keyword changes for all concept schemes by comparing draft and published versions.
+ *
+ * This function:
+ * 1. Fetches concept schemes from both 'published' and 'draft' versions
+ * 2. For each scheme, downloads CSV data for both versions
+ * 3. Compares the two versions and identifies added, removed, and changed keywords
+ * 4. Handles three cases:
+ *    - Schemes in both versions: normal comparison
+ *    - Schemes only in published: all keywords marked as DELETED
+ *    - Schemes only in draft: all keywords marked as INSERTED
+ *
+ * @async
+ * @function getKeywordChanges
+ * @returns {Promise<Map<string, Object>>} A Map where:
+ *   - key: concept scheme notation (e.g., 'sciencekeywords', 'platforms')
+ *   - value: comparison result object containing addedKeywords, removedKeywords, and changedKeywords Maps
+ * @throws {Error} If there's an error fetching concept schemes or downloading concepts
+ *
+ * @example
+ * const keywordChanges = await getKeywordChanges();
+ * // Map {
+ * //   'sciencekeywords' => { addedKeywords: Map, removedKeywords: Map, changedKeywords: Map },
+ * //   'platforms' => { addedKeywords: Map, removedKeywords: Map, changedKeywords: Map },
+ * //   ...
+ * // }
+ */
+export const getKeywordChanges = async () => {
+  logger.info('Starting keyword changes detection')
+
+  // Get concept schemes from both versions
+  const [publishedSchemes, draftSchemes] = await Promise.all([
+    getConceptSchemeDetails({ version: 'published' }),
+    getConceptSchemeDetails({ version: 'draft' })
+  ])
+
+  const publishedNotations = new Set((publishedSchemes || []).map((s) => s.notation))
+  const draftNotations = new Set((draftSchemes || []).map((s) => s.notation))
+
+  // Get all unique scheme notations from both versions
+  const allNotations = new Set([...publishedNotations, ...draftNotations])
+
+  if (allNotations.size === 0) {
+    logger.warn('No concept schemes found in either version')
+
+    return new Map()
+  }
+
+  logger.info(
+    `Found ${allNotations.size} total concept schemes to process `
+    + `(${publishedNotations.size} in published, ${draftNotations.size} in draft)`
+  )
+
+  // Initialize CSV comparator
+  const csvComparator = new CsvComparator()
+
+  // Process each scheme and collect keyword changes
+  const results = await Promise.allSettled(
+    Array.from(allNotations).map(async (notation) => {
+      logger.info(`Processing concept scheme: ${notation}`)
+
+      const inPublished = publishedNotations.has(notation)
+      const inDraft = draftNotations.has(notation)
+      let comparison
+      let lastError
+      const maxRetries = 3 // 4 total attempts (initial + 3 retries)
+
+      /* eslint-disable no-await-in-loop */
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            logger.info(`Retrying ${notation} (attempt ${attempt + 1}/${maxRetries + 1})`)
+          }
+
+          if (inPublished && inDraft) {
+          // Normal case: scheme exists in both versions
+            logger.debug(`Downloading both versions for ${notation}`)
+            const [publishedCsv, draftCsv] = await Promise.all([
+              downloadConcepts({
+                conceptScheme: notation,
+                format: 'csv',
+                version: 'published'
+              }),
+              downloadConcepts({
+                conceptScheme: notation,
+                format: 'csv',
+                version: 'draft'
+              })
+            ])
+
+            comparison = csvComparator.compare(publishedCsv, draftCsv)
+          } else if (inPublished && !inDraft) {
+          // Scheme removed: all keywords marked as DELETED
+            logger.info(`Scheme ${notation} does not exist in draft version (scheme removed). All keywords will be marked as DELETED.`)
+
+            const publishedCsv = await downloadConcepts({
+              conceptScheme: notation,
+              format: 'csv',
+              version: 'published'
+            })
+
+            // Compare with empty string to mark all as deleted
+            comparison = csvComparator.compare(publishedCsv, '')
+          } else if (!inPublished && inDraft) {
+          // Scheme added: all keywords marked as INSERTED
+            logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
+
+            const draftCsv = await downloadConcepts({
+              conceptScheme: notation,
+              format: 'csv',
+              version: 'draft'
+            })
+
+            // Compare empty string with draft to mark all as added
+            comparison = csvComparator.compare('', draftCsv)
+          }
+
+          const summary = csvComparator.getSummary(comparison)
+
+          logger.info(
+            `Successfully processed ${notation}: `
+            + `Found ${summary.addedCount} keywords added, `
+            + `${summary.removedCount} keywords removed, `
+            + `${summary.changedCount} keywords changed`
+          )
+
+          return {
+            notation,
+            comparison
+          }
+        } catch (error) {
+          lastError = error
+          logger.warn(`Error processing ${notation} on attempt ${attempt + 1}: ${error.message}`)
+
+          // If this was the last retry, don't wait - exit loop and return null
+          if (attempt === maxRetries) {
+            break
+          }
+
+          // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+          const delayMs = 2 ** attempt * 1000
+          logger.info(`Waiting ${delayMs}ms before retry for ${notation}`)
+          await new Promise((resolve) => {
+            setTimeout(resolve, delayMs)
+          })
+        }
+      }
+
+      // All retries exhausted
+      logger.warn(`Skipping ${notation}: exhausted all ${maxRetries + 1} attempts - ${lastError?.message}`)
+
+      return null
+    })
+  )
+
+  // Collect all successful comparisons into a Map
+  const keywordChangesMap = new Map(
+    results
+      .filter((result) => result.status === 'fulfilled' && result.value)
+      .map((result) => [result.value.notation, result.value.comparison])
+  )
+
+  logger.info(`Keyword changes detection completed. Processed ${keywordChangesMap.size} concept schemes.`)
+
+  return keywordChangesMap
+}
+
+/**
+ * Emits a publisher-analysis-completed event to EventBridge so cache-prime can run asynchronously.
+ *
+ * @async
+ * @param {Object} params - Event payload details.
+ * @param {string} params.versionName - Published version name.
+ * @param {string} params.publishDate - ISO publish timestamp.
+ * @param {Array<Object>} params.keywordEvents - Array of keyword change events.
+ * @returns {Promise<void>}
+ * @throws {Error} When EventBridge reports failed entries.
+ */
+const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => {
+  const eventBusName = process.env.PRIME_CACHE_EVENT_BUS_NAME || 'default'
+
+  const response = await publisherEventClient.send(new PutEventsCommand({
+    Entries: [
+      {
+        EventBusName: eventBusName,
+        Source: PUBLISHER_EVENT_SOURCE,
+        DetailType: PUBLISHER_EVENT_DETAIL_TYPE,
+        Detail: JSON.stringify({
+          version: 'published',
+          versionName,
+          publishDate,
+          keywordEvents,
+          totalEvents: keywordEvents.length
+        })
+      }
+    ]
+  }))
+
+  if (response.FailedEntryCount && response.FailedEntryCount > 0) {
+    throw new Error(`Failed to emit publisher event. failedEntryCount=${response.FailedEntryCount}`)
+  }
+}
+
+/**
+ * Publisher event handler that consumes publish events from EventBridge.
+ *
+ * This function:
+ * 1. Receives a publish event with versionName and publishDate
+ * 2. Analyzes keyword changes between draft and published versions
+ * 3. Creates keyword change events
+ * 4. Emits a publisher-analysis-completed event for downstream consumers (cache-prime)
+ *
+ * @async
+ * @function publisher
+ * @param {Object} event - EventBridge event object.
+ * @param {Object} event.detail - Event detail containing versionName and publishDate.
+ * @param {string} event.detail.versionName - The name of the published version.
+ * @param {string} event.detail.publishDate - ISO timestamp of the publish operation.
+ * @returns {Promise<void>}
+ * @throws {Error} If there's an error analyzing keyword changes or emitting events.
+ *
+ * @example
+ * // EventBridge event format
+ * const event = {
+ *   detail: {
+ *     versionName: 'v1.0.0',
+ *     publishDate: '2023-06-01T12:00:00.000Z'
+ *   }
+ * };
+ * await publisher(event);
+ */
+export const publisher = async (event) => {
+  logger.info('[publisher] start')
+  try {
+    const { versionName, publishDate } = event.detail || {}
+
+    if (!versionName) {
+      throw new Error('versionName is required in event.detail')
+    }
+
+    if (!publishDate) {
+      throw new Error('publishDate is required in event.detail')
+    }
+
+    logger.info(`[publisher] Starting analysis for version=${versionName}`)
+
+    const keywordChanges = await getKeywordChanges()
+
+    // Log summary of all changes
+    const totalSchemes = keywordChanges.size
+    logger.info(`[publisher] Analysis completed. Processed ${totalSchemes} concept schemes.`)
+
+    // Create keyword events from the changes
+    const keywordEvents = createKeywordEvents(keywordChanges)
+
+    logger.info(`[publisher] Created ${keywordEvents.length} keyword events`)
+    logger.info('[publisher] Keyword Events:', keywordEvents)
+
+    // Execute the publish operation
+    logger.info(`[publisher] Executing publish update for version=${versionName}`)
+    const publishQuery = getPublishUpdateQuery(versionName, publishDate)
+
+    const response = await sparqlRequest({
+      method: 'POST',
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      body: publishQuery
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to execute publish update: ${response.status} ${response.statusText}`)
+    }
+
+    logger.info(`[publisher] Publish update completed for version=${versionName}`)
+
+    // Emit event for cache-prime to consume
+    let cachePrimeEventEmitted = false
+    const warnings = []
+
+    try {
+      await emitCachingEvent({
+        versionName,
+        publishDate,
+        keywordEvents
+      })
+
+      cachePrimeEventEmitted = true
+      logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
+    } catch (eventError) {
+      // Analysis and publish succeeded; log error but don't fail the function
+      const warningMessage = 'Publish completed, but failed to emit cache-prime event'
+      warnings.push(warningMessage)
+      logger.error(`[publisher] ${warningMessage}. Error: ${eventError.message}`)
+    }
+
+    const result = {
+      status: cachePrimeEventEmitted ? 'success' : 'partial_success',
+      versionName,
+      publishDate,
+      published: true,
+      cachePrimeEventEmitted,
+      keywordEventsCount: keywordEvents.length,
+      warnings
+    }
+
+    logger.info(`[publisher] Completed with status: ${result.status}`, result)
+
+    return result
+  } catch (error) {
+    logger.error('[publisher] Error in publisher handler:', error.message)
+    throw error
+  }
+}
+
+export default publisher

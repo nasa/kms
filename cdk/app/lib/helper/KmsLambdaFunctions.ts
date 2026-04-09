@@ -421,10 +421,9 @@ export class LambdaFunctions {
   /**
    * Creates EventBridge wiring for publish events and cache-prime target execution.
    *
-   * This method:
-   * 1. Resolves the publish Lambda from the internal lambda map.
-   * 2. Grants publish permission to put events on the default EventBridge bus.
-   * 3. Wires an EventBridge rule to trigger cache-prime on publish-complete events.
+   * This method sets up a two-stage event pipeline:
+   * 1. publish Lambda emits 'kms.published.version.changed' → triggers publisher Lambda
+   * 2. publisher Lambda emits 'kms.publisher.analysis.completed' → triggers cache-prime Lambda
    *
    * @param {Construct} scope - Construct scope.
    * @private
@@ -436,26 +435,44 @@ export class LambdaFunctions {
       throw new Error(`Expected publish lambda to exist in map for key=${publishLambdaKey}`)
     }
 
+    const publisherLambda = this.createPublisherLambda(scope)
     const cachePrimeLambda = this.createCachePrimeLambda(scope)
+
     const defaultEventBusArn = Stack.of(scope).formatArn({
       service: 'events',
       resource: 'event-bus',
       resourceName: 'default'
     })
 
+    // Grant publish Lambda permission to emit events
     publishLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['events:PutEvents'],
       resources: [defaultEventBusArn]
     }))
 
-    const rule = new events.Rule(scope, `${this.props.prefix}-PublishToPrimeCacheRule`, {
+    // Grant publisher Lambda permission to emit events
+    publisherLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['events:PutEvents'],
+      resources: [defaultEventBusArn]
+    }))
+
+    // Rule 1: publish → publisher
+    const publishToPublisherRule = new events.Rule(scope, `${this.props.prefix}-PublishToPublisherRule`, {
       eventPattern: {
         source: ['kms.publish'],
         detailType: ['kms.published.version.changed']
       }
     })
+    publishToPublisherRule.addTarget(new targets.LambdaFunction(publisherLambda))
 
-    rule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
+    // Rule 2: publisher → cache-prime
+    const publisherToPrimeCacheRule = new events.Rule(scope, `${this.props.prefix}-PublisherToPrimeCacheRule`, {
+      eventPattern: {
+        source: ['kms.publisher'],
+        detailType: ['kms.publisher.analysis.completed']
+      }
+    })
+    publisherToPrimeCacheRule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
   }
 
   /**
@@ -510,6 +527,25 @@ export class LambdaFunctions {
       { version: 'draft' },
       'Draft'
     )
+  }
+
+  /**
+   * Creates the publisher Lambda that analyzes keyword changes.
+   * This Lambda consumes publish events and emits publisher events.
+   * @param {Construct} scope - The scope in which to define these constructs
+   * @private
+   */
+  private createPublisherLambda(scope: Construct): lambda.Function {
+    const publisherLambda = this.createLambdaFunction(
+      scope,
+      'publisher/handler.js',
+      'publisher',
+      'publisher',
+      Duration.minutes(15),
+      2048
+    )
+
+    return publisherLambda
   }
 
   /**

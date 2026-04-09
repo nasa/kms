@@ -3,8 +3,6 @@ import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
-import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
-import { sparqlRequest } from '@/shared/sparqlRequest'
 
 const PUBLISH_EVENT_SOURCE = 'kms.publish'
 const PUBLISH_EVENT_DETAIL_TYPE = 'kms.published.version.changed'
@@ -12,7 +10,7 @@ const PUBLISH_EVENT_DETAIL_TYPE = 'kms.published.version.changed'
 const publishEventClient = new EventBridgeClient({})
 
 /**
- * Emits a publish-version-changed event to EventBridge so cache-prime can run asynchronously.
+ * Emits a publish-version-changed event to EventBridge to trigger the publisher handler.
  *
  * @async
  * @param {Object} params - Event payload details.
@@ -47,29 +45,29 @@ const emitPublishEvent = async ({ versionName, publishDate }) => {
 /**
  * Initiates the publication process for a new version of the keyword set.
  *
- * This function handles the process of publishing a new version of the keyword set by
- * performing a SPARQL update operation. It performs the following steps:
+ * This function serves as the entry point for the publish workflow and performs the following steps:
  * 1. Validates the input to ensure a 'name' parameter is provided in the query string.
- * 2. Generates a SPARQL update query to perform the following operations:
- *    - Copy the 'draft' version to become the new 'published' version.
- *    - Update metadata for the new 'published' version with the provided name and timestamp.
- * 3. Executes the SPARQL update request.
- * 4. Returns with a 200 (OK) status upon successful completion, or appropriate error status.
+ * 2. Emits a publish event to EventBridge with the version name and timestamp.
+ * 3. Returns immediately with a 200 (OK) status indicating the process has been initiated.
  *
- * Note: This function maintains only two versions: 'draft' and 'published'. The previous
- * 'published' version is overwritten by this operation.
+ * The actual publish operation (SPARQL update, keyword analysis, and cache priming) is handled
+ * asynchronously by the publisher handler triggered via EventBridge.
+ *
+ * Note: This function does not perform the actual publish operation itself. It delegates to
+ * the event-driven architecture for asynchronous processing
  *
  * @async
  * @function publish
  * @param {Object} event - The event object passed from API Gateway.
  * @param {Object} event.queryStringParameters - The query string parameters from the API request.
  * @param {string} event.queryStringParameters.name - The name of the version to be published.
+ * @param {Object} context - The Lambda context object.
  * @returns {Promise<Object>} A promise that resolves to an object containing the response details.
  * @property {number} statusCode - The HTTP status code (200 for success, 400 for bad request, 500 for server error).
  * @property {Object} headers - The response headers, including CORS and content type settings.
  * @property {string} body - A JSON string containing the response message, version name, and publish date.
  *
- * @throws {Error} If there's an issue with input validation or executing the publish process.
+ * @throws {Error} If there's an issue with input validation or emitting the publish event
  *
  * @example
  * // Successful invocation
@@ -78,7 +76,7 @@ const emitPublishEvent = async ({ versionName, publishDate }) => {
  * // result = {
  * //   statusCode: 200,
  * //   headers: { 'Content-Type': 'application/json', ... },
- * //   body: '{"message":"Publish process completed for version v1.0.0","version":"v1.0.0","publishDate":"2023-06-01T12:00:00.000Z"}'
+ * //   body: '{"message":"Publish process initiated for version v1.0.0","version":"v1.0.0","publishDate":"2023-06-01T12:00:00.000Z"}'
  * // }
  *
  * @example
@@ -92,6 +90,7 @@ const emitPublishEvent = async ({ versionName, publishDate }) => {
  * // }
  */
 export const publish = async (event, context) => {
+  logger.info('[publish] start')
   const { defaultResponseHeaders } = getApplicationConfig()
   const name = event.queryStringParameters?.name
 
@@ -109,39 +108,23 @@ export const publish = async (event, context) => {
   }
 
   try {
-    const updateDate = new Date().toISOString()
-    const publishQuery = getPublishUpdateQuery(name, updateDate)
+    const publishDate = new Date().toISOString()
 
-    const response = await sparqlRequest({
-      method: 'POST',
-      contentType: 'application/sparql-update',
-      accept: 'application/sparql-results+json',
-      body: publishQuery
+    // Emit event to trigger publisher handler which will perform the actual publish operation
+    await emitPublishEvent({
+      versionName: name,
+      publishDate
     })
 
-    if (!response.ok) {
-      throw new Error(`Failed to execute publish update: ${response.status} ${response.statusText}`)
-    }
-
-    try {
-      await emitPublishEvent({
-        versionName: name,
-        publishDate: updateDate
-      })
-
-      logger.info(`[publish] emitted cache-prime event for version=${name}`)
-    } catch (eventError) {
-      // Publish operation succeeded; do not fail publish if event emit fails.
-      logger.error(`[publish] failed to emit cache-prime event error=${eventError}`)
-    }
+    logger.info(`[publish] Initiated publish process for version=${name}`)
 
     return {
-      statusCode: 200,
+      statusCode: 202,
       headers: defaultResponseHeaders,
       body: JSON.stringify({
-        message: `Publish process completed for version ${name}`,
+        message: `Publish process initiated for version ${name}`,
         version: name,
-        publishDate: updateDate
+        publishDate
       })
     }
   } catch (error) {
