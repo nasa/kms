@@ -569,7 +569,7 @@ describe('publisher handler', () => {
 
       // Verify appropriate logging
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.'
+        'Scheme deletedscheme does not exist in draft version (scheme removed). All keywords will be marked as DELETED.'
       )
 
       // Verify compare was called with empty string for deletedscheme
@@ -801,7 +801,7 @@ describe('publisher handler', () => {
 
       // Verify appropriate logs for each case
       expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.'
+        'Scheme deletedscheme does not exist in draft version (scheme removed). All keywords will be marked as DELETED.'
       )
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -1077,6 +1077,52 @@ describe('publisher handler', () => {
       )
     })
 
+    test('should return partial_success when EventBridge emit fails after SNS publish succeeds', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+
+      const mockComparison = {
+        addedKeywords: new Map([['uuid1', {
+          oldPath: undefined,
+          newPath: 'PATH'
+        }]]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 1,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+      sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
+
+      const result = await publisher(mockEvent)
+
+      expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
+      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+      expect(result).toEqual({
+        status: 'partial_success',
+        versionName: 'v1.0.0',
+        publishDate: mockEvent.detail.publishDate,
+        published: true,
+        keywordEventsPublished: 1,
+        cachePrimeEventEmitted: false,
+        keywordEventsCount: 1,
+        warnings: ['Publish completed, but failed to emit cache-prime event']
+      })
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('[publisher] Publish completed, but failed to emit cache-prime event')
+      )
+    })
+
     test('should throw error when versionName is missing', async () => {
       const invalidEvent = { detail: {} }
 
@@ -1203,6 +1249,7 @@ describe('publisher handler', () => {
       expect(publishKeywordEvent).toHaveBeenCalledTimes(5)
       expect(publishKeywordEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ UUID: 'uuid1' }))
       expect(publishKeywordEvent).toHaveBeenNthCalledWith(5, expect.objectContaining({ UUID: 'uuid2' }))
+      expect(sparqlRequest).toHaveBeenCalledTimes(1)
       expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
       expect(result).toEqual({
         status: 'partial_success',
@@ -1214,6 +1261,66 @@ describe('publisher handler', () => {
         keywordEventsCount: 2,
         warnings: ['Publish completed, but 1 keyword event publishes failed after retries']
       })
+
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('[publisher] Retrying keyword event publish (attempt 2/4) uuid=uuid1 type=INSERTED')
+      )
+
+      expect(logger.error).toHaveBeenCalledWith(
+        '[publisher] Keyword event publish exhausted retries',
+        expect.objectContaining({
+          uuid: 'uuid1',
+          scheme: 'sciencekeywords',
+          eventType: 'INSERTED',
+          attempts: 4,
+          error: 'SNS unavailable'
+        })
+      )
+
+      expect(logger.info).toHaveBeenCalledWith(
+        '[publisher] Keyword event publish summary attempted=2 published=1 failed=1'
+      )
+    })
+
+    test('should log the number of published keyword events when SNS publish succeeds for all generated events', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+
+      const mockComparison = {
+        addedKeywords: new Map([
+          ['uuid1', {
+            oldPath: undefined,
+            newPath: 'PATH 1'
+          }],
+          ['uuid2', {
+            oldPath: undefined,
+            newPath: 'PATH 2'
+          }]
+        ]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 2,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      expect(publishKeywordEvent).toHaveBeenCalledTimes(2)
+      expect(result.status).toBe('success')
+      expect(result.keywordEventsPublished).toBe(2)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[publisher] Keyword event publish summary attempted=2 published=2 failed=0'
+      )
     })
 
     test('should not publish keyword events to SNS when the SPARQL publish update fails', async () => {

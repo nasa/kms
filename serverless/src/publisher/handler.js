@@ -190,7 +190,7 @@ export const getKeywordChanges = async () => {
             comparison = csvComparator.compare(publishedCsv, draftCsv)
           } else if (inPublished && !inDraft) {
           // Scheme removed: all keywords marked as DELETED
-            logger.info(`Scheme ${notation} does not exist in draft version (removed or renamed). All keywords will be marked as DELETED.`)
+            logger.info(`Scheme ${notation} does not exist in draft version (scheme removed). All keywords will be marked as DELETED.`)
 
             const publishedCsv = await downloadConcepts({
               conceptScheme: notation,
