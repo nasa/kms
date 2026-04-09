@@ -10,6 +10,8 @@ import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 
+import { LogForwardingSetup } from './helper/LogForwardingSetup'
+
 /**
  * Properties for the CMR event processing stack.
  */
@@ -71,6 +73,19 @@ export class CmrEventProcessingStack extends cdk.Stack {
     }))
 
     queue.grantConsumeMessages(listenerLambda)
+
+    // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account
+    // Create log forwarding setup - no reference needed as it registers itself
+    // eslint-disable-next-line no-new
+    new LogForwardingSetup(this, 'LogForwarding', {
+      prefix: props.prefix,
+      stage: props.stage,
+      account: this.account,
+      region: this.region,
+      lambdas: {
+        'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda
+      }
+    })
 
     this.keywordEventsQueueUrlOutput = new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
       description: 'Queue URL for CMR keyword event processing',

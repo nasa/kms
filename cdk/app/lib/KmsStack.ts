@@ -9,6 +9,7 @@ import { Construct } from 'constructs'
 import { ApiResources } from './helper/ApiResources'
 import { IamSetup } from './helper/IamSetup'
 import { LambdaFunctions } from './helper/KmsLambdaFunctions'
+import { LogForwardingSetup } from './helper/LogForwardingSetup'
 import { VpcSetup } from './helper/VpcSetup'
 
 /**
@@ -158,6 +159,20 @@ export class KmsStack extends cdk.Stack {
 
     const lambdas = this.lambdaFunctions.getAllLambdas()
     const methods = this.lambdaFunctions.getAllMethods()
+
+    // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account
+    // Skip log forwarding for localstack deployments
+    if (!useLocalstack) {
+      // Create log forwarding setup - no reference needed as it registers itself
+      // eslint-disable-next-line no-new
+      new LogForwardingSetup(this, 'LogForwarding', {
+        prefix,
+        stage,
+        account: this.account,
+        region: this.region,
+        lambdas
+      })
+    }
 
     // Create a new deployment
     const deployment = new apigateway.Deployment(
