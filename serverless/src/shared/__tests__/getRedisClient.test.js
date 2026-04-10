@@ -17,6 +17,7 @@ describe('getRedisClient', () => {
     delete process.env.REDIS_ENABLED
     delete process.env.REDIS_HOST
     delete process.env.REDIS_PORT
+    delete process.env.REDIS_FAIL_FAST
   })
 
   describe('when redis is not configured', () => {
@@ -74,19 +75,18 @@ describe('getRedisClient', () => {
       expect(createClient).toHaveBeenCalledWith({
         socket: {
           host: 'localhost',
-          port: 6379,
-          connectTimeout: 5000,
-          reconnectStrategy: expect.any(Function)
+          port: 6379
         }
       })
 
       expect(connect).toHaveBeenCalledTimes(1)
     })
 
-    test('configures a fail-fast reconnect strategy', async () => {
+    test('configures a fail-fast reconnect strategy when enabled', async () => {
       process.env.REDIS_ENABLED = 'true'
       process.env.REDIS_HOST = 'localhost'
       process.env.REDIS_PORT = '6379'
+      process.env.REDIS_FAIL_FAST = 'true'
 
       const connect = vi.fn().mockResolvedValue(undefined)
       const on = vi.fn()

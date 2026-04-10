@@ -14,6 +14,10 @@ const KEYWORD_EVENT_PUBLISH_RETRIES = 3
 
 const publisherEventClient = new EventBridgeClient({})
 
+const shouldBlockPublishOnKeywordDiffFailure = () => (
+  process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE === 'true'
+)
+
 /**
  * Transform keyword changes map into a list of keyword events conforming to the schema.
  *
@@ -261,23 +265,33 @@ export const getKeywordChanges = async () => {
     return sequentialResults
   }, Promise.resolve([]))
 
-  // Collect all successful comparisons into a Map
-  const keywordChangesMap = new Map(
-    results
-      .filter(Boolean)
-      .map((result) => [result.notation, result.comparison])
-  )
-
   if (failedSchemes.length > 0) {
     const failedSchemeSummary = failedSchemes
       .map(({ notation, error }) => `${notation}: ${error}`)
       .join('; ')
 
-    throw new Error(
+    const failureMessage = (
       `Keyword changes detection failed for ${failedSchemes.length} `
       + `scheme(s): ${failedSchemeSummary}`
     )
+
+    if (shouldBlockPublishOnKeywordDiffFailure()) {
+      throw new Error(failureMessage)
+    }
+
+    logger.warn(
+      `[publisher] ${failureMessage}. `
+      + 'Continuing with publish because BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE is disabled.'
+    )
   }
+
+  // Failed schemes return null placeholders while retries/summary are being tracked. When
+  // blocking is disabled, continue with only the successful scheme comparisons.
+  const keywordChangesMap = new Map(
+    results
+      .filter((result) => result !== null)
+      .map((result) => [result.notation, result.comparison])
+  )
 
   logger.info(`Keyword changes detection completed. Processed ${keywordChangesMap.size} concept schemes.`)
 
@@ -455,14 +469,14 @@ export const publisher = async (event) => {
     logger.info(`[publisher] Publish update completed for version=${versionName}`)
 
     let keywordEventsPublished = 0
-    const warnings = []
+    const postPublishFailures = []
 
     if (keywordEvents.length > 0) {
       const publishSummary = await publishKeywordEvents(keywordEvents)
       keywordEventsPublished = publishSummary.publishedCount
 
       if (publishSummary.failedEvents.length > 0) {
-        warnings.push(
+        postPublishFailures.push(
           `Publish completed, but ${publishSummary.failedEvents.length} `
           + 'keyword event publishes failed after retries'
         )
@@ -474,6 +488,8 @@ export const publisher = async (event) => {
               uuid: keywordEvent.UUID,
               scheme: keywordEvent.Scheme,
               eventType: keywordEvent.EventType,
+              oldKeywordPath: keywordEvent.OldKeywordPath,
+              newKeywordPath: keywordEvent.NewKeywordPath,
               attempts,
               error
             }
@@ -505,20 +521,20 @@ export const publisher = async (event) => {
       logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
     } catch (eventError) {
       // Analysis and publish succeeded; log error but don't fail the function.
-      const warningMessage = 'Publish completed, but failed to emit cache-prime event'
-      warnings.push(warningMessage)
-      logger.error(`[publisher] ${warningMessage}. Error: ${eventError.message}`)
+      const failureMessage = 'Publish completed, but failed to emit cache-prime event'
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}. Error: ${eventError.message}`)
     }
 
     const result = {
-      status: warnings.length === 0 ? 'success' : 'partial_success',
+      status: postPublishFailures.length === 0 ? 'success' : 'partial_success',
       versionName,
       publishDate,
       published: true,
       keywordEventsPublished,
       cachePrimeEventEmitted,
       keywordEventsCount: keywordEvents.length,
-      warnings
+      postPublishFailures
     }
 
     logger.info(`[publisher] Completed with status: ${result.status}`, result)

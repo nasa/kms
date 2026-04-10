@@ -8,6 +8,7 @@ let hasLoggedRedisConfig = false
 const { REDIS_ENABLED } = process.env
 const { REDIS_HOST } = process.env
 const REDIS_PORT = Number(process.env.REDIS_PORT || 6379)
+const REDIS_FAIL_FAST = process.env.REDIS_FAIL_FAST === 'true'
 
 export const isRedisConfigured = () => (
   REDIS_ENABLED === 'true' && Boolean(REDIS_HOST) && Number.isInteger(REDIS_PORT)
@@ -30,13 +31,18 @@ export const getRedisClient = async () => {
         logger.info(`Redis configured: host=${REDIS_HOST}, port=${REDIS_PORT}`)
       }
 
+      const socket = {
+        host: REDIS_HOST,
+        port: REDIS_PORT
+      }
+
+      if (REDIS_FAIL_FAST) {
+        socket.connectTimeout = 5000
+        socket.reconnectStrategy = () => false
+      }
+
       const client = createClient({
-        socket: {
-          host: REDIS_HOST,
-          port: REDIS_PORT,
-          connectTimeout: 5000,
-          reconnectStrategy: () => false
-        }
+        socket
       })
 
       client.on('error', (error) => {

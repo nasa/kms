@@ -16,7 +16,6 @@ import { logger } from '@/shared/logger'
  * @returns {Promise<string|Object>} The concept data (string for CSV/RDF/XML, object for JSON)
  * @throws {Error} Throws an error if the download fails, with additional properties:
  *   - statusCode: HTTP status code from the handler
- *   - isSchemeNotFound: Boolean indicating if the error was due to a missing scheme
  *
  * @example
  * // Download concepts as CSV
@@ -60,13 +59,10 @@ export const downloadConcepts = async ({ conceptScheme, format = 'csv', version 
     if (result.statusCode !== 200) {
       const errorBody = JSON.parse(result.body)
       const detail = errorBody.error ? ` - ${errorBody.error}` : ''
-      const isSchemeNotFound = result.statusCode === 404
-        && (errorBody.error?.includes('Concept scheme not found') ?? false)
       const error = new Error(
         `Failed to download ${format.toUpperCase()}. Status: ${result.statusCode}${detail}`
       )
       error.statusCode = result.statusCode
-      error.isSchemeNotFound = isSchemeNotFound
       throw error
     }
 

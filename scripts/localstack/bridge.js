@@ -522,13 +522,12 @@ const main = async () => {
   const bridgeRegistry = getBridgeRegistry()
 
   const shuttingDownRef = { value: false }
-  process.on('SIGINT', () => {
+  const handleShutdown = () => {
     shuttingDownRef.value = true
-  })
+  }
 
-  process.on('SIGTERM', () => {
-    shuttingDownRef.value = true
-  })
+  process.on('SIGINT', handleShutdown)
+  process.on('SIGTERM', handleShutdown)
 
   const resourcesByName = await ensureBridgeResources(bridgeRegistry)
 

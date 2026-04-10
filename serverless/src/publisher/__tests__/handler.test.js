@@ -58,6 +58,7 @@ vi.mock('@aws-sdk/client-eventbridge', () => ({
 describe('publisher handler', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
     sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
     publishKeywordEvent.mockResolvedValue({
       messageId: 'message-1',
@@ -325,8 +326,9 @@ describe('publisher handler', () => {
       expect(result.size).toBe(0)
     })
 
-    test('should fail keyword change detection when any scheme exhausts retries', async () => {
+    test('should fail keyword change detection when any scheme exhausts retries and blocking is enabled', async () => {
       vi.useFakeTimers()
+      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
 
       const mockSchemes = [
         { notation: 'sciencekeywords' },
@@ -375,8 +377,9 @@ describe('publisher handler', () => {
       vi.useRealTimers()
     })
 
-    test('should retry failed scheme downloads up to 4 times before giving up', async () => {
+    test('should retry failed scheme downloads up to 4 times before giving up when blocking is enabled', async () => {
       vi.useFakeTimers()
+      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
 
       const mockSchemes = [
         { notation: 'sciencekeywords' }
@@ -423,6 +426,70 @@ describe('publisher handler', () => {
       expect(logger.error).toHaveBeenCalledWith(
         'Failed sciencekeywords: exhausted all 4 attempts - Download failed'
       )
+
+      vi.useRealTimers()
+    })
+
+    test('should warn and continue with successful scheme comparisons when blocking is disabled', async () => {
+      vi.useFakeTimers()
+
+      const mockPublishedSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+      ]
+
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+      ]
+
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
+
+      let callCount = 0
+      downloadConcepts.mockImplementation(({ conceptScheme }) => {
+        callCount += 1
+
+        if (conceptScheme === 'sciencekeywords') {
+          return Promise.resolve('csv content')
+        }
+
+        return Promise.reject(new Error('Download failed'))
+      })
+
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const resultPromise = getKeywordChanges()
+
+      await vi.runAllTimersAsync()
+
+      const result = await resultPromise
+
+      expect(result.size).toBe(1)
+      expect(result.has('sciencekeywords')).toBe(true)
+      expect(result.has('platforms')).toBe(false)
+      expect(logger.warn).toHaveBeenCalledWith(
+        '[publisher] Keyword changes detection failed for 1 scheme(s): platforms: Download failed. '
+        + 'Continuing with publish because BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE is disabled.'
+      )
+
+      expect(callCount).toBe(10)
 
       vi.useRealTimers()
     })
@@ -511,8 +578,7 @@ describe('publisher handler', () => {
             return Promise.reject(Object.assign(
               new Error('Failed to download CSV. Status: 404 - Invalid concept scheme parameter. Concept scheme not found'),
               {
-                statusCode: 404,
-                isSchemeNotFound: true
+                statusCode: 404
               }
             ))
           }
@@ -576,8 +642,10 @@ describe('publisher handler', () => {
       expect(mockComparator.compare).toHaveBeenCalledWith('published csv content', '')
     })
 
-    test('should skip comparison with warning when download fails with other error', async () => {
+    test('should fail when download fails with other error and blocking is enabled', async () => {
       vi.useFakeTimers()
+
+      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
 
       const mockPublishedSchemes = [
         { notation: 'sciencekeywords' }
@@ -809,8 +877,9 @@ describe('publisher handler', () => {
       )
     })
 
-    test('should use Unknown error fallback when retries exhaust without an error message', async () => {
+    test('should use Unknown error fallback when retries exhaust without an error message and blocking is enabled', async () => {
       vi.useFakeTimers()
+      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
       const mockSchemes = [{ notation: 'sciencekeywords' }]
 
       getConceptSchemeDetails.mockResolvedValue(mockSchemes)
@@ -900,7 +969,7 @@ describe('publisher handler', () => {
         keywordEventsPublished: 1,
         cachePrimeEventEmitted: true,
         keywordEventsCount: 1,
-        warnings: []
+        postPublishFailures: []
       })
     })
 
@@ -912,6 +981,130 @@ describe('publisher handler', () => {
       expect(sparqlRequest).not.toHaveBeenCalled()
       expect(publishKeywordEvent).not.toHaveBeenCalled()
       expect(sendEventBridgeMock).not.toHaveBeenCalled()
+    })
+
+    test('should continue publish when keyword diff retries exhaust and blocking is disabled', async () => {
+      vi.useFakeTimers()
+
+      const mockPublishedSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+      ]
+
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+      ]
+
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
+
+      downloadConcepts.mockImplementation(({ conceptScheme }) => {
+        if (conceptScheme === 'sciencekeywords') {
+          return Promise.resolve('csv content')
+        }
+
+        return Promise.reject(new Error('Download failed'))
+      })
+
+      const mockComparison = {
+        addedKeywords: new Map([['uuid1', {
+          oldPath: undefined,
+          newPath: 'PATH'
+        }]]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 1,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const resultPromise = publisher(mockEvent)
+
+      await vi.runAllTimersAsync()
+
+      const result = await resultPromise
+
+      expect(sparqlRequest).toHaveBeenCalledTimes(1)
+      expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
+      expect(result.status).toBe('success')
+      expect(result.keywordEventsPublished).toBe(1)
+      expect(logger.warn).toHaveBeenCalledWith(
+        '[publisher] Keyword changes detection failed for 1 scheme(s): platforms: Download failed. '
+        + 'Continuing with publish because BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE is disabled.'
+      )
+
+      vi.useRealTimers()
+    })
+
+    test('should fail publish when keyword diff retries exhaust and blocking is enabled', async () => {
+      vi.useFakeTimers()
+      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
+
+      const mockPublishedSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+      ]
+
+      const mockDraftSchemes = [
+        { notation: 'sciencekeywords' },
+        { notation: 'platforms' }
+      ]
+
+      getConceptSchemeDetails
+        .mockResolvedValueOnce(mockPublishedSchemes)
+        .mockResolvedValueOnce(mockDraftSchemes)
+
+      downloadConcepts.mockImplementation(({ conceptScheme }) => {
+        if (conceptScheme === 'sciencekeywords') {
+          return Promise.resolve('csv content')
+        }
+
+        return Promise.reject(new Error('Download failed'))
+      })
+
+      const mockComparison = {
+        addedKeywords: new Map([['uuid1', {
+          oldPath: undefined,
+          newPath: 'PATH'
+        }]]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 1,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const resultPromise = publisher(mockEvent)
+      const expectation = expect(resultPromise).rejects.toThrow(
+        'Keyword changes detection failed for 1 scheme(s): platforms: Download failed'
+      )
+
+      await vi.runAllTimersAsync()
+      await expectation
+
+      expect(sparqlRequest).not.toHaveBeenCalled()
+      expect(publishKeywordEvent).not.toHaveBeenCalled()
+      expect(sendEventBridgeMock).not.toHaveBeenCalled()
+
+      vi.useRealTimers()
     })
 
     test('should complete successfully without SNS publish when no keyword events are generated', async () => {
@@ -949,7 +1142,7 @@ describe('publisher handler', () => {
         keywordEventsPublished: 0,
         cachePrimeEventEmitted: true,
         keywordEventsCount: 0,
-        warnings: []
+        postPublishFailures: []
       })
     })
 
@@ -1091,7 +1284,7 @@ describe('publisher handler', () => {
         keywordEventsPublished: 0,
         cachePrimeEventEmitted: false,
         keywordEventsCount: 0,
-        warnings: ['Publish completed, but failed to emit cache-prime event']
+        postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
       })
 
       expect(logger.error).toHaveBeenCalledWith(
@@ -1137,7 +1330,7 @@ describe('publisher handler', () => {
         keywordEventsPublished: 1,
         cachePrimeEventEmitted: false,
         keywordEventsCount: 1,
-        warnings: ['Publish completed, but failed to emit cache-prime event']
+        postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
       })
 
       expect(logger.error).toHaveBeenCalledWith(
@@ -1290,7 +1483,7 @@ describe('publisher handler', () => {
         keywordEventsPublished: 1,
         cachePrimeEventEmitted: true,
         keywordEventsCount: 2,
-        warnings: ['Publish completed, but 1 keyword event publishes failed after retries']
+        postPublishFailures: ['Publish completed, but 1 keyword event publishes failed after retries']
       })
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -1303,6 +1496,8 @@ describe('publisher handler', () => {
           uuid: 'uuid1',
           scheme: 'sciencekeywords',
           eventType: 'INSERTED',
+          oldKeywordPath: undefined,
+          newKeywordPath: 'PATH 1',
           attempts: 4,
           error: 'SNS unavailable'
         })

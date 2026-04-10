@@ -63,6 +63,7 @@ dockerRun() {
         --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
         --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
+        --env "BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE=${bamboo_BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE:-false}" \
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
         --env "RDF4J_INSTANCE_TYPE=$bamboo_RDF4J_INSTANCE_TYPE" \
         --env "RDF4J_CONTAINER_MEMORY_LIMIT=$bamboo_RDF4J_CONTAINER_MEMORY_LIMIT" \

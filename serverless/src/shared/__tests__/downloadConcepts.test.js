@@ -221,24 +221,23 @@ describe('downloadConcepts', () => {
         {
           conceptScheme: 'nonexistent',
           body: { error: 'Invalid concept scheme parameter. Concept scheme not found' },
-          expectedMessage: 'Failed to download CSV. Status: 404 - Invalid concept scheme parameter. Concept scheme not found',
-          expectedIsSchemeNotFound: true
+          expectedMessage: 'Failed to download CSV. Status: 404 - Invalid concept scheme parameter. Concept scheme not found'
         },
         {
           conceptScheme: 'sciencekeywords',
           body: { error: 'Repository not found' },
-          expectedMessage: 'Failed to download CSV. Status: 404 - Repository not found',
-          expectedIsSchemeNotFound: false
+          expectedMessage: 'Failed to download CSV. Status: 404 - Repository not found'
         },
         {
           conceptScheme: 'sciencekeywords',
           body: { message: 'Missing resource' },
-          expectedMessage: 'Failed to download CSV. Status: 404',
-          expectedIsSchemeNotFound: false
+          expectedMessage: 'Failed to download CSV. Status: 404'
         }
       ]
 
-      for (const testCase of cases) {
+      await cases.reduce(async (promise, testCase) => {
+        await promise
+
         getConcepts.mockResolvedValue({
           statusCode: 404,
           body: JSON.stringify(testCase.body)
@@ -250,10 +249,9 @@ describe('downloadConcepts', () => {
           version: 'published'
         })).rejects.toMatchObject({
           message: testCase.expectedMessage,
-          isSchemeNotFound: testCase.expectedIsSchemeNotFound,
           statusCode: 404
         })
-      }
+      }, Promise.resolve())
     })
 
     test('should throw error when getConcepts returns 500 status code', async () => {
