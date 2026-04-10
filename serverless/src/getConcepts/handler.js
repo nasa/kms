@@ -152,8 +152,6 @@ export const getConcepts = async (event, context) => {
       conceptScheme = 'dataformat'
     }
 
-    const shouldUseConceptsCache = version !== 'draft'
-
     const cacheKey = createConceptsResponseCacheKey({
       version,
       path: event?.resource || event?.path,
@@ -165,28 +163,17 @@ export const getConcepts = async (event, context) => {
       format
     })
 
-    if (shouldUseConceptsCache) {
-      try {
-        const cachedResponse = await getCachedJsonResponse({
-          cacheKey,
-          entityLabel: 'response'
-        })
-        if (cachedResponse) {
-          logger.info(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
-          if (format.toLowerCase() === 'csv') {
-            logger.info(`[cache] csv hit endpoint=getConcepts key=${cacheKey}`)
-          }
-
-          return cachedResponse
-        }
-
-        logger.info(`[cache] miss endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
-        if (format.toLowerCase() === 'csv') {
-          logger.info(`[cache] csv miss endpoint=getConcepts key=${cacheKey}`)
-        }
-      } catch (cacheReadError) {
-        logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
+    try {
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey,
+        entityLabel: 'response',
+        format
+      })
+      if (cachedResponse) {
+        return cachedResponse
       }
+    } catch (cacheReadError) {
+      logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
     }
 
     // Check existence of version only after cache miss.
@@ -244,18 +231,16 @@ export const getConcepts = async (event, context) => {
         versionCreationDate
       })
 
-      if (csvResponse.statusCode === 200 && shouldUseConceptsCache) {
+      if (csvResponse.statusCode === 200) {
         try {
-          logger.debug(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
           await setCachedJsonResponse({
             cacheKey,
-            response: csvResponse
+            response: csvResponse,
+            format
           })
         } catch (cacheWriteError) {
           logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
         }
-      } else if (csvResponse.statusCode === 200) {
-        logger.debug(`[cache] csv skip-write endpoint=getConcepts version=${version} key=${cacheKey}`)
       } else {
         logger.debug(`[cache] csv skip-write endpoint=getConcepts status=${csvResponse.statusCode} key=${cacheKey}`)
       }
@@ -465,16 +450,14 @@ export const getConcepts = async (event, context) => {
       }
     }
 
-    if (shouldUseConceptsCache) {
-      try {
-        logger.debug(`[cache] write endpoint=getConcepts key=${cacheKey}`)
-        await setCachedJsonResponse({
-          cacheKey,
-          response
-        })
-      } catch (cacheWriteError) {
-        logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
-      }
+    try {
+      await setCachedJsonResponse({
+        cacheKey,
+        response,
+        format
+      })
+    } catch (cacheWriteError) {
+      logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
     }
 
     return response

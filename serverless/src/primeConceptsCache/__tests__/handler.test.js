@@ -44,7 +44,7 @@ describe('when priming concepts cache', () => {
   })
 
   describe('when invoked by EventBridge event', () => {
-    test('uses versionName from event detail', async () => {
+    test('uses versionName and publishDate from event detail', async () => {
       const redisClient = {
         get: vi.fn().mockResolvedValue('99.0'),
         set: vi.fn().mockResolvedValue('OK')
@@ -75,10 +75,10 @@ describe('when priming concepts cache', () => {
       const body = JSON.parse(response.body)
 
       expect(response.statusCode).toBe(200)
-      expect(body.versionMarker).toBe('100.0')
+      expect(body.versionMarker).toBe('100.0|2024-01-01T00:00:00Z')
       expect(redisClient.set).toHaveBeenCalledWith(
         CONCEPTS_CACHE_VERSION_KEY,
-        '100.0'
+        '100.0|2024-01-01T00:00:00Z'
       )
 
       // Verify getVersionMetadata was NOT called when EventBridge event is provided
@@ -105,7 +105,7 @@ describe('when priming concepts cache', () => {
       const body = JSON.parse(response.body)
 
       expect(response.statusCode).toBe(200)
-      expect(body.versionMarker).toBe('100.0')
+      expect(body.versionMarker).toBe('100.0|2024-01-01T00:00:00Z')
     })
 
     test('handles event without keywordEvents property', async () => {
@@ -127,12 +127,12 @@ describe('when priming concepts cache', () => {
       const body = JSON.parse(response.body)
 
       expect(response.statusCode).toBe(200)
-      expect(body.versionMarker).toBe('100.0')
+      expect(body.versionMarker).toBe('100.0|2024-01-01T00:00:00Z')
     })
 
     test('skips priming when EventBridge version already cached', async () => {
       const redisClient = {
-        get: vi.fn().mockResolvedValue('100.0')
+        get: vi.fn().mockResolvedValue('100.0|2024-01-01T00:00:00Z')
       }
       getRedisClient.mockResolvedValue(redisClient)
 
@@ -150,6 +150,34 @@ describe('when priming concepts cache', () => {
       expect(response.statusCode).toBe(200)
       expect(body.message).toContain('already primed')
       expect(clearCachedByPrefix).not.toHaveBeenCalled()
+    })
+
+    test('re-primes when versionName matches but publishDate changes', async () => {
+      const redisClient = {
+        get: vi.fn().mockResolvedValue('100.0|2024-01-01T00:00:00Z'),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      getRedisClient.mockResolvedValue(redisClient)
+      getConceptSchemeDetails.mockResolvedValue([])
+
+      const event = {
+        detail: {
+          versionName: '100.0',
+          publishDate: '2024-01-02T00:00:00Z',
+          keywordEvents: []
+        }
+      }
+
+      const response = await primeConceptsCache(event)
+      const body = JSON.parse(response.body)
+
+      expect(response.statusCode).toBe(200)
+      expect(body.versionMarker).toBe('100.0|2024-01-02T00:00:00Z')
+      expect(clearCachedByPrefix).toHaveBeenCalledTimes(3)
+      expect(redisClient.set).toHaveBeenCalledWith(
+        CONCEPTS_CACHE_VERSION_KEY,
+        '100.0|2024-01-02T00:00:00Z'
+      )
     })
   })
 
@@ -170,7 +198,7 @@ describe('when priming concepts cache', () => {
       const body = JSON.parse(response.body)
 
       expect(response.statusCode).toBe(200)
-      expect(body.versionMarker).toBe('100.0')
+      expect(body.versionMarker).toBe('100.0|2026-02-24T00:00:00Z')
       expect(getVersionMetadata).toHaveBeenCalledWith('published')
     })
   })
@@ -262,7 +290,7 @@ describe('when priming concepts cache', () => {
     describe('when versionMarker already matches cache', () => {
       test('returns already primed', async () => {
         const redisClient = {
-          get: vi.fn().mockResolvedValue('100.0')
+          get: vi.fn().mockResolvedValue('100.0|2026-02-24T00:00:00Z')
         }
         getRedisClient.mockResolvedValue(redisClient)
 
@@ -287,7 +315,7 @@ describe('when priming concepts cache', () => {
         const body = JSON.parse(response.body)
 
         expect(response.statusCode).toBe(200)
-        expect(body.versionMarker).toBe('100.0')
+        expect(body.versionMarker).toBe('100.0|2026-02-24T00:00:00Z')
       })
 
       test('clears cache, primes routes, and writes version marker', async () => {
@@ -340,7 +368,7 @@ describe('when priming concepts cache', () => {
 
         expect(redisClient.set).toHaveBeenCalledWith(
           CONCEPTS_CACHE_VERSION_KEY,
-          '100.0'
+          '100.0|2026-02-24T00:00:00Z'
         )
       })
 

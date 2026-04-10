@@ -151,7 +151,7 @@ describe('getConcepts', () => {
       expect(result.statusCode).toBe(200)
     })
 
-    test('does not read from redis cache for draft requests', async () => {
+    test('passes a draft cache key to the redis cache read helper for draft requests', async () => {
       getFilteredTriples.mockResolvedValue([])
       processTriples.mockReturnValue({
         bNodeMap: {},
@@ -174,7 +174,11 @@ describe('getConcepts', () => {
 
       expect(result.statusCode).toBe(200)
 
-      expect(getCachedJsonResponse).not.toHaveBeenCalled()
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concepts:draft:')
+        })
+      )
     })
   })
 
@@ -276,7 +280,7 @@ describe('getConcepts', () => {
       )
     })
 
-    test('does not write successful draft csv responses to cache', async () => {
+    test('passes a draft cache key to the cache helpers for successful draft csv responses', async () => {
       getConceptSchemeDetails.mockResolvedValue({})
       createCsvForScheme.mockResolvedValue({
         statusCode: 200,
@@ -299,8 +303,17 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
 
       expect(result.statusCode).toBe(200)
-      expect(getCachedJsonResponse).not.toHaveBeenCalled()
-      expect(setCachedJsonResponse).not.toHaveBeenCalled()
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concepts:draft:')
+        })
+      )
+
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concepts:draft:')
+        })
+      )
     })
   })
 

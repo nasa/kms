@@ -197,7 +197,7 @@ describe('getConcept', () => {
   })
 
   describe('draft version caching behavior', () => {
-    test('skips cache read when version is draft', async () => {
+    test('passes a draft cache key to the cache read helper', async () => {
       const mockSkosConcept = {
         '@rdf:about': '123',
         'skos:prefLabel': { _text: 'Test PrefLabel' },
@@ -217,11 +217,16 @@ describe('getConcept', () => {
         }
       })
 
-      expect(getCachedJsonResponse).not.toHaveBeenCalled()
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concept:draft:')
+        })
+      )
+
       expect(getSkosConcept).toHaveBeenCalled()
     })
 
-    test('skips cache write when version is draft', async () => {
+    test('passes a draft cache key to the cache write helper', async () => {
       const mockSkosConcept = {
         '@rdf:about': '123',
         'skos:prefLabel': { _text: 'Test PrefLabel' },
@@ -242,10 +247,14 @@ describe('getConcept', () => {
       })
 
       expect(result.statusCode).toBe(200)
-      expect(setCachedJsonResponse).not.toHaveBeenCalled()
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concept:draft:')
+        })
+      )
     })
 
-    test('uses cache for non-draft versions', async () => {
+    test('uses published cache keys for non-draft versions', async () => {
       const mockSkosConcept = {
         '@rdf:about': '123',
         'skos:prefLabel': { _text: 'Test PrefLabel' },
@@ -262,8 +271,17 @@ describe('getConcept', () => {
       })
 
       expect(result.statusCode).toBe(200)
-      expect(getCachedJsonResponse).toHaveBeenCalled()
-      expect(setCachedJsonResponse).toHaveBeenCalled()
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concept:published:')
+        })
+      )
+
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concept:published:')
+        })
+      )
     })
   })
 

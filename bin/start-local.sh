@@ -19,6 +19,14 @@ cleanup() {
     exit 0
 }
 
+clearStaleSAMContainers() {
+    echo "Clearing stale SAM containers..."
+
+    docker ps --format '{{.ID}} {{.Image}}' \
+      | awk '$2 ~ /public\.ecr\.aws\/lambda\/nodejs:22-rapid-/ { print $1 }' \
+      | xargs -r docker rm -f >/dev/null 2>&1 || true
+}
+
 # Set up trap to call cleanup function on Ctrl+C
 trap cleanup SIGINT
 
@@ -26,6 +34,8 @@ SAM_WATCH_ARGS=()
 if [ "$SAM_LOCAL_WATCH" = "true" ]; then
   SAM_WATCH_ARGS+=(--beta-features --watch)
 fi
+
+clearStaleSAMContainers
 
 "${PROJECT_ROOT}/scripts/localstack/run_bridge.sh" &
 LOCAL_BRIDGE_PID=$!
