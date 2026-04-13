@@ -16,6 +16,8 @@ interface LogForwardingSetupProps {
   account: string
   /** AWS Region */
   region: string
+  /** NGAP SecLog account ID */
+  secLogAccount: string
   /** Map of Lambda functions to configure log forwarding for */
   lambdas: { [key: string]: lambda.Function }
   /** Log retention period in days */
@@ -35,8 +37,8 @@ export class LogForwardingSetup {
   /** The AWS account-specific destination name for log forwarding */
   private readonly destinationName: string
 
-  /** The Kinesis stream ARN in the SecLog account */
-  private readonly targetArn: string = 'arn:aws:kinesis:us-east-1:353585529927:stream/application_logs'
+  /** The NGAP SecLog account ID */
+  private readonly secLogAccount: string
 
   /** Log retention period */
   private readonly logRetentionDays: logs.RetentionDays
@@ -49,9 +51,11 @@ export class LogForwardingSetup {
    */
   constructor(scope: Construct, id: string, props: LogForwardingSetupProps) {
     this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_WEEK
+    this.secLogAccount = props.secLogAccount
 
-    // Set destination name using the account ID from Bamboo deployment parameter
-    this.destinationName = `/gsfc-ngap-managed/application_logs_destination/${props.account}`
+    // Set destination ARN using the account ID from Bamboo deployment parameter
+    // The destination is in the SecLog account but accepts logs from our account
+    this.destinationName = `arn:aws:logs:${props.region}:${this.secLogAccount}:destination:/gsfc-ngap-managed/application_logs_destination/${props.account}`
 
     // Set up log groups and subscription filters for each Lambda function
     this.setupLogForwarding(scope, props)

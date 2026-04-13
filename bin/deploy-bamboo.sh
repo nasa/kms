@@ -74,6 +74,7 @@ dockerRun() {
         --env "KMS_REDIS_ENABLED=$bamboo_KMS_REDIS_ENABLED" \
         --env "KMS_REDIS_NODE_TYPE=$bamboo_KMS_REDIS_NODE_TYPE" \
         --env "LOG_DESTINATION_ACCOUNT=$bamboo_LOG_DESTINATION_ACCOUNT" \
+        --env "SEC_LOG_ACCOUNT=$bamboo_SEC_LOG_ACCOUNT" \
     $dockerTag "$@"
 }
 

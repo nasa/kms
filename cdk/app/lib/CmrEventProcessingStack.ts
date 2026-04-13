@@ -20,6 +20,7 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   stage: string
   topicArn: string
   logDestinationAccount?: string
+  secLogAccount?: string
 }
 
 /**
@@ -83,6 +84,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
       stage: props.stage,
       account: props.logDestinationAccount || this.account,
       region: this.region,
+      secLogAccount: props.secLogAccount || '353585529927',
       lambdas: {
         'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda
       }
