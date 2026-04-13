@@ -36,6 +36,34 @@ describe('when using redis cache store', () => {
   })
 
   describe('when reading cached json responses', () => {
+    test('returns null and bypasses redis when the cache key is for draft', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        get: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const result = await store.getCachedJsonResponse({
+        cacheKey: 'kms:concept:draft:test',
+        entityLabel: 'response'
+      })
+
+      expect(result).toBeNull()
+      expect(createClient).not.toHaveBeenCalled()
+      expect(redisClient.get).not.toHaveBeenCalled()
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[cache] skip-read version=draft endpoint=kms:concept key=kms:concept:draft:test'
+      )
+    })
+
     test('returns null when redis client is unavailable', async () => {
       process.env.REDIS_ENABLED = 'false'
       const store = await loadStore()
@@ -59,16 +87,73 @@ describe('when using redis cache store', () => {
         get: vi.fn().mockResolvedValue(null)
       }
       const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
       createClient.mockReturnValue(redisClient)
       const store = await loadStore()
 
       const result = await store.getCachedJsonResponse({
-        cacheKey: 'k',
+        cacheKey: 'kms:concepts:published:test',
+        entityLabel: 'response',
+        format: 'json'
+      })
+
+      expect(redisClient.get).toHaveBeenCalledWith('kms:concepts:published:test')
+      expect(result).toBeNull()
+      expect(logger.info).toHaveBeenCalledWith(
+        '[cache] miss endpoint=kms:concepts format=json key=kms:concepts:published:test'
+      )
+    })
+
+    test('logs key-only read context when cache key is empty', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        get: vi.fn().mockResolvedValue(null)
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const result = await store.getCachedJsonResponse({
+        cacheKey: '',
         entityLabel: 'response'
       })
 
-      expect(redisClient.get).toHaveBeenCalledWith('k')
       expect(result).toBeNull()
+      expect(logger.info).toHaveBeenCalledWith(
+        '[cache] miss key='
+      )
+    })
+
+    test('logs format and key when cache key is empty but format is provided', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        get: vi.fn().mockResolvedValue(null)
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const result = await store.getCachedJsonResponse({
+        cacheKey: '',
+        format: 'json'
+      })
+
+      expect(result).toBeNull()
+      expect(logger.info).toHaveBeenCalledWith(
+        '[cache] miss format=json key='
+      )
     })
 
     test('returns parsed payload when json is valid', async () => {
@@ -82,15 +167,46 @@ describe('when using redis cache store', () => {
         get: vi.fn().mockResolvedValue('{"statusCode":200}')
       }
       const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
       createClient.mockReturnValue(redisClient)
       const store = await loadStore()
 
       const result = await store.getCachedJsonResponse({
-        cacheKey: 'k',
-        entityLabel: 'response'
+        cacheKey: 'kms:concepts:published:test',
+        entityLabel: 'response',
+        format: 'json'
       })
 
       expect(result).toEqual({ statusCode: 200 })
+      expect(logger.info).toHaveBeenCalledWith(
+        '[cache] hit endpoint=kms:concepts format=json key=kms:concepts:published:test'
+      )
+    })
+
+    test('uses the first two cache-key segments for tree cache logs', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        get: vi.fn().mockResolvedValue(null)
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const result = await store.getCachedJsonResponse({
+        cacheKey: 'kms:tree:published:instruments:',
+        entityLabel: 'tree response'
+      })
+
+      expect(result).toBeNull()
+      expect(logger.info).toHaveBeenCalledWith(
+        '[cache] miss endpoint=kms:tree key=kms:tree:published:instruments:'
+      )
     })
 
     test('returns null and logs error when json is invalid', async () => {
@@ -119,6 +235,35 @@ describe('when using redis cache store', () => {
   })
 
   describe('when writing cached json responses', () => {
+    test('returns and bypasses redis writes when the cache key is for draft', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        set: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      await expect(store.setCachedJsonResponse({
+        cacheKey: 'kms:concept:draft:test',
+        response: {
+          statusCode: 200
+        }
+      })).resolves.toBeUndefined()
+
+      expect(createClient).not.toHaveBeenCalled()
+      expect(redisClient.set).not.toHaveBeenCalled()
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[cache] skip-write version=draft endpoint=kms:concept key=kms:concept:draft:test'
+      )
+    })
+
     test('returns when redis client is unavailable', async () => {
       process.env.REDIS_ENABLED = 'false'
       const store = await loadStore()
@@ -142,21 +287,77 @@ describe('when using redis cache store', () => {
         set: vi.fn().mockResolvedValue('OK')
       }
       const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
       createClient.mockReturnValue(redisClient)
       const store = await loadStore()
 
       await store.setCachedJsonResponse({
-        cacheKey: 'k',
+        cacheKey: 'kms:concepts:published:test',
         response: {
           statusCode: 200,
           body: 'x'
-        }
+        },
+        format: 'json'
       })
 
-      expect(redisClient.set).toHaveBeenCalledWith('k', JSON.stringify({
+      expect(redisClient.set).toHaveBeenCalledWith('kms:concepts:published:test', JSON.stringify({
         statusCode: 200,
         body: 'x'
       }))
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[cache] write endpoint=kms:concepts format=json key=kms:concepts:published:test'
+      )
+    })
+
+    test('uses the first two cache-key segments for write logs', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      await store.setCachedJsonResponse({
+        cacheKey: 'custom:key',
+        response: {
+          statusCode: 200
+        }
+      })
+
+      expect(logger.debug).toHaveBeenCalledWith('[cache] write endpoint=custom:key key=custom:key')
+    })
+
+    test('logs key-only write context when cache key is empty', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        set: vi.fn().mockResolvedValue('OK')
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      await store.setCachedJsonResponse({
+        cacheKey: '',
+        response: {
+          statusCode: 200
+        }
+      })
+
+      expect(logger.debug).toHaveBeenCalledWith('[cache] write key=')
     })
   })
 

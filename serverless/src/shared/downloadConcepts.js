@@ -59,7 +59,9 @@ export const downloadConcepts = async ({ conceptScheme, format = 'csv', version 
     if (result.statusCode !== 200) {
       const errorBody = JSON.parse(result.body)
       const detail = errorBody.error ? ` - ${errorBody.error}` : ''
-      const error = new Error(`Failed to download ${format.toUpperCase()}. Status: ${result.statusCode}${detail}`)
+      const error = new Error(
+        `Failed to download ${format.toUpperCase()}. Status: ${result.statusCode}${detail}`
+      )
       error.statusCode = result.statusCode
       throw error
     }

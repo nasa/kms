@@ -27,6 +27,7 @@ interface LambdaFunctionsProps {
   environment: {
     CMR_BASE_URL: string;
     EDL_PASSWORD: string;
+    BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE?: string;
     REDIS_ENABLED?: string;
     REDIS_HOST?: string;
     REDIS_PORT?: string;
@@ -133,7 +134,6 @@ export class LambdaFunctions {
     this.createTreeOperationApiLambdas(scope)
     this.createNightlyCachePrimeCron(scope)
     this.createCrudOperationApiLambdas(scope)
-    this.createKeywordEventTestPublishApiLambda(scope)
     this.createPublishEventBridgeWiring(scope)
     this.createExportRdfCrons(scope)
   }
@@ -396,24 +396,6 @@ export class LambdaFunctions {
       'updateConceptScheme',
       '/concept_scheme',
       'PUT',
-      true
-    )
-  }
-
-  /**
-   * Creates the keyword events test publish endpoint.
-   * Queue-based event consumption lives in CmrEventProcessingStack.
-   * @param {Construct} scope - The scope in which to define these constructs
-   * @private
-   */
-  private createKeywordEventTestPublishApiLambda(scope: Construct) {
-    this.createApiLambda(
-      scope,
-      'keywordEventsTestPublish/handler.js',
-      'keyword-events-test-publish',
-      'keywordEventsTestPublish',
-      '/keyword-events/test',
-      'POST',
       true
     )
   }

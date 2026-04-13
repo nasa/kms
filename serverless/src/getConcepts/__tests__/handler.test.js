@@ -150,6 +150,36 @@ describe('getConcepts', () => {
       const result = await getConcepts(event)
       expect(result.statusCode).toBe(200)
     })
+
+    test('passes a draft cache key to the redis cache read helper for draft requests', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        path: '/concepts',
+        queryStringParameters: {
+          version: 'draft',
+          format: 'json'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concepts:draft:')
+        })
+      )
+    })
   })
 
   describe('when redis cache misses for /concepts/concept_scheme/{conceptScheme}', () => {
@@ -246,6 +276,42 @@ describe('getConcepts', () => {
         expect.objectContaining({
           cacheKey: expect.stringContaining('/concepts/concept_scheme/{conceptscheme}/pattern/{pattern}:/concepts/concept_scheme/sciencekeywords/pattern/water:sciencekeywords:water:1:2000:rdf'),
           response: expect.objectContaining({ statusCode: 200 })
+        })
+      )
+    })
+
+    test('passes a draft cache key to the cache helpers for successful draft csv responses', async () => {
+      getConceptSchemeDetails.mockResolvedValue({})
+      createCsvForScheme.mockResolvedValue({
+        statusCode: 200,
+        body: 'uuid,prefLabel\n123,Draft Keyword',
+        headers: {
+          'Content-Type': 'text/csv'
+        }
+      })
+
+      const event = {
+        resource: '/concepts/concept_scheme/{conceptScheme}',
+        path: '/concepts/concept_scheme/sciencekeywords',
+        pathParameters: { conceptScheme: 'sciencekeywords' },
+        queryStringParameters: {
+          version: 'draft',
+          format: 'csv'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concepts:draft:')
+        })
+      )
+
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:concepts:draft:')
         })
       )
     })

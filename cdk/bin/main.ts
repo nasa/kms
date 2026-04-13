@@ -160,6 +160,7 @@ async function main() {
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
+      BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE: process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE,
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
       REDIS_ENABLED: redisEnabledValue,
       REDIS_HOST: useLocalstack ? localRedisHost : redisStack?.endpointAddress,

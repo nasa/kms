@@ -41,10 +41,12 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(logger.info).toHaveBeenCalledWith(
-          'Received keyword event for CMR listener',
+          '[consumer] Received keyword event for CMR listener',
           expect.objectContaining({
+            messageId: 'message-123',
             keywordEvent: expect.objectContaining({
-              event_type: 'keyword_updated'
+              event_type: 'keyword_updated',
+              uuid: '1234'
             })
           })
         )
@@ -69,8 +71,9 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(logger.info).toHaveBeenCalledWith(
-          'Received keyword event for CMR listener',
+          '[consumer] Received keyword event for CMR listener',
           expect.objectContaining({
+            messageId: 'message-456',
             keywordEvent: null
           })
         )
@@ -92,8 +95,9 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(logger.info).toHaveBeenCalledWith(
-          'Received keyword event for CMR listener',
+          '[consumer] Received keyword event for CMR listener',
           expect.objectContaining({
+            messageId: 'message-789',
             keywordEvent: null
           })
         )

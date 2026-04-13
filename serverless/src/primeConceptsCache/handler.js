@@ -19,6 +19,11 @@ const PRIME_VERSION = 'published'
 const PAGE_SIZE = 2000
 const FORMATS = ['rdf', 'json', 'csv']
 const FALLBACK_MAX_PAGES = 25
+
+const buildVersionMarker = ({
+  versionName,
+  publishDate
+}) => [versionName, publishDate].filter(Boolean).join('|')
 /**
  * Parses an environment-backed numeric value as a positive integer.
  *
@@ -164,10 +169,13 @@ export const primeConceptsCache = async (event) => {
     }
   }
 
-  // Get version information from event or metadata
-  let versionMarker
+  // Get version information from event or metadata.
+  let versionMarkerSource
   if (isEventBridgeInvocation) {
-    versionMarker = eventDetail.versionName
+    versionMarkerSource = {
+      versionName: eventDetail.versionName,
+      publishDate: eventDetail.publishDate
+    }
   } else {
     const versionMetadata = await getVersionMetadata(PRIME_VERSION)
     if (!versionMetadata) {
@@ -181,8 +189,13 @@ export const primeConceptsCache = async (event) => {
       }
     }
 
-    versionMarker = versionMetadata.versionName
+    versionMarkerSource = {
+      versionName: versionMetadata.versionName,
+      publishDate: versionMetadata.created
+    }
   }
+
+  const versionMarker = buildVersionMarker(versionMarkerSource)
 
   const currentVersionMarker = await redisClient.get(CONCEPTS_CACHE_VERSION_KEY)
   logger.info(`[cache-prime] version-marker current=${currentVersionMarker || 'none'} target=${versionMarker}`)

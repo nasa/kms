@@ -25,6 +25,7 @@ export interface KmsStackProps extends cdk.StackProps {
   environment: {
     CMR_BASE_URL: string
     EDL_PASSWORD: string
+    BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE?: string
     LOG_LEVEL: string
     REDIS_ENABLED?: string
     REDIS_HOST?: string

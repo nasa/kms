@@ -107,23 +107,16 @@ export const getConcept = async (event, context) => {
       scheme: decodedScheme
     })
 
-    // Skip caching for draft versions
-    if (version !== 'draft') {
-      try {
-        const cachedResponse = await getCachedJsonResponse({
-          cacheKey: conceptCacheKey,
-          entityLabel: 'concept response'
-        })
-        if (cachedResponse) {
-          logger.info(`[cache] hit endpoint=getConcept key=${conceptCacheKey}`)
-
-          return cachedResponse
-        }
-
-        logger.info(`[cache] miss endpoint=getConcept key=${conceptCacheKey}`)
-      } catch (cacheReadError) {
-        logger.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
+    try {
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey: conceptCacheKey,
+        entityLabel: 'concept response'
+      })
+      if (cachedResponse) {
+        return cachedResponse
       }
+    } catch (cacheReadError) {
+      logger.error(`Redis concept cache read error key=${conceptCacheKey}, error=${cacheReadError}`)
     }
 
     // Check existence of version only after cache miss.
@@ -245,17 +238,13 @@ export const getConcept = async (event, context) => {
       }
     }
 
-    // Skip caching for draft versions
-    if (version !== 'draft') {
-      try {
-        logger.debug(`[cache] write endpoint=getConcept key=${conceptCacheKey}`)
-        await setCachedJsonResponse({
-          cacheKey: conceptCacheKey,
-          response
-        })
-      } catch (cacheWriteError) {
-        logger.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
-      }
+    try {
+      await setCachedJsonResponse({
+        cacheKey: conceptCacheKey,
+        response
+      })
+    } catch (cacheWriteError) {
+      logger.error(`Redis concept cache write error key=${conceptCacheKey}, error=${cacheWriteError}`)
     }
 
     return response
