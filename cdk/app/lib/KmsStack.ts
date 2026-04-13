@@ -82,7 +82,14 @@ export class KmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: KmsStackProps) {
     super(scope, id, props)
     const {
-      environment, existingApiId, logDestinationAccount, prefix, rootResourceId, secLogAccount, stage, vpcId
+      environment,
+      existingApiId,
+      logDestinationAccount,
+      prefix,
+      rootResourceId,
+      secLogAccount,
+      stage,
+      vpcId
     } = props
     this.stage = stage
 
