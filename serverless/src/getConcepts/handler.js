@@ -166,20 +166,11 @@ export const getConcepts = async (event, context) => {
     try {
       const cachedResponse = await getCachedJsonResponse({
         cacheKey,
-        entityLabel: 'response'
+        entityLabel: 'response',
+        format
       })
       if (cachedResponse) {
-        logger.info(`[cache] hit endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
-        if (format.toLowerCase() === 'csv') {
-          logger.info(`[cache] csv hit endpoint=getConcepts key=${cacheKey}`)
-        }
-
         return cachedResponse
-      }
-
-      logger.info(`[cache] miss endpoint=getConcepts format=${format.toLowerCase()} key=${cacheKey}`)
-      if (format.toLowerCase() === 'csv') {
-        logger.info(`[cache] csv miss endpoint=getConcepts key=${cacheKey}`)
       }
     } catch (cacheReadError) {
       logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
@@ -242,10 +233,10 @@ export const getConcepts = async (event, context) => {
 
       if (csvResponse.statusCode === 200) {
         try {
-          logger.debug(`[cache] csv write endpoint=getConcepts key=${cacheKey}`)
           await setCachedJsonResponse({
             cacheKey,
-            response: csvResponse
+            response: csvResponse,
+            format
           })
         } catch (cacheWriteError) {
           logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)
@@ -460,10 +451,10 @@ export const getConcepts = async (event, context) => {
     }
 
     try {
-      logger.debug(`[cache] write endpoint=getConcepts key=${cacheKey}`)
       await setCachedJsonResponse({
         cacheKey,
-        response
+        response,
+        format
       })
     } catch (cacheWriteError) {
       logger.error(`Redis cache write error key=${cacheKey}, error=${cacheWriteError}`)

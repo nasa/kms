@@ -8,6 +8,7 @@ let hasLoggedRedisConfig = false
 const { REDIS_ENABLED } = process.env
 const { REDIS_HOST } = process.env
 const REDIS_PORT = Number(process.env.REDIS_PORT || 6379)
+const REDIS_FAIL_FAST = process.env.REDIS_FAIL_FAST === 'true'
 
 export const isRedisConfigured = () => (
   REDIS_ENABLED === 'true' && Boolean(REDIS_HOST) && Number.isInteger(REDIS_PORT)
@@ -30,11 +31,18 @@ export const getRedisClient = async () => {
         logger.info(`Redis configured: host=${REDIS_HOST}, port=${REDIS_PORT}`)
       }
 
+      const socket = {
+        host: REDIS_HOST,
+        port: REDIS_PORT
+      }
+
+      if (REDIS_FAIL_FAST) {
+        socket.connectTimeout = 5000
+        socket.reconnectStrategy = () => false
+      }
+
       const client = createClient({
-        socket: {
-          host: REDIS_HOST,
-          port: REDIS_PORT
-        }
+        socket
       })
 
       client.on('error', (error) => {
@@ -61,26 +69,78 @@ export const resetRedisClientStateForTests = () => {
   hasLoggedRedisConfig = false
 }
 
+const parseCacheKey = (cacheKey) => {
+  const [namespace, cacheType, version] = cacheKey.split(':', 4)
+
+  return {
+    namespace,
+    cacheType,
+    version
+  }
+}
+
+const buildCacheLogContext = ({
+  cacheKey,
+  endpoint,
+  format
+}) => {
+  const context = [`key=${cacheKey}`]
+
+  if (format) {
+    context.unshift(`format=${String(format).toLowerCase()}`)
+  }
+
+  if (endpoint) {
+    context.unshift(`endpoint=${endpoint}`)
+  }
+
+  return context.join(' ')
+}
+
 /**
  * Reads and parses a cached JSON response by key.
  *
  * @param {Object} params - Read parameters.
  * @param {string} params.cacheKey - Redis key.
  * @param {string} params.entityLabel - Human-readable cache label for logs.
+ * @param {string} [params.format] - Response format for cache logs.
  * @returns {Promise<Object|null>} Parsed response or null when unavailable/invalid.
  */
 export const getCachedJsonResponse = async ({
   cacheKey,
-  entityLabel
+  entityLabel,
+  format
 }) => {
+  const { namespace, cacheType, version } = parseCacheKey(cacheKey)
+  const endpoint = namespace && cacheType ? `${namespace}:${cacheType}` : null
+  const logContext = buildCacheLogContext({
+    cacheKey,
+    endpoint,
+    format
+  })
+
+  if (version === 'draft') {
+    logger.debug(`[cache] skip-read version=draft ${logContext}`)
+
+    return null
+  }
+
   const redisClient = await getRedisClient()
   if (!redisClient) return null
 
   const cachedString = await redisClient.get(cacheKey)
-  if (!cachedString) return null
+  if (!cachedString) {
+    logger.info(`[cache] miss ${logContext}`)
+
+    return null
+  }
 
   try {
-    return JSON.parse(cachedString)
+    const parsedResponse = JSON.parse(cachedString)
+
+    logger.info(`[cache] hit ${logContext}`)
+
+    return parsedResponse
   } catch (error) {
     logger.error(`Failed parsing cached ${entityLabel} key=${cacheKey}, error=${error}`)
 
@@ -94,16 +154,33 @@ export const getCachedJsonResponse = async ({
  * @param {Object} params - Write parameters.
  * @param {string} params.cacheKey - Redis key.
  * @param {Object} params.response - Lambda response payload.
+ * @param {string} [params.format] - Response format for cache logs.
  * @returns {Promise<void>}
  */
 export const setCachedJsonResponse = async ({
   cacheKey,
-  response
+  response,
+  format
 }) => {
+  const { namespace, cacheType, version } = parseCacheKey(cacheKey)
+  const endpoint = namespace && cacheType ? `${namespace}:${cacheType}` : null
+  const logContext = buildCacheLogContext({
+    cacheKey,
+    endpoint,
+    format
+  })
+
+  if (version === 'draft') {
+    logger.debug(`[cache] skip-write version=draft ${logContext}`)
+
+    return
+  }
+
   const redisClient = await getRedisClient()
   if (!redisClient) return
 
   await redisClient.set(cacheKey, JSON.stringify(response))
+  logger.debug(`[cache] write ${logContext}`)
 }
 
 /**

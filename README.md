@@ -27,15 +27,20 @@ Prerequisites:
 - Docker
 - aws-sam-cli (`brew install aws-sam-cli`)
 
-To start local server (including rdf4j database server, cdk synth and sam)
-First, make sure to start LocalStack:
+To start local server, first make sure to start LocalStack:
 ```
 npm run localstack:start
 ```
 
-Then, you can start the local server:
-```
+By default, `start-local` enables Redis with the local container settings from `bin/env/local_env.sh`, so the normal local startup path is:
+```bash
+npm run redis:start
 npm run start-local
+```
+
+If you do not need Redis for your local test, start local with Redis disabled:
+```bash
+REDIS_ENABLED=false npm run start-local
 ```
 
 To run local server with SAM watch mode enabled
@@ -51,35 +56,11 @@ Local development intentionally splits responsibilities between SAM and LocalSta
 - LocalStack emulates AWS-managed services that SAM does not model end-to-end for this repo, especially SNS and SQS.
 - RDF4J and Redis remain separate local services because they are not AWS services.
 
-We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts [`scripts/local/run_localstack_cmr_keyword_events_bridge.js`], which polls the LocalStack SQS queue and forwards messages into the local CMR consumer handler. This bridge exists because `sam local start-api` does not emulate SQS event source mappings the way AWS does in deployed environments.
+We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts `scripts/localstack/run_bridge.sh`, which runs `scripts/localstack/bridge.js`.
 
-### Testing keyword event publishing in SIT
+This bridge exists because `sam local start-api` does not emulate EventBridge targets or SQS event source mappings the way AWS does in deployed environments.
 
-After deploying to SIT, you can exercise the keyword event publisher with:
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" -X POST https://cmr.sit.earthdata.nasa.gov/kms/keyword-events/test \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "EventType": "UPDATED",
-    "Scheme": "sciencekeywords",
-    "UUID": "4f81c61c-f100-4bc4-9664-d9b70d2f162f",
-    "OldKeywordPath": "Instruments > Solar/Space Observing Instruments > Passive Remote Sensing",
-    "NewKeywordPath": "Instruments > Earth Remote Sensing Instruments > Passive Remote Sensing",
-    "Timestamp": "2026-03-19T10:41:57.720Z",
-    "MetadataSpecification": {
-      "Name": "Kms-Keyword-Event",
-      "URL": "https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0",
-      "Version": "1.0"
-    }
-  }'
-```
-
-Expected result:
-- the API returns `200`
-- the response includes the SNS topic ARN and message id
-- the CMR event processor is invoked from the subscribed queue in AWS
-- `EventType` must be one of `INSERTED`, `UPDATED`, or `DELETED`
+For bridge implementation details and extension guidance, see `scripts/localstack/README.md`
 
 ### Optional: Enable Redis cache in local SAM/LocalStack
 

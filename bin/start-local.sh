@@ -5,18 +5,26 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=bin/env/local_env.sh
 source "${SCRIPT_DIR}/env/local_env.sh"
 
-LOCAL_CONSUMER_PID=""
+LOCAL_BRIDGE_PID=""
 
 # Function to clean up processes and containers
 cleanup() {
     echo "Cleaning up..."
 
-    if [ -n "${LOCAL_CONSUMER_PID}" ] && kill -0 "${LOCAL_CONSUMER_PID}" >/dev/null 2>&1; then
-      kill "${LOCAL_CONSUMER_PID}" >/dev/null 2>&1 || true
-      wait "${LOCAL_CONSUMER_PID}" 2>/dev/null || true
+    if [ -n "${LOCAL_BRIDGE_PID}" ] && kill -0 "${LOCAL_BRIDGE_PID}" >/dev/null 2>&1; then
+      kill "${LOCAL_BRIDGE_PID}" >/dev/null 2>&1 || true
+      wait "${LOCAL_BRIDGE_PID}" 2>/dev/null || true
     fi
 
     exit 0
+}
+
+clearStaleSAMContainers() {
+    echo "Clearing stale SAM containers..."
+
+    docker ps --format '{{.ID}} {{.Image}}' \
+      | awk '$2 ~ /public\.ecr\.aws\/lambda\/nodejs:22-rapid-/ { print $1 }' \
+      | xargs -r docker rm -f >/dev/null 2>&1 || true
 }
 
 # Set up trap to call cleanup function on Ctrl+C
@@ -27,8 +35,10 @@ if [ "$SAM_LOCAL_WATCH" = "true" ]; then
   SAM_WATCH_ARGS+=(--beta-features --watch)
 fi
 
-vite-node --config "${PROJECT_ROOT}/vite.config.js" "${PROJECT_ROOT}/scripts/local/run_localstack_cmr_keyword_events_bridge.js" &
-LOCAL_CONSUMER_PID=$!
+clearStaleSAMContainers
+
+"${PROJECT_ROOT}/scripts/localstack/run_bridge.sh" &
+LOCAL_BRIDGE_PID=$!
 
 # Synthesize the CDK stack
 cd cdk

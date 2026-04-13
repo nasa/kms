@@ -157,8 +157,6 @@ export const getKeywordsTree = async (event, context) => {
         entityLabel: 'tree response'
       })
       if (cachedResponse) {
-        logger.info(`[cache] hit endpoint=getKeywordsTree key=${treeCacheKey}`)
-
         return {
           ...cachedResponse,
           headers: {
@@ -167,8 +165,6 @@ export const getKeywordsTree = async (event, context) => {
           }
         }
       }
-
-      logger.info(`[cache] miss endpoint=getKeywordsTree key=${treeCacheKey}`)
     }
 
     let keywordTree = []
@@ -349,8 +345,6 @@ export const getKeywordsTree = async (event, context) => {
         cacheKey: treeCacheKey,
         response
       })
-
-      logger.debug(`[cache] write endpoint=getKeywordsTree key=${treeCacheKey}`)
     }
 
     return response

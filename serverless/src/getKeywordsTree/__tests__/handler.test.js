@@ -15,7 +15,7 @@ import { getRootConceptForScheme } from '@/shared/getRootConceptForScheme'
 import { getRootConceptsForAllSchemes } from '@/shared/getRootConceptsForAllSchemes'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
-import { getCachedJsonResponse } from '@/shared/redisCacheStore'
+import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { sortKeywordNodes } from '@/shared/sortKeywordNodes'
 import { sortKeywordSchemes } from '@/shared/sortKeywordSchemes'
 import { toTitleCase } from '@/shared/toTitleCase'
@@ -144,6 +144,12 @@ describe('getKeywordsTree', () => {
       })
 
       expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:tree:published:')
+        })
+      )
+
       expect(getNarrowersMap).not.toHaveBeenCalled()
       expect(getRootConceptForScheme).not.toHaveBeenCalled()
       expect(result.headers['X-Custom-Header']).toBe('value')
@@ -165,6 +171,12 @@ describe('getKeywordsTree', () => {
       })
 
       expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:tree:published:')
+        })
+      )
+
       expect(result.headers['X-Custom-Header']).toBe('value')
     })
 
@@ -535,6 +547,11 @@ describe('getKeywordsTree', () => {
       expect(parsedBody.versions[0].schemes).toHaveLength(1)
       expect(parsedBody.versions[0].schemes[0].scheme).toBe('instruments')
       expect(parsedBody.versions[0].schemes[0].longName).toBe('Instruments')
+      expect(setCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cacheKey: expect.stringContaining('kms:tree:published:')
+        })
+      )
 
       // Verify that getNarrowersMap was called with 'instruments'
       expect(getNarrowersMap).toHaveBeenCalledWith('instruments', 'published')

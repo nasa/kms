@@ -2,9 +2,16 @@
 
 # Shared defaults for local SAM/CDK workflows.
 export RDF4J_SERVICE_URL="${RDF4J_SERVICE_URL:-http://rdf4j-server:8080}"
+export RDF4J_HOST_SERVICE_URL="${RDF4J_HOST_SERVICE_URL:-http://localhost:8081}"
+export RDF4J_USER_NAME="${RDF4J_USER_NAME:-rdf4j}"
+export RDF4J_PASSWORD="${RDF4J_PASSWORD:-rdf4j}"
+export RDF4J_CONTAINER_MEMORY_LIMIT="${RDF4J_CONTAINER_MEMORY_LIMIT:-2048}"
 export REDIS_ENABLED="${REDIS_ENABLED:-true}"
 export REDIS_HOST="${REDIS_HOST:-kms-redis-local}"
 export REDIS_PORT="${REDIS_PORT:-6379}"
+export REDIS_FAIL_FAST="${REDIS_FAIL_FAST:-true}"
+export REDIS_HOST_SERVICE_HOST="${REDIS_HOST_SERVICE_HOST:-localhost}"
+export REDIS_HOST_PORT="${REDIS_HOST_PORT:-6380}"
 export KMS_DOCKER_NETWORK="${KMS_DOCKER_NETWORK:-kms-network}"
 export LOCALSTACK_CONTAINER_NAME="${LOCALSTACK_CONTAINER_NAME:-kms-localstack}"
 export LOCALSTACK_IMAGE="${LOCALSTACK_IMAGE:-localstack/localstack:3.8.1}"

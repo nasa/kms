@@ -20,7 +20,7 @@ export const cmrKeywordEventsListener = async (event) => {
         ? JSON.parse(snsEnvelope.Message)
         : null
 
-      logger.info('Received keyword event for CMR listener', {
+      logger.info('[consumer] Received keyword event for CMR listener', {
         messageId: record.messageId,
         keywordEvent
       })
