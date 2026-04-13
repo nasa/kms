@@ -70,6 +70,14 @@ async function main() {
     throw new Error('VPC_ID environment variable is not set')
   }
 
+  // Validate required logging parameters for non-localstack deployments
+  if (!useLocalstack && !secLogAccount) {
+    throw new Error(
+      'SEC_LOG_ACCOUNT environment variable is required for log forwarding. '
+      + 'Please set bamboo_SEC_LOG_ACCOUNT in your Bamboo deployment configuration.'
+    )
+  }
+
   let iamStack: IamStack | undefined
   let lbStack: LoadBalancerStack | undefined
   let ebsStack: EbsStack | undefined

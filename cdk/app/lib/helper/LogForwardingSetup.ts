@@ -28,8 +28,7 @@ interface LogForwardingSetupProps {
  * Sets up CloudWatch Log Groups and Subscription Filters to forward logs to NGAP SecLog account.
  *
  * This class configures log forwarding to Splunk via NGAP's centralized logging infrastructure.
- * Logs are forwarded to a Kinesis stream in the SecLog account (353585529927) which then
- * forwards them to Splunk.
+ * Logs are forwarded to a Kinesis stream in the SecLog account which then forwards them to Splunk.
  *
  * @see https://wiki.earthdata.nasa.gov/pages/viewpage.action?pageId=147423378
  */
@@ -51,9 +50,17 @@ export class LogForwardingSetup {
    */
   constructor(scope: Construct, id: string, props: LogForwardingSetupProps) {
     this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_WEEK
+
+    if (!props.secLogAccount) {
+      throw new Error(
+        'secLogAccount is required for log forwarding. '
+        + 'Please set the SEC_LOG_ACCOUNT environment variable in your Bamboo deployment.'
+      )
+    }
+
     this.secLogAccount = props.secLogAccount
 
-    // Set destination ARN using the account ID from Bamboo deployment parameter
+    // Set destination ARN using the account IDs from Bamboo deployment parameters
     // The destination is in the SecLog account but accepts logs from our account
     this.destinationName = `arn:aws:logs:${props.region}:${this.secLogAccount}:destination:/gsfc-ngap-managed/application_logs_destination/${props.account}`
 

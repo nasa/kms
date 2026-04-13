@@ -173,7 +173,7 @@ export class KmsStack extends cdk.Stack {
         stage,
         account: logDestinationAccount || this.account,
         region: this.region,
-        secLogAccount: secLogAccount || '353585529927',
+        secLogAccount: secLogAccount!,
         lambdas
       })
     }
