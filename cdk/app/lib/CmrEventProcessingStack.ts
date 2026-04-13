@@ -19,6 +19,7 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   prefix: string
   stage: string
   topicArn: string
+  logDestinationAccount?: string
 }
 
 /**
@@ -57,7 +58,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
     })
 
     const listenerLambda = new NodejsFunction(this, `${props.prefix}-cmr-keyword-events-processor`, {
-      functionName: `${props.prefix}-cmr-keyword-events-processor`,
+      functionName: `${props.prefix}-${props.stage}-cmr-keyword-events-processor`,
       entry: path.join(__dirname, '../../../serverless/src/cmrKeywordEventsListener/handler.js'),
       handler: 'cmrKeywordEventsListener',
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -80,7 +81,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
     new LogForwardingSetup(this, 'LogForwarding', {
       prefix: props.prefix,
       stage: props.stage,
-      account: this.account,
+      account: props.logDestinationAccount || this.account,
       region: this.region,
       lambdas: {
         'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda

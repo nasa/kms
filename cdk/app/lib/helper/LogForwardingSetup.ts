@@ -12,7 +12,7 @@ interface LogForwardingSetupProps {
   prefix: string
   /** Deployment stage (sit, uat, prod) */
   stage: string
-  /** AWS Account ID */
+  /** AWS Account ID for log destination */
   account: string
   /** AWS Region */
   region: string
@@ -50,57 +50,11 @@ export class LogForwardingSetup {
   constructor(scope: Construct, id: string, props: LogForwardingSetupProps) {
     this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_WEEK
 
-    // Determine destination name based on account ID and stage
-    this.destinationName = this.getDestinationName(props.account, props.stage)
+    // Set destination name using the account ID from Bamboo deployment parameter
+    this.destinationName = `/gsfc-ngap-managed/application_logs_destination/${props.account}`
 
     // Set up log groups and subscription filters for each Lambda function
     this.setupLogForwarding(scope, props)
-  }
-
-  /**
-   * Gets the appropriate destination name based on the AWS account and stage.
-   *
-   * CMR account mappings:
-   * - SIT: 832706493240
-   * - UAT: 642155266859
-   * - PROD: 621933553860
-   *
-   * @param {string} account - AWS Account ID
-   * @param {string} stage - Deployment stage
-   * @returns {string} The destination name for log forwarding
-   * @private
-   */
-  private getDestinationName(account: string, stage: string): string {
-    // Map of known CMR account IDs to their destination names
-    const accountDestinations: { [key: string]: string } = {
-      832706493240: '/gsfc-ngap-managed/application_logs_destination/832706493240', // SIT
-      642155266859: '/gsfc-ngap-managed/application_logs_destination/642155266859', // UAT
-      621933553860: '/gsfc-ngap-managed/application_logs_destination/621933553860' // PROD
-    }
-
-    // Try to find by account ID first
-    if (accountDestinations[account]) {
-      return accountDestinations[account]
-    }
-
-    // Fallback: try to determine by stage name
-    const stageDestinations: { [key: string]: string } = {
-      sit: accountDestinations['832706493240'],
-      uat: accountDestinations['642155266859'],
-      prod: accountDestinations['621933553860'],
-      production: accountDestinations['621933553860']
-    }
-
-    const normalizedStage = stage.toLowerCase()
-    if (stageDestinations[normalizedStage]) {
-      return stageDestinations[normalizedStage]
-    }
-
-    // If we can't determine the environment, throw an error
-    throw new Error(
-      `Unable to determine log destination for account ${account} and stage ${stage}. `
-      + 'Please ensure you are deploying to a valid CMR environment (SIT/UAT/PROD).'
-    )
   }
 
   /**
@@ -137,6 +91,8 @@ export class LogForwardingSetup {
       const sanitizedKey = key.replace(/[^a-zA-Z0-9]/g, '-')
 
       // Create explicit log group with retention
+      // Log group naming: /aws/lambda/{prefix}-{stage}-{functionName}
+      // This enables easy Splunk searches: source="/aws/lambda/kms-sit-*"
       const logGroup = new logs.LogGroup(scope, `${sanitizedKey}-LogGroup`, {
         logGroupName: `/aws/lambda/${lambdaFunction.functionName}`,
         retention: this.logRetentionDays,

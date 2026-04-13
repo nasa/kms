@@ -617,7 +617,7 @@ export class LambdaFunctions {
     let lambdaFunction = this.lambdas[lambdaKey]
     if (!lambdaFunction) {
       const nodejsFunctionProps: NodejsFunctionProps = {
-        functionName: `${this.props.prefix}-${functionName}`,
+        functionName: `${this.props.prefix}-${this.props.stage}-${functionName}`,
         entry: path.join(__dirname, '../../../../serverless/src', handlerPath),
         handler: handlerName,
         runtime: lambda.Runtime.NODEJS_22_X,

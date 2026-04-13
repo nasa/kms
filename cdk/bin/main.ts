@@ -43,6 +43,7 @@ async function main() {
   const stage = process.env.STAGE_NAME || 'dev'
   const existingApiId = process.env.EXISTING_API_ID
   const rootResourceId = process.env.ROOT_RESOURCE_ID
+  const logDestinationAccount = process.env.LOG_DESTINATION_ACCOUNT
 
   const app = new cdk.App({
     context: {
@@ -151,6 +152,7 @@ async function main() {
     stage,
     existingApiId,
     rootResourceId,
+    logDestinationAccount,
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
         ? 'http://rdf4j-server:8080'
@@ -187,7 +189,8 @@ async function main() {
     prefix,
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
-    topicArn: kmsStack.keywordEventsTopic.topicArn
+    topicArn: kmsStack.keywordEventsTopic.topicArn,
+    logDestinationAccount
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)

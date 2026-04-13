@@ -22,6 +22,7 @@ export interface KmsStackProps extends cdk.StackProps {
   rootResourceId: string | undefined
   stage: string
   vpcId: string
+  logDestinationAccount?: string
   environment: {
     CMR_BASE_URL: string
     EDL_PASSWORD: string
@@ -80,7 +81,7 @@ export class KmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: KmsStackProps) {
     super(scope, id, props)
     const {
-      environment, existingApiId, prefix, rootResourceId, stage, vpcId
+      environment, existingApiId, logDestinationAccount, prefix, rootResourceId, stage, vpcId
     } = props
     this.stage = stage
 
@@ -169,7 +170,7 @@ export class KmsStack extends cdk.Stack {
       new LogForwardingSetup(this, 'LogForwarding', {
         prefix,
         stage,
-        account: this.account,
+        account: logDestinationAccount || this.account,
         region: this.region,
         lambdas
       })
