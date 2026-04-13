@@ -62,29 +62,18 @@ export class LogForwardingSetup {
    *
    * For each Lambda function:
    * 1. Creates an explicit CloudWatch Log Group with retention policy
-   * 2. Creates a Subscription Filter to forward logs to NGAP SecLog Kinesis stream
-   * 3. Grants necessary permissions for log forwarding
+   * 2. Creates a Subscription Filter to forward logs to NGAP SecLog destination
+   *
+   * Note: We use the pre-configured destination ARN in the SecLog account,
+   * not a role from our account. The destination already has the necessary
+   * permissions to receive logs from our account.
    *
    * @param {Construct} scope - The scope in which to define constructs
    * @param {LogForwardingSetupProps} props - Configuration properties
    * @private
    */
   private setupLogForwarding(scope: Construct, props: LogForwardingSetupProps) {
-    const { lambdas, prefix } = props
-
-    // Create a role for CloudWatch Logs to assume when putting records to Kinesis
-    const logsRole = new iam.Role(scope, `${prefix}-CloudWatchLogsRole`, {
-      assumedBy: new iam.ServicePrincipal(`logs.${props.region}.amazonaws.com`),
-      description: 'Role for CloudWatch Logs to send logs to NGAP SecLog Kinesis stream'
-    })
-
-    // Grant permission to put records to the Kinesis stream in the SecLog account
-    logsRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['kinesis:PutRecord', 'kinesis:PutRecords'],
-        resources: [this.targetArn]
-      })
-    )
+    const { lambdas } = props
 
     // Set up log forwarding for each Lambda function
     Object.entries(lambdas).forEach(([key, lambdaFunction]) => {
@@ -99,16 +88,17 @@ export class LogForwardingSetup {
         removalPolicy: cdk.RemovalPolicy.DESTROY
       })
 
-      // Create subscription filter to forward logs directly to Kinesis stream
-      // No need for a CfnDestination - we can subscribe directly to the cross-account Kinesis stream
+      // Create subscription filter to forward logs to NGAP SecLog destination
+      // The destination ARN is pre-configured in the SecLog account and has
+      // the necessary permissions to accept logs from our account
       const subscriptionFilter = new logs.CfnSubscriptionFilter(
         scope,
         `${sanitizedKey}-SplunkSubscription`,
         {
           logGroupName: logGroup.logGroupName,
           filterPattern: '', // Empty pattern forwards all logs
-          destinationArn: this.targetArn,
-          roleArn: logsRole.roleArn
+          destinationArn: this.destinationName
+          // No roleArn needed - the destination is in the SecLog account
         }
       )
 
