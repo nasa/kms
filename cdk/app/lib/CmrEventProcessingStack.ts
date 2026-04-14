@@ -42,7 +42,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CmrEventProcessingStackProps) {
     super(scope, id, props)
 
-    const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true' 
+    const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true'
     const queueName = `${props.prefix}-${props.stage}-cmr-keyword-events`
     const topic = sns.Topic.fromTopicArn(this, 'KeywordEventsTopic', props.topicArn)
 
