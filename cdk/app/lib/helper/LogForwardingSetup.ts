@@ -92,7 +92,7 @@ export class LogForwardingSetup {
       // the necessary permissions to accept logs from our account
       const subscriptionFilter = new logs.CfnSubscriptionFilter(
         scope,
-        `${sanitizedKey}-SplunkSubscription`,
+        `${sanitizedKey}-subscriptionFilter`,
         {
           logGroupName: logGroup.logGroupName,
           filterPattern: '', // Empty pattern forwards all logs
