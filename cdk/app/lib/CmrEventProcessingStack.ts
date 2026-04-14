@@ -19,8 +19,7 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   prefix: string
   stage: string
   topicArn: string
-  logDestinationAccount?: string
-  secLogAccount?: string
+  logDestinationArn: string
 }
 
 /**
@@ -84,9 +83,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
       new LogForwardingSetup(this, 'LogForwarding', {
         prefix: props.prefix,
         stage: props.stage,
-        account: props.logDestinationAccount || this.account,
-        region: this.region,
-        secLogAccount: props.secLogAccount!,
+        logDestinationArn: props.logDestinationArn,
         lambdas: {
           'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda
         }

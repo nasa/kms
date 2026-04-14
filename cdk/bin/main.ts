@@ -43,8 +43,7 @@ async function main() {
   const stage = process.env.STAGE_NAME || 'dev'
   const existingApiId = process.env.EXISTING_API_ID
   const rootResourceId = process.env.ROOT_RESOURCE_ID
-  const logDestinationAccount = process.env.LOG_DESTINATION_ACCOUNT
-  const secLogAccount = process.env.SEC_LOG_ACCOUNT
+  const logDestinationArn = process.env.LOG_DESTINATION_ARN
 
   const app = new cdk.App({
     context: {
@@ -71,10 +70,10 @@ async function main() {
   }
 
   // Validate required logging parameters for non-localstack deployments
-  if (!useLocalstack && !secLogAccount) {
+  if (!useLocalstack && !logDestinationArn) {
     throw new Error(
-      'SEC_LOG_ACCOUNT environment variable is required for log forwarding. '
-      + 'Please set bamboo_SEC_LOG_ACCOUNT in your Bamboo deployment configuration.'
+      'LOG_DESTINATION_ARN environment variable is required for log forwarding. '
+      + 'Please set bamboo_LOG_DESTINATION_ARN in your Bamboo deployment configuration.'
     )
   }
 
@@ -161,8 +160,7 @@ async function main() {
     stage,
     existingApiId,
     rootResourceId,
-    logDestinationAccount,
-    secLogAccount,
+    logDestinationArn: logDestinationArn || '',
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
         ? 'http://rdf4j-server:8080'
@@ -200,8 +198,7 @@ async function main() {
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
     topicArn: kmsStack.keywordEventsTopic.topicArn,
-    logDestinationAccount,
-    secLogAccount
+    logDestinationArn: logDestinationArn || ''
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)

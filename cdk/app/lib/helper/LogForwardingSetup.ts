@@ -11,12 +11,8 @@ interface LogForwardingSetupProps {
   prefix: string
   /** Deployment stage (sit, uat, prod) */
   stage: string
-  /** AWS Account ID for log destination */
-  account: string
-  /** AWS Region */
-  region: string
-  /** NGAP SecLog account ID */
-  secLogAccount: string
+  /** ARN of the log destination in NGAP SecLog account */
+  logDestinationArn: string
   /** Map of Lambda functions to configure log forwarding for */
   lambdas: { [key: string]: lambda.Function }
   /** Log retention period in days */
@@ -32,11 +28,8 @@ interface LogForwardingSetupProps {
  * @see https://wiki.earthdata.nasa.gov/pages/viewpage.action?pageId=147423378
  */
 export class LogForwardingSetup {
-  /** The AWS account-specific destination name for log forwarding */
-  private readonly destinationName: string
-
-  /** The NGAP SecLog account ID */
-  private readonly secLogAccount: string
+  /** The ARN of the log destination for log forwarding */
+  private readonly logDestinationArn: string
 
   /** Log retention period */
   private readonly logRetentionDays: logs.RetentionDays
@@ -50,18 +43,14 @@ export class LogForwardingSetup {
   constructor(scope: Construct, id: string, props: LogForwardingSetupProps) {
     this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_WEEK
 
-    if (!props.secLogAccount) {
+    if (!props.logDestinationArn) {
       throw new Error(
-        'secLogAccount is required for log forwarding. '
-        + 'Please set the SEC_LOG_ACCOUNT environment variable in your Bamboo deployment.'
+        'logDestinationArn is required for log forwarding. '
+        + 'Please set the LOG_DESTINATION_ARN environment variable in your Bamboo deployment.'
       )
     }
 
-    this.secLogAccount = props.secLogAccount
-
-    // Set destination ARN using the account IDs from Bamboo deployment parameters
-    // The destination is in the SecLog account but accepts logs from our account
-    this.destinationName = `arn:aws:logs:${props.region}:${this.secLogAccount}:destination:/gsfc-ngap-managed/application_logs_destination/${props.account}`
+    this.logDestinationArn = props.logDestinationArn
 
     // Set up log groups and subscription filters for each Lambda function
     this.setupLogForwarding(scope, props)
@@ -107,7 +96,7 @@ export class LogForwardingSetup {
         {
           logGroupName: logGroup.logGroupName,
           filterPattern: '', // Empty pattern forwards all logs
-          destinationArn: this.destinationName
+          destinationArn: this.logDestinationArn
           // No roleArn needed - the destination is in the SecLog account
         }
       )
