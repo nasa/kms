@@ -160,7 +160,7 @@ async function main() {
     stage,
     existingApiId,
     rootResourceId,
-    logDestinationArn: logDestinationArn || '',
+    logDestinationArn: logDestinationArn || 'localstack-dummy-arn',
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
         ? 'http://rdf4j-server:8080'
@@ -198,7 +198,7 @@ async function main() {
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
     topicArn: kmsStack.keywordEventsTopic.topicArn,
-    logDestinationArn: logDestinationArn || ''
+    logDestinationArn: logDestinationArn || 'localstack-dummy-arn'
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)
