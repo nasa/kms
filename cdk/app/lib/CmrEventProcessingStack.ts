@@ -42,6 +42,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CmrEventProcessingStackProps) {
     super(scope, id, props)
 
+    const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true' 
     const queueName = `${props.prefix}-${props.stage}-cmr-keyword-events`
     const topic = sns.Topic.fromTopicArn(this, 'KeywordEventsTopic', props.topicArn)
 
@@ -77,18 +78,20 @@ export class CmrEventProcessingStack extends cdk.Stack {
     queue.grantConsumeMessages(listenerLambda)
 
     // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account
-    // Create log forwarding setup - no reference needed as it registers itself
-    // eslint-disable-next-line no-new
-    new LogForwardingSetup(this, 'LogForwarding', {
-      prefix: props.prefix,
-      stage: props.stage,
-      account: props.logDestinationAccount || this.account,
-      region: this.region,
-      secLogAccount: props.secLogAccount!,
-      lambdas: {
-        'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda
-      }
-    })
+    // Skip log forwarding for localstack deployments
+    if (!useLocalstack) {
+      // eslint-disable-next-line no-new
+      new LogForwardingSetup(this, 'LogForwarding', {
+        prefix: props.prefix,
+        stage: props.stage,
+        account: props.logDestinationAccount || this.account,
+        region: this.region,
+        secLogAccount: props.secLogAccount!,
+        lambdas: {
+          'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda
+        }
+      })
+    }
 
     this.keywordEventsQueueUrlOutput = new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
       description: 'Queue URL for CMR keyword event processing',
