@@ -50,7 +50,7 @@ export class LogForwardingSetup {
    * @param {LogForwardingSetupProps} props - Configuration properties
    */
   constructor(scope: Construct, id: string, props: LogForwardingSetupProps) {
-    this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_WEEK
+    this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_MONTH
     this.prefix = props.prefix
     this.stage = props.stage
     this.stackName = cdk.Stack.of(scope).stackName
