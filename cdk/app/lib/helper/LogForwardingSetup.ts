@@ -109,7 +109,7 @@ export class LogForwardingSetup {
           logGroupName: logGroup.logGroupName,
           filterPattern: '', // Empty pattern forwards all logs
           destinationArn: this.logDestinationArn,
-          filterName: `${this.prefix}-${this.stackName}-${this.stage}-${sanitizedKey}-subscriptionFilter`
+          filterName: `${this.stackName}-${sanitizedKey}-subscriptionFilter`
           // No roleArn needed - the destination is in the SecLog account
         }
       )
