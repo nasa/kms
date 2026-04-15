@@ -34,6 +34,15 @@ export class LogForwardingSetup {
   /** Log retention period */
   private readonly logRetentionDays: logs.RetentionDays
 
+  /** Prefix for naming resources */
+  private readonly prefix: string
+
+  /** Deployment stage */
+  private readonly stage: string
+
+  /** Stack name for resource naming */
+  private readonly stackName: string
+
   /**
    * Constructs a new LogForwardingSetup instance
    * @param {Construct} scope - The scope in which to define this construct
@@ -42,6 +51,9 @@ export class LogForwardingSetup {
    */
   constructor(scope: Construct, id: string, props: LogForwardingSetupProps) {
     this.logRetentionDays = props.logRetentionDays || logs.RetentionDays.ONE_WEEK
+    this.prefix = props.prefix
+    this.stage = props.stage
+    this.stackName = cdk.Stack.of(scope).stackName
 
     if (!props.logDestinationArn) {
       throw new Error(
@@ -96,7 +108,8 @@ export class LogForwardingSetup {
         {
           logGroupName: logGroup.logGroupName,
           filterPattern: '', // Empty pattern forwards all logs
-          destinationArn: this.logDestinationArn
+          destinationArn: this.logDestinationArn,
+          filterName: `${this.prefix}-${this.stackName}-${this.stage}-${sanitizedKey}-subscriptionFilter`
           // No roleArn needed - the destination is in the SecLog account
         }
       )
