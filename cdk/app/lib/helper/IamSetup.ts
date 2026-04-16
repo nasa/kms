@@ -115,11 +115,19 @@ export class IamSetup {
 
   /**
    * Adds base KMS Lambda policy to the Lambda role.
+   *
+   * These permissions cover shared runtime needs across the application,
+   * including CloudWatch custom metric emission for keyword sync monitoring.
    * @private
    */
   private addKMSLambdaBasePolicy() {
     this.lambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: ['secretsmanager:GetSecretValue'],
+      resources: ['*']
+    }))
+
+    this.lambdaRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['cloudwatch:PutMetricData'],
       resources: ['*']
     }))
 

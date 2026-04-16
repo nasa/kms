@@ -44,6 +44,10 @@ async function main() {
   const existingApiId = process.env.EXISTING_API_ID
   const rootResourceId = process.env.ROOT_RESOURCE_ID
   let logDestinationArn = process.env.LOG_DESTINATION_ARN
+  const keywordSyncAlarmEmails = (process.env.KEYWORD_SYNC_ALARM_EMAILS || '')
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean)
 
   const app = new cdk.App({
     context: {
@@ -165,6 +169,7 @@ async function main() {
     stage,
     existingApiId,
     rootResourceId,
+    keywordSyncAlarmEmails,
     logDestinationArn: logDestinationArn!,
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
