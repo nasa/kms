@@ -43,6 +43,7 @@ async function main() {
   const stage = process.env.STAGE_NAME || 'dev'
   const existingApiId = process.env.EXISTING_API_ID
   const rootResourceId = process.env.ROOT_RESOURCE_ID
+  let logDestinationArn = process.env.LOG_DESTINATION_ARN
 
   const app = new cdk.App({
     context: {
@@ -66,6 +67,19 @@ async function main() {
 
   if (!vpcId) {
     throw new Error('VPC_ID environment variable is not set')
+  }
+
+  // Validate required logging parameters for non-localstack deployments
+  if (!useLocalstack && !logDestinationArn) {
+    throw new Error(
+      'LOG_DESTINATION_ARN environment variable is required for log forwarding. '
+      + 'Please set bamboo_LOG_DESTINATION_ARN in your Bamboo deployment configuration.'
+    )
+  }
+
+  // Set dummy ARN for localstack since log forwarding is skipped
+  if (useLocalstack && !logDestinationArn) {
+    logDestinationArn = 'arn:aws:logs:us-east-1:000000000000:destination:localstack-dummy'
   }
 
   let iamStack: IamStack | undefined
@@ -151,6 +165,7 @@ async function main() {
     stage,
     existingApiId,
     rootResourceId,
+    logDestinationArn: logDestinationArn!,
     environment: {
       RDF4J_SERVICE_URL: useLocalstack
         ? 'http://rdf4j-server:8080'
@@ -187,7 +202,8 @@ async function main() {
     prefix,
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
-    topicArn: kmsStack.keywordEventsTopic.topicArn
+    topicArn: kmsStack.keywordEventsTopic.topicArn,
+    logDestinationArn: logDestinationArn!
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)
