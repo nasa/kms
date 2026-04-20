@@ -52,7 +52,7 @@ const CONCEPTS_BASE_URL = `${KMS_APP_BASE_URL}/concepts/concept_scheme`
 const OUTPUT_BASE_DIR = join(scriptDir, '..', 'local-kms-csv')
 
 // Delays
-const csvDownloadDelayMs = Number(process.env.PROCESS_CSV_DOWNLOAD_DELAY_MS || '1000')
+const csvDownloadDelayMs = Number(process.env.PROCESS_CSV_DOWNLOAD_DELAY_MS || '100')
 const versionProcessingDelayMs = Number(process.env.PROCESS_VERSION_DELAY_MS || '5000')
 
 // --- RDF4J Upload Functions ---
@@ -477,11 +477,9 @@ const main = async () => {
         await clearContext(uploadContext)
         await loadRdfFile(conceptsFile, uploadContext)
 
-        // The schemes file is uploaded with every concept, unless it's the concept itself
-        if (conceptsFile !== schemesFile) {
-          // When uploading the schemes file, modify its content to include the current version.
-          await loadModifiedSchemesFile(schemesFile, uploadContext, version)
-        }
+        // The schemes file is uploaded with every concept file to ensure the context is complete.
+        // When uploading the schemes file, its content is modified to include the current version name.
+        await loadModifiedSchemesFile(schemesFile, uploadContext, version)
 
         console.log(`Upload for ${version} completed successfully.`)
 
