@@ -28,7 +28,10 @@
     "redis:memory_used": "bash bin/redis/memory_used.sh",
     "prime-cache:invoke-local": "bash scripts/local/invoke_prime_concepts_cache.sh",
     "export-data": "vite-node --config vite.config.js setup/scripts/exportData.js -all",
-    "create-rdf-files": "vite-node --config vite.config.js setup/scripts/createRdfFiles.js"
+    "create-rdf-files": "vite-node --config vite.config.js setup/scripts/createRdfFiles.js",
+    "download-rdf": "source archive-processor/scripts/scripts-config.sh && vite-node archive-processor/scripts/download-rdf-from-S3.js",
+    "process-rdf": "source archive-processor/scripts/scripts-config.sh && vite-node archive-processor/scripts/process-rdf.js",
+    "upload-csv": "source archive-processor/scripts/scripts-config.sh && vite-node archive-processor/scripts/upload-csv-to-S3.js"
   },
   "dependencies": {
     "@aws-sdk/client-eventbridge": "^3.997.0",
