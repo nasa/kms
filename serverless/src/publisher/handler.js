@@ -491,31 +491,11 @@ export const publisher = async (event) => {
     const totalSchemes = keywordChanges.size
     logger.info(`[publisher] Analysis completed. Processed ${totalSchemes} concept schemes.`)
 
-    await emitPublisherMetricsSafely(
-      [
-        {
-          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
-          value: keywordChangesDetected
-        }
-      ],
-      'keyword change detection'
-    )
-
     const keywordEvents = createKeywordEvents(keywordChanges)
     const keywordEventsGenerated = keywordEvents.length
 
     logger.info(`[publisher] Created ${keywordEvents.length} keyword events`)
     logger.info('[publisher] Keyword Events:', keywordEvents)
-
-    await emitPublisherMetricsSafely(
-      [
-        {
-          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
-          value: keywordEventsGenerated
-        }
-      ],
-      'keyword event generation'
-    )
 
     // Execute the publish operation
     logger.info(`[publisher] Executing publish update for version=${versionName}`)
@@ -578,6 +558,14 @@ export const publisher = async (event) => {
     await emitPublisherMetricsSafely(
       [
         {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+          value: keywordChangesDetected
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+          value: keywordEventsGenerated
+        },
+        {
           metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
           value: keywordEventsPublished
         },
@@ -586,7 +574,7 @@ export const publisher = async (event) => {
           value: keywordEventPublishFailures
         }
       ],
-      'keyword event publish summary'
+      'keyword sync summary'
     )
 
     // Emit event for cache-prime to consume

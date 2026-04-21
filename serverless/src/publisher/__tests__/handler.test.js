@@ -978,26 +978,17 @@ describe('publisher handler', () => {
         postPublishFailures: []
       })
 
-      expect(emitPublisherMetrics).toHaveBeenNthCalledWith(1, {
+      expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
+      expect(emitPublisherMetrics).toHaveBeenCalledWith({
         metrics: [
           {
             metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
             value: 1
-          }
-        ]
-      })
-
-      expect(emitPublisherMetrics).toHaveBeenNthCalledWith(2, {
-        metrics: [
+          },
           {
             metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
             value: 1
-          }
-        ]
-      })
-
-      expect(emitPublisherMetrics).toHaveBeenNthCalledWith(3, {
-        metrics: [
+          },
           {
             metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
             value: 1
@@ -1187,8 +1178,17 @@ describe('publisher handler', () => {
         postPublishFailures: []
       })
 
-      expect(emitPublisherMetrics).toHaveBeenNthCalledWith(3, {
+      expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
+      expect(emitPublisherMetrics).toHaveBeenCalledWith({
         metrics: [
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+            value: 0
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+            value: 0
+          },
           {
             metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
             value: 0
@@ -1574,6 +1574,14 @@ describe('publisher handler', () => {
       expect(emitPublisherMetrics).toHaveBeenLastCalledWith({
         metrics: [
           {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+            value: 2
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+            value: 2
+          },
+          {
             metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
             value: 1
           },
@@ -1659,7 +1667,7 @@ describe('publisher handler', () => {
 
       expect(result.status).toBe('success')
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[publisher] Failed to emit keyword sync metrics for keyword change detection.')
+        expect.stringContaining('[publisher] Failed to emit keyword sync metrics for keyword sync summary.')
       )
     })
 

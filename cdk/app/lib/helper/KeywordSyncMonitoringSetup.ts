@@ -7,6 +7,7 @@ import { Construct } from 'constructs'
 
 const KEYWORD_SYNC_METRIC_NAMESPACE = 'KMS/KeywordSync'
 const KEYWORD_EVENT_PUBLISH_FAILURES_METRIC = 'KeywordEventPublishFailures'
+const PUBLISH_FAILURE_ALARM_PERIOD = cdk.Duration.days(1)
 
 export interface KeywordSyncMonitoringSetupProps {
   prefix: string
@@ -33,7 +34,7 @@ export class KeywordSyncMonitoringSetup {
       namespace: KEYWORD_SYNC_METRIC_NAMESPACE,
       metricName: KEYWORD_EVENT_PUBLISH_FAILURES_METRIC,
       statistic: 'Sum',
-      period: cdk.Duration.minutes(5)
+      period: PUBLISH_FAILURE_ALARM_PERIOD
     })
 
     this.publishFailuresAlarm = new cloudwatch.Alarm(scope, 'KeywordSyncPublishFailuresAlarm', {
