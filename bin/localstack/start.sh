@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/env/local_env.sh
 source "${SCRIPT_DIR}/../env/local_env.sh"
 
-REQUIRED_SERVICES="sns,sqs,events"
+REQUIRED_SERVICES="sns,sqs,events,s3"
 
 if ! docker network inspect "${KMS_DOCKER_NETWORK}" >/dev/null 2>&1; then
   docker network create "${KMS_DOCKER_NETWORK}" >/dev/null

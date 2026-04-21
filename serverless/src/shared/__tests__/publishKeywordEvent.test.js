@@ -64,7 +64,8 @@ describe('when the keyword event publisher is used', () => {
           credentials: {
             accessKeyId: 'test',
             secretAccessKey: 'test'
-          }
+          },
+          forcePathStyle: true
         })
       })
 
@@ -80,7 +81,8 @@ describe('when the keyword event publisher is used', () => {
           credentials: {
             accessKeyId: 'test',
             secretAccessKey: 'test'
-          }
+          },
+          forcePathStyle: true
         })
       })
     })

@@ -1,7 +1,10 @@
-import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge'
+import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
+import { getEventBridgeClient } from '@/shared/awsClients'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
+import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
+import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
@@ -12,7 +15,7 @@ const PUBLISHER_EVENT_SOURCE = 'kms.publisher'
 const PUBLISHER_EVENT_DETAIL_TYPE = 'kms.publisher.analysis.completed'
 const KEYWORD_EVENT_PUBLISH_RETRIES = 3
 
-const publisherEventClient = new EventBridgeClient({})
+const publisherEventClient = getEventBridgeClient()
 
 const shouldBlockPublishOnKeywordDiffFailure = () => (
   process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE === 'true'
@@ -505,6 +508,36 @@ export const publisher = async (event) => {
       )
     } else {
       logger.info('[publisher] No keyword events generated, skipping SNS publish')
+    }
+
+    // Export RDF and CSV data to S3 after publishing
+    logger.info('[publisher] Starting S3 exports of RDF and CSV data.')
+
+    try {
+      await exportRdfToS3({ version: 'published' })
+      logger.info('[publisher] Successfully exported Published RDF to S3.')
+    } catch (exportError) {
+      const failureMessage = `Failed to export Published RDF to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    try {
+      await exportRdfToS3({ version: 'draft' })
+      logger.info('[publisher] Successfully exported Draft RDF to S3.')
+    } catch (exportError) {
+      const failureMessage = `Failed to export Draft RDF to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    try {
+      await exportPublishSchemeCsvToS3()
+      logger.info('[publisher] Successfully exported Published Scheme CSVs to S3.')
+    } catch (exportError) {
+      const failureMessage = `Failed to export Published Scheme CSVs to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
     }
 
     // Emit event for cache-prime to consume

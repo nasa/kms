@@ -1,5 +1,6 @@
-import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge'
+import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
+import { getEventBridgeClient } from '@/shared/awsClients'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
@@ -7,7 +8,7 @@ import { logger } from '@/shared/logger'
 const PUBLISH_EVENT_SOURCE = 'kms.publish'
 const PUBLISH_EVENT_DETAIL_TYPE = 'kms.published.version.changed'
 
-const publishEventClient = new EventBridgeClient({})
+const publishEventClient = getEventBridgeClient()
 
 /**
  * Emits a publish-version-changed event to EventBridge to trigger the publisher handler.
