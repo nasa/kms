@@ -281,6 +281,9 @@ const loadModifiedSchemesFile = async (filePath, targetContext, fileContentVersi
     console.warn(`Warning: Could not find <gcmd:versionName> tag in ${filePath}. Uploading file as-is.`)
   }
 
+  // Also set created date to 'N/A'. In the scheme csv output, this is 'Revision'
+  xmlData = xmlData.replace(/<dcterms:created>.*<\/dcterms:created>/g, '<dcterms:created>N/A</dcterms:created>')
+
   const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${targetContext}`
   const postUrl = new URL(rdf4jStatementsUrl)
   postUrl.searchParams.append('context', `<${graphUri}>`)
