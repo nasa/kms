@@ -35,10 +35,10 @@ const shouldBlockPublishOnKeywordDiffFailure = () => (
  * @returns {number} Total keyword changes detected for the publish run.
  */
 const countKeywordChanges = (keywordChangesMap) => Array.from(keywordChangesMap.values()).reduce(
-  (total, changes) => total
-    + changes.addedKeywords.size
-    + changes.removedKeywords.size
-    + changes.changedKeywords.size,
+  (total, { addedKeywords, removedKeywords, changedKeywords }) => total
+    + addedKeywords.size
+    + removedKeywords.size
+    + changedKeywords.size,
   0
 )
 
