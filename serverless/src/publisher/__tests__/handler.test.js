@@ -8,6 +8,7 @@ import {
 
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
+import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
@@ -44,6 +45,7 @@ const waitForCondition = async (assertion, attempts = 20) => {
 // Mock the imported functions
 vi.mock('@/shared/csvComparator')
 vi.mock('@/shared/downloadConcepts')
+vi.mock('@/shared/emitPublisherMetrics')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
@@ -59,6 +61,7 @@ describe('publisher handler', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
+    emitPublisherMetrics.mockResolvedValue()
     sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
     publishKeywordEvent.mockResolvedValue({
       messageId: 'message-1',
@@ -966,10 +969,35 @@ describe('publisher handler', () => {
         versionName: 'v1.0.0',
         publishDate: mockEvent.detail.publishDate,
         published: true,
+        keywordChangesDetected: 1,
+        keywordEventsGenerated: 1,
         keywordEventsPublished: 1,
+        keywordEventPublishFailures: 0,
         cachePrimeEventEmitted: true,
         keywordEventsCount: 1,
         postPublishFailures: []
+      })
+
+      expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
+      expect(emitPublisherMetrics).toHaveBeenCalledWith({
+        metrics: [
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+            value: 1
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+            value: 1
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
+            value: 1
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
+            value: 0
+          }
+        ]
       })
     })
 
@@ -1037,6 +1065,8 @@ describe('publisher handler', () => {
       expect(sparqlRequest).toHaveBeenCalledTimes(1)
       expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
       expect(result.status).toBe('success')
+      expect(result.keywordChangesDetected).toBe(1)
+      expect(result.keywordEventsGenerated).toBe(1)
       expect(result.keywordEventsPublished).toBe(1)
       expect(logger.warn).toHaveBeenCalledWith(
         '[publisher] Keyword changes detection failed for 1 scheme(s): platforms: Download failed. '
@@ -1139,10 +1169,35 @@ describe('publisher handler', () => {
         versionName: 'v1.0.0',
         publishDate: mockEvent.detail.publishDate,
         published: true,
+        keywordChangesDetected: 0,
+        keywordEventsGenerated: 0,
         keywordEventsPublished: 0,
+        keywordEventPublishFailures: 0,
         cachePrimeEventEmitted: true,
         keywordEventsCount: 0,
         postPublishFailures: []
+      })
+
+      expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
+      expect(emitPublisherMetrics).toHaveBeenCalledWith({
+        metrics: [
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+            value: 0
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+            value: 0
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
+            value: 0
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
+            value: 0
+          }
+        ]
       })
     })
 
@@ -1281,7 +1336,10 @@ describe('publisher handler', () => {
         versionName: 'v1.0.0',
         publishDate: mockEvent.detail.publishDate,
         published: true,
+        keywordChangesDetected: 0,
+        keywordEventsGenerated: 0,
         keywordEventsPublished: 0,
+        keywordEventPublishFailures: 0,
         cachePrimeEventEmitted: false,
         keywordEventsCount: 0,
         postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
@@ -1327,7 +1385,10 @@ describe('publisher handler', () => {
         versionName: 'v1.0.0',
         publishDate: mockEvent.detail.publishDate,
         published: true,
+        keywordChangesDetected: 1,
+        keywordEventsGenerated: 1,
         keywordEventsPublished: 1,
+        keywordEventPublishFailures: 0,
         cachePrimeEventEmitted: false,
         keywordEventsCount: 1,
         postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
@@ -1480,7 +1541,10 @@ describe('publisher handler', () => {
         versionName: 'v1.0.0',
         publishDate: mockEvent.detail.publishDate,
         published: true,
+        keywordChangesDetected: 2,
+        keywordEventsGenerated: 2,
         keywordEventsPublished: 1,
+        keywordEventPublishFailures: 1,
         cachePrimeEventEmitted: true,
         keywordEventsCount: 2,
         postPublishFailures: ['Publish completed, but 1 keyword event publishes failed after retries']
@@ -1506,6 +1570,27 @@ describe('publisher handler', () => {
       expect(logger.info).toHaveBeenCalledWith(
         '[publisher] Keyword event publish summary attempted=2 published=1 failed=1'
       )
+
+      expect(emitPublisherMetrics).toHaveBeenLastCalledWith({
+        metrics: [
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+            value: 2
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+            value: 2
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
+            value: 1
+          },
+          {
+            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
+            value: 1
+          }
+        ]
+      })
     })
 
     test('should log the number of published keyword events when SNS publish succeeds for all generated events', async () => {
@@ -1543,9 +1628,46 @@ describe('publisher handler', () => {
 
       expect(publishKeywordEvent).toHaveBeenCalledTimes(2)
       expect(result.status).toBe('success')
+      expect(result.keywordChangesDetected).toBe(2)
+      expect(result.keywordEventsGenerated).toBe(2)
       expect(result.keywordEventsPublished).toBe(2)
+      expect(result.keywordEventPublishFailures).toBe(0)
       expect(logger.info).toHaveBeenCalledWith(
         '[publisher] Keyword event publish summary attempted=2 published=2 failed=0'
+      )
+    })
+
+    test('should log metric emission failures without failing publish', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      emitPublisherMetrics.mockRejectedValue(new Error('CloudWatch unavailable'))
+
+      const mockComparison = {
+        addedKeywords: new Map([['uuid1', {
+          oldPath: undefined,
+          newPath: 'PATH'
+        }]]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 1,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      expect(result.status).toBe('success')
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('[publisher] Failed to emit keyword sync metrics for keyword sync summary.')
       )
     })
 
