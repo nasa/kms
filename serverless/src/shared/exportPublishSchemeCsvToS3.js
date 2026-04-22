@@ -38,6 +38,8 @@ export const exportPublishSchemeCsvToS3 = async () => {
 
     logger.info(`Found ${schemes.length} published schemes to export.`)
 
+    const failedSchemes = []
+
     await schemes.reduce((previousPromise, scheme, index) => previousPromise.then(async () => {
       const { notation } = scheme
       try {
@@ -66,8 +68,16 @@ export const exportPublishSchemeCsvToS3 = async () => {
         }
       } catch (error) {
         logger.error(`Failed to process scheme ${notation}: ${error.message}`)
+        failedSchemes.push({
+          notation,
+          error
+        })
       }
     }), Promise.resolve())
+
+    if (failedSchemes.length > 0) {
+      throw new Error(`Failed to export CSV for schemes: ${failedSchemes.map(({ notation }) => notation).join(', ')}`)
+    }
 
     logger.info('Finished exporting all published scheme CSVs to S3.')
   } catch (error) {

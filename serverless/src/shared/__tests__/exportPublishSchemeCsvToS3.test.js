@@ -140,7 +140,7 @@ describe('exportPublishSchemeCsvToS3', () => {
     expect(logger.error).toHaveBeenCalledWith('Error in exportPublishSchemeCsvToS3: API failure')
   })
 
-  test('should continue processing other schemes if one fails', async () => {
+  test('should throw an error if one scheme fails to export', async () => {
     vi.mocked(downloadConcepts).mockImplementation(async ({ conceptScheme }) => {
       if (conceptScheme === 'SCHEME1') throw new Error('Download failed')
       if (conceptScheme === 'SCHEME2') return 'csv,data,for,scheme2'
@@ -150,7 +150,8 @@ describe('exportPublishSchemeCsvToS3', () => {
 
     const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
 
-    await Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()])
+    await expect(Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()]))
+      .rejects.toThrow('Failed to export CSV for schemes: SCHEME1')
 
     expect(logger.error).toHaveBeenCalledWith('Failed to process scheme SCHEME1: Download failed')
     // Check that the second scheme was still processed successfully
@@ -166,7 +167,7 @@ describe('exportPublishSchemeCsvToS3', () => {
       ContentType: 'text/csv'
     })
 
-    expect(logger.info).toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
+    expect(logger.info).not.toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
   })
 
   test('should construct bucket name based on environment from application config', async () => {
@@ -179,5 +180,48 @@ describe('exportPublishSchemeCsvToS3', () => {
     expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
       Bucket: 'kms-rdf-backup-dev'
     }))
+  })
+
+  test('should report all failed schemes in the final error', async () => {
+    // Add a third scheme for this test
+    getConceptSchemeDetails.mockResolvedValue([
+      { notation: 'SCHEME1' },
+      { notation: 'SCHEME2' },
+      { notation: 'SCHEME3' }
+    ])
+
+    vi.mocked(downloadConcepts).mockImplementation(async ({ conceptScheme }) => {
+      if (conceptScheme === 'SCHEME1') throw new Error('Download failed')
+      if (conceptScheme === 'SCHEME2') return 'csv,data,for,scheme2'
+      if (conceptScheme === 'SCHEME3') throw new Error('Another failure')
+
+      return ''
+    })
+
+    const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
+
+    await expect(Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()]))
+      .rejects.toThrow('Failed to export CSV for schemes: SCHEME1, SCHEME3')
+
+    // Verify individual errors were logged
+    expect(logger.error).toHaveBeenCalledWith('Failed to process scheme SCHEME1: Download failed')
+    expect(logger.error).toHaveBeenCalledWith('Failed to process scheme SCHEME3: Another failure')
+
+    // Check that all schemes were attempted
+    expect(downloadConcepts).toHaveBeenCalledTimes(3)
+
+    // Check that only the successful scheme was uploaded
+    const S3ClientMock = vi.mocked(S3Client)
+    const s3SendMock = S3ClientMock.mock.results[0].value.send
+    expect(s3SendMock).toHaveBeenCalledTimes(1)
+    expect(PutObjectCommand).toHaveBeenCalledWith({
+      Bucket: 'kms-rdf-backup-sit',
+      Key: 'v22.1/SCHEME2.csv',
+      Body: 'csv,data,for,scheme2',
+      ContentType: 'text/csv'
+    })
+
+    // Verify it does NOT log the final success message
+    expect(logger.info).not.toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
   })
 })
