@@ -2,6 +2,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 
 import { getS3Client } from '@/shared/awsClients'
 import { ensureBucketAndLifecycleRule } from '@/shared/ensureBucketAndLifeCycleRule'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
@@ -19,7 +20,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * - A new file is created each time, preserving historical versions
  *
  * The function will create the S3 bucket if it doesn't exist using the stage name
- * as part of the bucket name, e.g., kms-rdf-backup-${stage}
+ * as part of the bucket name, e.g., kms-rdf-backup-${env}
  *
  * @async
  * @function exportRdfToS3
@@ -29,7 +30,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * @throws Will throw an error if the RDF data fetch fails or if there are issues with S3 operations.
  */
 export const exportRdfToS3 = async ({ version }) => {
-  const env = process.env.NODE_ENV || 'dev'
+  const { env } = getApplicationConfig()
   const s3BucketName = `kms-rdf-backup-${env}`
   const s3Client = getS3Client()
 

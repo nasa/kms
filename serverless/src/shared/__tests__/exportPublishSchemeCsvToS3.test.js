@@ -10,6 +10,7 @@ import {
 
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 
@@ -19,6 +20,7 @@ vi.mock('@/shared/downloadConcepts')
 vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/getVersionMetadata')
 vi.mock('@/shared/logger')
+vi.mock('@/shared/getConfig')
 
 describe('exportPublishSchemeCsvToS3', () => {
   beforeEach(() => {
@@ -26,7 +28,6 @@ describe('exportPublishSchemeCsvToS3', () => {
     vi.useFakeTimers()
     vi.resetModules()
     vi.resetAllMocks()
-    process.env.NODE_ENV = 'test'
 
     // Mock S3Client's send method globally
     S3Client.prototype.send = vi.fn().mockResolvedValue({})
@@ -37,6 +38,7 @@ describe('exportPublishSchemeCsvToS3', () => {
     vi.spyOn(logger, 'error').mockImplementation(() => {})
 
     // Default successful mocks for dependencies
+    getApplicationConfig.mockReturnValue({ env: 'sit' })
     getVersionMetadata.mockResolvedValue({ versionName: 'v22.1' })
     getConceptSchemeDetails.mockResolvedValue([
       { notation: 'SCHEME1' },
@@ -53,7 +55,6 @@ describe('exportPublishSchemeCsvToS3', () => {
   })
 
   afterEach(() => {
-    delete process.env.NODE_ENV
     // Restore real timers after each test
     vi.useRealTimers()
   })
@@ -86,14 +87,14 @@ describe('exportPublishSchemeCsvToS3', () => {
     const s3SendMock = S3ClientMock.mock.results[0].value.send
     expect(s3SendMock).toHaveBeenCalledTimes(2)
     expect(PutObjectCommand).toHaveBeenCalledWith({
-      Bucket: 'kms-rdf-backup-test',
+      Bucket: 'kms-rdf-backup-sit',
       Key: 'v22.1/SCHEME1.csv',
       Body: 'csv,data,for,scheme1',
       ContentType: 'text/csv'
     })
 
     expect(PutObjectCommand).toHaveBeenCalledWith({
-      Bucket: 'kms-rdf-backup-test',
+      Bucket: 'kms-rdf-backup-sit',
       Key: 'v22.1/SCHEME2.csv',
       Body: 'csv,data,for,scheme2',
       ContentType: 'text/csv'
@@ -101,7 +102,7 @@ describe('exportPublishSchemeCsvToS3', () => {
 
     // Verify logging
     expect(logger.info).toHaveBeenCalledWith('Exporting published CSVs for version: v22.1')
-    expect(logger.info).toHaveBeenCalledWith('Uploading SCHEME1.csv to s3://kms-rdf-backup-test/v22.1/SCHEME1.csv')
+    expect(logger.info).toHaveBeenCalledWith('Uploading SCHEME1.csv to s3://kms-rdf-backup-sit/v22.1/SCHEME1.csv')
     expect(logger.info).toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
   })
 
@@ -159,7 +160,7 @@ describe('exportPublishSchemeCsvToS3', () => {
     const s3SendMock = S3ClientMock.mock.results[0].value.send
     expect(s3SendMock).toHaveBeenCalledTimes(1)
     expect(PutObjectCommand).toHaveBeenCalledWith({
-      Bucket: 'kms-rdf-backup-test',
+      Bucket: 'kms-rdf-backup-sit',
       Key: 'v22.1/SCHEME2.csv',
       Body: 'csv,data,for,scheme2',
       ContentType: 'text/csv'
@@ -168,9 +169,10 @@ describe('exportPublishSchemeCsvToS3', () => {
     expect(logger.info).toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
   })
 
-  test('should use "dev" environment if NODE_ENV is not set', async () => {
+  test('should construct bucket name based on environment from application config', async () => {
+    vi.mocked(getApplicationConfig).mockReturnValue({ env: 'dev' })
+
     const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
-    delete process.env.NODE_ENV
 
     await Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()])
 

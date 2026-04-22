@@ -3,6 +3,7 @@ import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getS3Client } from '@/shared/awsClients'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 
@@ -17,7 +18,7 @@ const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms) })
  */
 export const exportPublishSchemeCsvToS3 = async () => {
   const s3ExportDelayMs = parseInt(process.env.S3_EXPORT_DELAY_MS || '100', 10)
-  const env = process.env.NODE_ENV || 'dev'
+  const { env } = getApplicationConfig()
   const bucketName = `kms-rdf-backup-${env}`
 
   try {

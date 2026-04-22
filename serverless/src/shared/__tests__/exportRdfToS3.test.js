@@ -8,6 +8,7 @@ import {
 } from 'vitest'
 
 import { ensureBucketAndLifecycleRule } from '@/shared/ensureBucketAndLifeCycleRule'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
@@ -18,6 +19,7 @@ vi.mock('@/shared/sparqlRequest')
 vi.mock('@aws-sdk/client-s3')
 vi.mock('@/shared/getVersionMetadata')
 vi.mock('@/shared/ensureBucketAndLifeCycleRule')
+vi.mock('@/shared/getConfig')
 
 describe('exportRdfToS3', () => {
   beforeEach(() => {
@@ -26,7 +28,10 @@ describe('exportRdfToS3', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    process.env.NODE_ENV = 'test'
+    getApplicationConfig.mockReturnValue({
+      env: 'test',
+      defaultResponseHeaders: { 'Content-Type': 'application/json' }
+    })
 
     getVersionMetadata.mockReturnValue({ versionName: '21.4' })
 
@@ -122,17 +127,8 @@ describe('exportRdfToS3', () => {
       }))
     })
 
-    test('should use correct bucket name based on NODE_ENV', async () => {
-      process.env.NODE_ENV = 'staging'
-      await exportRdfToS3({ version: 'published' })
-
-      expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
-        Bucket: 'kms-rdf-backup-staging'
-      }))
-    })
-
-    test('should use dev as default bucket name if NODE_ENV is not set', async () => {
-      delete process.env.NODE_ENV
+    test('should construct bucket name based on environment from application config', async () => {
+      vi.mocked(getApplicationConfig).mockReturnValue({ env: 'dev' })
       await exportRdfToS3({ version: 'published' })
 
       expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
