@@ -41,7 +41,7 @@ export DOWNLOAD_DELAY_MS="100"
 # Optional: Comma-separated list of specific versions to download.
 # If this string is empty, the script will download all RDF files.
 # Example: export TO_BE_DOWNLOADED_VERSIONS="10.0,11.0,KMS-654-Testing"
-export TO_BE_DOWNLOADED_VERSIONS="7.0,8.0"
+export TO_BE_DOWNLOADED_VERSIONS=""
 
 
 # =============================================================================
@@ -51,7 +51,7 @@ export TO_BE_DOWNLOADED_VERSIONS="7.0,8.0"
 # Optional: Comma-separated list of specific versions to process from the
 # 'downloaded-rdf' directory. If empty, all found RDF files will be processed.
 # Example: export TO_BE_PROCESSED_VERSIONS="10.0,KMS-123"
-export TO_BE_PROCESSED_VERSIONS="7.0,8.0"
+export TO_BE_PROCESSED_VERSIONS=""
 
 # Delay in milliseconds to wait between downloading each concept scheme CSV file.
 export PROCESS_CSV_DOWNLOAD_DELAY_MS="100"
@@ -70,4 +70,4 @@ export UPLOAD_DELAY_MS="100"
 # Optional: Comma-separated list of specific versions to upload.
 # If this string is empty, the script will upload all CSV files from all version folders.
 # Example: export TO_BE_UPLOADED_VERSIONS="10.0,11.0"
-export TO_BE_UPLOADED_VERSIONS="7.0,8.0"
+export TO_BE_UPLOADED_VERSIONS=""
