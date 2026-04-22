@@ -288,6 +288,19 @@ export const primeConceptsCache = async (event) => {
 
   await redisClient.set(CONCEPTS_CACHE_VERSION_KEY, versionMarker)
 
+  logger.info(
+    '[cache-prime] complete '
+    + `status=${failed > 0 ? 'failed' : 'success'} `
+    + `versionMarker=${versionMarker} `
+    + `schemes=${schemes.length} `
+    + `deletedKeys=${deletedKeys} `
+    + `warmed=${warmed} `
+    + `failed=${failed} `
+    + `conceptsWarmed=${conceptResultsSummary.warmed} `
+    + `schemeConceptsWarmed=${schemeResultsSummary.warmed} `
+    + `treesWarmed=${treeResultsSummary.warmed}`
+  )
+
   return {
     statusCode: failed > 0 ? 500 : 200,
     body: JSON.stringify({

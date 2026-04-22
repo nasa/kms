@@ -194,11 +194,6 @@ export const getKeywordChanges = async () => {
     return new Map()
   }
 
-  logger.info(
-    `Found ${allNotations.size} total concept schemes to process `
-    + `(${publishedNotations.size} in published, ${draftNotations.size} in draft)`
-  )
-
   // Initialize CSV comparator
   const csvComparator = new CsvComparator()
   const failedSchemes = []
@@ -208,8 +203,6 @@ export const getKeywordChanges = async () => {
   const results = await Array.from(allNotations).reduce(async (resultsPromise, notation) => {
     const sequentialResults = await resultsPromise
     const result = await (async () => {
-      logger.info(`Processing concept scheme: ${notation}`)
-
       const inPublished = publishedNotations.has(notation)
       const inDraft = draftNotations.has(notation)
       let comparison
@@ -219,13 +212,8 @@ export const getKeywordChanges = async () => {
       /* eslint-disable no-await-in-loop */
       for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
         try {
-          if (attempt > 0) {
-            logger.info(`Retrying ${notation} (attempt ${attempt + 1}/${maxRetries + 1})`)
-          }
-
           if (inPublished && inDraft) {
           // Normal case: scheme exists in both versions
-            logger.debug(`Downloading both versions for ${notation}`)
             const [publishedCsv, draftCsv] = await Promise.all([
               downloadConcepts({
                 conceptScheme: notation,
@@ -242,8 +230,6 @@ export const getKeywordChanges = async () => {
             comparison = csvComparator.compare(publishedCsv, draftCsv)
           } else if (inPublished && !inDraft) {
           // Scheme removed: all keywords marked as DELETED
-            logger.info(`Scheme ${notation} does not exist in draft version (scheme removed). All keywords will be marked as DELETED.`)
-
             const publishedCsv = await downloadConcepts({
               conceptScheme: notation,
               format: 'csv',
@@ -255,8 +241,6 @@ export const getKeywordChanges = async () => {
           } else {
           // All notations come from the union of published and draft scheme sets,
           // so reaching this branch means the scheme only exists in draft.
-            logger.info(`Scheme ${notation} is new in draft version. All keywords will be marked as INSERTED.`)
-
             const draftCsv = await downloadConcepts({
               conceptScheme: notation,
               format: 'csv',
@@ -269,15 +253,9 @@ export const getKeywordChanges = async () => {
 
           const summary = csvComparator.getSummary(comparison)
 
-          logger.info(
-            `Successfully processed ${notation}: `
-            + `Found ${summary.addedCount} keywords added, `
-            + `${summary.removedCount} keywords removed, `
-            + `${summary.changedCount} keywords changed`
-          )
-
           return {
             notation,
+            summary,
             comparison
           }
         } catch (error) {
@@ -291,7 +269,6 @@ export const getKeywordChanges = async () => {
 
           // Wait before retrying (exponential backoff: 1s, 2s, 4s)
           const delayMs = 2 ** attempt * 1000
-          logger.info(`Waiting ${delayMs}ms before retry for ${notation}`)
           await new Promise((resolve) => {
             setTimeout(resolve, delayMs)
           })
@@ -341,7 +318,31 @@ export const getKeywordChanges = async () => {
       .map((result) => [result.notation, result.comparison])
   )
 
-  logger.info(`Keyword changes detection completed. Processed ${keywordChangesMap.size} concept schemes.`)
+  const keywordChangeSummary = results.reduce((summary, result) => {
+    if (!result) {
+      return summary
+    }
+
+    return {
+      addedCount: summary.addedCount + result.summary.addedCount,
+      removedCount: summary.removedCount + result.summary.removedCount,
+      changedCount: summary.changedCount + result.summary.changedCount
+    }
+  }, {
+    addedCount: 0,
+    removedCount: 0,
+    changedCount: 0
+  })
+
+  logger.info(
+    '[publisher] Keyword changes summary '
+    + `schemes=${allNotations.size} `
+    + `processed=${keywordChangesMap.size} `
+    + `failed=${failedSchemes.length} `
+    + `added=${keywordChangeSummary.addedCount} `
+    + `removed=${keywordChangeSummary.removedCount} `
+    + `changed=${keywordChangeSummary.changedCount}`
+  )
 
   return keywordChangesMap
 }
