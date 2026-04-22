@@ -8,7 +8,9 @@ import { Construct } from 'constructs'
 
 import { ApiResources } from './helper/ApiResources'
 import { IamSetup } from './helper/IamSetup'
+import { KeywordSyncMonitoringSetup } from './helper/KeywordSyncMonitoringSetup'
 import { LambdaFunctions } from './helper/KmsLambdaFunctions'
+import { LogForwardingSetup } from './helper/LogForwardingSetup'
 import { VpcSetup } from './helper/VpcSetup'
 
 /**
@@ -17,10 +19,12 @@ import { VpcSetup } from './helper/VpcSetup'
  */
 export interface KmsStackProps extends cdk.StackProps {
   existingApiId: string | undefined
+  keywordSyncAlarmEmails?: string[]
   prefix: string
   rootResourceId: string | undefined
   stage: string
   vpcId: string
+  logDestinationArn: string
   environment: {
     CMR_BASE_URL: string
     EDL_PASSWORD: string
@@ -79,7 +83,14 @@ export class KmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: KmsStackProps) {
     super(scope, id, props)
     const {
-      environment, existingApiId, prefix, rootResourceId, stage, vpcId
+      environment,
+      existingApiId,
+      keywordSyncAlarmEmails,
+      logDestinationArn,
+      prefix,
+      rootResourceId,
+      stage,
+      vpcId
     } = props
     this.stage = stage
 
@@ -139,6 +150,7 @@ export class KmsStack extends cdk.Stack {
     apiResources.configureCors(this, prefix)
     // Use a concrete ARN string during local synth so SAM can inject it into the Lambda env.
     const keywordEventsTopicArn = useLocalstack ? localTopicArn : this.keywordEventsTopic.topicArn
+    // SNS keyword event publishing needs the topic ARN at runtime.
     const lambdaEnvironment = {
       ...environment,
       KEYWORD_EVENTS_TOPIC_ARN: keywordEventsTopicArn
@@ -157,8 +169,27 @@ export class KmsStack extends cdk.Stack {
       useLocalstack
     })
 
+    new KeywordSyncMonitoringSetup(this, {
+      prefix,
+      stage: this.stage,
+      notificationEmails: keywordSyncAlarmEmails || []
+    })
+
     const lambdas = this.lambdaFunctions.getAllLambdas()
     const methods = this.lambdaFunctions.getAllMethods()
+
+    // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account
+    // Skip log forwarding for localstack deployments
+    if (!useLocalstack) {
+      // Create log forwarding setup - no reference needed as it registers itself
+      // eslint-disable-next-line no-new
+      new LogForwardingSetup(this, 'LogForwarding', {
+        prefix,
+        stage,
+        logDestinationArn,
+        lambdas
+      })
+    }
 
     // Create a new deployment
     const deployment = new apigateway.Deployment(

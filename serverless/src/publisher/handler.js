@@ -3,6 +3,7 @@ import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 import { getEventBridgeClient } from '@/shared/awsClients'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
+import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
 import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
@@ -17,9 +18,53 @@ const KEYWORD_EVENT_PUBLISH_RETRIES = 3
 
 const publisherEventClient = getEventBridgeClient()
 
+/**
+ * Indicates whether keyword diff failures should block publish completion.
+ *
+ * This toggle lets us roll out the metrics/eventing path without making
+ * keyword comparison failures fatal in environments where the downstream flow
+ * is still being validated.
+ *
+ * @returns {boolean} True when publish should fail on keyword diff errors.
+ */
 const shouldBlockPublishOnKeywordDiffFailure = () => (
   process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE === 'true'
 )
+
+/**
+ * Counts the total number of added, removed, and changed keywords across all schemes.
+ *
+ * @param {Map<string, Object>} keywordChangesMap - Per-scheme comparison results.
+ * @returns {number} Total keyword changes detected for the publish run.
+ */
+const countKeywordChanges = (keywordChangesMap) => Array.from(keywordChangesMap.values()).reduce(
+  (total, { addedKeywords, removedKeywords, changedKeywords }) => total
+    + addedKeywords.size
+    + removedKeywords.size
+    + changedKeywords.size,
+  0
+)
+
+/**
+ * Emits publisher metrics without failing the overall publish flow on metric errors.
+ *
+ * Metrics are observability-only for this path, so failed emission is logged for
+ * debugging but does not block publish completion.
+ *
+ * @param {Array<{metricName: string, value: number}>} metrics - Metrics to emit.
+ * @param {string} context - Human-readable context used in failure logs.
+ * @returns {Promise<void>}
+ */
+const emitPublisherMetricsSafely = async (metrics, context) => {
+  try {
+    await emitPublisherMetrics({ metrics })
+  } catch (metricError) {
+    logger.error(
+      `[publisher] Failed to emit keyword sync metrics for ${context}. `
+      + `Error: ${metricError.message}`
+    )
+  }
+}
 
 /**
  * Transform keyword changes map into a list of keyword events conforming to the schema.
@@ -346,8 +391,7 @@ const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => 
  *   attemptedCount: number,
  *   publishedCount: number,
  *   failedEvents: Array<{ keywordEvent: Object, error: string, attempts: number }>
- * }>}
- * SNS publish summary for the completed batch.
+ * }>} SNS publish summary for the completed batch.
  */
 const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
   async (summaryPromise, keywordEvent) => {
@@ -444,12 +488,14 @@ export const publisher = async (event) => {
     logger.info(`[publisher] Starting analysis for version=${versionName}`)
 
     const keywordChanges = await getKeywordChanges()
+    const keywordChangesDetected = countKeywordChanges(keywordChanges)
 
     // Log summary of all changes
     const totalSchemes = keywordChanges.size
     logger.info(`[publisher] Analysis completed. Processed ${totalSchemes} concept schemes.`)
 
     const keywordEvents = createKeywordEvents(keywordChanges)
+    const keywordEventsGenerated = keywordEvents.length
 
     logger.info(`[publisher] Created ${keywordEvents.length} keyword events`)
     logger.info('[publisher] Keyword Events:', keywordEvents)
@@ -472,11 +518,13 @@ export const publisher = async (event) => {
     logger.info(`[publisher] Publish update completed for version=${versionName}`)
 
     let keywordEventsPublished = 0
+    let keywordEventPublishFailures = 0
     const postPublishFailures = []
 
     if (keywordEvents.length > 0) {
       const publishSummary = await publishKeywordEvents(keywordEvents)
       keywordEventsPublished = publishSummary.publishedCount
+      keywordEventPublishFailures = publishSummary.failedEvents.length
 
       if (publishSummary.failedEvents.length > 0) {
         postPublishFailures.push(
@@ -540,6 +588,28 @@ export const publisher = async (event) => {
       logger.error(`[publisher] ${failureMessage}`)
     }
 
+    await emitPublisherMetricsSafely(
+      [
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+          value: keywordChangesDetected
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+          value: keywordEventsGenerated
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
+          value: keywordEventsPublished
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
+          value: keywordEventPublishFailures
+        }
+      ],
+      'keyword sync summary'
+    )
+
     // Emit event for cache-prime to consume
     let cachePrimeEventEmitted = false
 
@@ -564,7 +634,10 @@ export const publisher = async (event) => {
       versionName,
       publishDate,
       published: true,
+      keywordChangesDetected,
+      keywordEventsGenerated,
       keywordEventsPublished,
+      keywordEventPublishFailures,
       cachePrimeEventEmitted,
       keywordEventsCount: keywordEvents.length,
       postPublishFailures

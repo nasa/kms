@@ -6,7 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/env/local_env.sh
 source "${SCRIPT_DIR}/../env/local_env.sh"
 
-REQUIRED_SERVICES="sns,sqs,events,s3"
+# CloudWatch is enabled here so keyword sync metrics can be verified locally
+# alongside the existing SNS/SQS/EventBridge workflow.
+REQUIRED_SERVICES="sns,sqs,events,s3,cloudwatch"
 
 if ! docker network inspect "${KMS_DOCKER_NETWORK}" >/dev/null 2>&1; then
   docker network create "${KMS_DOCKER_NETWORK}" >/dev/null
@@ -24,7 +26,8 @@ if [[ -n "${existing_id}" ]]; then
       || true
   )"
 
-  if [[ ",${configured_services}," != *",events,"* ]]; then
+  if [[ ",${configured_services}," != *",events,"* ]] \
+    || [[ ",${configured_services}," != *",cloudwatch,"* ]]; then
     docker rm -f "${LOCALSTACK_CONTAINER_NAME}" >/dev/null
     echo "Recreating LocalStack container '${LOCALSTACK_CONTAINER_NAME}' to enable services: ${REQUIRED_SERVICES}"
     existing_id=""
@@ -54,5 +57,5 @@ docker run -d \
   "${LOCALSTACK_IMAGE}" >/dev/null
 
 echo "Started LocalStack container '${LOCALSTACK_CONTAINER_NAME}' on ${LOCALSTACK_PORT}->4566"
-echo "SNS/SQS/EventBridge endpoint for SAM/Lambda containers: ${AWS_ENDPOINT_URL}"
-echo "SNS/SQS/EventBridge endpoint from host: http://localhost:${LOCALSTACK_PORT}"
+echo "SNS/SQS/EventBridge/CloudWatch endpoint for SAM/Lambda containers: ${AWS_ENDPOINT_URL}"
+echo "SNS/SQS/EventBridge/CloudWatch endpoint from host: http://localhost:${LOCALSTACK_PORT}"

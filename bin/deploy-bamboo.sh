@@ -64,6 +64,7 @@ dockerRun() {
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
         --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \
         --env "BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE=${bamboo_BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE:-false}" \
+        --env "KEYWORD_SYNC_ALARM_EMAILS=${bamboo_KEYWORD_SYNC_ALARM_EMAILS:-}" \
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
         --env "RDF4J_INSTANCE_TYPE=$bamboo_RDF4J_INSTANCE_TYPE" \
         --env "RDF4J_CONTAINER_MEMORY_LIMIT=$bamboo_RDF4J_CONTAINER_MEMORY_LIMIT" \
@@ -73,6 +74,7 @@ dockerRun() {
         --env "LOG_LEVEL=$bamboo_LOG_LEVEL" \
         --env "KMS_REDIS_ENABLED=$bamboo_KMS_REDIS_ENABLED" \
         --env "KMS_REDIS_NODE_TYPE=$bamboo_KMS_REDIS_NODE_TYPE" \
+        --env "LOG_DESTINATION_ARN=$bamboo_LOG_DESTINATION_ARN" \
     $dockerTag "$@"
 }
 

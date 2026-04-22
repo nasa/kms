@@ -10,6 +10,8 @@ import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 
+import { LogForwardingSetup } from './helper/LogForwardingSetup'
+
 /**
  * Properties for the CMR event processing stack.
  */
@@ -17,6 +19,7 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   prefix: string
   stage: string
   topicArn: string
+  logDestinationArn: string
 }
 
 /**
@@ -38,6 +41,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CmrEventProcessingStackProps) {
     super(scope, id, props)
 
+    const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true'
     const queueName = `${props.prefix}-${props.stage}-cmr-keyword-events`
     const topic = sns.Topic.fromTopicArn(this, 'KeywordEventsTopic', props.topicArn)
 
@@ -55,7 +59,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
     })
 
     const listenerLambda = new NodejsFunction(this, `${props.prefix}-cmr-keyword-events-processor`, {
-      functionName: `${props.prefix}-cmr-keyword-events-processor`,
+      functionName: `${props.prefix}-${props.stage}-cmr-keyword-events-processor`,
       entry: path.join(__dirname, '../../../serverless/src/cmrKeywordEventsListener/handler.js'),
       handler: 'cmrKeywordEventsListener',
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -71,6 +75,20 @@ export class CmrEventProcessingStack extends cdk.Stack {
     }))
 
     queue.grantConsumeMessages(listenerLambda)
+
+    // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account
+    // Skip log forwarding for localstack deployments
+    if (!useLocalstack) {
+      // eslint-disable-next-line no-new
+      new LogForwardingSetup(this, 'LogForwarding', {
+        prefix: props.prefix,
+        stage: props.stage,
+        logDestinationArn: props.logDestinationArn,
+        lambdas: {
+          'cmrKeywordEventsListener/handler.js::cmr-keyword-events-processor': listenerLambda
+        }
+      })
+    }
 
     this.keywordEventsQueueUrlOutput = new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
       description: 'Queue URL for CMR keyword event processing',
