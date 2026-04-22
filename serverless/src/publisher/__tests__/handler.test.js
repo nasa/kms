@@ -1567,7 +1567,6 @@ describe('publisher handler', () => {
 
       await publisher(mockEvent)
 
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Created 1 keyword events')
       expect(callOrder).toEqual([
         'build-publish-query',
         'execute-publish',

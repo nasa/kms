@@ -141,8 +141,6 @@ export const createKeywordEvents = (keywordChangesMap) => {
     })
   })
 
-  logger.info(`Created ${keywordEvents.length} keyword events from ${keywordChangesMap.size} schemes`)
-
   return keywordEvents
 }
 
@@ -491,15 +489,8 @@ export const publisher = async (event) => {
     const keywordChanges = await getKeywordChanges()
     const keywordChangesDetected = countKeywordChanges(keywordChanges)
 
-    // Log summary of all changes
-    const totalSchemes = keywordChanges.size
-    logger.info(`[publisher] Analysis completed. Processed ${totalSchemes} concept schemes.`)
-
     const keywordEvents = createKeywordEvents(keywordChanges)
     const keywordEventsGenerated = keywordEvents.length
-
-    logger.info(`[publisher] Created ${keywordEvents.length} keyword events`)
-    logger.info('[publisher] Keyword Events:', keywordEvents)
 
     // Execute the publish operation
     logger.info(`[publisher] Executing publish update for version=${versionName}`)
