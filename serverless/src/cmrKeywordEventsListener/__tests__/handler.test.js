@@ -7,6 +7,7 @@ import {
 } from 'vitest'
 
 import { logger } from '@/shared/logger'
+import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 import { cmrKeywordEventsListener } from '../handler'
 
@@ -17,9 +18,18 @@ vi.mock('@/shared/logger', () => ({
   }
 }))
 
+vi.mock('@/shared/publishMetadataCorrectionRequest', () => ({
+  publishMetadataCorrectionRequest: vi.fn()
+}))
+
 describe('when the CMR keyword events processor is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(publishMetadataCorrectionRequest).mockResolvedValue({
+      messageId: 'metadata-correction-message-123',
+      message: '{}',
+      topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-metadata-correction-requests.fifo'
+    })
   })
 
   describe('when the invocation is successful', () => {
@@ -32,8 +42,12 @@ describe('when the CMR keyword events processor is invoked', () => {
               body: JSON.stringify({
                 Type: 'Notification',
                 Message: JSON.stringify({
-                  event_type: 'keyword_updated',
-                  uuid: '1234'
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234',
+                  OldKeywordPath: 'Old > Keyword',
+                  NewKeywordPath: 'New > Keyword',
+                  Timestamp: '2026-04-21T00:00:00.000Z'
                 })
               })
             }
@@ -45,9 +59,30 @@ describe('when the CMR keyword events processor is invoked', () => {
           expect.objectContaining({
             messageId: 'message-123',
             keywordEvent: expect.objectContaining({
-              event_type: 'keyword_updated',
-              uuid: '1234'
+              EventType: 'UPDATED',
+              UUID: '1234'
             })
+          })
+        )
+
+        expect(publishMetadataCorrectionRequest).toHaveBeenCalledWith({
+          source: 'cmrKeywordEventsListener',
+          collectionConceptId: 'C0000000000-KMS',
+          keywordEvent: {
+            eventType: 'UPDATED',
+            scheme: 'sciencekeywords',
+            uuid: '1234',
+            oldKeywordPath: 'Old > Keyword',
+            newKeywordPath: 'New > Keyword',
+            timestamp: '2026-04-21T00:00:00.000Z'
+          }
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          '[consumer] Published metadata correction request',
+          expect.objectContaining({
+            collectionConceptId: 'C0000000000-KMS',
+            messageId: 'metadata-correction-message-123'
           })
         )
 
@@ -81,6 +116,8 @@ describe('when the CMR keyword events processor is invoked', () => {
         expect(result).toEqual({
           batchItemFailures: []
         })
+
+        expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
       })
     })
 
@@ -105,6 +142,8 @@ describe('when the CMR keyword events processor is invoked', () => {
         expect(result).toEqual({
           batchItemFailures: []
         })
+
+        expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
       })
     })
   })
@@ -128,6 +167,29 @@ describe('when the CMR keyword events processor is invoked', () => {
             }
           ]
         })).rejects.toThrow()
+
+        expect(logger.error).toHaveBeenCalled()
+      })
+    })
+
+    describe('when publishing the metadata correction request fails', () => {
+      test('should log the error and throw', async () => {
+        vi.mocked(publishMetadataCorrectionRequest).mockRejectedValue(new Error('SNS unavailable'))
+
+        await expect(cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  UUID: '1234'
+                })
+              })
+            }
+          ]
+        })).rejects.toThrow('SNS unavailable')
 
         expect(logger.error).toHaveBeenCalled()
       })

@@ -273,14 +273,30 @@ const getQueueResourceName = (registration) => (
 )
 
 /**
+ * Adds the AWS FIFO suffix to a local resource name when the bridge registration asks for
+ * FIFO semantics.
+ *
+ * @param {string} name - Local resource name.
+ * @param {Object} registration - Bridge registration definition.
+ * @returns {string} Resource name, optionally suffixed for FIFO.
+ */
+const applyFifoSuffix = (name, registration) => (
+  registration.eventPattern?.fifo ? `${name}.fifo` : name
+)
+
+/**
  * Ensures a LocalStack queue exists and returns its URL and ARN.
  *
  * @param {string} queueName - Fully qualified queue name to create or retrieve.
+ * @param {Object | undefined} attributes - Queue attributes to apply during creation.
  * @returns {Promise<{queueUrl: string | undefined, queueArn: string | undefined}>}
  */
-const ensureQueue = async (queueName) => {
+const ensureQueue = async (queueName, attributes) => {
   const { QueueUrl: queueUrl } = await sqsClient.send(new CreateQueueCommand({
-    QueueName: queueName
+    QueueName: queueName,
+    ...(attributes && {
+      Attributes: attributes
+    })
   }))
 
   const queueAttributes = await sqsClient.send(new GetQueueAttributesCommand({
@@ -303,16 +319,34 @@ const ensureQueue = async (queueName) => {
  */
 const ensureSnsToSqsResources = async (registration) => {
   const name = getRegistrationKey(registration)
-  const topicName = formatResourceName(normalizeName(registration.eventPattern.topicName))
-  const queueName = formatResourceName(getQueueResourceName(registration))
+  const topicName = applyFifoSuffix(
+    formatResourceName(normalizeName(registration.eventPattern.topicName)),
+    registration
+  )
+  const queueName = applyFifoSuffix(
+    formatResourceName(getQueueResourceName(registration)),
+    registration
+  )
+  const fifoAttributes = registration.eventPattern?.fifo
+    ? {
+      ContentBasedDeduplication: 'true',
+      FifoQueue: 'true'
+    }
+    : undefined
   const { TopicArn: topicArn } = await snsClient.send(new CreateTopicCommand({
-    Name: topicName
+    Name: topicName,
+    ...(registration.eventPattern?.fifo && {
+      Attributes: {
+        ContentBasedDeduplication: 'true',
+        FifoTopic: 'true'
+      }
+    })
   }))
 
   const {
     queueArn,
     queueUrl
-  } = await ensureQueue(queueName)
+  } = await ensureQueue(queueName, fifoAttributes)
 
   const queuePolicy = {
     Version: '2012-10-17',
@@ -353,7 +387,12 @@ const ensureSnsToSqsResources = async (registration) => {
     await snsClient.send(new SubscribeCommand({
       TopicArn: topicArn,
       Protocol: 'sqs',
-      Endpoint: queueArn
+      Endpoint: queueArn,
+      ...(registration.eventPattern.rawMessageDelivery && {
+        Attributes: {
+          RawMessageDelivery: 'true'
+        }
+      })
     }))
   }
 

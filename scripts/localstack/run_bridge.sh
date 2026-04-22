@@ -3,6 +3,9 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# Default local topic ARN: arn:aws:sns:us-east-1:000000000000:kms-dev-metadata-correction-requests.fifo
+export METADATA_CORRECTION_REQUESTS_TOPIC_ARN="${METADATA_CORRECTION_REQUESTS_TOPIC_ARN:-arn:aws:sns:${AWS_REGION:-us-east-1}:${LOCALSTACK_ACCOUNT_ID:-000000000000}:${STACK_PREFIX:-kms}-${STAGE_NAME:-dev}-metadata-correction-requests.fifo}"
+
 export BRIDGE_REGISTRY_JSON="${BRIDGE_REGISTRY_JSON:-$(cat <<'EOF'
 [
   {
@@ -18,6 +21,15 @@ export BRIDGE_REGISTRY_JSON="${BRIDGE_REGISTRY_JSON:-$(cat <<'EOF'
     "sourceType": "sns-to-sqs",
     "eventPattern": {
       "topicName": "keyword-events"
+    }
+  },
+  {
+    "handler": "metadataCorrectionService",
+    "sourceType": "sns-to-sqs",
+    "eventPattern": {
+      "fifo": true,
+      "rawMessageDelivery": true,
+      "topicName": "metadata-correction-requests"
     }
   },
   {
