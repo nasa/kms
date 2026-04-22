@@ -558,6 +558,18 @@ export const publisher = async (event) => {
       logger.info('[publisher] No keyword events generated, skipping SNS publish')
     }
 
+    // #########################################################################
+    // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
+    // ##
+    // ## The following S3 export operations are part of the critical path for
+    // ## publish completion. This work MUST stay comfortably under the Lambda
+    // ## function timeout.
+    // ##
+    // ## If S3 exports start getting close to the timeout, we should:
+    // ##  1. Move this work to a separate, asynchronous Lambda function.
+    // ##  2. Reconsider emitting the cache-prime event *before* these exports
+    // ##     to ensure downstream processes are not blocked.
+    // #########################################################################
     // Export RDF and CSV data to S3 after publishing
     logger.info('[publisher] Starting S3 exports of RDF and CSV data.')
 
