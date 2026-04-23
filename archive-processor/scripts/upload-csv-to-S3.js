@@ -7,7 +7,9 @@ import {
 } from 'path'
 import { fileURLToPath } from 'url'
 
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
+
+import { getS3Client } from '@/shared/awsClients'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const scriptDir = dirname(scriptPath)
@@ -52,13 +54,10 @@ const uploadDelayMs = parseInt(process.env.UPLOAD_DELAY_MS || '100', 10)
 const toBeUploadedVersions = process.env.TO_BE_UPLOADED_VERSIONS || ''
 
 /**
- * S3 Client configured for the specified region
+ * S3 Client from shared configuration
  * @type {S3Client}
  */
-const s3Client = new S3Client({
-  region,
-  ...(awsProfile && { credentials: undefined })
-})
+const s3Client = getS3Client()
 
 /**
  * Delays execution for the specified number of milliseconds
@@ -167,7 +166,7 @@ const findCsvFiles = async (dir, versionList) => {
 /**
  * Main function to upload all CSV files
  *
- * @returns {Promise<void>}
+ * @returns {Promise<number>} The number of failed uploads.
  */
 const uploadAllCsvFiles = async () => {
   const versionList = toBeUploadedVersions.split(',').map((v) => v.trim()).filter(Boolean)
@@ -178,7 +177,7 @@ const uploadAllCsvFiles = async () => {
   if (filesToUpload.length === 0) {
     console.log('No CSV files found to upload.')
 
-    return
+    return 0
   }
 
   const totalFiles = filesToUpload.length
@@ -216,6 +215,8 @@ const uploadAllCsvFiles = async () => {
       console.log(`  - ${r.filePath}: ${r.error.message}`)
     })
   }
+
+  return failed
 }
 
 /**
@@ -240,7 +241,9 @@ const main = async () => {
   console.log(`Input: ${inputDir}`)
   console.log(`Delay between uploads: ${uploadDelayMs}ms`)
 
-  if (awsProfile) {
+  if (process.env.AWS_ENDPOINT_URL) {
+    console.log(`Endpoint: ${process.env.AWS_ENDPOINT_URL}`)
+  } else if (awsProfile) {
     console.log(`Profile: ${awsProfile}`)
   }
 
@@ -253,8 +256,14 @@ const main = async () => {
   console.log('\n')
 
   try {
-    await uploadAllCsvFiles()
-    console.log('\n✓ Upload completed successfully!')
+    const failedCount = await uploadAllCsvFiles()
+
+    if (failedCount > 0) {
+      console.error(`\n✗ Upload process concluded with ${failedCount} failure(s).`)
+      process.exit(1)
+    } else {
+      console.log('\n✓ Upload completed successfully!')
+    }
   } catch (error) {
     console.error('\n✗ Failed to upload CSV files:', error.message)
 

@@ -3,11 +3,9 @@ import { dirname, join } from 'path'
 import { pipeline } from 'stream/promises'
 import { fileURLToPath } from 'url'
 
-import {
-  GetObjectCommand,
-  ListObjectsV2Command,
-  S3Client
-} from '@aws-sdk/client-s3'
+import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+
+import { getS3Client } from '@/shared/awsClients'
 
 const scriptPath = fileURLToPath(import.meta.url)
 const scriptDir = dirname(scriptPath)
@@ -53,13 +51,10 @@ const downloadDelayMs = parseInt(process.env.DOWNLOAD_DELAY_MS || '100', 10)
 const toBeDownloadedVersions = process.env.TO_BE_DOWNLOADED_VERSIONS || ''
 
 /**
- * S3 Client configured for the specified region
+ * S3 Client from shared configuration
  * @type {S3Client}
  */
-const s3Client = new S3Client({
-  region,
-  ...(awsProfile && { credentials: undefined })
-})
+const s3Client = getS3Client()
 
 /**
  * Extracts the version name from an S3 object key
@@ -189,7 +184,7 @@ const listS3Objects = async () => {
 /**
  * Downloads all RDF files from S3
  *
- * @returns {Promise<void>}
+ * @returns {Promise<number>} The number of failed downloads.
  */
 const downloadAllRdfFiles = async () => {
   // List all objects from S3
@@ -269,7 +264,9 @@ const main = async () => {
   console.log(`Output: ${outputDir}`)
   console.log(`Delay between downloads: ${downloadDelayMs}ms`)
 
-  if (awsProfile) {
+  if (process.env.AWS_ENDPOINT_URL) {
+    console.log(`Endpoint: ${process.env.AWS_ENDPOINT_URL}`)
+  } else if (awsProfile) {
     console.log(`Profile: ${awsProfile}`)
   }
 
@@ -280,8 +277,14 @@ const main = async () => {
   }
 
   try {
-    await downloadAllRdfFiles()
-    console.log('\n✓ Download completed successfully!')
+    const failedCount = await downloadAllRdfFiles()
+
+    if (failedCount > 0) {
+      console.error(`\n✗ Download process concluded with ${failedCount} failure(s).`)
+      process.exit(1)
+    } else {
+      console.log('\n✓ Download completed successfully!')
+    }
   } catch (error) {
     console.error('\n✗ Failed to download RDF files:', error.message)
 

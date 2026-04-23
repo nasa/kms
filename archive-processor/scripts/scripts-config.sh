@@ -32,6 +32,26 @@ export AWS_REGION="us-east-1"
 
 
 # =============================================================================
+# LocalStack Settings (Optional)
+# =============================================================================
+
+# Set to "true" to use LocalStack instead of AWS.
+# When true, the scripts will target the LOCALSTACK_S3_ENDPOINT.
+export USE_LOCALSTACK="true"
+
+# If USE_LOCALSTACK is true, set the AWS_ENDPOINT_URL to the LocalStack endpoint.
+# Otherwise, leave it unset to use the default AWS endpoint.
+if [ "$USE_LOCALSTACK" = "true" ]; then
+  export AWS_ENDPOINT_URL="http://localhost:4566"
+else
+  unset AWS_ENDPOINT_URL
+fi
+
+
+
+
+
+# =============================================================================
 # RDF Downloader Settings (for download-rdf-from-S3.js)
 # =============================================================================
 
