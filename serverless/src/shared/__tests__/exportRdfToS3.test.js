@@ -1,6 +1,5 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
-  afterEach,
   beforeEach,
   describe,
   expect,
@@ -42,10 +41,6 @@ describe('exportRdfToS3', () => {
 
     S3Client.prototype.send = vi.fn().mockResolvedValue({})
     ensureBucketAndLifecycleRule.mockResolvedValue()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
   })
 
   describe('when export process runs', () => {

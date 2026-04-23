@@ -1,6 +1,5 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
-  afterEach,
   beforeEach,
   describe,
   expect,
@@ -52,11 +51,6 @@ describe('exportPublishSchemeCsvToS3', () => {
 
       return ''
     })
-  })
-
-  afterEach(() => {
-    // Restore real timers after each test
-    vi.useRealTimers()
   })
 
   test('should successfully export CSVs for all published schemes', async () => {
