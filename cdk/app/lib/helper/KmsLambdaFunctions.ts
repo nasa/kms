@@ -135,7 +135,6 @@ export class LambdaFunctions {
     this.createNightlyCachePrimeCron(scope)
     this.createCrudOperationApiLambdas(scope)
     this.createPublishEventBridgeWiring(scope)
-    this.createExportRdfCrons(scope)
   }
 
   /**
@@ -472,43 +471,6 @@ export class LambdaFunctions {
       actions: ['sns:Publish'],
       resources: [topicArn]
     }))
-  }
-
-  /**
-   * Creates Lambda function for exporting RDF to S3 and sets up associated cron jobs
-   * @param {Construct} scope - The scope in which to define these constructs
-   * @private
-   */
-  private createExportRdfCrons(scope: Construct) {
-    // Create the exportRdfToS3 Lambda
-    const exportRdfToS3Lambda = this.createApiLambda(
-      scope,
-      'exportRdfToS3/handler.js',
-      'export-rdf-to-s3',
-      'handler',
-      '/export-rdf',
-      'POST',
-      false,
-      Duration.minutes(15)
-    )
-
-    // Set up cron jobs for exportRdfToS3
-    // Runs at 1am nightly.
-    this.setupCronJob(
-      scope,
-      exportRdfToS3Lambda,
-      'cron(0 6 * * ? *)',
-      { version: 'published' },
-      'Published'
-    )
-
-    this.setupCronJob(
-      scope,
-      exportRdfToS3Lambda,
-      'cron(5 6 * * ? *)',
-      { version: 'draft' },
-      'Draft'
-    )
   }
 
   /**

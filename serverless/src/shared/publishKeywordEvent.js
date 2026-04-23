@@ -1,27 +1,8 @@
-import { PublishCommand, SNSClient } from '@aws-sdk/client-sns'
+import { PublishCommand } from '@aws-sdk/client-sns'
 
-/**
- * Creates an SNS client for either real AWS or a LocalStack endpoint override.
- *
- * @returns {SNSClient} Configured SNS client instance.
- */
-const createSnsClient = () => {
-  const endpoint = process.env.AWS_ENDPOINT_URL
-  const config = endpoint
-    ? {
-      endpoint,
-      region: process.env.AWS_REGION || 'us-east-1',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test'
-      }
-    }
-    : {}
+import { getSnsClient } from '@/shared/awsClients'
 
-  return new SNSClient(config)
-}
-
-const snsClient = createSnsClient()
+const snsClient = getSnsClient()
 
 /**
  * Publishes a keyword event payload to the configured SNS topic.

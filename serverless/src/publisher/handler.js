@@ -1,8 +1,11 @@
-import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge'
+import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
+import { getEventBridgeClient } from '@/shared/awsClients'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
+import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
+import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
@@ -13,7 +16,7 @@ const PUBLISHER_EVENT_SOURCE = 'kms.publisher'
 const PUBLISHER_EVENT_DETAIL_TYPE = 'kms.publisher.analysis.completed'
 const KEYWORD_EVENT_PUBLISH_RETRIES = 3
 
-const publisherEventClient = new EventBridgeClient({})
+const publisherEventClient = getEventBridgeClient()
 
 /**
  * Indicates whether keyword diff failures should block publish completion.
@@ -553,6 +556,48 @@ export const publisher = async (event) => {
       )
     } else {
       logger.info('[publisher] No keyword events generated, skipping SNS publish')
+    }
+
+    // #########################################################################
+    // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
+    // ##
+    // ## The following S3 export operations are part of the critical path for
+    // ## publish completion. This work MUST stay comfortably under the Lambda
+    // ## function timeout.
+    // ##
+    // ## If S3 exports start getting close to the timeout, we should:
+    // ##  1. Move this work to a separate, asynchronous Lambda function.
+    // ##  2. Reconsider emitting the cache-prime event *before* these exports
+    // ##     to ensure downstream processes are not blocked.
+    // #########################################################################
+    // Export RDF and CSV data to S3 after publishing
+    logger.info('[publisher] Starting S3 exports of RDF and CSV data.')
+
+    try {
+      await exportRdfToS3({ version: 'published' })
+      logger.info('[publisher] Successfully exported Published RDF to S3.')
+    } catch (exportError) {
+      const failureMessage = `Failed to export Published RDF to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    try {
+      await exportRdfToS3({ version: 'draft' })
+      logger.info('[publisher] Successfully exported Draft RDF to S3.')
+    } catch (exportError) {
+      const failureMessage = `Failed to export Draft RDF to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    try {
+      await exportPublishSchemeCsvToS3()
+      logger.info('[publisher] Successfully exported Published Scheme CSVs to S3.')
+    } catch (exportError) {
+      const failureMessage = `Failed to export Published Scheme CSVs to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
     }
 
     await emitPublisherMetricsSafely(

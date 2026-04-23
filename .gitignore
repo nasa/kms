@@ -45,3 +45,5 @@ loadtest/locust/
 scripts/load/hammer_endpoints_sequential.js
 data/scheme-size*
 notes/
+archive-processor/downloaded-rdf
+archive-processor/local-kms-csv

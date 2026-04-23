@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/../env/local_env.sh"
 
 # CloudWatch is enabled here so keyword sync metrics can be verified locally
 # alongside the existing SNS/SQS/EventBridge workflow.
-REQUIRED_SERVICES="sns,sqs,events,cloudwatch"
+REQUIRED_SERVICES="sns,sqs,events,s3,cloudwatch"
 
 if ! docker network inspect "${KMS_DOCKER_NETWORK}" >/dev/null 2>&1; then
   docker network create "${KMS_DOCKER_NETWORK}" >/dev/null
@@ -27,6 +27,7 @@ if [[ -n "${existing_id}" ]]; then
   )"
 
   if [[ ",${configured_services}," != *",events,"* ]] \
+    || [[ ",${configured_services}," != *",s3,"* ]] \
     || [[ ",${configured_services}," != *",cloudwatch,"* ]]; then
     docker rm -f "${LOCALSTACK_CONTAINER_NAME}" >/dev/null
     echo "Recreating LocalStack container '${LOCALSTACK_CONTAINER_NAME}' to enable services: ${REQUIRED_SERVICES}"

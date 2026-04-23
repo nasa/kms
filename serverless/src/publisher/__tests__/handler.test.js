@@ -9,6 +9,8 @@ import {
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
+import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
+import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
@@ -50,6 +52,8 @@ vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
 vi.mock('@/shared/sparqlRequest')
+vi.mock('@/shared/exportRdfToS3')
+vi.mock('@/shared/exportPublishSchemeCsvToS3')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
     send: sendEventBridgeMock
@@ -63,6 +67,8 @@ describe('publisher handler', () => {
     delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
     emitPublisherMetrics.mockResolvedValue()
     sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
+    exportRdfToS3.mockResolvedValue({ s3Key: 'test/rdf.xml' })
+    exportPublishSchemeCsvToS3.mockResolvedValue()
     publishKeywordEvent.mockResolvedValue({
       messageId: 'message-1',
       message: '{}',
@@ -954,6 +960,11 @@ describe('publisher handler', () => {
       })
 
       expect(logger.info).toHaveBeenCalledWith('[publisher] Publish update completed for version=v1.0.0')
+
+      // Verify S3 exports were called
+      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
+      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
+      expect(exportPublishSchemeCsvToS3).toHaveBeenCalled()
       expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
       expect(publishKeywordEvent).toHaveBeenCalledWith(expect.objectContaining({
         EventType: 'INSERTED',
@@ -1009,6 +1020,102 @@ describe('publisher handler', () => {
       expect(sparqlRequest).not.toHaveBeenCalled()
       expect(publishKeywordEvent).not.toHaveBeenCalled()
       expect(sendEventBridgeMock).not.toHaveBeenCalled()
+    })
+
+    test('should return partial_success when S3 exports fail', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      // Mock exports to fail
+      exportRdfToS3
+        .mockRejectedValueOnce(new Error('S3 RDF published export failed'))
+        .mockResolvedValue({ s3Key: 'test/rdf.xml' }) // Draft export succeeds
+
+      exportPublishSchemeCsvToS3.mockRejectedValue(new Error('S3 CSV export failed'))
+
+      const result = await publisher(mockEvent)
+
+      expect(result.status).toBe('partial_success')
+      expect(result.postPublishFailures).toHaveLength(2)
+      expect(result.postPublishFailures).toContain('Failed to export Published RDF to S3: S3 RDF published export failed')
+      expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
+
+      // Ensure both RDF exports were attempted
+      expect(exportRdfToS3).toHaveBeenCalledTimes(2)
+
+      // Ensure CSV export was attempted
+      expect(exportPublishSchemeCsvToS3).toHaveBeenCalledTimes(1)
+
+      // Ensure cache-prime event was still emitted
+      expect(result.cachePrimeEventEmitted).toBe(true)
+      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Published RDF to S3: S3 RDF published export failed')
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
+    })
+
+    test('should return partial_success when draft S3 RDF export fails', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      // Mock exports: published succeeds, draft fails
+      exportRdfToS3.mockImplementation(async ({ version }) => {
+        if (version === 'draft') {
+          throw new Error('S3 Draft export failed')
+        }
+
+        return { s3Key: 'published/rdf.xml' }
+      })
+
+      const result = await publisher(mockEvent)
+
+      expect(result.status).toBe('partial_success')
+      expect(result.postPublishFailures).toHaveLength(1)
+      expect(result.postPublishFailures).toContain('Failed to export Draft RDF to S3: S3 Draft export failed')
+
+      expect(exportRdfToS3).toHaveBeenCalledTimes(2)
+      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
+      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
+
+      expect(exportPublishSchemeCsvToS3).toHaveBeenCalledTimes(1)
+
+      expect(result.cachePrimeEventEmitted).toBe(true)
+      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Draft RDF to S3: S3 Draft export failed')
     })
 
     test('should continue publish when keyword diff retries exhaust and blocking is disabled', async () => {
