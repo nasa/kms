@@ -27,6 +27,7 @@ if [[ -n "${existing_id}" ]]; then
   )"
 
   if [[ ",${configured_services}," != *",events,"* ]] \
+    || [[ ",${configured_services}," != *",s3,"* ]] \
     || [[ ",${configured_services}," != *",cloudwatch,"* ]]; then
     docker rm -f "${LOCALSTACK_CONTAINER_NAME}" >/dev/null
     echo "Recreating LocalStack container '${LOCALSTACK_CONTAINER_NAME}' to enable services: ${REQUIRED_SERVICES}"
