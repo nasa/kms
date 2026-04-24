@@ -3,7 +3,7 @@ import { logger } from '@/shared/logger'
 /**
  * Metadata correction service placeholder that consumes metadata correction requests from SQS.
  *
- * This proves the SNS/SQS/Lambda plumbing for KMS-676. KMS-675B will replace the stubbed
+ * This proves the SNS/SQS/Lambda plumbing for KMS-676. Follow-on ticket will replace the stubbed
  * logging behavior with real metadata fetch, keyword resolution, and native metadata updates.
  *
  * TODO: Create a follow-up ticket for targeted correction requests. When a request includes
