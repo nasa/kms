@@ -1,4 +1,3 @@
-/* eslint-disable no-new */
 import * as cdk from 'aws-cdk-lib'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
@@ -24,6 +23,8 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
  * that will process those events for downstream CMR business logic.
  */
 export class CmrEventProcessingStack extends cdk.Stack {
+  private readonly logForwardingSetup?: LogForwardingSetup
+
   /**
    * Creates the CMR listener resources and metadata correction messaging resources.
    *
@@ -52,8 +53,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
     // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account
     // Skip log forwarding for localstack deployments
     if (!useLocalstack) {
-      // eslint-disable-next-line no-new
-      new LogForwardingSetup(this, 'LogForwarding', {
+      this.logForwardingSetup = new LogForwardingSetup(this, 'LogForwarding', {
         prefix: props.prefix,
         stage: props.stage,
         logDestinationArn: props.logDestinationArn,
@@ -63,6 +63,5 @@ export class CmrEventProcessingStack extends cdk.Stack {
         }
       })
     }
-
   }
 }

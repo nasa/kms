@@ -1,7 +1,6 @@
 import * as path from 'path'
 
 import * as cdk from 'aws-cdk-lib'
-import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -30,6 +29,16 @@ export class MetadataCorrectionSetup extends Construct {
   public readonly metadataCorrectionRequestsDlq: sqs.Queue
 
   public readonly metadataCorrectionServiceLambda: NodejsFunction
+
+  public readonly metadataCorrectionRequestsTopicArnOutput: cdk.CfnOutput
+
+  public readonly metadataCorrectionRequestsQueueUrlOutput: cdk.CfnOutput
+
+  public readonly metadataCorrectionRequestsQueueArnOutput: cdk.CfnOutput
+
+  public readonly metadataCorrectionRequestsDlqUrlOutput: cdk.CfnOutput
+
+  public readonly metadataCorrectionRequestsDlqArnOutput: cdk.CfnOutput
 
   /**
    * @param {Construct} scope - Parent construct.
@@ -102,31 +111,31 @@ export class MetadataCorrectionSetup extends Construct {
 
     this.metadataCorrectionRequestsQueue.grantConsumeMessages(this.metadataCorrectionServiceLambda)
 
-    new cdk.CfnOutput(this, 'MetadataCorrectionRequestsTopicArn', {
+    this.metadataCorrectionRequestsTopicArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsTopicArn', {
       description: 'SNS topic ARN for metadata correction request publishing',
       exportName: `${props.prefix}-MetadataCorrectionRequestsTopicArn`,
       value: this.metadataCorrectionRequestsTopic.topicArn
     })
 
-    new cdk.CfnOutput(this, 'MetadataCorrectionRequestsQueueUrl', {
+    this.metadataCorrectionRequestsQueueUrlOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsQueueUrl', {
       description: 'Queue URL for metadata correction request processing',
       exportName: `${props.prefix}-MetadataCorrectionRequestsQueueUrl`,
       value: this.metadataCorrectionRequestsQueue.queueUrl
     })
 
-    new cdk.CfnOutput(this, 'MetadataCorrectionRequestsQueueArn', {
+    this.metadataCorrectionRequestsQueueArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsQueueArn', {
       description: 'Queue ARN for metadata correction request processing',
       exportName: `${props.prefix}-MetadataCorrectionRequestsQueueArn`,
       value: this.metadataCorrectionRequestsQueue.queueArn
     })
 
-    new cdk.CfnOutput(this, 'MetadataCorrectionRequestsDlqUrl', {
+    this.metadataCorrectionRequestsDlqUrlOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsDlqUrl', {
       description: 'DLQ URL for failed metadata correction request processing',
       exportName: `${props.prefix}-MetadataCorrectionRequestsDlqUrl`,
       value: this.metadataCorrectionRequestsDlq.queueUrl
     })
 
-    new cdk.CfnOutput(this, 'MetadataCorrectionRequestsDlqArn', {
+    this.metadataCorrectionRequestsDlqArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsDlqArn', {
       description: 'DLQ ARN for failed metadata correction request processing',
       exportName: `${props.prefix}-MetadataCorrectionRequestsDlqArn`,
       value: this.metadataCorrectionRequestsDlq.queueArn

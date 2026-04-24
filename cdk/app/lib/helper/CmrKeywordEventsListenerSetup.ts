@@ -28,6 +28,8 @@ export class CmrKeywordEventsListenerSetup extends Construct {
 
   public readonly listenerLambda: NodejsFunction
 
+  public readonly queueUrlOutput: cdk.CfnOutput
+
   /**
    * @param {Construct} scope - Parent construct.
    * @param {string} id - Construct identifier.
@@ -66,7 +68,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
     this.queue.grantConsumeMessages(this.listenerLambda)
     props.metadataCorrectionRequestsTopic.grantPublish(this.listenerLambda)
 
-    new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
+    this.queueUrlOutput = new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
       description: 'Queue URL for CMR keyword event processing',
       exportName: `${props.prefix}-CmrKeywordEventsQueueUrl`,
       value: this.queue.queueUrl
