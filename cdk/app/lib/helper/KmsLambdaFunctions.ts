@@ -11,6 +11,7 @@ import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-node
 import { Construct } from 'constructs'
 
 import { ApiResources } from './ApiResources'
+import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 
 /**
  * Interface for LambdaFunctions constructor properties
@@ -582,7 +583,7 @@ export class LambdaFunctions {
         functionName: `${this.props.prefix}-${this.props.stage}-${functionName}`,
         entry: path.join(__dirname, '../../../../serverless/src', handlerPath),
         handler: handlerName,
-        runtime: lambda.Runtime.NODEJS_22_X,
+        runtime: NODE_LAMBDA_RUNTIME,
         timeout,
         memorySize,
         role: this.props.lambdaRole,

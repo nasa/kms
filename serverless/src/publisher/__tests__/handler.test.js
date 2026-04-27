@@ -237,6 +237,9 @@ describe('publisher handler', () => {
       expect(getConceptSchemeDetails).toHaveBeenCalledWith({ version: 'published' })
       expect(getConceptSchemeDetails).toHaveBeenCalledWith({ version: 'draft' })
       expect(downloadConcepts).toHaveBeenCalledTimes(4) // 2 schemes × 2 versions
+      expect(logger.info).toHaveBeenCalledWith(
+        '[publisher] Keyword changes summary schemes=2 processed=2 failed=0 added=0 removed=0 changed=0'
+      )
     })
 
     test('should process concept schemes sequentially', async () => {
@@ -550,9 +553,6 @@ describe('publisher handler', () => {
       // Should have succeeded after retry
       expect(result.size).toBe(1)
       expect(result.has('sciencekeywords')).toBe(true)
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Retrying sciencekeywords (attempt 2/4)')
-      )
 
       vi.useRealTimers()
     })
@@ -641,11 +641,6 @@ describe('publisher handler', () => {
 
       // Verify deletedscheme has removed keywords
       expect(result.get('deletedscheme').removedKeywords.size).toBe(1)
-
-      // Verify appropriate logging
-      expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (scheme removed). All keywords will be marked as DELETED.'
-      )
 
       // Verify compare was called with empty string for deletedscheme
       expect(mockComparator.compare).toHaveBeenCalledWith('published csv content', '')
@@ -822,11 +817,6 @@ describe('publisher handler', () => {
       // Verify newscheme has added keywords
       expect(result.get('newscheme').addedKeywords.size).toBe(1)
 
-      // Verify appropriate logging
-      expect(logger.info).toHaveBeenCalledWith(
-        'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
-      )
-
       // Verify compare was called with empty string for newscheme published
       expect(mockComparator.compare).toHaveBeenCalledWith('', 'draft csv content for newscheme')
     })
@@ -875,15 +865,6 @@ describe('publisher handler', () => {
 
       // Verify comparator was called 3 times
       expect(mockComparator.compare).toHaveBeenCalledTimes(3)
-
-      // Verify appropriate logs for each case
-      expect(logger.info).toHaveBeenCalledWith(
-        'Scheme deletedscheme does not exist in draft version (scheme removed). All keywords will be marked as DELETED.'
-      )
-
-      expect(logger.info).toHaveBeenCalledWith(
-        'Scheme newscheme is new in draft version. All keywords will be marked as INSERTED.'
-      )
     })
 
     test('should use Unknown error fallback when retries exhaust without an error message and blocking is enabled', async () => {
@@ -1586,7 +1567,6 @@ describe('publisher handler', () => {
 
       await publisher(mockEvent)
 
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Created 1 keyword events')
       expect(callOrder).toEqual([
         'build-publish-query',
         'execute-publish',

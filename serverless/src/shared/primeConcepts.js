@@ -1,5 +1,3 @@
-import { logger } from '@/shared/logger'
-
 /**
  * Primes /concepts and /concepts/concept_scheme routes for the given schemes.
  *
@@ -122,9 +120,6 @@ export const primeConcepts = async ({
 
         return responses
       }, Promise.resolve([]))
-      const pagesWithData = 1 + additionalResponses.length
-      const pagesAttempted = pagesWithData
-      logger.info(`[cache-prime] summary concepts scheme=${schemeName} format=${format} totalPages=${totalPages} attemptedPages=${pagesAttempted} pagesWithData=${pagesWithData}`)
 
       acc.push({
         status: 'fulfilled',
