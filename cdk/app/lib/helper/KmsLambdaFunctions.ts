@@ -281,6 +281,15 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'getCachedUuid/handler.js',
+      'get-cached-uuid-by-full-path',
+      'getCachedUuid',
+      '/concept_uuid/full_path/{fullPath+}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
       'getKeywordFullPathHistory/handler.js',
       'get-keyword-full-path-history',
       'getKeywordFullPathHistory',

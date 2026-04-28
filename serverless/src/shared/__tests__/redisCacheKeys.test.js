@@ -11,7 +11,9 @@ import {
   createConceptResponseCacheKey,
   createConceptsResponseCacheKey,
   createTreeResponseCacheKey,
-  TREE_CACHE_KEY_PREFIX
+  createUuidResponseCacheKey,
+  TREE_CACHE_KEY_PREFIX,
+  UUID_CACHE_KEY_PREFIX
 } from '@/shared/redisCacheKeys'
 
 describe('when creating response cache keys', () => {
@@ -86,6 +88,22 @@ describe('when creating response cache keys', () => {
       })
 
       expect(key).toBe(`${TREE_CACHE_KEY_PREFIX}:published:earth%20science:water%20vapor`)
+    })
+  })
+
+  describe('when creating uuid keys', () => {
+    test('handles missing fullPath', () => {
+      const key = createUuidResponseCacheKey({})
+
+      expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:`)
+    })
+
+    test('url-encodes fullPath value', () => {
+      const key = createUuidResponseCacheKey({
+        fullPath: 'A/B > C'
+      })
+
+      expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:A%2FB%20%3E%20C`)
     })
   })
 
