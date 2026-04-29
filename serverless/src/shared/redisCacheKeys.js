@@ -73,14 +73,16 @@ export const createTreeResponseCacheKey = ({
   return `${TREE_CACHE_KEY_PREFIX}:${normalizedVersion}:${normalizedScheme}:${normalizedFilter}`
 }
 
-export const createUuidResponseCacheKeyByFullPath = ({ fullPath }) => {
+export const createUuidResponseCacheKeyByFullPath = ({ fullPath, scheme }) => {
   const normalizedFullPath = normalizeValue(fullPath)
+  const normalizedScheme = normalizeValue(scheme)
 
-  return `${UUID_CACHE_KEY_PREFIX}:full_path:${normalizedFullPath}`
+  return `kms:${normalizedScheme}:uuid:full_path:${normalizedFullPath}`
 }
 
-export const createUuidResponseCacheKeyByShortName = ({ shortName }) => {
+export const createUuidResponseCacheKeyByShortName = ({ shortName, scheme }) => {
   const normalizedShortName = normalizeValue(shortName)
+  const normalizedScheme = normalizeValue(scheme)
 
-  return `${UUID_CACHE_KEY_PREFIX}:short_name:${normalizedShortName}`
+  return `kms:${normalizedScheme}:uuid:short_name:${normalizedShortName}`
 }

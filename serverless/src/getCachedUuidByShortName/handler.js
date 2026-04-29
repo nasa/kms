@@ -1,3 +1,4 @@
+import { DEFAULT_SHORT_NAME_SCHEMES } from '@/shared/constants/shortNameForUuidSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
@@ -16,15 +17,26 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  * @returns {Promise<Object>} A promise that resolves to a standard Lambda response object.
  */
 export const getCachedUuidByShortName = async (event, context) => {
-  const { defaultResponseHeaders } = getApplicationConfig()
+  const {
+    defaultResponseHeaders,
+    schemesForUuidByShortName: schemesFromConfig
+  } = getApplicationConfig()
+
+  const sourceForSchemes = (schemesFromConfig && schemesFromConfig.length > 0)
+    ? schemesFromConfig
+    : DEFAULT_SHORT_NAME_SCHEMES
+  const schemesForUuidByShortName = sourceForSchemes.map((s) => s.toLowerCase())
+
+  logger.debug(`Using schemes for shortName cache: ${JSON.stringify(schemesForUuidByShortName)}`)
 
   logAnalyticsData({
     event,
     context
   })
 
-  const { pathParameters } = event
+  const { pathParameters, queryStringParameters } = event
   const { shortName } = pathParameters || {}
+  const { scheme } = queryStringParameters || {}
 
   if (!shortName) {
     return {
@@ -37,9 +49,32 @@ export const getCachedUuidByShortName = async (event, context) => {
     }
   }
 
+  if (!scheme) {
+    return {
+      statusCode: 400,
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: 'scheme is required' })
+    }
+  }
+
+  if (!schemesForUuidByShortName.includes(scheme.toLowerCase())) {
+    return {
+      statusCode: 400,
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: `Caching by shortName is not supported for the '${scheme}' scheme` })
+    }
+  }
+
   try {
     const cacheKey = createUuidResponseCacheKeyByShortName({
-      shortName
+      shortName,
+      scheme
     })
 
     const cachedResponse = await getCachedJsonResponse({

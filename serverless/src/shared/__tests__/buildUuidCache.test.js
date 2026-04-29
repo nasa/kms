@@ -11,11 +11,18 @@ import {
 
 import { buildUuidCache } from '../buildUuidCache'
 
-const mockProcessToCache = vi.fn()
+const mockFullPathProcessToCache = vi.fn()
+const mockShortNameProcessToCache = vi.fn()
 
-vi.mock('../uuidCacheBuilder', () => ({
-  UuidCacheBuilder: vi.fn(() => ({
-    processToCache: mockProcessToCache
+vi.mock('../uuidForFullPathCacheBuilder', () => ({
+  UuidForFullPathCacheBuilder: vi.fn(() => ({
+    processToCache: mockFullPathProcessToCache
+  }))
+}))
+
+vi.mock('../uuidForShortNameCacheBuilder', () => ({
+  UuidForShortNameCacheBuilder: vi.fn(() => ({
+    processToCache: mockShortNameProcessToCache
   }))
 }))
 
@@ -37,7 +44,7 @@ describe('buildUuidCache', () => {
     await expect(buildUuidCache()).rejects.toThrow('An S3 bucket name is required to build the cache.')
   })
 
-  it('should find and process all CSV files in the bucket', async () => {
+  it('should find and process all CSV files using the correct builder', async () => {
     const mockS3send = mockS3Send
 
     // Mock ListObjectsV2Command for directories
@@ -52,7 +59,7 @@ describe('buildUuidCache', () => {
     // Mock ListObjectsV2Command for files in '1.0/'
     mockS3send.mockImplementationOnce((command) => {
       if (command instanceof ListObjectsV2Command && command.input.Prefix === '1.0/') {
-        return Promise.resolve({ Contents: [{ Key: '1.0/file1.csv' }] })
+        return Promise.resolve({ Contents: [{ Key: '1.0/sciencekeywords.csv' }] })
       }
 
       return Promise.reject(new Error('Unexpected S3 command'))
@@ -61,25 +68,25 @@ describe('buildUuidCache', () => {
     // Mock ListObjectsV2Command for files in '2.0/'
     mockS3send.mockImplementationOnce((command) => {
       if (command instanceof ListObjectsV2Command && command.input.Prefix === '2.0/') {
-        return Promise.resolve({ Contents: [{ Key: '2.0/file2.csv' }] })
+        return Promise.resolve({ Contents: [{ Key: '2.0/platforms.csv' }] })
       }
 
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    // Mock GetObjectCommand for file1.csv
+    // Mock GetObjectCommand for sciencekeywords.csv
     mockS3send.mockImplementationOnce((command) => {
-      if (command instanceof GetObjectCommand && command.input.Key === '1.0/file1.csv') {
-        return Promise.resolve({ Body: Readable.from([Buffer.from('csv-content-1')]) })
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/sciencekeywords.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('full-path-content')]) })
       }
 
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    // Mock GetObjectCommand for file2.csv
+    // Mock GetObjectCommand for platforms.csv
     mockS3send.mockImplementationOnce((command) => {
-      if (command instanceof GetObjectCommand && command.input.Key === '2.0/file2.csv') {
-        return Promise.resolve({ Body: Readable.from([Buffer.from('csv-content-2')]) })
+      if (command instanceof GetObjectCommand && command.input.Key === '2.0/platforms.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('short-name-content')]) })
       }
 
       return Promise.reject(new Error('Unexpected S3 command'))
@@ -87,23 +94,29 @@ describe('buildUuidCache', () => {
 
     await buildUuidCache('test-bucket')
 
-    expect(mockProcessToCache).toHaveBeenCalledTimes(2)
-    expect(mockProcessToCache).toHaveBeenCalledWith('csv-content-1')
-    expect(mockProcessToCache).toHaveBeenCalledWith('csv-content-2')
+    // Verify the full path builder was called correctly
+    expect(mockFullPathProcessToCache).toHaveBeenCalledTimes(1)
+    expect(mockFullPathProcessToCache).toHaveBeenCalledWith('full-path-content', { scheme: 'sciencekeywords' })
+
+    // Verify the short name builder was called correctly
+    expect(mockShortNameProcessToCache).toHaveBeenCalledTimes(1)
+    expect(mockShortNameProcessToCache).toHaveBeenCalledWith('short-name-content', { scheme: 'platforms' })
   })
 
   it('handles cases where no version directories are found', async () => {
     mockS3Send.mockResolvedValue({ CommonPrefixes: [] })
     await buildUuidCache('test-bucket')
-    expect(mockProcessToCache).not.toHaveBeenCalled()
+    expect(mockFullPathProcessToCache).not.toHaveBeenCalled()
+    expect(mockShortNameProcessToCache).not.toHaveBeenCalled()
   })
 
   it('handles cases where no CSV files are found', async () => {
     mockS3Send
-      .mockResolvedValueOnce({ CommonPrefixes: [{ Prefix: '1.0/' }] })
+      .mockResolvedValueOnce({ CommonPrefixes: [{ Prefix: '1.eio/' }] })
       .mockResolvedValueOnce({ Contents: [] }) // No files in the directory
 
     await buildUuidCache('test-bucket')
-    expect(mockProcessToCache).not.toHaveBeenCalled()
+    expect(mockFullPathProcessToCache).not.toHaveBeenCalled()
+    expect(mockShortNameProcessToCache).not.toHaveBeenCalled()
   })
 })

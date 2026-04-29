@@ -8,7 +8,7 @@ import {
 
 import { createUuidResponseCacheKeyByFullPath } from '../redisCacheKeys'
 import { setCachedJsonResponse } from '../redisCacheStore'
-import { UuidCacheBuilder } from '../uuidCacheBuilder'
+import { UuidForFullPathCacheBuilder } from '../uuidForFullPathCacheBuilder'
 
 // Mock the redisCacheStore functions
 vi.mock('../redisCacheStore', () => ({
@@ -16,14 +16,14 @@ vi.mock('../redisCacheStore', () => ({
 }))
 
 vi.mock('../redisCacheKeys', () => ({
-  createUuidResponseCacheKeyByFullPath: vi.fn((({ fullPath }) => `kms:uuid:${fullPath}`))
+  createUuidResponseCacheKeyByFullPath: vi.fn((({ fullPath, scheme }) => `kms:${scheme}:uuid:full_path:${fullPath}`))
 }))
 
-describe('UuidCacheBuilder', () => {
+describe('UuidForFullPathCacheBuilder', () => {
   let builder
 
   beforeEach(() => {
-    builder = new UuidCacheBuilder()
+    builder = new UuidForFullPathCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
   })
@@ -57,14 +57,17 @@ describe('UuidCacheBuilder', () => {
 "EARTH SCIENCE","OCEANS","BATHYMETRY/SEAFLOOR TOPOGRAPHY","BATHYMETRY","COASTAL BATHYMETRY","","","d80c015f-a383-4883-8309-6aab1c39f5b6"
 `
 
-      await builder.processToCache(csvContent)
+      await builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
 
       expect(setCachedJsonResponse).toHaveBeenCalled()
 
       // Verify one of the calls
       const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
       const uuid = 'fa57b0a0-9723-4195-bdd1-4f26aefa0e07'
-      const cacheKey = createUuidResponseCacheKeyByFullPath({ fullPath })
+      const cacheKey = createUuidResponseCacheKeyByFullPath({
+        fullPath,
+        scheme: 'sciencekeywords'
+      })
       const expectedResponse = {
         statusCode: 200,
         headers: {

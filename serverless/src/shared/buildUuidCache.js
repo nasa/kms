@@ -1,8 +1,14 @@
+import path from 'path'
+
 import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
 import { getS3Client } from './awsClients'
+import { DEFAULT_FULL_PATH_SCHEMES } from './constants/fullPathForUuidSchemes'
+import { DEFAULT_SHORT_NAME_SCHEMES } from './constants/shortNameForUuidSchemes'
+import { getApplicationConfig } from './getConfig'
 import { logger } from './logger'
-import { UuidCacheBuilder } from './uuidCacheBuilder'
+import { UuidForFullPathCacheBuilder } from './uuidForFullPathCacheBuilder'
+import { UuidForShortNameCacheBuilder } from './uuidForShortNameCacheBuilder'
 
 /**
  * Helper function to convert a stream to a string.
@@ -29,7 +35,24 @@ export const buildUuidCache = async (bucketName) => {
   }
 
   const s3Client = getS3Client()
-  const uuidCacheBuilder = new UuidCacheBuilder()
+
+  const {
+    schemesForUuidByFullPath: schemesForUuidByFullPathFromConfig,
+    schemesForUuidByShortName: schemesForUuidByShortNameFromConfig
+  } = getApplicationConfig()
+
+  const sourceForFullPath = schemesForUuidByFullPathFromConfig?.length
+    ? schemesForUuidByFullPathFromConfig
+    : DEFAULT_FULL_PATH_SCHEMES
+  const fullPathSchemes = sourceForFullPath.map((s) => s.toLowerCase())
+
+  const sourceForShortName = schemesForUuidByShortNameFromConfig?.length
+    ? schemesForUuidByShortNameFromConfig
+    : DEFAULT_SHORT_NAME_SCHEMES
+  const shortNameSchemes = sourceForShortName.map((s) => s.toLowerCase())
+
+  const fullPathCacheBuilder = new UuidForFullPathCacheBuilder()
+  const shortNameCacheBuilder = new UuidForShortNameCacheBuilder()
 
   const listVersionDirectories = async () => {
     const command = new ListObjectsV2Command({
@@ -111,9 +134,18 @@ export const buildUuidCache = async (bucketName) => {
 
     const processingJobs = chunk.map(async (key) => {
       try {
+        const scheme = path.basename(key, '.csv').toLowerCase()
         const csvContent = await getObjectContent(key)
-        await uuidCacheBuilder.processToCache(csvContent)
-        logger.info(`Successfully processed and cached [${key}].`)
+
+        if (fullPathSchemes.includes(scheme)) {
+          await fullPathCacheBuilder.processToCache(csvContent, { scheme })
+          logger.info(`Successfully processed [${key}] with UuidForFullPathCacheBuilder.`)
+        } else if (shortNameSchemes.includes(scheme)) {
+          await shortNameCacheBuilder.processToCache(csvContent, { scheme })
+          logger.info(`Successfully processed [${key}] with UuidForShortNameCacheBuilder.`)
+        } else {
+          logger.warn(`No cache builder found for scheme [${scheme}] in file [${key}].`)
+        }
       } catch (error) {
         logger.error(`Failed to process file [${key}]: ${error.message}`)
       }

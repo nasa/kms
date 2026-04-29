@@ -1,3 +1,4 @@
+import { DEFAULT_FULL_PATH_SCHEMES } from '@/shared/constants/fullPathForUuidSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
@@ -33,15 +34,26 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  * };
  */
 export const getCachedUuidByFullPath = async (event, context) => {
-  const { defaultResponseHeaders } = getApplicationConfig()
+  const {
+    defaultResponseHeaders,
+    schemesForUuidByFullPath: schemesFromConfig
+  } = getApplicationConfig()
+
+  const sourceForSchemes = (schemesFromConfig && schemesFromConfig.length > 0)
+    ? schemesFromConfig
+    : DEFAULT_FULL_PATH_SCHEMES
+  const schemesForUuidByFullPath = sourceForSchemes.map((s) => s.toLowerCase())
+
+  logger.debug(`Using schemes for fullPath cache: ${JSON.stringify(schemesForUuidByFullPath)}`)
 
   logAnalyticsData({
     event,
     context
   })
 
-  const { pathParameters } = event
+  const { pathParameters, queryStringParameters } = event
   const { fullPath } = pathParameters || {}
+  const { scheme } = queryStringParameters || {}
 
   if (!fullPath) {
     return {
@@ -54,12 +66,35 @@ export const getCachedUuidByFullPath = async (event, context) => {
     }
   }
 
+  if (!scheme) {
+    return {
+      statusCode: 400,
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: 'scheme is required' })
+    }
+  }
+
+  if (!schemesForUuidByFullPath.includes(scheme.toLowerCase())) {
+    return {
+      statusCode: 400,
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: `Caching by fullPath is not supported for the '${scheme}' scheme` })
+    }
+  }
+
   try {
     const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
     const decodedFullPath = decode(fullPath)
 
     const cacheKey = createUuidResponseCacheKeyByFullPath({
-      fullPath: decodedFullPath
+      fullPath: decodedFullPath,
+      scheme
     })
 
     const cachedResponse = await getCachedJsonResponse({
