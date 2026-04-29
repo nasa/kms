@@ -13,6 +13,7 @@ import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPubli
 import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
@@ -56,6 +57,7 @@ vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/exportPublishSchemeCsvToS3')
 vi.mock('@/shared/buildUuidCache')
+vi.mock('@/shared/getConfig')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
     send: sendEventBridgeMock
@@ -80,6 +82,8 @@ describe('publisher handler', () => {
     vi.spyOn(logger, 'error').mockImplementation(() => {})
     vi.spyOn(logger, 'info').mockImplementation(() => {})
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
+    getApplicationConfig.mockReturnValue({ env: 'sit' })
+
     vi.spyOn(logger, 'warn').mockImplementation(() => {})
   })
 
@@ -904,7 +908,6 @@ describe('publisher handler', () => {
     beforeEach(() => {
       getPublishUpdateQuery.mockReturnValue('mock query')
       sparqlRequest.mockResolvedValue({ ok: true })
-      process.env.S3_BUCKET_NAME = 'test-bucket'
     })
 
     test('should successfully process publish event', async () => {
@@ -1818,8 +1821,8 @@ describe('publisher handler', () => {
 
       await publisher(mockEvent)
 
-      expect(buildUuidCache).toHaveBeenCalledWith('test-bucket')
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built UUID cache from S3 bucket [test-bucket].')
+      expect(buildUuidCache).toHaveBeenCalledWith('kms-rdf-backup-sit')
+      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built UUID cache from S3 bucket [kms-rdf-backup-sit].')
     })
 
     test('should handle UUID cache build failures gracefully', async () => {

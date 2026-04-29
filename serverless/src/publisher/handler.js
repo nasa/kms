@@ -8,6 +8,7 @@ import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPubli
 import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
@@ -597,7 +598,8 @@ export const publisher = async (event) => {
     // Building the UUID cache for all versions
     logger.info('[publisher] Starting UUID cache build from S3.')
     try {
-      const bucketName = process.env.S3_BUCKET_NAME || 'kms-rdf-backup-sit'
+      const { env } = getApplicationConfig()
+      const bucketName = `kms-rdf-backup-${env}`
       await buildUuidCache(bucketName)
       logger.info(`[publisher] Successfully built UUID cache from S3 bucket [${bucketName}].`)
     } catch (cacheBuildError) {
