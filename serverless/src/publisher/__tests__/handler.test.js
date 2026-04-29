@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { buildUuidCache } from '@/shared/buildUuidCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
@@ -54,6 +55,7 @@ vi.mock('@/shared/publishKeywordEvent')
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/exportPublishSchemeCsvToS3')
+vi.mock('@/shared/buildUuidCache')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
     send: sendEventBridgeMock
@@ -902,6 +904,7 @@ describe('publisher handler', () => {
     beforeEach(() => {
       getPublishUpdateQuery.mockReturnValue('mock query')
       sparqlRequest.mockResolvedValue({ ok: true })
+      process.env.S3_BUCKET_NAME = 'test-bucket'
     })
 
     test('should successfully process publish event', async () => {
@@ -1792,6 +1795,59 @@ describe('publisher handler', () => {
 
       expect(publishKeywordEvent).not.toHaveBeenCalled()
       expect(sendEventBridgeMock).not.toHaveBeenCalled()
+    })
+
+    test('should build UUID cache after successful S3 export', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      await publisher(mockEvent)
+
+      expect(buildUuidCache).toHaveBeenCalledWith('test-bucket')
+      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built UUID cache from S3 bucket [test-bucket].')
+    })
+
+    test('should handle UUID cache build failures gracefully', async () => {
+      const cacheBuildError = new Error('Cache build failed')
+      buildUuidCache.mockRejectedValue(cacheBuildError)
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      expect(result.status).toBe('partial_success')
+      expect(result.postPublishFailures).toContain('Failed to build UUID cache from S3: Cache build failed')
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build UUID cache from S3: Cache build failed')
     })
   })
 })

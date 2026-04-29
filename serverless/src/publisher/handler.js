@@ -1,6 +1,7 @@
 import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
 import { getEventBridgeClient } from '@/shared/awsClients'
+import { buildUuidCache } from '@/shared/buildUuidCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
@@ -553,8 +554,9 @@ export const publisher = async (event) => {
     // #########################################################################
     // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
     // ##
-    // ## The following S3 export operations are part of the critical path for
-    // ## publish completion. This work MUST stay comfortably under the Lambda
+    // ## The following S3 export operations, as well as the subsequent UUID cache
+    // ## build, are part of the critical path for publish completion. This work MUST
+    // ## stay comfortably under the Lambda
     // ## function timeout.
     // ##
     // ## If S3 exports start getting close to the timeout, we should:
@@ -588,6 +590,18 @@ export const publisher = async (event) => {
       logger.info('[publisher] Successfully exported Published Scheme CSVs to S3.')
     } catch (exportError) {
       const failureMessage = `Failed to export Published Scheme CSVs to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    // Building the UUID cache for all versions
+    logger.info('[publisher] Starting UUID cache build from S3.')
+    try {
+      const bucketName = process.env.S3_BUCKET_NAME || 'kms-rdf-backup-sit'
+      await buildUuidCache(bucketName)
+      logger.info(`[publisher] Successfully built UUID cache from S3 bucket [${bucketName}].`)
+    } catch (cacheBuildError) {
+      const failureMessage = `Failed to build UUID cache from S3: ${cacheBuildError.message}`
       postPublishFailures.push(failureMessage)
       logger.error(`[publisher] ${failureMessage}`)
     }
