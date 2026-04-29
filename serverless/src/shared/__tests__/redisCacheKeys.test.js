@@ -11,7 +11,8 @@ import {
   createConceptResponseCacheKey,
   createConceptsResponseCacheKey,
   createTreeResponseCacheKey,
-  createUuidResponseCacheKey,
+  createUuidResponseCacheKeyByFullPath,
+  createUuidResponseCacheKeyByShortName,
   TREE_CACHE_KEY_PREFIX,
   UUID_CACHE_KEY_PREFIX
 } from '@/shared/redisCacheKeys'
@@ -92,18 +93,36 @@ describe('when creating response cache keys', () => {
   })
 
   describe('when creating uuid keys', () => {
-    test('handles missing fullPath', () => {
-      const key = createUuidResponseCacheKey({})
+    describe('by full path', () => {
+      test('handles missing fullPath', () => {
+        const key = createUuidResponseCacheKeyByFullPath({})
 
-      expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:`)
-    })
-
-    test('url-encodes fullPath value', () => {
-      const key = createUuidResponseCacheKey({
-        fullPath: 'A/B > C'
+        expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:full_path:`)
       })
 
-      expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:A%2FB%20%3E%20C`)
+      test('url-encodes fullPath value', () => {
+        const key = createUuidResponseCacheKeyByFullPath({
+          fullPath: 'A/B > C'
+        })
+
+        expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:full_path:A%2FB%20%3E%20C`)
+      })
+    })
+
+    describe('by short name', () => {
+      test('handles missing shortName', () => {
+        const key = createUuidResponseCacheKeyByShortName({})
+
+        expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:short_name:`)
+      })
+
+      test('url-encodes shortName value', () => {
+        const key = createUuidResponseCacheKeyByShortName({
+          shortName: 'CESSNA 188'
+        })
+
+        expect(key).toBe(`${UUID_CACHE_KEY_PREFIX}:short_name:CESSNA%20188`)
+      })
     })
   })
 

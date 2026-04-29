@@ -5,8 +5,8 @@ import {
   vi
 } from 'vitest'
 
-import { getCachedUuid } from '@/getCachedUuid/handler'
-import { createUuidResponseCacheKey } from '@/shared/redisCacheKeys'
+import { getCachedUuidByFullPath } from '@/getCachedUuidByFullPath/handler'
+import { createUuidResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 // Mock shared modules
@@ -21,17 +21,17 @@ vi.mock('@/shared/redisCacheStore', () => ({
 }))
 
 vi.mock('@/shared/redisCacheKeys', () => ({
-  createUuidResponseCacheKey: vi.fn((p) => `mock-key:${p.fullPath}`)
+  createUuidResponseCacheKeyByFullPath: vi.fn((p) => `mock-key:${p.fullPath}`)
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
 }))
 
-describe('getCachedUuid', () => {
+describe('getCachedUuidByFullPath', () => {
   test('should return 400 if fullPath is not provided', async () => {
     const event = { pathParameters: {} }
-    const result = await getCachedUuid(event)
+    const result = await getCachedUuidByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('fullPath is required')
@@ -39,7 +39,7 @@ describe('getCachedUuid', () => {
 
   test('should return 400 if pathParameters is null', async () => {
     const event = { pathParameters: null }
-    const result = await getCachedUuid(event)
+    const result = await getCachedUuidByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('fullPath is required')
@@ -55,12 +55,12 @@ describe('getCachedUuid', () => {
     getCachedJsonResponse.mockResolvedValue(mockResponse)
 
     const event = { pathParameters: { fullPath } }
-    const result = await getCachedUuid(event)
+    const result = await getCachedUuidByFullPath(event)
 
-    expect(createUuidResponseCacheKey).toHaveBeenCalledWith({ fullPath })
+    expect(createUuidResponseCacheKeyByFullPath).toHaveBeenCalledWith({ fullPath })
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
       cacheKey: 'mock-key:PLATFORMS/TERRA',
-      entityLabel: 'uuid by fullPath'
+      entityLabel: 'UUID by fullPath'
     })
 
     expect(result).toEqual(mockResponse)
@@ -71,7 +71,7 @@ describe('getCachedUuid', () => {
     getCachedJsonResponse.mockResolvedValue(null)
 
     const event = { pathParameters: { fullPath } }
-    const result = await getCachedUuid(event)
+    const result = await getCachedUuidByFullPath(event)
 
     expect(result.statusCode).toBe(404)
     expect(JSON.parse(result.body).error).toBe('UUID not found for the given fullPath')
@@ -82,10 +82,10 @@ describe('getCachedUuid', () => {
     getCachedJsonResponse.mockResolvedValue(null) // It doesn't need to find it for this test
 
     const event = { pathParameters: { fullPath } }
-    await getCachedUuid(event)
+    await getCachedUuidByFullPath(event)
 
     // Verify it was decoded before creating the cache key
-    expect(createUuidResponseCacheKey).toHaveBeenCalledWith({ fullPath: 'A/B > C' })
+    expect(createUuidResponseCacheKeyByFullPath).toHaveBeenCalledWith({ fullPath: 'A/B > C' })
   })
 
   test('should return 500 if an error occurs during cache retrieval', async () => {
@@ -94,7 +94,7 @@ describe('getCachedUuid', () => {
     getCachedJsonResponse.mockRejectedValue(error)
 
     const event = { pathParameters: { fullPath } }
-    const result = await getCachedUuid(event)
+    const result = await getCachedUuidByFullPath(event)
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body).error).toBe(error.toString())

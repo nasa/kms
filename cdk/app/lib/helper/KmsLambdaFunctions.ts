@@ -281,10 +281,19 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
-      'getCachedUuid/handler.js',
+      'getCachedUuidByFullPath/handler.js',
       'get-cached-uuid-by-full-path',
-      'getCachedUuid',
+      'getCachedUuidByFullPath',
       '/concept_uuid/full_path/{fullPath+}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
+      'getCachedUuidByShortName/handler.js',
+      'get-cached-uuid-by-short-name',
+      'getCachedUuidByShortName',
+      '/concept_uuid/short_name/{shortName}',
       'GET'
     )
 
