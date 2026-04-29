@@ -6,7 +6,7 @@ import {
   vi
 } from 'vitest'
 
-import { createUuidResponseCacheKey } from '../redisCacheKeys'
+import { createUuidResponseCacheKeyByFullPath } from '../redisCacheKeys'
 import { setCachedJsonResponse } from '../redisCacheStore'
 import { UuidCacheBuilder } from '../uuidCacheBuilder'
 
@@ -16,7 +16,7 @@ vi.mock('../redisCacheStore', () => ({
 }))
 
 vi.mock('../redisCacheKeys', () => ({
-  createUuidResponseCacheKey: vi.fn((({ fullPath }) => `kms:uuid:${fullPath}`))
+  createUuidResponseCacheKeyByFullPath: vi.fn((({ fullPath }) => `kms:uuid:${fullPath}`))
 }))
 
 describe('UuidCacheBuilder', () => {
@@ -64,7 +64,7 @@ describe('UuidCacheBuilder', () => {
       // Verify one of the calls
       const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
       const uuid = 'fa57b0a0-9723-4195-bdd1-4f26aefa0e07'
-      const cacheKey = createUuidResponseCacheKey({ fullPath })
+      const cacheKey = createUuidResponseCacheKeyByFullPath({ fullPath })
       const expectedResponse = {
         statusCode: 200,
         headers: {

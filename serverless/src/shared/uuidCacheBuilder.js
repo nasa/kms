@@ -1,7 +1,7 @@
 import { parse } from 'csv/sync'
 
 import { logger } from './logger'
-import { createUuidResponseCacheKey } from './redisCacheKeys'
+import { createUuidResponseCacheKeyByFullPath } from './redisCacheKeys'
 import { setCachedJsonResponse } from './redisCacheStore'
 
 /**
@@ -79,7 +79,7 @@ export class UuidCacheBuilder {
 
     records.forEach((uuid, fullPath) => {
       if (fullPath && uuid) {
-        const cacheKey = createUuidResponseCacheKey({ fullPath })
+        const cacheKey = createUuidResponseCacheKeyByFullPath({ fullPath })
 
         const response = {
           statusCode: 200,
