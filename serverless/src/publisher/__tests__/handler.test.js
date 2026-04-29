@@ -976,6 +976,11 @@ describe('publisher handler', () => {
         postPublishFailures: []
       })
 
+      expect(logger.info).toHaveBeenLastCalledWith(
+        expect.stringMatching(/Completed with status: success in \d+\.\d{2} seconds/),
+        result
+      )
+
       expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
       expect(emitPublisherMetrics).toHaveBeenCalledWith({
         metrics: [
@@ -1393,8 +1398,8 @@ describe('publisher handler', () => {
       await expect(publisher(mockEvent)).rejects.toThrow('Failed to execute publish update: 500 Internal Server Error')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
-        expect.stringContaining('Failed to execute publish update')
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
+        'Failed to execute publish update: 500 Internal Server Error'
       )
     })
 
@@ -1499,7 +1504,7 @@ describe('publisher handler', () => {
       await expect(publisher(invalidEvent)).rejects.toThrow('versionName is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
         'versionName is required in event.detail'
       )
     })
@@ -1508,7 +1513,7 @@ describe('publisher handler', () => {
       await expect(publisher({})).rejects.toThrow('versionName is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
         'versionName is required in event.detail'
       )
     })
@@ -1519,7 +1524,7 @@ describe('publisher handler', () => {
       await expect(publisher(invalidEvent)).rejects.toThrow('publishDate is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
         'publishDate is required in event.detail'
       )
     })
