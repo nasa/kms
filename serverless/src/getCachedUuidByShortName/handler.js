@@ -36,7 +36,8 @@ export const getCachedUuidByShortName = async (event, context) => {
 
   const { pathParameters, queryStringParameters } = event
   const { shortName } = pathParameters || {}
-  const { scheme } = queryStringParameters || {}
+  const { scheme: rawScheme } = queryStringParameters || {}
+  const scheme = rawScheme?.toLowerCase()
 
   if (!shortName) {
     return {
@@ -60,14 +61,14 @@ export const getCachedUuidByShortName = async (event, context) => {
     }
   }
 
-  if (!schemesForUuidByShortName.includes(scheme.toLowerCase())) {
+  if (!schemesForUuidByShortName.includes(scheme)) {
     return {
       statusCode: 400,
       headers: {
         ...defaultResponseHeaders,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ error: `Caching by shortName is not supported for the '${scheme}' scheme` })
+      body: JSON.stringify({ error: `Caching by shortName is not supported for the '${rawScheme}' scheme` })
     }
   }
 

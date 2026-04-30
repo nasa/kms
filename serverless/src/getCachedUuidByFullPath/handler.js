@@ -53,7 +53,8 @@ export const getCachedUuidByFullPath = async (event, context) => {
 
   const { pathParameters, queryStringParameters } = event
   const { fullPath } = pathParameters || {}
-  const { scheme } = queryStringParameters || {}
+  const { scheme: rawScheme } = queryStringParameters || {}
+  const scheme = rawScheme?.toLowerCase()
 
   if (!fullPath) {
     return {
@@ -77,14 +78,14 @@ export const getCachedUuidByFullPath = async (event, context) => {
     }
   }
 
-  if (!schemesForUuidByFullPath.includes(scheme.toLowerCase())) {
+  if (!schemesForUuidByFullPath.includes(scheme)) {
     return {
       statusCode: 400,
       headers: {
         ...defaultResponseHeaders,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ error: `Caching by fullPath is not supported for the '${scheme}' scheme` })
+      body: JSON.stringify({ error: `Caching by fullPath is not supported for the '${rawScheme}' scheme` })
     }
   }
 
