@@ -82,7 +82,7 @@ export class UuidForFullPathCacheBuilder {
     records.forEach((uuid, fullPath) => {
       if (fullPath && uuid) {
         const cacheKey = createUuidResponseCacheKeyByFullPath({
-          fullPath,
+          fullPath: fullPath.toLowerCase(),
           scheme
         })
 
@@ -91,7 +91,10 @@ export class UuidForFullPathCacheBuilder {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ uuid })
+          body: JSON.stringify({
+            uuid,
+            fullPath
+          })
         }
 
         cacheOperations.push(

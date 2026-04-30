@@ -73,8 +73,11 @@ export const getCachedUuidByShortName = async (event, context) => {
   }
 
   try {
+    const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
+    const decodedShortName = decode(shortName).toLowerCase()
+
     const cacheKey = createUuidResponseCacheKeyByShortName({
-      shortName,
+      shortName: decodedShortName,
       scheme
     })
 

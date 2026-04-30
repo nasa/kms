@@ -132,12 +132,12 @@ describe('getCachedUuidByFullPath', () => {
     const result = await getCachedUuidByFullPath(event)
 
     expect(createUuidResponseCacheKeyByFullPath).toHaveBeenCalledWith({
-      fullPath,
+      fullPath: fullPath.toLowerCase(),
       scheme
     })
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:sciencekeywords:uuid:full_path:EARTH SCIENCE > OCEANS',
+      cacheKey: 'kms:sciencekeywords:uuid:full_path:earth science > oceans',
       entityLabel: 'UUID by fullPath'
     })
 
@@ -172,7 +172,7 @@ describe('getCachedUuidByFullPath', () => {
 
     // Verify it was decoded before creating the cache key
     expect(createUuidResponseCacheKeyByFullPath).toHaveBeenCalledWith({
-      fullPath: 'A/B > C',
+      fullPath: 'a/b > c',
       scheme
     })
   })

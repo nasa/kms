@@ -142,12 +142,12 @@ describe('getCachedUuidByShortName', () => {
     const result = await getCachedUuidByShortName(event)
 
     expect(createUuidResponseCacheKeyByShortName).toHaveBeenCalledWith({
-      shortName,
+      shortName: shortName.toLowerCase(),
       scheme
     })
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:platforms:uuid:short_name:TERRA',
+      cacheKey: 'kms:platforms:uuid:short_name:terra',
       entityLabel: 'UUID by shortName'
     })
 
@@ -183,5 +183,23 @@ describe('getCachedUuidByShortName', () => {
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body).error).toBe(error.toString())
+  })
+
+  test('should handle URL-encoded shortName correctly', async () => {
+    const shortName = 'A%2FB-C' // 'A/B-C'
+    const scheme = 'platforms'
+    getCachedJsonResponse.mockResolvedValue(null) // It doesn't need to find it for this test
+
+    const event = {
+      pathParameters: { shortName },
+      queryStringParameters: { scheme }
+    }
+    await getCachedUuidByShortName(event)
+
+    // Verify it was decoded and lowercased before creating the cache key
+    expect(createUuidResponseCacheKeyByShortName).toHaveBeenCalledWith({
+      shortName: 'a/b-c',
+      scheme
+    })
   })
 })

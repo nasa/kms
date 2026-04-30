@@ -91,7 +91,7 @@ export const getCachedUuidByFullPath = async (event, context) => {
 
   try {
     const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
-    const decodedFullPath = decode(fullPath)
+    const decodedFullPath = decode(fullPath).toLowerCase()
 
     const cacheKey = createUuidResponseCacheKeyByFullPath({
       fullPath: decodedFullPath,

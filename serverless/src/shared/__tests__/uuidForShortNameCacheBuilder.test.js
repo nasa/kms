@@ -44,8 +44,14 @@ describe('UuidForShortNameCacheBuilder', () => {
 "Air-based Platforms","Jet","","A-10","Thunderbolt II","2b839618-639c-44d4-9ad9-9064d12b322a"
 `
       const expectedMap = new Map([
-        ['AC-690A', '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'],
-        ['A-10', '2b839618-639c-44d4-9ad9-9064d12b322a']
+        ['AC-690A', {
+          uuid: '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d',
+          fullPath: 'Air-based Platforms > Propeller > AC-690A'
+        }],
+        ['A-10', {
+          uuid: '2b839618-639c-44d4-9ad9-9064d12b322a',
+          fullPath: 'Air-based Platforms > Jet > A-10'
+        }]
       ])
 
       const result = builder.parseCsvContent(csvContent, { scheme: 'instruments' })
@@ -57,7 +63,10 @@ describe('UuidForShortNameCacheBuilder', () => {
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
 `
       const expectedMap = new Map([
-        ['ANU/ICAM', '268174c2-14f0-4bfc-9fe7-4ef148a26345']
+        ['ANU/ICAM', {
+          uuid: '268174c2-14f0-4bfc-9fe7-4ef148a26345',
+          fullPath: 'ACADEMIC > ANU/ICAM'
+        }]
       ])
 
       const result = builder.parseCsvContent(csvContent, { scheme: 'providers' })
@@ -71,7 +80,10 @@ describe('UuidForShortNameCacheBuilder', () => {
 "Air-based Platforms","Jet","","A-10","Thunderbolt II","2b839618-639c-44d4-9ad9-9064d12b322a"
 `
       const expectedMap = new Map([
-        ['A-10', '2b839618-639c-44d4-9ad9-9064d12b322a']
+        ['A-10', {
+          uuid: '2b839618-639c-44d4-9ad9-9064d12b322a',
+          fullPath: 'Air-based Platforms > Jet > A-10'
+        }]
       ])
 
       const result = builder.parseCsvContent(csvContent, { scheme: 'instruments' })
@@ -91,8 +103,9 @@ describe('UuidForShortNameCacheBuilder', () => {
 
       const shortName = 'AC-690A'
       const uuid = '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'
+      const fullPath = 'Air-based Platforms > Propeller > AC-690A'
       const cacheKey = createUuidResponseCacheKeyByShortName({
-        shortName,
+        shortName: shortName.toLowerCase(),
         scheme: 'instruments'
       })
       const expectedResponse = {
@@ -100,7 +113,10 @@ describe('UuidForShortNameCacheBuilder', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ uuid })
+        body: JSON.stringify({
+          uuid,
+          fullPath
+        })
       }
 
       expect(setCachedJsonResponse).toHaveBeenCalledWith({
@@ -119,8 +135,9 @@ describe('UuidForShortNameCacheBuilder', () => {
 
       const shortName = 'ANU/ICAM'
       const uuid = '268174c2-14f0-4bfc-9fe7-4ef148a26345'
+      const fullPath = 'ACADEMIC > ANU/ICAM'
       const cacheKey = createUuidResponseCacheKeyByShortName({
-        shortName,
+        shortName: shortName.toLowerCase(),
         scheme: 'providers'
       })
       const expectedResponse = {
@@ -128,7 +145,10 @@ describe('UuidForShortNameCacheBuilder', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ uuid })
+        body: JSON.stringify({
+          uuid,
+          fullPath
+        })
       }
 
       expect(setCachedJsonResponse).toHaveBeenCalledWith({

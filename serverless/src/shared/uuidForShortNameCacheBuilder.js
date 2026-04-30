@@ -39,11 +39,18 @@ import { setCachedJsonResponse } from './redisCacheStore'
  */
 export class UuidForShortNameCacheBuilder {
   /**
+   * @param {string} pathSeparator - Separator for path elements (default: ' > ')
+   */
+  constructor(pathSeparator = ' > ') {
+    this.pathSeparator = pathSeparator
+  }
+
+  /**
    * Parses CSV content and returns a map of short names to UUIDs.
    * @param {string} csvContent - CSV content as a string.
    * @param {object} options
    * @param {string} options.scheme - The scheme ('instruments', 'providers', etc.).
-   * @returns {Map<string, string>} Map with short name as key and UUID as value.
+   * @returns {Map<string, {uuid: string, fullPath: string}>} Map with short name as key and an object with uuid and fullPath as value.
    */
   parseCsvContent(csvContent, { scheme }) {
     const rows = parse(csvContent, {
@@ -64,7 +71,18 @@ export class UuidForShortNameCacheBuilder {
         const uuid = row[row.length - 1].trim()
         const shortName = row[row.length + shortNameColumn].trim()
 
-        return [shortName, uuid]
+        const pathEndIndex = scheme === 'providers' ? -3 : -2
+
+        const pathElements = row
+          .slice(0, pathEndIndex)
+          .map((col) => col.trim())
+          .filter((col) => col.length > 0)
+        const fullPath = pathElements.join(this.pathSeparator)
+
+        return [shortName, {
+          uuid,
+          fullPath
+        }]
       })
       .filter(([shortName]) => shortName)
 
@@ -80,10 +98,10 @@ export class UuidForShortNameCacheBuilder {
 
     const cacheOperations = []
 
-    records.forEach((uuid, shortName) => {
-      if (shortName && uuid) {
+    records.forEach(({ uuid, fullPath }, shortName) => {
+      if (shortName && uuid && fullPath) {
         const cacheKey = createUuidResponseCacheKeyByShortName({
-          shortName,
+          shortName: shortName.toLowerCase(),
           scheme
         })
 
@@ -92,7 +110,10 @@ export class UuidForShortNameCacheBuilder {
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ uuid })
+          body: JSON.stringify({
+            uuid,
+            fullPath
+          })
         }
 
         cacheOperations.push(

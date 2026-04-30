@@ -73,7 +73,7 @@ describe('UuidForFullPathCacheBuilder', () => {
       const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
       const uuid = 'fa57b0a0-9723-4195-bdd1-4f26aefa0e07'
       const cacheKey = createUuidResponseCacheKeyByFullPath({
-        fullPath,
+        fullPath: fullPath.toLowerCase(),
         scheme: 'sciencekeywords'
       })
       const expectedResponse = {
@@ -81,7 +81,10 @@ describe('UuidForFullPathCacheBuilder', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ uuid })
+        body: JSON.stringify({
+          uuid,
+          fullPath
+        })
       }
 
       expect(setCachedJsonResponse).toHaveBeenCalledWith({
