@@ -8,8 +8,8 @@
       "Access-Control-Allow-Credentials": true
     },
     "maxTotalConceptsLimit": 50000,
-    "schemesForUuidByFullPath": ["sciencekeywords", "locations", "chronounits", "rucontenttype", "isotopiccategory", "temporalresolutionrange", "horizontalresolutionrange"],
-    "schemesForUuidByShortName": ["providers", "platforms", "instruments", "projects", "idnnode", "DataFormat"]
+    "schemesForHistoricalConceptByFullPath": ["sciencekeywords", "locations", "chronounits", "rucontenttype", "isotopiccategory", "temporalresolutionrange", "horizontalresolutionrange"],
+    "schemesForHistoricalConceptByShortName": ["providers", "platforms", "instruments", "projects", "idnnode", "DataFormat"]
   },
   "edl": {
     "host": "https://sit.urs.earthdata.nasa.gov",

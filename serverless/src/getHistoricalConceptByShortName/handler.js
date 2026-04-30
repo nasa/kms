@@ -1,4 +1,6 @@
-import { DEFAULT_SHORT_NAME_SCHEMES } from '@/shared/constants/shortNameForUuidSchemes'
+import {
+  DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
+} from '@/shared/constants/shortNameForHistoricalConceptSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
@@ -6,11 +8,11 @@ import { createConceptResponseCacheKeyByShortName } from '@/shared/redisCacheKey
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 /**
- * Retrieves a cached UUID and fullPath for a given shortName. This handler ONLY checks the cache
+ * Retrieves a historical concept (UUID and fullPath) for a given shortName from the cache. This handler ONLY checks the cache
  * and will return a 404 if the value is not already cached.
  *
  * @async
- * @function getCachedConceptByShortName
+ * @function getHistoricalConceptByShortName
  * @param {Object} event - The Lambda event object.
  * @param {Object} event.pathParameters - The path parameters from the API Gateway event.
  * @param {string} event.pathParameters.shortName - The short name of the concept.
@@ -36,18 +38,18 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  *   body: '{\"uuid\":\"6fa682b9-c6b5-46ca-971f-b7ecd4bf304d\",\"fullPath\":\"Air-based Platforms > Propeller > AC-690A\"}'
  * };
  */
-export const getCachedConceptByShortName = async (event, context) => {
+export const getHistoricalConceptByShortName = async (event, context) => {
   const {
     defaultResponseHeaders,
-    schemesForUuidByShortName: schemesFromConfig
+    schemesForHistoricalConceptByShortName: schemesFromConfig
   } = getApplicationConfig()
 
   const sourceForSchemes = (schemesFromConfig && schemesFromConfig.length > 0)
     ? schemesFromConfig
-    : DEFAULT_SHORT_NAME_SCHEMES
-  const schemesForUuidByShortName = sourceForSchemes.map((s) => s.toLowerCase())
+    : DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
+  const schemesForHistoricalConceptByShortName = sourceForSchemes.map((s) => s.toLowerCase())
 
-  logger.debug(`Using schemes for shortName cache: ${JSON.stringify(schemesForUuidByShortName)}`)
+  logger.debug(`Using schemes for shortName cache: ${JSON.stringify(schemesForHistoricalConceptByShortName)}`)
 
   logAnalyticsData({
     event,
@@ -81,7 +83,7 @@ export const getCachedConceptByShortName = async (event, context) => {
     }
   }
 
-  if (!schemesForUuidByShortName.includes(scheme)) {
+  if (!schemesForHistoricalConceptByShortName.includes(scheme)) {
     return {
       statusCode: 400,
       headers: {
@@ -103,7 +105,7 @@ export const getCachedConceptByShortName = async (event, context) => {
 
     const cachedResponse = await getCachedJsonResponse({
       cacheKey,
-      entityLabel: 'Concept by shortName'
+      entityLabel: 'Historical Concept by shortName'
     })
 
     if (cachedResponse) {
@@ -121,7 +123,7 @@ export const getCachedConceptByShortName = async (event, context) => {
       body: JSON.stringify({ error: 'Cached Concept not found for the given shortName' })
     }
   } catch (error) {
-    logger.error(`Error retrieving cached UUID, error=${error.toString()}`)
+    logger.error(`Error retrieving historical concept, error=${error.toString()}`)
 
     return {
       headers: defaultResponseHeaders,
@@ -133,4 +135,4 @@ export const getCachedConceptByShortName = async (event, context) => {
   }
 }
 
-export default getCachedConceptByShortName
+export default getHistoricalConceptByShortName

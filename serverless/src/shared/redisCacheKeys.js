@@ -77,12 +77,12 @@ export const createConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) =>
   const normalizedFullPath = normalizeValue(fullPath)
   const normalizedScheme = normalizeValue(scheme)
 
-  return `kms:${normalizedScheme}:cached_concept:full_path:${normalizedFullPath}`
+  return `kms:${normalizedScheme}:historical_concept:full_path:${normalizedFullPath}`
 }
 
 export const createConceptResponseCacheKeyByShortName = ({ shortName, scheme }) => {
   const normalizedShortName = normalizeValue(shortName)
   const normalizedScheme = normalizeValue(scheme)
 
-  return `kms:${normalizedScheme}:cached_concept:short_name:${normalizedShortName}`
+  return `kms:${normalizedScheme}:historical_concept:short_name:${normalizedShortName}`
 }

@@ -27,15 +27,15 @@ import { setCachedJsonResponse } from './redisCacheStore'
  * await builder.processToCache(csvContent, { scheme });
  *
  * // After this runs, the Redis cache will contain keys following the format:
- * // 'kms:<scheme>:cached_concept:short_name:<normalized_short_name>', for example:
- * // 'kms:instruments:cached_concept:short_name:AC-690A'
+ * // 'kms:<scheme>:historical_concept:short_name:<normalized_short_name>', for example:
+ * // 'kms:instruments:historical_concept:short_name:AC-690A'
  * // with a value corresponding to the JSON response for the UUID.
  *
  * // Example for 'providers' scheme:
  * const providersCsv = `"Providers_v1.0.0"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"`;
  * await builder.processToCache(providersCsv, { scheme: 'providers' });
- * // This will cache 'kms:providers:cached_concept:short_name:ANU/ICAM'
+ * // This will cache 'kms:providers:historical_concept:short_name:ANU/ICAM'
  */
 export class ConceptForShortNameCacheBuilder {
   /**

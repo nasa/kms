@@ -281,19 +281,19 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
-      'getCachedConceptByFullPath/handler.js',
-      'get-cached-concept-by-full-path',
-      'getCachedConceptByFullPath',
-      '/concept/cached/full_path/{fullPath+}',
+      'getHistoricalConceptByFullPath/handler.js',
+      'get-historical-concept-by-full-path',
+      'getHistoricalConceptByFullPath',
+      '/concept/historical/full_path/{fullPath+}',
       'GET'
     )
 
     this.createApiLambda(
       scope,
-      'getCachedConceptByShortName/handler.js',
-      'get-cached-concept-by-short-name',
-      'getCachedConceptByShortName',
-      '/concept/cached/short_name/{shortName}',
+      'getHistoricalConceptByShortName/handler.js',
+      'get-historical-concept-by-short-name',
+      'getHistoricalConceptByShortName',
+      '/concept/historical/short_name/{shortName}',
       'GET'
     )
 

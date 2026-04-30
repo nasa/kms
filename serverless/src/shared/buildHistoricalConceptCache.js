@@ -3,12 +3,16 @@ import path from 'path'
 import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 
 import { getS3Client } from './awsClients'
-import { DEFAULT_FULL_PATH_SCHEMES } from './constants/fullPathForUuidSchemes'
-import { DEFAULT_SHORT_NAME_SCHEMES } from './constants/shortNameForUuidSchemes'
-import { getApplicationConfig } from './getConfig'
-import { logger } from './logger'
 import { ConceptForFullPathCacheBuilder } from './conceptForFullPathCacheBuilder'
 import { ConceptForShortNameCacheBuilder } from './conceptForShortNameCacheBuilder'
+import {
+  DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
+} from './constants/fullPathForHistoricalConceptSchemes'
+import {
+  DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
+} from './constants/shortNameForHistoricalConceptSchemes'
+import { getApplicationConfig } from './getConfig'
+import { logger } from './logger'
 
 /**
  * Helper function to convert a stream to a string.
@@ -23,7 +27,7 @@ const streamToString = (stream) => new Promise((resolve, reject) => {
 })
 
 /**
- * Orchestrates building the UUID cache from CSV files stored in an S3 bucket.
+ * Orchestrates building the Historical Concept cache from CSV files stored in an S3 bucket.
  * It scans a given S3 bucket for version directories, finds all `.csv` files
  * within them, and uses the appropriate cache builder to process each file's content.
  *
@@ -36,7 +40,7 @@ const streamToString = (stream) => new Promise((resolve, reject) => {
  * @param {string} bucketName - The name of the S3 bucket to process.
  * @throws {Error} If the bucket name is not provided.
  */
-export const buildConceptCache = async (bucketName) => {
+export const buildHistoricalConceptCache = async (bucketName) => {
   if (!bucketName) {
     throw new Error('An S3 bucket name is required to build the cache.')
   }
@@ -44,18 +48,18 @@ export const buildConceptCache = async (bucketName) => {
   const s3Client = getS3Client()
 
   const {
-    schemesForUuidByFullPath: schemesForUuidByFullPathFromConfig,
-    schemesForUuidByShortName: schemesForUuidByShortNameFromConfig
+    schemesForHistoricalConceptByFullPath: schemesForHistoricalConceptByFullPathFromConfig,
+    schemesForHistoricalConceptByShortName: schemesForHistoricalConceptByShortNameFromConfig
   } = getApplicationConfig()
 
-  const sourceForFullPath = schemesForUuidByFullPathFromConfig?.length
-    ? schemesForUuidByFullPathFromConfig
-    : DEFAULT_FULL_PATH_SCHEMES
+  const sourceForFullPath = schemesForHistoricalConceptByFullPathFromConfig?.length
+    ? schemesForHistoricalConceptByFullPathFromConfig
+    : DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
   const fullPathSchemes = sourceForFullPath.map((s) => s.toLowerCase())
 
-  const sourceForShortName = schemesForUuidByShortNameFromConfig?.length
-    ? schemesForUuidByShortNameFromConfig
-    : DEFAULT_SHORT_NAME_SCHEMES
+  const sourceForShortName = schemesForHistoricalConceptByShortNameFromConfig?.length
+    ? schemesForHistoricalConceptByShortNameFromConfig
+    : DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
   const shortNameSchemes = sourceForShortName.map((s) => s.toLowerCase())
 
   const fullPathCacheBuilder = new ConceptForFullPathCacheBuilder()
@@ -139,7 +143,7 @@ export const buildConceptCache = async (bucketName) => {
 
   // Process files in batches to avoid overwhelming S3 with too many concurrent requests.
   // The concurrency level can be adjusted via environment variables.
-  const concurrency = parseInt(process.env.UUID_CACHE_CONCURRENCY, 10) || 10
+  const concurrency = parseInt(process.env.HISTORICAL_CONCEPT_CACHE_CONCURRENCY, 10) || 10
   logger.info(`Processing files with a concurrency of ${concurrency}.`)
 
   // Create chunks of files to process using array-based methods

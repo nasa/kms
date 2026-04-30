@@ -6,7 +6,7 @@ import {
   vi
 } from 'vitest'
 
-import { buildConceptCache } from '@/shared/buildConceptCache'
+import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
@@ -56,7 +56,7 @@ vi.mock('@/shared/publishKeywordEvent')
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/exportPublishSchemeCsvToS3')
-vi.mock('@/shared/buildConceptCache')
+vi.mock('@/shared/buildHistoricalConceptCache')
 vi.mock('@/shared/getConfig')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
@@ -1826,13 +1826,13 @@ describe('publisher handler', () => {
 
       await publisher(mockEvent)
 
-      expect(buildConceptCache).toHaveBeenCalledWith('kms-rdf-backup-sit')
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built UUID cache from S3 bucket [kms-rdf-backup-sit].')
+      expect(buildHistoricalConceptCache).toHaveBeenCalledWith('kms-rdf-backup-sit')
+      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built Historical Concept cache from S3 bucket [kms-rdf-backup-sit].')
     })
 
     test('should handle UUID cache build failures gracefully', async () => {
       const cacheBuildError = new Error('Cache build failed')
-      buildConceptCache.mockRejectedValue(cacheBuildError)
+      buildHistoricalConceptCache.mockRejectedValue(cacheBuildError)
       const mockSchemes = [{ notation: 'sciencekeywords' }]
       getConceptSchemeDetails.mockResolvedValue(mockSchemes)
       downloadConcepts.mockResolvedValue('csv content')
@@ -1854,8 +1854,8 @@ describe('publisher handler', () => {
       const result = await publisher(mockEvent)
 
       expect(result.status).toBe('partial_success')
-      expect(result.postPublishFailures).toContain('Failed to build UUID cache from S3: Cache build failed')
-      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build UUID cache from S3: Cache build failed')
+      expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build Historical Concept cache from S3: Cache build failed')
     })
   })
 })

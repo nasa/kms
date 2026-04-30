@@ -96,7 +96,7 @@ describe('when creating response cache keys', () => {
       test('handles missing fullPath and scheme', () => {
         const key = createConceptResponseCacheKeyByFullPath({})
 
-        expect(key).toBe('kms::cached_concept:full_path:')
+        expect(key).toBe('kms::historical_concept:full_path:')
       })
 
       test('url-encodes fullPath and scheme values', () => {
@@ -105,7 +105,7 @@ describe('when creating response cache keys', () => {
           scheme: 'platforms'
         })
 
-        expect(key).toBe('kms:platforms:cached_concept:full_path:A%2FB%20%3E%20C')
+        expect(key).toBe('kms:platforms:historical_concept:full_path:A%2FB%20%3E%20C')
       })
     })
 
@@ -113,7 +113,7 @@ describe('when creating response cache keys', () => {
       test('handles missing shortName and scheme', () => {
         const key = createConceptResponseCacheKeyByShortName({})
 
-        expect(key).toBe('kms::cached_concept:short_name:')
+        expect(key).toBe('kms::historical_concept:short_name:')
       })
 
       test('url-encodes shortName and scheme values', () => {
@@ -122,7 +122,7 @@ describe('when creating response cache keys', () => {
           scheme: 'platforms'
         })
 
-        expect(key).toBe('kms:platforms:cached_concept:short_name:CESSNA%20188')
+        expect(key).toBe('kms:platforms:historical_concept:short_name:CESSNA%20188')
       })
     })
   })

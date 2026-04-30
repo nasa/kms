@@ -17,7 +17,7 @@ vi.mock('../redisCacheStore', () => ({
 }))
 
 vi.mock('../redisCacheKeys', () => ({
-  createConceptResponseCacheKeyByShortName: vi.fn((({ shortName, scheme }) => `kms:${scheme}:cached_concept:short_name:${shortName}`))
+  createConceptResponseCacheKeyByShortName: vi.fn((({ shortName, scheme }) => `kms:${scheme}:historical_concept:short_name:${shortName}`))
 }))
 
 vi.mock('../logger', () => ({

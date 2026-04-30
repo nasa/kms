@@ -9,7 +9,7 @@ import {
   vi
 } from 'vitest'
 
-import { buildConceptCache } from '../buildConceptCache'
+import { buildHistoricalConceptCache } from '../buildHistoricalConceptCache'
 import { logger } from '../logger'
 
 const mockFullPathProcessToCache = vi.fn()
@@ -44,14 +44,14 @@ vi.mock('@/shared/awsClients', () => ({
   }))
 }))
 
-describe('buildConceptCache', () => {
+describe('buildHistoricalConceptCache', () => {
   afterEach(() => {
     vi.clearAllMocks()
     mockS3Send.mockReset() // Reset the shared mock between tests
   })
 
   it('throws an error if no bucket name is provided', async () => {
-    await expect(buildConceptCache()).rejects.toThrow('An S3 bucket name is required to build the cache.')
+    await expect(buildHistoricalConceptCache()).rejects.toThrow('An S3 bucket name is required to build the cache.')
   })
 
   it('should find and process all CSV files using the correct builder', async () => {
@@ -102,7 +102,7 @@ describe('buildConceptCache', () => {
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    await buildConceptCache('test-bucket')
+    await buildHistoricalConceptCache('test-bucket')
 
     // Verify the full path builder was called correctly
     expect(mockFullPathProcessToCache).toHaveBeenCalledTimes(1)
@@ -115,7 +115,7 @@ describe('buildConceptCache', () => {
 
   it('handles cases where no version directories are found', async () => {
     mockS3Send.mockResolvedValue({ CommonPrefixes: [] })
-    await buildConceptCache('test-bucket')
+    await buildHistoricalConceptCache('test-bucket')
     expect(mockFullPathProcessToCache).not.toHaveBeenCalled()
     expect(mockShortNameProcessToCache).not.toHaveBeenCalled()
   })
@@ -125,7 +125,7 @@ describe('buildConceptCache', () => {
       .mockResolvedValueOnce({ CommonPrefixes: [{ Prefix: '1.eio/' }] })
       .mockResolvedValueOnce({ Contents: [] }) // No files in the directory
 
-    await buildConceptCache('test-bucket')
+    await buildHistoricalConceptCache('test-bucket')
     expect(mockFullPathProcessToCache).not.toHaveBeenCalled()
     expect(mockShortNameProcessToCache).not.toHaveBeenCalled()
   })
@@ -158,7 +158,7 @@ describe('buildConceptCache', () => {
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    await buildConceptCache('test-bucket')
+    await buildHistoricalConceptCache('test-bucket')
 
     expect(logger.warn).toHaveBeenCalledWith('No cache builder found for scheme [unknown] in file [1.0/unknown.csv].')
   })
@@ -192,7 +192,7 @@ describe('buildConceptCache', () => {
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    await buildConceptCache('test-bucket')
+    await buildHistoricalConceptCache('test-bucket')
 
     expect(logger.error).toHaveBeenCalledWith('Failed to process file [1.0/sciencekeywords.csv]: S3 Download Failed')
   })

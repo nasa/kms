@@ -5,7 +5,7 @@ import {
   vi
 } from 'vitest'
 
-import { getCachedConceptByFullPath } from '@/getCachedConceptByFullPath/handler'
+import { getHistoricalConceptByFullPath } from '@/getHistoricalConceptByFullPath/handler'
 import { createConceptResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
@@ -13,7 +13,7 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 let mockSchemes = ['sciencekeywords', 'locations']
 const mockConfig = {
   defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' },
-  get schemesForUuidByFullPath() {
+  get schemesForHistoricalConceptByFullPath() {
     return mockSchemes
   }
 }
@@ -28,19 +28,19 @@ vi.mock('@/shared/redisCacheStore', () => ({
 
 vi.mock('@/shared/redisCacheKeys', () => ({
   createConceptResponseCacheKeyByFullPath: vi.fn(
-    ({ fullPath, scheme }) => `kms:${scheme}:cached_concept:full_path:${fullPath}`
+    ({ fullPath, scheme }) => `kms:${scheme}:historical_concept:full_path:${fullPath}`
   )
 }))
 
-vi.mock('@/shared/constants/fullPathForUuidSchemes', () => ({
-  DEFAULT_FULL_PATH_SCHEMES: ['default-full-path-scheme']
+vi.mock('@/shared/constants/fullPathForHistoricalConceptSchemes', () => ({
+  DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES: ['default-full-path-scheme']
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
 }))
 
-describe('getCachedConceptByFullPath', () => {
+describe('getHistoricalConceptByFullPath', () => {
   afterEach(() => {
     // Reset mock schemes after each test
     mockSchemes = ['sciencekeywords', 'locations']
@@ -54,7 +54,7 @@ describe('getCachedConceptByFullPath', () => {
       queryStringParameters: { scheme: 'default-full-path-scheme' } // This is in the mocked default list
     }
 
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
     // We expect it NOT to return a 400 error, which means it passed the scheme check
     expect(result.statusCode).not.toBe(400)
   })
@@ -64,7 +64,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: {},
       queryStringParameters: { scheme: 'sciencekeywords' }
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('fullPath is required')
@@ -75,7 +75,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: { fullPath: 'any' },
       queryStringParameters: { scheme: 'ScienceKeywords' } // Mixed case
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     // Should not fail with a 400 for scheme validation
     expect(result.statusCode).not.toBe(400)
@@ -86,7 +86,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: { fullPath: 'any' },
       queryStringParameters: { scheme: 'invalid-scheme' }
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     const expectedError = `Caching by fullPath is not supported for the '${'invalid-scheme'}' scheme`
@@ -98,7 +98,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: { fullPath: 'some-path' },
       queryStringParameters: {}
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('scheme is required')
@@ -109,7 +109,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: null,
       queryStringParameters: { scheme: 'sciencekeywords' }
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('fullPath is required')
@@ -129,7 +129,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: { fullPath },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(createConceptResponseCacheKeyByFullPath).toHaveBeenCalledWith({
       fullPath: fullPath.toLowerCase(),
@@ -137,8 +137,8 @@ describe('getCachedConceptByFullPath', () => {
     })
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:sciencekeywords:cached_concept:full_path:earth science > oceans',
-      entityLabel: 'Concept by fullPath'
+      cacheKey: 'kms:sciencekeywords:historical_concept:full_path:earth science > oceans',
+      entityLabel: 'Historical Concept by fullPath'
     })
 
     expect(result).toEqual(mockResponse)
@@ -153,7 +153,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: { fullPath },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(result.statusCode).toBe(404)
     expect(JSON.parse(result.body).error).toBe('Cached Concept not found for the given fullPath')
@@ -168,7 +168,7 @@ describe('getCachedConceptByFullPath', () => {
       pathParameters: { fullPath },
       queryStringParameters: { scheme }
     }
-    await getCachedConceptByFullPath(event)
+    await getHistoricalConceptByFullPath(event)
 
     // Verify it was decoded before creating the cache key
     expect(createConceptResponseCacheKeyByFullPath).toHaveBeenCalledWith({
@@ -188,7 +188,7 @@ describe('getCachedConceptByFullPath', () => {
       queryStringParameters: { scheme }
     }
 
-    const result = await getCachedConceptByFullPath(event)
+    const result = await getHistoricalConceptByFullPath(event)
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body).error).toBe(error.toString())

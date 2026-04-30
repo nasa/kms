@@ -5,7 +5,7 @@ import {
   vi
 } from 'vitest'
 
-import { getCachedConceptByShortName } from '@/getCachedConceptByShortName/handler'
+import { getHistoricalConceptByShortName } from '@/getHistoricalConceptByShortName/handler'
 import { createConceptResponseCacheKeyByShortName } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
@@ -13,7 +13,7 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 let mockSchemes = ['platforms', 'instruments']
 const mockConfig = {
   defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' },
-  get schemesForUuidByShortName() {
+  get schemesForHistoricalConceptByShortName() {
     return mockSchemes
   }
 }
@@ -28,19 +28,19 @@ vi.mock('@/shared/redisCacheStore', () => ({
 
 vi.mock('@/shared/redisCacheKeys', () => ({
   createConceptResponseCacheKeyByShortName: vi.fn(
-    ({ shortName, scheme }) => `kms:${scheme}:cached_concept:short_name:${shortName}`
+    ({ shortName, scheme }) => `kms:${scheme}:historical_concept:short_name:${shortName}`
   )
 }))
 
-vi.mock('@/shared/constants/shortNameForUuidSchemes', () => ({
-  DEFAULT_SHORT_NAME_SCHEMES: ['default-short-name-scheme']
+vi.mock('@/shared/constants/shortNameForHistoricalConceptSchemes', () => ({
+  DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES: ['default-short-name-scheme']
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
 }))
 
-describe('getCachedConceptByShortName', () => {
+describe('getHistoricalConceptByShortName', () => {
   afterEach(() => {
     // Reset mock schemes after each test
     mockSchemes = ['platforms', 'instruments']
@@ -54,7 +54,7 @@ describe('getCachedConceptByShortName', () => {
       queryStringParameters: { scheme: 'default-short-name-scheme' } // This is in the mocked default list
     }
 
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
     // We expect it NOT to return a 400 error, which means it passed the scheme check
     expect(result.statusCode).not.toBe(400)
   })
@@ -64,7 +64,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: {},
       queryStringParameters: { scheme: 'platforms' }
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('shortName is required')
@@ -75,7 +75,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'Platforms' } // Mixed case
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
     // Should not fail with a 400 for scheme validation
     expect(result.statusCode).not.toBe(400)
   })
@@ -86,7 +86,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'DataFormat' } // Exact case from default list
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
     // Should not fail with a 400 for scheme validation
     expect(result.statusCode).not.toBe(400)
   })
@@ -96,7 +96,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'invalid-scheme' }
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     const expectedError = `Caching by shortName is not supported for the '${'invalid-scheme'}' scheme`
@@ -108,7 +108,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: {}
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('scheme is required')
@@ -119,7 +119,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: null,
       queryStringParameters: { scheme: 'platforms' }
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('shortName is required')
@@ -139,7 +139,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(createConceptResponseCacheKeyByShortName).toHaveBeenCalledWith({
       shortName: shortName.toLowerCase(),
@@ -147,8 +147,8 @@ describe('getCachedConceptByShortName', () => {
     })
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:platforms:cached_concept:short_name:terra',
-      entityLabel: 'Concept by shortName'
+      cacheKey: 'kms:platforms:historical_concept:short_name:terra',
+      entityLabel: 'Historical Concept by shortName'
     })
 
     expect(result).toEqual(mockResponse)
@@ -163,7 +163,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(result.statusCode).toBe(404)
     expect(JSON.parse(result.body).error).toBe('Cached Concept not found for the given shortName')
@@ -179,7 +179,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName(event)
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body).error).toBe(error.toString())
@@ -194,7 +194,7 @@ describe('getCachedConceptByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    await getCachedConceptByShortName(event)
+    await getHistoricalConceptByShortName(event)
 
     // Verify it was decoded and lowercased before creating the cache key
     expect(createConceptResponseCacheKeyByShortName).toHaveBeenCalledWith({

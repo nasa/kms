@@ -28,8 +28,8 @@ import { setCachedJsonResponse } from './redisCacheStore'
  * await builder.processToCache(csvContent, { scheme });
  *
  * // After this runs, the Redis cache will contain keys following the format:
- * // 'kms:<scheme>:cached_concept:full_path:<normalized_full_path>', for example:
- * // 'kms:sciencekeywords:cached_concept:full_path:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
+ * // 'kms:<scheme>:historical_concept:full_path:<normalized_full_path>', for example:
+ * // 'kms:sciencekeywords:historical_concept:full_path:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
  * // with a value corresponding to the JSON response for the UUID.
  */
 export class ConceptForFullPathCacheBuilder {

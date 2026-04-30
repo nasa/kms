@@ -17,7 +17,7 @@ vi.mock('../redisCacheStore', () => ({
 }))
 
 vi.mock('../redisCacheKeys', () => ({
-  createConceptResponseCacheKeyByFullPath: vi.fn((({ fullPath, scheme }) => `kms:${scheme}:cached_concept:full_path:${fullPath}`))
+  createConceptResponseCacheKeyByFullPath: vi.fn((({ fullPath, scheme }) => `kms:${scheme}:historical_concept:full_path:${fullPath}`))
 }))
 
 vi.mock('../logger', () => ({

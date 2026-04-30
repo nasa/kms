@@ -1,7 +1,7 @@
 import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
 import { getEventBridgeClient } from '@/shared/awsClients'
-import { buildConceptCache } from '@/shared/buildConceptCache'
+import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
@@ -604,10 +604,10 @@ export const publisher = async (event) => {
     try {
       const { env } = getApplicationConfig()
       const bucketName = `kms-rdf-backup-${env}`
-      await buildConceptCache(bucketName)
-      logger.info(`[publisher] Successfully built UUID cache from S3 bucket [${bucketName}].`)
+      await buildHistoricalConceptCache(bucketName)
+      logger.info(`[publisher] Successfully built Historical Concept cache from S3 bucket [${bucketName}].`)
     } catch (cacheBuildError) {
-      const failureMessage = `Failed to build UUID cache from S3: ${cacheBuildError.message}`
+      const failureMessage = `Failed to build Historical Concept cache from S3: ${cacheBuildError.message}`
       postPublishFailures.push(failureMessage)
       logger.error(`[publisher] ${failureMessage}`)
     }

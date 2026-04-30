@@ -14,8 +14,8 @@ config="`jq '.application.version = $newValue' --arg newValue ${RELEASE_VERSION}
 config="`jq '.application.env = $newValue' --arg newValue $bamboo_STAGE_NAME <<< $config`"
 config="`jq '.edl.host = $newValue' --arg newValue $bamboo_EDL_HOST <<< $config`"
 config="`jq '.edl.uid = $newValue' --arg newValue $bamboo_EDL_UID <<< $config`"
-config="`jq '.application.schemesForUuidByFullPath = (if ($newValue | length) > 0 then ($newValue | split(",") | map(ltrim | rtrim)) else [] end)' --arg newValue "${bamboo_SCHEMES_FOR_UUID_BY_FULL_PATH:-}" <<< $config`"
-config="`jq '.application.schemesForUuidByShortName = (if ($newValue | length) > 0 then ($newValue | split(",") | map(ltrim | rtrim)) else [] end)' --arg newValue "${bamboo_SCHEMES_FOR_UUID_BY_SHORT_NAME:-}" <<< $config`"
+config="`jq '.application.schemesForHistoricalConceptByFullPath = (if ($newValue | length) > 0 then ($newValue | split(",") | map(ltrim | rtrim)) else [] end)' --arg newValue "${bamboo_SCHEMES_FOR_HISTORICAL_CONCEPT_BY_FULL_PATH:-}" <<< $config`"
+config="`jq '.application.schemesForHistoricalConceptByShortName = (if ($newValue | length) > 0 then ($newValue | split(",") | map(ltrim | rtrim)) else [] end)' --arg newValue "${bamboo_SCHEMES_FOR_HISTORICAL_CONCEPT_BY_SHORT_NAME:-}" <<< $config`"
 
 # overwrite static.config.json with new values
 echo $config > tmp.$$.json && mv tmp.$$.json static.config.json
