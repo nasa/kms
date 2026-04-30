@@ -10,6 +10,7 @@ import {
 } from 'vitest'
 
 import { buildUuidCache } from '../buildUuidCache'
+import { logger } from '../logger'
 
 const mockFullPathProcessToCache = vi.fn()
 const mockShortNameProcessToCache = vi.fn()
@@ -27,6 +28,15 @@ vi.mock('../uuidForShortNameCacheBuilder', () => ({
 }))
 
 const mockS3Send = vi.fn()
+
+vi.mock('../logger', () => ({
+  logger: {
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
+  }
+}))
 
 vi.mock('@/shared/awsClients', () => ({
   getS3Client: vi.fn(() => ({
@@ -118,5 +128,72 @@ describe('buildUuidCache', () => {
     await buildUuidCache('test-bucket')
     expect(mockFullPathProcessToCache).not.toHaveBeenCalled()
     expect(mockShortNameProcessToCache).not.toHaveBeenCalled()
+  })
+
+  it('should warn when no builder is found for a scheme', async () => {
+    // Mock ListObjectsV2Command for directories
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Delimiter === '/') {
+        return Promise.resolve({ CommonPrefixes: [{ Prefix: '1.0/' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    // Mock ListObjectsV2Command for files in '1.0/'
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Prefix === '1.0/') {
+        return Promise.resolve({ Contents: [{ Key: '1.0/unknown.csv' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    // Mock GetObjectCommand for unknown.csv
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/unknown.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('some-content')]) })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    await buildUuidCache('test-bucket')
+
+    expect(logger.warn).toHaveBeenCalledWith('No cache builder found for scheme [unknown] in file [1.0/unknown.csv].')
+  })
+
+  it('should log an error if processing a file fails', async () => {
+    // Mock ListObjectsV2Command for directories
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Delimiter === '/') {
+        return Promise.resolve({ CommonPrefixes: [{ Prefix: '1.0/' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    // Mock ListObjectsV2Command for files in '1.0/'
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Prefix === '1.0/') {
+        return Promise.resolve({ Contents: [{ Key: '1.0/sciencekeywords.csv' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    // Mock GetObjectCommand to fail
+    const mockError = new Error('S3 Download Failed')
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/sciencekeywords.csv') {
+        return Promise.reject(mockError)
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    await buildUuidCache('test-bucket')
+
+    expect(logger.error).toHaveBeenCalledWith('Failed to process file [1.0/sciencekeywords.csv]: S3 Download Failed')
   })
 })

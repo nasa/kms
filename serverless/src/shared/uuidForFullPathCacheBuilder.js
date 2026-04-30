@@ -24,10 +24,12 @@ import { setCachedJsonResponse } from './redisCacheStore'
 "EARTH SCIENCE","BIOSPHERE","","9f4f9641-8692-411a-8c34-315cf118c7c3"
 `;
  *
- * await builder.processToCache(csvContent);
+ * const scheme = 'sciencekeywords';
+ * await builder.processToCache(csvContent, { scheme });
  *
- * // After this runs, the Redis cache will contain keys like:
- * // 'kms:uuid:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
+ * // After this runs, the Redis cache will contain keys following the format:
+ * // 'kms:<scheme>:uuid:full_path:<normalized_full_path>', for example:
+ * // 'kms:sciencekeywords:uuid:full_path:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
  * // with a value corresponding to the JSON response for the UUID.
  */
 export class UuidForFullPathCacheBuilder {

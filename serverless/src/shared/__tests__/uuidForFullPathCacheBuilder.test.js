@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { logger } from '../logger'
 import { createUuidResponseCacheKeyByFullPath } from '../redisCacheKeys'
 import { setCachedJsonResponse } from '../redisCacheStore'
 import { UuidForFullPathCacheBuilder } from '../uuidForFullPathCacheBuilder'
@@ -17,6 +18,13 @@ vi.mock('../redisCacheStore', () => ({
 
 vi.mock('../redisCacheKeys', () => ({
   createUuidResponseCacheKeyByFullPath: vi.fn((({ fullPath, scheme }) => `kms:${scheme}:uuid:full_path:${fullPath}`))
+}))
+
+vi.mock('../logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    error: vi.fn()
+  }
 }))
 
 describe('UuidForFullPathCacheBuilder', () => {
@@ -80,6 +88,18 @@ describe('UuidForFullPathCacheBuilder', () => {
         cacheKey,
         response: expectedResponse
       })
+    })
+
+    it('should log an error if caching fails', async () => {
+      const csvContent = `"Keyword Version: 23.4"
+"Category","UUID"
+"EARTH SCIENCE","a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4"`
+      const mockError = new Error('Cache write failed')
+      vi.mocked(setCachedJsonResponse).mockRejectedValueOnce(mockError)
+
+      await builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
+
+      expect(logger.error).toHaveBeenCalledWith('Error setting cache for EARTH SCIENCE: Cache write failed')
     })
   })
 })

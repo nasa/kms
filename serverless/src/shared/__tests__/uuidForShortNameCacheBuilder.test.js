@@ -6,17 +6,25 @@ import {
   vi
 } from 'vitest'
 
+import { logger } from '../logger'
 import { createUuidResponseCacheKeyByShortName } from '../redisCacheKeys'
 import { setCachedJsonResponse } from '../redisCacheStore'
 import { UuidForShortNameCacheBuilder } from '../uuidForShortNameCacheBuilder'
 
-// Mock the redisCacheStore functions
+// Mock the dependencies
 vi.mock('../redisCacheStore', () => ({
   setCachedJsonResponse: vi.fn(() => Promise.resolve())
 }))
 
 vi.mock('../redisCacheKeys', () => ({
   createUuidResponseCacheKeyByShortName: vi.fn((({ shortName, scheme }) => `kms:${scheme}:uuid:short_name:${shortName}`))
+}))
+
+vi.mock('../logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    error: vi.fn()
+  }
 }))
 
 describe('UuidForShortNameCacheBuilder', () => {
@@ -29,7 +37,7 @@ describe('UuidForShortNameCacheBuilder', () => {
   })
 
   describe('parseCsvContent', () => {
-    it('should correctly parse CSV content and extract short name', () => {
+    it('should correctly parse CSV content for instruments', () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
@@ -40,7 +48,19 @@ describe('UuidForShortNameCacheBuilder', () => {
         ['A-10', '2b839618-639c-44d4-9ad9-9064d12b322a']
       ])
 
-      const result = builder.parseCsvContent(csvContent)
+      const result = builder.parseCsvContent(csvContent, { scheme: 'instruments' })
+      expect(result).toEqual(expectedMap)
+    })
+
+    it('should correctly parse CSV content for providers', () => {
+      const csvContent = `"Providers_v1.0.0"
+"ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
+`
+      const expectedMap = new Map([
+        ['ANU/ICAM', '268174c2-14f0-4bfc-9fe7-4ef148a26345']
+      ])
+
+      const result = builder.parseCsvContent(csvContent, { scheme: 'providers' })
       expect(result).toEqual(expectedMap)
     })
 
@@ -54,18 +74,18 @@ describe('UuidForShortNameCacheBuilder', () => {
         ['A-10', '2b839618-639c-44d4-9ad9-9064d12b322a']
       ])
 
-      const result = builder.parseCsvContent(csvContent)
+      const result = builder.parseCsvContent(csvContent, { scheme: 'instruments' })
       expect(result).toEqual(expectedMap)
     })
   })
 
   describe('processToCache', () => {
-    it('should process CSV content and cache the results using short name', async () => {
+    it('should process instrument CSV and cache the results', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
 `
-      await builder.processToCache(csvContent, { scheme: 'platforms' })
+      await builder.processToCache(csvContent, { scheme: 'instruments' })
 
       expect(setCachedJsonResponse).toHaveBeenCalledTimes(1)
 
@@ -73,7 +93,7 @@ describe('UuidForShortNameCacheBuilder', () => {
       const uuid = '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'
       const cacheKey = createUuidResponseCacheKeyByShortName({
         shortName,
-        scheme: 'platforms'
+        scheme: 'instruments'
       })
       const expectedResponse = {
         statusCode: 200,
@@ -87,6 +107,46 @@ describe('UuidForShortNameCacheBuilder', () => {
         cacheKey,
         response: expectedResponse
       })
+    })
+
+    it('should process provider CSV and cache the results', async () => {
+      const csvContent = `"Providers_v1.0.0"
+"ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
+`
+      await builder.processToCache(csvContent, { scheme: 'providers' })
+
+      expect(setCachedJsonResponse).toHaveBeenCalledTimes(1)
+
+      const shortName = 'ANU/ICAM'
+      const uuid = '268174c2-14f0-4bfc-9fe7-4ef148a26345'
+      const cacheKey = createUuidResponseCacheKeyByShortName({
+        shortName,
+        scheme: 'providers'
+      })
+      const expectedResponse = {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uuid })
+      }
+
+      expect(setCachedJsonResponse).toHaveBeenCalledWith({
+        cacheKey,
+        response: expectedResponse
+      })
+    })
+
+    it('should log an error if caching fails', async () => {
+      const csvContent = `"Instrument_Keywords_v1.0.0"
+"Category","Class","Subclass","Short_Name","Long_Name","UUID"
+"Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"`
+      const mockError = new Error('Cache write failed')
+      vi.mocked(setCachedJsonResponse).mockRejectedValueOnce(mockError)
+
+      await builder.processToCache(csvContent, { scheme: 'instruments' })
+
+      expect(logger.error).toHaveBeenCalledWith('Error setting cache for AC-690A: Cache write failed')
     })
   })
 })

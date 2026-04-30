@@ -23,40 +23,46 @@ import { setCachedJsonResponse } from './redisCacheStore'
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
 `;
  *
- * await builder.processToCache(csvContent);
+ * const scheme = 'instruments';
+ * await builder.processToCache(csvContent, { scheme });
  *
- * // After this runs, the Redis cache will contain a key like:
- * // 'kms:uuid:AC-690A'
+ * // After this runs, the Redis cache will contain keys following the format:
+ * // 'kms:<scheme>:uuid:short_name:<normalized_short_name>', for example:
+ * // 'kms:instruments:uuid:short_name:AC-690A'
  * // with a value corresponding to the JSON response for the UUID.
+ *
+ * // Example for 'providers' scheme:
+ * const providersCsv = `"Providers_v1.0.0"
+"ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"`;
+ * await builder.processToCache(providersCsv, { scheme: 'providers' });
+ * // This will cache 'kms:providers:uuid:short_name:ANU/ICAM'
  */
 export class UuidForShortNameCacheBuilder {
   /**
-   * @param {number} skipHeaderRows - Number of header rows to skip (default: 2)
-   * @param {string} pathSeparator - Separator for path elements (default: ' > ')
-   */
-  constructor(skipHeaderRows = 2) {
-    this.skipHeaderRows = skipHeaderRows
-  }
-
-  /**
    * Parses CSV content and returns a map of short names to UUIDs.
    * @param {string} csvContent - CSV content as a string.
+   * @param {object} options
+   * @param {string} options.scheme - The scheme ('instruments', 'providers', etc.).
    * @returns {Map<string, string>} Map with short name as key and UUID as value.
    */
-  parseCsvContent(csvContent) {
+  parseCsvContent(csvContent, { scheme }) {
     const rows = parse(csvContent, {
       skip_empty_lines: true,
       relax_quotes: true,
       relax_column_count: true
     })
 
+    const skipHeaderRows = scheme === 'providers' ? 1 : 2
+    const shortNameColumn = scheme === 'providers' ? -4 : -3
+    const minColumns = scheme === 'providers' ? 4 : 3
+
     // Filter rows that have enough columns for shortName and UUID
-    const dataRows = rows.slice(this.skipHeaderRows).filter((row) => row && row.length >= 3)
+    const dataRows = rows.slice(skipHeaderRows).filter((row) => row && row.length >= minColumns)
 
     const entries = dataRows
       .map((row) => {
         const uuid = row[row.length - 1].trim()
-        const shortName = row[row.length - 3].trim()
+        const shortName = row[row.length + shortNameColumn].trim()
 
         return [shortName, uuid]
       })
@@ -70,7 +76,7 @@ export class UuidForShortNameCacheBuilder {
    * @param {string} csvContent - The CSV content as a string.
    */
   async processToCache(csvContent, { scheme }) {
-    const records = this.parseCsvContent(csvContent)
+    const records = this.parseCsvContent(csvContent, { scheme })
 
     const cacheOperations = []
 
