@@ -6,10 +6,10 @@ import {
   vi
 } from 'vitest'
 
+import { ConceptForShortNameCacheBuilder } from '../conceptForShortNameCacheBuilder'
 import { logger } from '../logger'
-import { createUuidResponseCacheKeyByShortName } from '../redisCacheKeys'
+import { createConceptResponseCacheKeyByShortName } from '../redisCacheKeys'
 import { setCachedJsonResponse } from '../redisCacheStore'
-import { UuidForShortNameCacheBuilder } from '../uuidForShortNameCacheBuilder'
 
 // Mock the dependencies
 vi.mock('../redisCacheStore', () => ({
@@ -17,7 +17,7 @@ vi.mock('../redisCacheStore', () => ({
 }))
 
 vi.mock('../redisCacheKeys', () => ({
-  createUuidResponseCacheKeyByShortName: vi.fn((({ shortName, scheme }) => `kms:${scheme}:uuid:short_name:${shortName}`))
+  createConceptResponseCacheKeyByShortName: vi.fn((({ shortName, scheme }) => `kms:${scheme}:cached_concept:short_name:${shortName}`))
 }))
 
 vi.mock('../logger', () => ({
@@ -27,11 +27,11 @@ vi.mock('../logger', () => ({
   }
 }))
 
-describe('UuidForShortNameCacheBuilder', () => {
+describe('ConceptForShortNameCacheBuilder', () => {
   let builder
 
   beforeEach(() => {
-    builder = new UuidForShortNameCacheBuilder()
+    builder = new ConceptForShortNameCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
   })
@@ -105,7 +105,7 @@ describe('UuidForShortNameCacheBuilder', () => {
       const shortName = 'AC-690A'
       const uuid = '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'
       const fullPath = 'Air-based Platforms > Propeller > AC-690A'
-      const cacheKey = createUuidResponseCacheKeyByShortName({
+      const cacheKey = createConceptResponseCacheKeyByShortName({
         shortName: shortName.toLowerCase(),
         scheme: 'instruments'
       })
@@ -138,7 +138,7 @@ describe('UuidForShortNameCacheBuilder', () => {
       const shortName = 'ANU/ICAM'
       const uuid = '268174c2-14f0-4bfc-9fe7-4ef148a26345'
       const fullPath = 'ACADEMIC > ANU/ICAM'
-      const cacheKey = createUuidResponseCacheKeyByShortName({
+      const cacheKey = createConceptResponseCacheKeyByShortName({
         shortName: shortName.toLowerCase(),
         scheme: 'providers'
       })

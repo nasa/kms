@@ -5,8 +5,8 @@ import {
   vi
 } from 'vitest'
 
-import { getCachedUuidByShortName } from '@/getCachedUuidByShortName/handler'
-import { createUuidResponseCacheKeyByShortName } from '@/shared/redisCacheKeys'
+import { getCachedConceptByShortName } from '@/getCachedConceptByShortName/handler'
+import { createConceptResponseCacheKeyByShortName } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 // Mock shared modules
@@ -27,8 +27,8 @@ vi.mock('@/shared/redisCacheStore', () => ({
 }))
 
 vi.mock('@/shared/redisCacheKeys', () => ({
-  createUuidResponseCacheKeyByShortName: vi.fn(
-    ({ shortName, scheme }) => `kms:${scheme}:uuid:short_name:${shortName}`
+  createConceptResponseCacheKeyByShortName: vi.fn(
+    ({ shortName, scheme }) => `kms:${scheme}:cached_concept:short_name:${shortName}`
   )
 }))
 
@@ -40,7 +40,7 @@ vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
 }))
 
-describe('getCachedUuidByShortName', () => {
+describe('getCachedConceptByShortName', () => {
   afterEach(() => {
     // Reset mock schemes after each test
     mockSchemes = ['platforms', 'instruments']
@@ -54,7 +54,7 @@ describe('getCachedUuidByShortName', () => {
       queryStringParameters: { scheme: 'default-short-name-scheme' } // This is in the mocked default list
     }
 
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
     // We expect it NOT to return a 400 error, which means it passed the scheme check
     expect(result.statusCode).not.toBe(400)
   })
@@ -64,7 +64,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: {},
       queryStringParameters: { scheme: 'platforms' }
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('shortName is required')
@@ -75,7 +75,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'Platforms' } // Mixed case
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
     // Should not fail with a 400 for scheme validation
     expect(result.statusCode).not.toBe(400)
   })
@@ -86,7 +86,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'DataFormat' } // Exact case from default list
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
     // Should not fail with a 400 for scheme validation
     expect(result.statusCode).not.toBe(400)
   })
@@ -96,7 +96,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'invalid-scheme' }
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     const expectedError = `Caching by shortName is not supported for the '${'invalid-scheme'}' scheme`
@@ -108,7 +108,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName: 'any' },
       queryStringParameters: {}
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('scheme is required')
@@ -119,7 +119,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: null,
       queryStringParameters: { scheme: 'platforms' }
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('shortName is required')
@@ -139,16 +139,16 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
-    expect(createUuidResponseCacheKeyByShortName).toHaveBeenCalledWith({
+    expect(createConceptResponseCacheKeyByShortName).toHaveBeenCalledWith({
       shortName: shortName.toLowerCase(),
       scheme
     })
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:platforms:uuid:short_name:terra',
-      entityLabel: 'UUID by shortName'
+      cacheKey: 'kms:platforms:cached_concept:short_name:terra',
+      entityLabel: 'Concept by shortName'
     })
 
     expect(result).toEqual(mockResponse)
@@ -163,10 +163,10 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
     expect(result.statusCode).toBe(404)
-    expect(JSON.parse(result.body).error).toBe('UUID not found for the given shortName')
+    expect(JSON.parse(result.body).error).toBe('Cached Concept not found for the given shortName')
   })
 
   test('should return 500 if an error occurs during cache retrieval', async () => {
@@ -179,7 +179,7 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedUuidByShortName(event)
+    const result = await getCachedConceptByShortName(event)
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body).error).toBe(error.toString())
@@ -194,10 +194,10 @@ describe('getCachedUuidByShortName', () => {
       pathParameters: { shortName },
       queryStringParameters: { scheme }
     }
-    await getCachedUuidByShortName(event)
+    await getCachedConceptByShortName(event)
 
     // Verify it was decoded and lowercased before creating the cache key
-    expect(createUuidResponseCacheKeyByShortName).toHaveBeenCalledWith({
+    expect(createConceptResponseCacheKeyByShortName).toHaveBeenCalledWith({
       shortName: 'a/b-c',
       scheme
     })

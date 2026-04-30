@@ -1,7 +1,7 @@
 import { parse } from 'csv/sync'
 
 import { logger } from './logger'
-import { createUuidResponseCacheKeyByShortName } from './redisCacheKeys'
+import { createConceptResponseCacheKeyByShortName } from './redisCacheKeys'
 import { setCachedJsonResponse } from './redisCacheStore'
 
 /**
@@ -13,9 +13,9 @@ import { setCachedJsonResponse } from './redisCacheStore'
  *
  * @example
  * // Example of building the cache from CSV content
- * import { UuidForShortNameCacheBuilder } from './uuidForShortNameCacheBuilder.js';
+ * import { ConceptForShortNameCacheBuilder } from './uuidForShortNameCacheBuilder.js';
  *
- * const builder = new UuidForShortNameCacheBuilder();
+ * const builder = new ConceptForShortNameCacheBuilder();
  *
  * // This content would typically be fetched from a source like S3
  * const csvContent = `"Instrument_Keywords_v1.0.0"
@@ -27,17 +27,17 @@ import { setCachedJsonResponse } from './redisCacheStore'
  * await builder.processToCache(csvContent, { scheme });
  *
  * // After this runs, the Redis cache will contain keys following the format:
- * // 'kms:<scheme>:uuid:short_name:<normalized_short_name>', for example:
- * // 'kms:instruments:uuid:short_name:AC-690A'
+ * // 'kms:<scheme>:cached_concept:short_name:<normalized_short_name>', for example:
+ * // 'kms:instruments:cached_concept:short_name:AC-690A'
  * // with a value corresponding to the JSON response for the UUID.
  *
  * // Example for 'providers' scheme:
  * const providersCsv = `"Providers_v1.0.0"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"`;
  * await builder.processToCache(providersCsv, { scheme: 'providers' });
- * // This will cache 'kms:providers:uuid:short_name:ANU/ICAM'
+ * // This will cache 'kms:providers:cached_concept:short_name:ANU/ICAM'
  */
-export class UuidForShortNameCacheBuilder {
+export class ConceptForShortNameCacheBuilder {
   /**
    * @param {string} pathSeparator - Separator for path elements (default: ' > ')
    */
@@ -104,7 +104,7 @@ export class UuidForShortNameCacheBuilder {
 
     records.forEach(({ uuid, fullPath }, shortName) => {
       if (shortName && uuid && fullPath) {
-        const cacheKey = createUuidResponseCacheKeyByShortName({
+        const cacheKey = createConceptResponseCacheKeyByShortName({
           shortName: shortName.toLowerCase(),
           scheme
         })

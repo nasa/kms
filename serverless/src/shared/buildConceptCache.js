@@ -7,8 +7,8 @@ import { DEFAULT_FULL_PATH_SCHEMES } from './constants/fullPathForUuidSchemes'
 import { DEFAULT_SHORT_NAME_SCHEMES } from './constants/shortNameForUuidSchemes'
 import { getApplicationConfig } from './getConfig'
 import { logger } from './logger'
-import { UuidForFullPathCacheBuilder } from './uuidForFullPathCacheBuilder'
-import { UuidForShortNameCacheBuilder } from './uuidForShortNameCacheBuilder'
+import { ConceptForFullPathCacheBuilder } from './conceptForFullPathCacheBuilder'
+import { ConceptForShortNameCacheBuilder } from './conceptForShortNameCacheBuilder'
 
 /**
  * Helper function to convert a stream to a string.
@@ -29,14 +29,14 @@ const streamToString = (stream) => new Promise((resolve, reject) => {
  *
  * The function determines which builder to use based on the file's name, which
  * should correspond to a concept scheme. For example, a file named `sciencekeywords.csv`
- * will be processed by the `UuidForFullPathCacheBuilder` if 'sciencekeywords' is
+ * will be processed by the `ConceptForFullPathCacheBuilder` if 'sciencekeywords' is
  * defined as a full-path scheme. Similarly, `instruments.csv` will be processed by
- * the `UuidForShortNameCacheBuilder` if 'instruments' is a short-name scheme.
+ * the `ConceptForShortNameCacheBuilder` if 'instruments' is a short-name scheme.
  *
  * @param {string} bucketName - The name of the S3 bucket to process.
  * @throws {Error} If the bucket name is not provided.
  */
-export const buildUuidCache = async (bucketName) => {
+export const buildConceptCache = async (bucketName) => {
   if (!bucketName) {
     throw new Error('An S3 bucket name is required to build the cache.')
   }
@@ -58,8 +58,8 @@ export const buildUuidCache = async (bucketName) => {
     : DEFAULT_SHORT_NAME_SCHEMES
   const shortNameSchemes = sourceForShortName.map((s) => s.toLowerCase())
 
-  const fullPathCacheBuilder = new UuidForFullPathCacheBuilder()
-  const shortNameCacheBuilder = new UuidForShortNameCacheBuilder()
+  const fullPathCacheBuilder = new ConceptForFullPathCacheBuilder()
+  const shortNameCacheBuilder = new ConceptForShortNameCacheBuilder()
 
   /**
    * Lists the top-level directories in the S3 bucket, which correspond to keyword versions.
@@ -160,10 +160,10 @@ export const buildUuidCache = async (bucketName) => {
 
         if (fullPathSchemes.includes(scheme)) {
           await fullPathCacheBuilder.processToCache(csvContent, { scheme })
-          logger.info(`Successfully processed [${key}] with UuidForFullPathCacheBuilder.`)
+          logger.info(`Successfully processed [${key}] with ConceptForFullPathCacheBuilder.`)
         } else if (shortNameSchemes.includes(scheme)) {
           await shortNameCacheBuilder.processToCache(csvContent, { scheme })
-          logger.info(`Successfully processed [${key}] with UuidForShortNameCacheBuilder.`)
+          logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
         } else {
           logger.warn(`No cache builder found for scheme [${scheme}] in file [${key}].`)
         }

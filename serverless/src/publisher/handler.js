@@ -1,7 +1,7 @@
 import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
 import { getEventBridgeClient } from '@/shared/awsClients'
-import { buildUuidCache } from '@/shared/buildUuidCache'
+import { buildConceptCache } from '@/shared/buildConceptCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
@@ -604,7 +604,7 @@ export const publisher = async (event) => {
     try {
       const { env } = getApplicationConfig()
       const bucketName = `kms-rdf-backup-${env}`
-      await buildUuidCache(bucketName)
+      await buildConceptCache(bucketName)
       logger.info(`[publisher] Successfully built UUID cache from S3 bucket [${bucketName}].`)
     } catch (cacheBuildError) {
       const failureMessage = `Failed to build UUID cache from S3: ${cacheBuildError.message}`

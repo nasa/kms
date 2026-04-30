@@ -9,10 +9,10 @@ import {
   CONCEPTS_CACHE_KEY_PREFIX,
   CONCEPTS_CACHE_VERSION_KEY,
   createConceptResponseCacheKey,
+  createConceptResponseCacheKeyByFullPath,
+  createConceptResponseCacheKeyByShortName,
   createConceptsResponseCacheKey,
   createTreeResponseCacheKey,
-  createUuidResponseCacheKeyByFullPath,
-  createUuidResponseCacheKeyByShortName,
   TREE_CACHE_KEY_PREFIX
 } from '@/shared/redisCacheKeys'
 
@@ -94,35 +94,35 @@ describe('when creating response cache keys', () => {
   describe('when creating uuid keys', () => {
     describe('by full path', () => {
       test('handles missing fullPath and scheme', () => {
-        const key = createUuidResponseCacheKeyByFullPath({})
+        const key = createConceptResponseCacheKeyByFullPath({})
 
-        expect(key).toBe('kms::uuid:full_path:')
+        expect(key).toBe('kms::cached_concept:full_path:')
       })
 
       test('url-encodes fullPath and scheme values', () => {
-        const key = createUuidResponseCacheKeyByFullPath({
+        const key = createConceptResponseCacheKeyByFullPath({
           fullPath: 'A/B > C',
           scheme: 'platforms'
         })
 
-        expect(key).toBe('kms:platforms:uuid:full_path:A%2FB%20%3E%20C')
+        expect(key).toBe('kms:platforms:cached_concept:full_path:A%2FB%20%3E%20C')
       })
     })
 
     describe('by short name', () => {
       test('handles missing shortName and scheme', () => {
-        const key = createUuidResponseCacheKeyByShortName({})
+        const key = createConceptResponseCacheKeyByShortName({})
 
-        expect(key).toBe('kms::uuid:short_name:')
+        expect(key).toBe('kms::cached_concept:short_name:')
       })
 
       test('url-encodes shortName and scheme values', () => {
-        const key = createUuidResponseCacheKeyByShortName({
+        const key = createConceptResponseCacheKeyByShortName({
           shortName: 'CESSNA 188',
           scheme: 'platforms'
         })
 
-        expect(key).toBe('kms:platforms:uuid:short_name:CESSNA%20188')
+        expect(key).toBe('kms:platforms:cached_concept:short_name:CESSNA%20188')
       })
     })
   })

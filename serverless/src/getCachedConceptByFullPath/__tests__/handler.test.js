@@ -5,8 +5,8 @@ import {
   vi
 } from 'vitest'
 
-import { getCachedUuidByFullPath } from '@/getCachedUuidByFullPath/handler'
-import { createUuidResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
+import { getCachedConceptByFullPath } from '@/getCachedConceptByFullPath/handler'
+import { createConceptResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 // Mock shared modules
@@ -27,8 +27,8 @@ vi.mock('@/shared/redisCacheStore', () => ({
 }))
 
 vi.mock('@/shared/redisCacheKeys', () => ({
-  createUuidResponseCacheKeyByFullPath: vi.fn(
-    ({ fullPath, scheme }) => `kms:${scheme}:uuid:full_path:${fullPath}`
+  createConceptResponseCacheKeyByFullPath: vi.fn(
+    ({ fullPath, scheme }) => `kms:${scheme}:cached_concept:full_path:${fullPath}`
   )
 }))
 
@@ -40,7 +40,7 @@ vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
 }))
 
-describe('getCachedUuidByFullPath', () => {
+describe('getCachedConceptByFullPath', () => {
   afterEach(() => {
     // Reset mock schemes after each test
     mockSchemes = ['sciencekeywords', 'locations']
@@ -54,7 +54,7 @@ describe('getCachedUuidByFullPath', () => {
       queryStringParameters: { scheme: 'default-full-path-scheme' } // This is in the mocked default list
     }
 
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
     // We expect it NOT to return a 400 error, which means it passed the scheme check
     expect(result.statusCode).not.toBe(400)
   })
@@ -64,7 +64,7 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: {},
       queryStringParameters: { scheme: 'sciencekeywords' }
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('fullPath is required')
@@ -75,7 +75,7 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: { fullPath: 'any' },
       queryStringParameters: { scheme: 'ScienceKeywords' } // Mixed case
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     // Should not fail with a 400 for scheme validation
     expect(result.statusCode).not.toBe(400)
@@ -86,7 +86,7 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: { fullPath: 'any' },
       queryStringParameters: { scheme: 'invalid-scheme' }
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     const expectedError = `Caching by fullPath is not supported for the '${'invalid-scheme'}' scheme`
@@ -98,7 +98,7 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: { fullPath: 'some-path' },
       queryStringParameters: {}
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('scheme is required')
@@ -109,7 +109,7 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: null,
       queryStringParameters: { scheme: 'sciencekeywords' }
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('fullPath is required')
@@ -129,16 +129,16 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: { fullPath },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
-    expect(createUuidResponseCacheKeyByFullPath).toHaveBeenCalledWith({
+    expect(createConceptResponseCacheKeyByFullPath).toHaveBeenCalledWith({
       fullPath: fullPath.toLowerCase(),
       scheme
     })
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:sciencekeywords:uuid:full_path:earth science > oceans',
-      entityLabel: 'UUID by fullPath'
+      cacheKey: 'kms:sciencekeywords:cached_concept:full_path:earth science > oceans',
+      entityLabel: 'Concept by fullPath'
     })
 
     expect(result).toEqual(mockResponse)
@@ -153,10 +153,10 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: { fullPath },
       queryStringParameters: { scheme }
     }
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     expect(result.statusCode).toBe(404)
-    expect(JSON.parse(result.body).error).toBe('UUID not found for the given fullPath')
+    expect(JSON.parse(result.body).error).toBe('Cached Concept not found for the given fullPath')
   })
 
   test('should handle URL-encoded fullPath correctly', async () => {
@@ -168,10 +168,10 @@ describe('getCachedUuidByFullPath', () => {
       pathParameters: { fullPath },
       queryStringParameters: { scheme }
     }
-    await getCachedUuidByFullPath(event)
+    await getCachedConceptByFullPath(event)
 
     // Verify it was decoded before creating the cache key
-    expect(createUuidResponseCacheKeyByFullPath).toHaveBeenCalledWith({
+    expect(createConceptResponseCacheKeyByFullPath).toHaveBeenCalledWith({
       fullPath: 'a/b > c',
       scheme
     })
@@ -188,7 +188,7 @@ describe('getCachedUuidByFullPath', () => {
       queryStringParameters: { scheme }
     }
 
-    const result = await getCachedUuidByFullPath(event)
+    const result = await getCachedConceptByFullPath(event)
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body).error).toBe(error.toString())

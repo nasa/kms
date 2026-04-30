@@ -6,10 +6,10 @@ import {
   vi
 } from 'vitest'
 
+import { ConceptForFullPathCacheBuilder } from '../conceptForFullPathCacheBuilder'
 import { logger } from '../logger'
-import { createUuidResponseCacheKeyByFullPath } from '../redisCacheKeys'
+import { createConceptResponseCacheKeyByFullPath } from '../redisCacheKeys'
 import { setCachedJsonResponse } from '../redisCacheStore'
-import { UuidForFullPathCacheBuilder } from '../uuidForFullPathCacheBuilder'
 
 // Mock the redisCacheStore functions
 vi.mock('../redisCacheStore', () => ({
@@ -17,7 +17,7 @@ vi.mock('../redisCacheStore', () => ({
 }))
 
 vi.mock('../redisCacheKeys', () => ({
-  createUuidResponseCacheKeyByFullPath: vi.fn((({ fullPath, scheme }) => `kms:${scheme}:uuid:full_path:${fullPath}`))
+  createConceptResponseCacheKeyByFullPath: vi.fn((({ fullPath, scheme }) => `kms:${scheme}:cached_concept:full_path:${fullPath}`))
 }))
 
 vi.mock('../logger', () => ({
@@ -27,11 +27,11 @@ vi.mock('../logger', () => ({
   }
 }))
 
-describe('UuidForFullPathCacheBuilder', () => {
+describe('ConceptForFullPathCacheBuilder', () => {
   let builder
 
   beforeEach(() => {
-    builder = new UuidForFullPathCacheBuilder()
+    builder = new ConceptForFullPathCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
   })
@@ -72,7 +72,7 @@ describe('UuidForFullPathCacheBuilder', () => {
       // Verify one of the calls
       const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
       const uuid = 'fa57b0a0-9723-4195-bdd1-4f26aefa0e07'
-      const cacheKey = createUuidResponseCacheKeyByFullPath({
+      const cacheKey = createConceptResponseCacheKeyByFullPath({
         fullPath: fullPath.toLowerCase(),
         scheme: 'sciencekeywords'
       })

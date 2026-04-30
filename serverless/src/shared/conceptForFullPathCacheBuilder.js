@@ -1,7 +1,7 @@
 import { parse } from 'csv/sync'
 
 import { logger } from './logger'
-import { createUuidResponseCacheKeyByFullPath } from './redisCacheKeys'
+import { createConceptResponseCacheKeyByFullPath } from './redisCacheKeys'
 import { setCachedJsonResponse } from './redisCacheStore'
 
 /**
@@ -13,9 +13,9 @@ import { setCachedJsonResponse } from './redisCacheStore'
  *
  * @example
  * // Example of building the cache from CSV content
- * import { UuidForFullPathCacheBuilder } from './uuidForFullPathCacheBuilder.js';
+ * import { ConceptForFullPathCacheBuilder } from './uuidForFullPathCacheBuilder.js';
  *
- * const builder = new UuidForFullPathCacheBuilder();
+ * const builder = new ConceptForFullPathCacheBuilder();
  *
  * // This content would typically be fetched from a source like S3
  * const csvContent = `"Keyword Version: 23.4","Revision: 2026-03-17T17:34:00.294Z"
@@ -28,11 +28,11 @@ import { setCachedJsonResponse } from './redisCacheStore'
  * await builder.processToCache(csvContent, { scheme });
  *
  * // After this runs, the Redis cache will contain keys following the format:
- * // 'kms:<scheme>:uuid:full_path:<normalized_full_path>', for example:
- * // 'kms:sciencekeywords:uuid:full_path:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
+ * // 'kms:<scheme>:cached_concept:full_path:<normalized_full_path>', for example:
+ * // 'kms:sciencekeywords:cached_concept:full_path:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
  * // with a value corresponding to the JSON response for the UUID.
  */
-export class UuidForFullPathCacheBuilder {
+export class ConceptForFullPathCacheBuilder {
   /**
    * @param {number} skipHeaderRows - Number of header rows to skip (default: 2)
    * @param {string} pathSeparator - Separator for path elements (default: ' > ')
@@ -81,7 +81,7 @@ export class UuidForFullPathCacheBuilder {
 
     records.forEach((uuid, fullPath) => {
       if (fullPath && uuid) {
-        const cacheKey = createUuidResponseCacheKeyByFullPath({
+        const cacheKey = createConceptResponseCacheKeyByFullPath({
           fullPath: fullPath.toLowerCase(),
           scheme
         })
