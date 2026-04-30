@@ -68,6 +68,7 @@ async function main() {
     }
 
   const vpcId = useLocalstack ? 'dummy-vpc-id' : process.env.VPC_ID
+  const cmrBaseUrl = process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov'
 
   if (!vpcId) {
     throw new Error('VPC_ID environment variable is not set')
@@ -203,6 +204,7 @@ async function main() {
   }
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
+    cmrBaseUrl,
     env,
     prefix,
     stage,

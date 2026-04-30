@@ -22,7 +22,7 @@ describe('cmrGetRequest', () => {
     global.fetch = vi.fn()
 
     // Mock the logger
-    vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'debug').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -80,11 +80,34 @@ describe('cmrGetRequest', () => {
 
     await cmrGetRequest({ path })
 
-    expect(logger.info).toHaveBeenCalledWith(
+    expect(logger.debug).toHaveBeenCalledWith(
       'URL:',
       expectedUrl,
       'with options:',
       expectedOptions
+    )
+  })
+
+  test('should include custom accept and headers when provided', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true })
+
+    await cmrGetRequest({
+      path: '/collections',
+      accept: 'application/json',
+      headers: {
+        'X-Request-Id': 'request-123'
+      }
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cmr.example.com/collections',
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Request-Id': 'request-123'
+        }
+      }
     )
   })
 })

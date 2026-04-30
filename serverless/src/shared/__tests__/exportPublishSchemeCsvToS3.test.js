@@ -95,9 +95,13 @@ describe('exportPublishSchemeCsvToS3', () => {
     })
 
     // Verify logging
-    expect(logger.info).toHaveBeenCalledWith('Exporting published CSVs for version: v22.1')
-    expect(logger.info).toHaveBeenCalledWith('Uploading SCHEME1.csv to s3://kms-rdf-backup-sit/v22.1/SCHEME1.csv')
-    expect(logger.info).toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
+    expect(logger.info).toHaveBeenCalledWith(
+      '[publisher] Starting published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2'
+    )
+
+    expect(logger.info).toHaveBeenCalledWith(
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 failed=0'
+    )
   })
 
   test('should log a warning and exit if no schemes are found', async () => {
@@ -161,7 +165,9 @@ describe('exportPublishSchemeCsvToS3', () => {
       ContentType: 'text/csv'
     })
 
-    expect(logger.info).not.toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
+    expect(logger.info).not.toHaveBeenCalledWith(
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 failed=0'
+    )
   })
 
   test('should construct bucket name based on environment from application config', async () => {
@@ -216,6 +222,8 @@ describe('exportPublishSchemeCsvToS3', () => {
     })
 
     // Verify it does NOT log the final success message
-    expect(logger.info).not.toHaveBeenCalledWith('Finished exporting all published scheme CSVs to S3.')
+    expect(logger.info).not.toHaveBeenCalledWith(
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=3 uploaded=1 failed=0'
+    )
   })
 })

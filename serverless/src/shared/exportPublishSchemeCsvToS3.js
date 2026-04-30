@@ -27,8 +27,6 @@ export const exportPublishSchemeCsvToS3 = async () => {
       throw new Error('Could not determine published version name.')
     }
 
-    logger.info(`Exporting published CSVs for version: ${versionName}`)
-
     const schemes = await getConceptSchemeDetails({ version: 'published' })
     if (!schemes || schemes.length === 0) {
       logger.warn('No published concept schemes found to export.')
@@ -36,14 +34,16 @@ export const exportPublishSchemeCsvToS3 = async () => {
       return
     }
 
-    logger.info(`Found ${schemes.length} published schemes to export.`)
+    logger.info(
+      `[publisher] Starting published CSV export version=${versionName} bucket=${bucketName} schemes=${schemes.length}`
+    )
 
     const failedSchemes = []
+    let uploadedCount = 0
 
     await schemes.reduce((previousPromise, scheme, index) => previousPromise.then(async () => {
       const { notation } = scheme
       try {
-        logger.info(`Downloading CSV for scheme: ${notation}`)
         const csvData = await downloadConcepts({
           conceptScheme: notation,
           format: 'csv',
@@ -52,8 +52,6 @@ export const exportPublishSchemeCsvToS3 = async () => {
 
         const s3Key = `${versionName}/${notation}.csv`
 
-        logger.info(`Uploading ${notation}.csv to s3://${bucketName}/${s3Key}`)
-
         await s3.send(new PutObjectCommand({
           Bucket: bucketName,
           Key: s3Key,
@@ -61,7 +59,7 @@ export const exportPublishSchemeCsvToS3 = async () => {
           ContentType: 'text/csv'
         }))
 
-        logger.info(`Successfully uploaded ${notation}.csv to S3.`)
+        uploadedCount += 1
 
         if (s3ExportDelayMs > 0 && index < schemes.length - 1) {
           await delay(s3ExportDelayMs)
@@ -79,7 +77,9 @@ export const exportPublishSchemeCsvToS3 = async () => {
       throw new Error(`Failed to export CSV for schemes: ${failedSchemes.map(({ notation }) => notation).join(', ')}`)
     }
 
-    logger.info('Finished exporting all published scheme CSVs to S3.')
+    logger.info(
+      `[publisher] Completed published CSV export version=${versionName} bucket=${bucketName} schemes=${schemes.length} uploaded=${uploadedCount} failed=${failedSchemes.length}`
+    )
   } catch (error) {
     logger.error(`Error in exportPublishSchemeCsvToS3: ${error.message}`)
     throw error

@@ -1,28 +1,25 @@
+import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
+import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
+import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
+import { ingestCorrectedMetadataStub } from '@/shared/ingestCorrectedMetadataStub'
+import { invokeMetadataCorrectionDelegate } from '@/shared/invokeMetadataCorrectionDelegate'
 import { logger } from '@/shared/logger'
+import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptUuid'
+import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
+
+// Keep validation paths grep-friendly in logs without dumping full JSON payloads.
+const formatValidationPath = (path = []) => path.join('.')
 
 /**
- * Metadata correction service placeholder that consumes metadata correction requests from SQS.
+ * Metadata correction service that consumes metadata correction requests from SQS.
  *
- * This proves the SNS/SQS/Lambda plumbing for KMS-676. Follow-on ticket will replace the stubbed
- * logging behavior with real metadata fetch, keyword resolution, and native metadata updates.
+ * This stage of KMS-675 fetches a collection's UMM-C from CMR, validates it through the
+ * CMR validate-collection endpoint, and extracts keyword-related validation failures for the
+ * later resolver/delegate flow.
  *
- * TODO: Create a follow-up ticket for targeted correction requests. When a request includes
- * the affected keyword event, fetch the collection's native metadata from CMR, detect the
- * metadata format, and delegate the specific keyword replacement to the appropriate updater
- * for ISO, ECHO10, DIF10, or UMM. Each updater should modify only the affected keyword fields
- * for its metadata format.
- *
- * TODO: Create a follow-up ticket for untargeted correction requests. If the request does not
- * include a targeted keyword event, fetch the collection's UMM metadata and identify invalid
- * keyword paths by validating against current KMS, or by asking CMR to validate and return the
- * invalid keyword report. Use historical KMS lookup to map stale keyword paths to current KMS
- * values, then call the native metadata updater with historical -> current keyword
- * replacements.
- *
- * TODO: Consider making the correction service collection-level by default. Even when a
- * keyword event is present, treat it as context and validate all keywords in the collection so
- * the service can fix every stale keyword in one metadata update instead of issuing multiple
- * targeted updates for the same collection.
+ * The current KMS-675 implementation already wires keyword-resolution stubs, native-format
+ * detection, delegate routing, and ingest handoff. Follow-on work should replace those stubs
+ * with real KMS lookup, real format-specific metadata mutation, and real CMR write-back.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
  * @returns {Promise<{batchItemFailures: Array}>} Empty batch failures for acknowledged messages.
@@ -30,20 +27,204 @@ import { logger } from '@/shared/logger'
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
 
-  records.forEach((record) => {
+  await Promise.all(records.map(async (record) => {
     try {
-      const metadataCorrectionRequest = JSON.parse(record.body || '{}')
+      // Parse the queue message into the collection-level correction request we will process.
+      const {
+        body,
+        messageId
+      } = record
+      const metadataCorrectionRequest = JSON.parse(body || '{}')
+      const {
+        collectionConceptId,
+        source,
+        keywordEvent = {}
+      } = metadataCorrectionRequest
+      const {
+        eventType,
+        scheme,
+        uuid
+      } = keywordEvent
 
-      logger.info('[metadata-correction] Received metadata correction request', {
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
-        messageId: record.messageId,
-        metadataCorrectionRequest
+      logger.info(
+        '[metadata-correction] Received metadata correction request '
+        + `collectionConceptId=${collectionConceptId || 'n/a'} `
+        + `messageId=${messageId || 'n/a'} `
+        + `source=${source || 'n/a'} `
+        + `eventType=${eventType || 'n/a'} `
+        + `scheme=${scheme || 'n/a'} `
+        + `uuid=${uuid || 'n/a'}`
+      )
+
+      if (!collectionConceptId) {
+        logger.info(
+          '[metadata-correction] Skipping request without collection concept id '
+          + `messageId=${messageId || 'n/a'}`
+        )
+
+        return
+      }
+
+      // Fetch the collection's current UMM-C plus the CMR identifiers needed for validation.
+      const {
+        nativeId,
+        providerId,
+        format,
+        umm
+      } = await getCmrCollectionUmmDetails({
+        collectionConceptId
       })
+      const nativeFormat = detectNativeMetadataFormat({
+        format
+      })
+      const validationResult = await validateCmrCollectionUmm({
+        providerId,
+        nativeId,
+        umm
+      })
+      // Filter the validation response down to keyword failures we can extract from UMM-C.
+      const keywordValidationFailures = extractKeywordValidationFailures({
+        umm,
+        validationErrors: validationResult.errors
+      })
+      // Resolve each extracted broken keyword into the semantic replacement reference that delegates need.
+      const resolvedKeywordValidationFailures = await Promise.all(
+        keywordValidationFailures.map(async (keywordValidationFailure) => {
+          const {
+            scheme: failureScheme,
+            oldKeyword
+          } = keywordValidationFailure
+          const keywordReference = await resolveOldKeywordConceptUuid({
+            scheme: failureScheme,
+            oldKeyword
+          })
+
+          return {
+            ...keywordValidationFailure,
+            keywordConceptUuid: keywordReference?.keywordConceptUuid,
+            oldKeywordPath: keywordReference?.oldKeywordPath,
+            newKeywordPath: keywordReference?.newKeywordPath
+          }
+        })
+      )
+      // Only pass failures downstream once we have a complete keyword replacement reference.
+      const actionableKeywordValidationFailures = resolvedKeywordValidationFailures.filter(
+        ({
+          keywordConceptUuid,
+          oldKeywordPath,
+          newKeywordPath
+        }) => Boolean(keywordConceptUuid && oldKeywordPath && newKeywordPath)
+      )
+      // Keep track of the failures we found but could not yet turn into a replacement reference.
+      const unresolvedKeywordValidationFailureCount = (
+        resolvedKeywordValidationFailures.length - actionableKeywordValidationFailures.length
+      )
+
+      if (resolvedKeywordValidationFailures.length === 0) {
+        logger.info(
+          '[metadata-correction] No keyword validation failures extracted '
+          + `collectionConceptId=${collectionConceptId} `
+          + `providerId=${providerId} `
+          + `nativeId=${nativeId} `
+          + `validationStatus=${validationResult.status} `
+          + `validationErrorCount=${validationResult.errors.length}`
+        )
+      }
+
+      if (
+        resolvedKeywordValidationFailures.length > 0
+        && actionableKeywordValidationFailures.length === 0
+      ) {
+        logger.info(
+          '[metadata-correction] No resolvable keyword corrections found '
+          + `collectionConceptId=${collectionConceptId} `
+          + `providerId=${providerId} `
+          + `nativeId=${nativeId} `
+          + `keywordValidationFailureCount=${resolvedKeywordValidationFailures.length}`
+        )
+      }
+
+      if (
+        actionableKeywordValidationFailures.length > 0
+        && unresolvedKeywordValidationFailureCount > 0
+      ) {
+        logger.info(
+          '[metadata-correction] Proceeding with partial keyword corrections '
+          + `collectionConceptId=${collectionConceptId} `
+          + `providerId=${providerId} `
+          + `nativeId=${nativeId} `
+          + `actionableKeywordValidationFailureCount=${actionableKeywordValidationFailures.length} `
+          + `unresolvedKeywordValidationFailureCount=${unresolvedKeywordValidationFailureCount}`
+        )
+      }
+
+      resolvedKeywordValidationFailures.forEach((keywordValidationFailure) => {
+        const {
+          scheme: failureScheme,
+          path,
+          oldKeyword,
+          errors
+        } = keywordValidationFailure
+
+        logger.info(
+          '[metadata-correction] Extracted keyword validation failure '
+          + `collectionConceptId=${collectionConceptId} `
+          + `providerId=${providerId} `
+          + `nativeId=${nativeId} `
+          + `scheme=${failureScheme} `
+          + `path=${formatValidationPath(path)} `
+          + `oldKeyword=${oldKeyword || 'n/a'} `
+          + `message=${errors?.[0] || 'n/a'}`
+        )
+      })
+
+      if (actionableKeywordValidationFailures.length > 0) {
+        // Hand only fully-resolved corrections to the format-specific delegate.
+        const delegateResult = await invokeMetadataCorrectionDelegate({
+          nativeFormat,
+          collectionConceptId,
+          providerId,
+          nativeId,
+          metadataPayload: nativeFormat === 'UMM' ? umm : undefined,
+          corrections: actionableKeywordValidationFailures.map((keywordValidationFailure) => ({
+            scheme: keywordValidationFailure.scheme,
+            ummPath: keywordValidationFailure.path,
+            keywordConceptUuid: keywordValidationFailure.keywordConceptUuid,
+            oldKeywordPath: keywordValidationFailure.oldKeywordPath,
+            newKeywordPath: keywordValidationFailure.newKeywordPath
+          }))
+        })
+
+        logger.info(
+          '[metadata-correction] Invoked metadata correction delegate '
+          + `collectionConceptId=${collectionConceptId} `
+          + `nativeFormat=${delegateResult.nativeFormat} `
+          + `delegateName=${delegateResult.delegateName} `
+          + `correctionCount=${delegateResult.correctionCount} `
+          + `stubbed=${delegateResult.stubbed}`
+        )
+
+        // Keep the ingest call in place so the end-to-end flow is wired even while ingest is stubbed.
+        const ingestResult = await ingestCorrectedMetadataStub({
+          collectionConceptId,
+          nativeFormat: delegateResult.nativeFormat,
+          correctionCount: delegateResult.correctionCount
+        })
+
+        logger.info(
+          '[metadata-correction] Invoked metadata ingest stub '
+          + `collectionConceptId=${collectionConceptId} `
+          + `nativeFormat=${ingestResult.nativeFormat} `
+          + `correctionCount=${ingestResult.correctionCount} `
+          + `ingested=${ingestResult.ingested} `
+          + `stubbed=${ingestResult.stubbed}`
+        )
+      }
     } catch (error) {
-      logger.error('[metadata-correction] Failed to parse metadata correction request', error)
+      logger.error('[metadata-correction] Failed to process metadata correction request', error)
       throw error
     }
-  })
+  }))
 
   return {
     batchItemFailures: []

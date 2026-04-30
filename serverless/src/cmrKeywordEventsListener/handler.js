@@ -1,37 +1,42 @@
+import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 /**
- * Placeholder collection concept id used until KMS-675A discovers real concept ids from CMR.
- * KMS-675A will replace this with concept ids discovered from CMR.
+ * Builds a metadata correction request for a specific affected collection.
  *
- * @type {string}
- */
-const METADATA_CORRECTION_CONCEPT_ID = 'C0000000000-KMS'
-
-/**
- * Builds a metadata correction request so the SNS/SQS/consumer path can be tested before
- * CMR concept id lookup is implemented.
- *
- * TODO: Create a follow-up ticket to query CMR for every collection concept id that uses
- * the changed keyword. The listener should publish one metadata correction request per
- * collection concept id so FIFO ordering can protect corrections for the same collection.
- *
+ * @param {string} collectionConceptId - Affected CMR collection concept id.
  * @param {Record<string, unknown>} keywordEvent - Parsed KMS keyword event.
  * @returns {Record<string, unknown>} Metadata correction request payload.
  */
-const buildMetadataCorrectionRequest = (keywordEvent) => ({
-  source: 'cmrKeywordEventsListener',
-  collectionConceptId: METADATA_CORRECTION_CONCEPT_ID,
-  keywordEvent: {
-    eventType: keywordEvent.EventType,
-    scheme: keywordEvent.Scheme,
-    uuid: keywordEvent.UUID,
-    oldKeywordPath: keywordEvent.OldKeywordPath,
-    newKeywordPath: keywordEvent.NewKeywordPath,
-    timestamp: keywordEvent.Timestamp
+const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
+  const {
+    EventType: eventType,
+    Scheme: scheme,
+    UUID: uuid,
+    OldKeywordPath: oldKeywordPath,
+    NewKeywordPath: newKeywordPath,
+    Timestamp: timestamp
+  } = keywordEvent
+
+  return {
+    source: 'cmrKeywordEventsListener',
+    collectionConceptId,
+    keywordEvent: {
+      eventType,
+      scheme,
+      uuid,
+      oldKeywordPath,
+      newKeywordPath,
+      timestamp
+    }
   }
-})
+}
+
+const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
+  'UPDATED',
+  'DELETED'
+])
 
 /**
  * CMR event processor that consumes SNS notifications delivered through SQS.
@@ -48,25 +53,72 @@ export const cmrKeywordEventsListener = async (event) => {
 
   await Promise.all(records.map(async (record) => {
     try {
-      const snsEnvelope = JSON.parse(record.body || '{}')
+      const {
+        body,
+        messageId
+      } = record
+      const snsEnvelope = JSON.parse(body || '{}')
       const keywordEvent = snsEnvelope.Message
         ? JSON.parse(snsEnvelope.Message)
         : null
 
-      logger.info('[consumer] Received keyword event for CMR listener', {
-        messageId: record.messageId,
-        keywordEvent
-      })
+      const {
+        EventType: eventType,
+        Scheme: scheme,
+        UUID: uuid
+      } = keywordEvent || {}
+      const keywordEventType = String(eventType || '').toUpperCase()
 
-      if (keywordEvent) {
-        const metadataCorrectionRequest = buildMetadataCorrectionRequest(keywordEvent)
-        const publishResult = await publishMetadataCorrectionRequest(metadataCorrectionRequest)
+      logger.info(
+        '[consumer] Received keyword event for CMR listener '
+        + `messageId=${messageId || 'n/a'} `
+        + `eventType=${eventType || 'n/a'} `
+        + `scheme=${scheme || 'n/a'} `
+        + `uuid=${uuid || 'n/a'}`
+      )
 
-        logger.info('[consumer] Published metadata correction request', {
-          collectionConceptId: metadataCorrectionRequest.collectionConceptId,
-          messageId: publishResult.messageId,
-          topicArn: publishResult.topicArn
+      if (keywordEvent && LOOKUP_ELIGIBLE_EVENT_TYPES.has(keywordEventType)) {
+        const collectionConceptIds = await getCmrCollectionConceptIds({
+          scheme,
+          uuid
         })
+
+        logger.info(
+          '[consumer] Found collection concept ids for metadata correction '
+          + `scheme=${scheme} `
+          + `uuid=${uuid} `
+          + `count=${collectionConceptIds.length}`
+        )
+
+        if (collectionConceptIds.length === 0) {
+          logger.info(
+            '[consumer] No affected collection concept ids found for keyword event '
+            + `scheme=${scheme} `
+            + `uuid=${uuid}`
+          )
+        }
+
+        await Promise.all(collectionConceptIds.map(async (collectionConceptId) => {
+          const metadataCorrectionRequest = buildMetadataCorrectionRequest(
+            collectionConceptId,
+            keywordEvent
+          )
+          const publishResult = await publishMetadataCorrectionRequest(metadataCorrectionRequest)
+
+          logger.info(
+            '[consumer] Published metadata correction request '
+            + `collectionConceptId=${metadataCorrectionRequest.collectionConceptId} `
+            + `messageId=${publishResult.messageId || 'n/a'} `
+            + `topicArn=${publishResult.topicArn || 'n/a'}`
+          )
+        }))
+      } else if (keywordEvent) {
+        logger.info(
+          '[consumer] Skipping metadata correction concept-id lookup for event type '
+          + `eventType=${eventType || 'n/a'} `
+          + `scheme=${scheme || 'n/a'} `
+          + `uuid=${uuid || 'n/a'}`
+        )
       }
     } catch (error) {
       logger.error('Failed to process keyword event record', error)

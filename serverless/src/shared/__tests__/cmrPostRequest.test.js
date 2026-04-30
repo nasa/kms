@@ -18,7 +18,7 @@ describe('cmrPostRequest', () => {
     process.env.CMR_BASE_URL = 'https://cmr-test.earthdata.nasa.gov'
 
     // Mock the logger
-    vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'debug').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -133,11 +133,37 @@ describe('cmrPostRequest', () => {
       body
     }
 
-    expect(logger.info).toHaveBeenCalledWith(
+    expect(logger.debug).toHaveBeenCalledWith(
       'URL:',
       expectedUrl,
       'with options:',
       expectedOptions
+    )
+  })
+
+  test('should merge custom headers when provided', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: 'test' })
+    })
+
+    await cmrPostRequest({
+      path: '/search/collections.json',
+      headers: {
+        'Cmr-Validate-Keywords': 'true'
+      }
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cmr-test.earthdata.nasa.gov/search/collections.json',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'Cmr-Validate-Keywords': 'true'
+        }
+      }
     )
   })
 })

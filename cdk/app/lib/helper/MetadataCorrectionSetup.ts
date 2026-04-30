@@ -14,6 +14,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  * Properties for metadata correction infrastructure.
  */
 interface MetadataCorrectionSetupProps {
+  cmrBaseUrl: string
   prefix: string
   stage: string
 }
@@ -48,7 +49,13 @@ export class MetadataCorrectionSetup extends Construct {
   constructor(scope: Construct, id: string, props: MetadataCorrectionSetupProps) {
     super(scope, id)
 
-    const metadataCorrectionRequestsBaseName = `${props.prefix}-${props.stage}-metadata-correction-requests`
+    const {
+      cmrBaseUrl,
+      prefix,
+      stage
+    } = props
+
+    const metadataCorrectionRequestsBaseName = `${prefix}-${stage}-metadata-correction-requests`
     const metadataCorrectionRequestsName = `${metadataCorrectionRequestsBaseName}.fifo`
     const projectRoot = path.join(__dirname, '../../../..')
 
@@ -89,14 +96,17 @@ export class MetadataCorrectionSetup extends Construct {
 
     this.metadataCorrectionServiceLambda = new NodejsFunction(
       this,
-      `${props.prefix}-metadata-correction-service`,
+      `${prefix}-metadata-correction-service`,
       {
-        functionName: `${props.prefix}-${props.stage}-metadata-correction-service`,
+        functionName: `${prefix}-${stage}-metadata-correction-service`,
         entry: path.join(projectRoot, 'serverless/src/metadataCorrectionService/handler.js'),
         handler: 'metadataCorrectionService',
         runtime: NODE_LAMBDA_RUNTIME,
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
+        environment: {
+          CMR_BASE_URL: cmrBaseUrl
+        },
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
         projectRoot
       }
@@ -113,31 +123,31 @@ export class MetadataCorrectionSetup extends Construct {
 
     this.metadataCorrectionRequestsTopicArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsTopicArn', {
       description: 'SNS topic ARN for metadata correction request publishing',
-      exportName: `${props.prefix}-MetadataCorrectionRequestsTopicArn`,
+      exportName: `${prefix}-MetadataCorrectionRequestsTopicArn`,
       value: this.metadataCorrectionRequestsTopic.topicArn
     })
 
     this.metadataCorrectionRequestsQueueUrlOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsQueueUrl', {
       description: 'Queue URL for metadata correction request processing',
-      exportName: `${props.prefix}-MetadataCorrectionRequestsQueueUrl`,
+      exportName: `${prefix}-MetadataCorrectionRequestsQueueUrl`,
       value: this.metadataCorrectionRequestsQueue.queueUrl
     })
 
     this.metadataCorrectionRequestsQueueArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsQueueArn', {
       description: 'Queue ARN for metadata correction request processing',
-      exportName: `${props.prefix}-MetadataCorrectionRequestsQueueArn`,
+      exportName: `${prefix}-MetadataCorrectionRequestsQueueArn`,
       value: this.metadataCorrectionRequestsQueue.queueArn
     })
 
     this.metadataCorrectionRequestsDlqUrlOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsDlqUrl', {
       description: 'DLQ URL for failed metadata correction request processing',
-      exportName: `${props.prefix}-MetadataCorrectionRequestsDlqUrl`,
+      exportName: `${prefix}-MetadataCorrectionRequestsDlqUrl`,
       value: this.metadataCorrectionRequestsDlq.queueUrl
     })
 
     this.metadataCorrectionRequestsDlqArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsDlqArn', {
       description: 'DLQ ARN for failed metadata correction request processing',
-      exportName: `${props.prefix}-MetadataCorrectionRequestsDlqArn`,
+      exportName: `${prefix}-MetadataCorrectionRequestsDlqArn`,
       value: this.metadataCorrectionRequestsDlq.queueArn
     })
   }

@@ -19,7 +19,9 @@ import { logger } from './logger'
  * console.log(data);
  */
 export const cmrGetRequest = async ({
-  path
+  path,
+  accept,
+  headers = {}
 }) => {
   const getCmrEndpoint = () => {
     const baseUrl = process.env.CMR_BASE_URL
@@ -28,12 +30,20 @@ export const cmrGetRequest = async ({
   }
 
   const endpoint = getCmrEndpoint()
+  const requestHeaders = {
+    ...(accept ? { Accept: accept } : {}),
+    ...headers
+  }
 
   const fetchOptions = {
     method: 'GET'
   }
 
-  logger.info('URL:', `${endpoint}${path}`, 'with options:', fetchOptions)
+  if (Object.keys(requestHeaders).length > 0) {
+    fetchOptions.headers = requestHeaders
+  }
+
+  logger.debug('URL:', `${endpoint}${path}`, 'with options:', fetchOptions)
 
   return fetch(`${endpoint}${path}`, fetchOptions)
 }

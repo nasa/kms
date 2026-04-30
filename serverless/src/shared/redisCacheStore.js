@@ -130,7 +130,7 @@ export const getCachedJsonResponse = async ({
 
   const cachedString = await redisClient.get(cacheKey)
   if (!cachedString) {
-    logger.info(`[cache] miss ${logContext}`)
+    logger.debug(`[cache] miss ${logContext}`)
 
     return null
   }
@@ -138,7 +138,7 @@ export const getCachedJsonResponse = async ({
   try {
     const parsedResponse = JSON.parse(cachedString)
 
-    logger.info(`[cache] hit ${logContext}`)
+    logger.debug(`[cache] hit ${logContext}`)
 
     return parsedResponse
   } catch (error) {
