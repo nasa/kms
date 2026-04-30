@@ -6,8 +6,8 @@ import { createUuidResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 /**
- * Retrieves a cached UUID for a given fullPath. This handler ONLY checks the cache
- * and will return a 404 if the UUID is not already cached.
+ * Retrieves a cached UUID and fullPath for a given fullPath. This handler ONLY checks the cache
+ * and will return a 404 if the value is not already cached.
  *
  * @async
  * @function getCachedUuidByFullPath
@@ -30,7 +30,7 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  *   headers: {
  *     'Content-Type': 'application/json'
  *   },
- *   body: '{\"uuid\":\"91697b7d-8f2b-4954-850e-61d5f61c867d\"}'
+ *   body: '{\"uuid\":\"91697b7d-8f2b-4954-850e-61d5f61c867d\",\"fullPath\":\"EARTH SCIENCE > OCEANS\"}'
  * };
  */
 export const getCachedUuidByFullPath = async (event, context) => {

@@ -25,9 +25,16 @@ const streamToString = (stream) => new Promise((resolve, reject) => {
 /**
  * Orchestrates building the UUID cache from CSV files stored in an S3 bucket.
  * It scans a given S3 bucket for version directories, finds all `.csv` files
- * within them, and uses UuidCacheBuilder to process each file's content.
+ * within them, and uses the appropriate cache builder to process each file's content.
+ *
+ * The function determines which builder to use based on the file's name, which
+ * should correspond to a concept scheme. For example, a file named `sciencekeywords.csv`
+ * will be processed by the `UuidForFullPathCacheBuilder` if 'sciencekeywords' is
+ * defined as a full-path scheme. Similarly, `instruments.csv` will be processed by
+ * the `UuidForShortNameCacheBuilder` if 'instruments' is a short-name scheme.
  *
  * @param {string} bucketName - The name of the S3 bucket to process.
+ * @throws {Error} If the bucket name is not provided.
  */
 export const buildUuidCache = async (bucketName) => {
   if (!bucketName) {
@@ -54,6 +61,10 @@ export const buildUuidCache = async (bucketName) => {
   const fullPathCacheBuilder = new UuidForFullPathCacheBuilder()
   const shortNameCacheBuilder = new UuidForShortNameCacheBuilder()
 
+  /**
+   * Lists the top-level directories in the S3 bucket, which correspond to keyword versions.
+   * @returns {Promise<string[]>} A promise that resolves to an array of version directory prefixes.
+   */
   const listVersionDirectories = async () => {
     const command = new ListObjectsV2Command({
       Bucket: bucketName,
@@ -66,6 +77,11 @@ export const buildUuidCache = async (bucketName) => {
     return prefixes
   }
 
+  /**
+   * Lists all `.csv` files within a given directory prefix in the S3 bucket.
+   * @param {string} prefix - The directory prefix to scan for CSV files.
+   * @returns {Promise<string[]>} A promise that resolves to an array of S3 keys for the CSV files.
+   */
   const listCsvFilesInDirectory = async (prefix) => {
     const command = new ListObjectsV2Command({
       Bucket: bucketName,
@@ -80,6 +96,11 @@ export const buildUuidCache = async (bucketName) => {
     return csvFiles
   }
 
+  /**
+   * Downloads and returns the content of an S3 object as a string.
+   * @param {string} key - The S3 key of the object to download.
+   * @returns {Promise<string>} A promise that resolves to the UTF-8 content of the file.
+   */
   const getObjectContent = async (key) => {
     const command = new GetObjectCommand({
       Bucket: bucketName,

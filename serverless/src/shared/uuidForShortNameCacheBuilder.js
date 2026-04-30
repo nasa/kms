@@ -59,7 +59,9 @@ export class UuidForShortNameCacheBuilder {
       relax_column_count: true
     })
 
-    const skipHeaderRows = scheme === 'providers' ? 1 : 2
+    // All keyword CSVs have two header rows to skip.
+    const skipHeaderRows = 2
+    // Column index for the Short_Name (from the end of the row).
     const shortNameColumn = scheme === 'providers' ? -4 : -3
     const minColumns = scheme === 'providers' ? 4 : 3
 
@@ -71,6 +73,8 @@ export class UuidForShortNameCacheBuilder {
         const uuid = row[row.length - 1].trim()
         const shortName = row[row.length + shortNameColumn].trim()
 
+        // For most schemes, the fullPath includes columns up to the Short_Name (exclusive of Long_Name and UUID).
+        // For 'providers', the structure is different, so we adjust the end index accordingly.
         const pathEndIndex = scheme === 'providers' ? -3 : -2
 
         const pathElements = row

@@ -59,7 +59,8 @@ describe('UuidForShortNameCacheBuilder', () => {
     })
 
     it('should correctly parse CSV content for providers', () => {
-      const csvContent = `"Providers_v1.0.0"
+      const csvContent = `"Keyword Version: 1.0.0"
+"Bucket_Level0","Bucket_Level1","Bucket_Level2","Bucket_Level3","Short_Name","Long_Name","Data_Center_URL","UUID"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
 `
       const expectedMap = new Map([
@@ -126,7 +127,8 @@ describe('UuidForShortNameCacheBuilder', () => {
     })
 
     it('should process provider CSV and cache the results', async () => {
-      const csvContent = `"Providers_v1.0.0"
+      const csvContent = `"Keyword Version: 1.0.0"
+"Bucket_Level0","Bucket_Level1","Bucket_Level2","Bucket_Level3","Short_Name","Long_Name","Data_Center_URL","UUID"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
 `
       await builder.processToCache(csvContent, { scheme: 'providers' })
