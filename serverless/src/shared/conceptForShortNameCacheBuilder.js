@@ -50,7 +50,7 @@ export class ConceptForShortNameCacheBuilder {
    * @param {string} csvContent - CSV content as a string.
    * @param {object} options
    * @param {string} options.scheme - The scheme ('instruments', 'providers', etc.).
-   * @returns {Map<string, {uuid: string, fullPath: string}>} Map with short name as key and an object with uuid and fullPath as value.
+   * @returns {Map<string, {uuid: string, fullPath: string, longName: string}>} Map with short name as key and an object with uuid, fullPath, and longName as value.
    */
   parseCsvContent(csvContent, { scheme }) {
     const rows = parse(csvContent, {
@@ -63,6 +63,8 @@ export class ConceptForShortNameCacheBuilder {
     const skipHeaderRows = 2
     // Column index for the Short_Name (from the end of the row).
     const shortNameColumn = scheme === 'providers' ? -4 : -3
+    // Column index for the Long_Name (from the end of the row).
+    const longNameColumn = scheme === 'providers' ? -3 : -2
     const minColumns = scheme === 'providers' ? 4 : 3
 
     // Filter rows that have enough columns for shortName and UUID
@@ -72,6 +74,7 @@ export class ConceptForShortNameCacheBuilder {
       .map((row) => {
         const uuid = row[row.length - 1].trim()
         const shortName = row[row.length + shortNameColumn].trim()
+        const longName = row[row.length + longNameColumn].trim()
 
         // For most schemes, the fullPath includes columns up to the Short_Name (exclusive of Long_Name and UUID).
         // For 'providers', the structure is different, so we adjust the end index accordingly.
@@ -85,7 +88,8 @@ export class ConceptForShortNameCacheBuilder {
 
         return [shortName, {
           uuid,
-          fullPath
+          fullPath,
+          longName
         }]
       })
       .filter(([shortName]) => shortName)
@@ -102,22 +106,28 @@ export class ConceptForShortNameCacheBuilder {
 
     const cacheOperations = []
 
-    records.forEach(({ uuid, fullPath }, shortName) => {
+    records.forEach(({ uuid, fullPath, longName }, shortName) => {
       if (shortName && uuid && fullPath) {
         const cacheKey = createConceptResponseCacheKeyByShortName({
           shortName: shortName.toLowerCase(),
           scheme
         })
 
+        const bodyData = {
+          uuid,
+          fullPath
+        }
+
+        if (longName) {
+          bodyData.longName = longName
+        }
+
         const response = {
           statusCode: 200,
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            uuid,
-            fullPath
-          })
+          body: JSON.stringify(bodyData)
         }
 
         cacheOperations.push(

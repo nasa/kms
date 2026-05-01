@@ -293,7 +293,7 @@ export class LambdaFunctions {
       'getHistoricalConceptByShortName/handler.js',
       'get-historical-concept-by-short-name',
       'getHistoricalConceptByShortName',
-      '/concept/historical/short_name/{shortName}',
+      '/concept/historical/short_name/{shortName+}',
       'GET'
     )
 
