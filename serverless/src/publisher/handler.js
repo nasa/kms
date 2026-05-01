@@ -599,8 +599,8 @@ export const publisher = async (event) => {
       logger.error(`[publisher] ${failureMessage}`)
     }
 
-    // Building the UUID cache for all versions
-    logger.info('[publisher] Starting UUID cache build from S3.')
+    // Building the historical concept cache for all versions
+    logger.info('[publisher] Starting Historical Concept cache build from S3.')
     try {
       const { env } = getApplicationConfig()
       const bucketName = `kms-rdf-backup-${env}`
