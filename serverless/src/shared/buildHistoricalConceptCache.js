@@ -140,43 +140,28 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   }
 
   logger.info(`Found a total of ${allCsvFiles.length} CSV files to process.`)
+  logger.info('Processing files sequentially to respect S3 rate limits.')
 
-  // Process files in batches to avoid overwhelming S3 with too many concurrent requests.
-  // The concurrency level can be adjusted via environment variables.
-  const concurrency = parseInt(process.env.HISTORICAL_CONCEPT_CACHE_CONCURRENCY, 10) || 10
-  logger.info(`Processing files with a concurrency of ${concurrency}.`)
+  // Process files sequentially to avoid S3 throttling
+  await allCsvFiles.reduce(async (previousPromise, key) => {
+    await previousPromise
 
-  // Create chunks of files to process using array-based methods
-  const chunks = Array.from(
-    { length: Math.ceil(allCsvFiles.length / concurrency) },
-    (_, i) => allCsvFiles.slice(i * concurrency, i * concurrency + concurrency)
-  )
+    try {
+      const scheme = path.basename(key, '.csv').toLowerCase()
+      const csvContent = await getObjectContent(key)
 
-  // Process chunks sequentially to respect batching
-  await chunks.reduce(async (prevPromise, chunk) => {
-    await prevPromise // Wait for the previous batch to complete
-    logger.debug(`Processing a chunk of ${chunk.length} files.`)
-
-    const processingJobs = chunk.map(async (key) => {
-      try {
-        const scheme = path.basename(key, '.csv').toLowerCase()
-        const csvContent = await getObjectContent(key)
-
-        if (fullPathSchemes.includes(scheme)) {
-          await fullPathCacheBuilder.processToCache(csvContent, { scheme })
-          logger.info(`Successfully processed [${key}] with ConceptForFullPathCacheBuilder.`)
-        } else if (shortNameSchemes.includes(scheme)) {
-          await shortNameCacheBuilder.processToCache(csvContent, { scheme })
-          logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
-        } else {
-          logger.warn(`No cache builder found for scheme [${scheme}] in file [${key}].`)
-        }
-      } catch (error) {
-        logger.error(`Failed to process file [${key}]: ${error.message}`)
+      if (fullPathSchemes.includes(scheme)) {
+        await fullPathCacheBuilder.processToCache(csvContent, { scheme })
+        logger.info(`Successfully processed [${key}] with ConceptForFullPathCacheBuilder.`)
+      } else if (shortNameSchemes.includes(scheme)) {
+        await shortNameCacheBuilder.processToCache(csvContent, { scheme })
+        logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
+      } else {
+        logger.warn(`No cache builder found for scheme [${scheme}] in file [${key}].`)
       }
-    })
-
-    await Promise.all(processingJobs)
+    } catch (error) {
+      logger.error(`Failed to process file [${key}]: ${error.message}`)
+    }
   }, Promise.resolve())
 
   logger.info(`Cache build process finished for bucket [${bucketName}].`)
