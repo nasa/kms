@@ -1,8 +1,5 @@
-import { parse } from 'csv/sync'
-
-import { logger } from './logger'
+import { BaseConceptCacheBuilder } from './baseConceptCacheBuilder'
 import { createConceptResponseCacheKeyByShortName } from './redisCacheKeys'
-import { setCachedJsonResponse } from './redisCacheStore'
 
 /**
  * Builds a cache of UUIDs from CSV file content for short names.
@@ -37,12 +34,12 @@ import { setCachedJsonResponse } from './redisCacheStore'
  * await builder.processToCache(providersCsv, { scheme: 'providers' });
  * // This will cache 'kms:providers:historical_concept:short_name:ANU/ICAM'
  */
-export class ConceptForShortNameCacheBuilder {
+export class ConceptForShortNameCacheBuilder extends BaseConceptCacheBuilder {
   /**
    * @param {string} pathSeparator - Separator for path elements (default: ' > ')
    */
   constructor(pathSeparator = ' > ') {
-    this.pathSeparator = pathSeparator
+    super(pathSeparator)
   }
 
   /**
@@ -53,11 +50,7 @@ export class ConceptForShortNameCacheBuilder {
    * @returns {Map<string, {uuid: string, fullPath: string, longName: string}>} Map with short name as key and an object with uuid, fullPath, and longName as value.
    */
   parseCsvContent(csvContent, { scheme }) {
-    const rows = parse(csvContent, {
-      skip_empty_lines: true,
-      relax_quotes: true,
-      relax_column_count: true
-    })
+    const rows = this.parseCSV(csvContent)
 
     // All keyword CSVs have two header rows to skip.
     const skipHeaderRows = 2
@@ -98,51 +91,44 @@ export class ConceptForShortNameCacheBuilder {
   }
 
   /**
-   * Processes the CSV content and caches the results in Redis.
-   * @param {string} csvContent - The CSV content as a string.
+   * Creates the cache key for a short name.
+   * @param {string} shortName - The short name.
+   * @param {string} scheme - The scheme name.
+   * @returns {string} The cache key.
    */
-  async processToCache(csvContent, { scheme }) {
-    const records = this.parseCsvContent(csvContent, { scheme })
-
-    const cacheOperations = []
-
-    records.forEach(({ uuid, fullPath, longName }, shortName) => {
-      if (shortName && uuid && fullPath) {
-        const cacheKey = createConceptResponseCacheKeyByShortName({
-          shortName: shortName.toLowerCase(),
-          scheme
-        })
-
-        const bodyData = {
-          uuid,
-          fullPath
-        }
-
-        if (longName) {
-          bodyData.longName = longName
-        }
-
-        const response = {
-          statusCode: 200,
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(bodyData)
-        }
-
-        cacheOperations.push(
-          setCachedJsonResponse({
-            cacheKey,
-            response
-          }).catch((error) => {
-            logger.error(`Error setting cache for ${shortName}: ${error.message}`)
-          })
-        )
-      }
+  createCacheKey(shortName, scheme) {
+    return createConceptResponseCacheKeyByShortName({
+      shortName: shortName.toLowerCase(),
+      scheme
     })
+  }
 
-    await Promise.all(cacheOperations)
+  /**
+   * Creates the response body for a short name record.
+   * @param {string} shortName - The short name (unused, kept for signature compatibility).
+   * @param {Object} value - The record value containing uuid, fullPath, and longName.
+   * @returns {Object} The response body data.
+   */
+  createResponseBody(shortName, { uuid, fullPath, longName }) {
+    const bodyData = {
+      uuid,
+      fullPath
+    }
 
-    logger.debug('Finished processing and caching CSV content.')
+    if (longName) {
+      bodyData.longName = longName
+    }
+
+    return bodyData
+  }
+
+  /**
+   * Validates that shortName, uuid, and fullPath are present.
+   * @param {string} shortName - The short name.
+   * @param {Object} value - The record value.
+   * @returns {boolean} True if all required values are present.
+   */
+  shouldCache(shortName, { uuid, fullPath }) {
+    return Boolean(shortName && uuid && fullPath)
   }
 }

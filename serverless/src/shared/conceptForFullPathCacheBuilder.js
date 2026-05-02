@@ -1,8 +1,5 @@
-import { parse } from 'csv/sync'
-
-import { logger } from './logger'
+import { BaseConceptCacheBuilder } from './baseConceptCacheBuilder'
 import { createConceptResponseCacheKeyByFullPath } from './redisCacheKeys'
-import { setCachedJsonResponse } from './redisCacheStore'
 
 /**
  * Builds a cache of UUIDs from CSV file content.
@@ -32,14 +29,14 @@ import { setCachedJsonResponse } from './redisCacheStore'
  * // 'kms:sciencekeywords:historical_concept:full_path:EARTH%20SCIENCE%20%3E%20ATMOSPHERE%20%3E%20AEROSOLS'
  * // with a value corresponding to the JSON response for the UUID.
  */
-export class ConceptForFullPathCacheBuilder {
+export class ConceptForFullPathCacheBuilder extends BaseConceptCacheBuilder {
   /**
    * @param {number} skipHeaderRows - Number of header rows to skip (default: 2)
    * @param {string} pathSeparator - Separator for path elements (default: ' > ')
    */
   constructor(skipHeaderRows = 2, pathSeparator = ' > ') {
+    super(pathSeparator)
     this.skipHeaderRows = skipHeaderRows
-    this.pathSeparator = pathSeparator
   }
 
   /**
@@ -48,11 +45,7 @@ export class ConceptForFullPathCacheBuilder {
    * @returns {Map<string, string>} Map with full path as key and UUID as value.
    */
   parseCsvContent(csvContent) {
-    const rows = parse(csvContent, {
-      skip_empty_lines: true,
-      relax_quotes: true,
-      relax_column_count: true
-    })
+    const rows = this.parseCSV(csvContent)
 
     const dataRows = rows.slice(this.skipHeaderRows).filter((row) => row && row.length >= 2)
 
@@ -71,45 +64,38 @@ export class ConceptForFullPathCacheBuilder {
   }
 
   /**
-   * Processes the CSV content and caches the results in Redis.
-   * @param {string} csvContent - The CSV content as a string.
+   * Creates the cache key for a full path.
+   * @param {string} fullPath - The full path.
+   * @param {string} scheme - The scheme name.
+   * @returns {string} The cache key.
    */
-  async processToCache(csvContent, { scheme }) {
-    const records = this.parseCsvContent(csvContent)
-
-    const cacheOperations = []
-
-    records.forEach((uuid, fullPath) => {
-      if (fullPath && uuid) {
-        const cacheKey = createConceptResponseCacheKeyByFullPath({
-          fullPath: fullPath.toLowerCase(),
-          scheme
-        })
-
-        const response = {
-          statusCode: 200,
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            uuid,
-            fullPath
-          })
-        }
-
-        cacheOperations.push(
-          setCachedJsonResponse({
-            cacheKey,
-            response
-          }).catch((error) => {
-            logger.error(`Error setting cache for ${fullPath}: ${error.message}`)
-          })
-        )
-      }
+  createCacheKey(fullPath, scheme) {
+    return createConceptResponseCacheKeyByFullPath({
+      fullPath: fullPath.toLowerCase(),
+      scheme
     })
+  }
 
-    await Promise.all(cacheOperations)
+  /**
+   * Creates the response body for a full path record.
+   * @param {string} fullPath - The full path.
+   * @param {string} uuid - The UUID.
+   * @returns {Object} The response body data.
+   */
+  createResponseBody(fullPath, uuid) {
+    return {
+      uuid,
+      fullPath
+    }
+  }
 
-    logger.debug('Finished processing and caching CSV content.')
+  /**
+   * Validates that both fullPath and uuid are present.
+   * @param {string} fullPath - The full path.
+   * @param {string} uuid - The UUID.
+   * @returns {boolean} True if both values are present.
+   */
+  shouldCache(fullPath, uuid) {
+    return Boolean(fullPath && uuid)
   }
 }
