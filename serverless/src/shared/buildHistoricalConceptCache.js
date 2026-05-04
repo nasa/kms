@@ -6,12 +6,11 @@ import { getS3Client } from './awsClients'
 import { ConceptForFullPathCacheBuilder } from './conceptForFullPathCacheBuilder'
 import { ConceptForShortNameCacheBuilder } from './conceptForShortNameCacheBuilder'
 import {
-  DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
+  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
 } from './constants/fullPathForHistoricalConceptSchemes'
 import {
-  DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
+  HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
 } from './constants/shortNameForHistoricalConceptSchemes'
-import { getApplicationConfig } from './getConfig'
 import { logger } from './logger'
 
 /**
@@ -47,20 +46,8 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   const s3Client = getS3Client()
 
-  const {
-    schemesForHistoricalConceptByFullPath: schemesForHistoricalConceptByFullPathFromConfig,
-    schemesForHistoricalConceptByShortName: schemesForHistoricalConceptByShortNameFromConfig
-  } = getApplicationConfig()
-
-  const sourceForFullPath = schemesForHistoricalConceptByFullPathFromConfig?.length
-    ? schemesForHistoricalConceptByFullPathFromConfig
-    : DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
-  const fullPathSchemes = sourceForFullPath.map((s) => s.toLowerCase())
-
-  const sourceForShortName = schemesForHistoricalConceptByShortNameFromConfig?.length
-    ? schemesForHistoricalConceptByShortNameFromConfig
-    : DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
-  const shortNameSchemes = sourceForShortName.map((s) => s.toLowerCase())
+  const fullPathSchemes = HISTORICAL_CONCEPT_FULL_PATH_SCHEMES.map((s) => s.toLowerCase())
+  const shortNameSchemes = HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES.map((s) => s.toLowerCase())
 
   const fullPathCacheBuilder = new ConceptForFullPathCacheBuilder()
   const shortNameCacheBuilder = new ConceptForShortNameCacheBuilder()

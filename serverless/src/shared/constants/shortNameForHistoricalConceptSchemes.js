@@ -1,4 +1,4 @@
-export const DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES = [
+export const HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES = [
   'providers',
   'platforms',
   'instruments',
