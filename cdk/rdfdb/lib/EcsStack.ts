@@ -185,8 +185,7 @@ export class EcsStack extends Stack {
       maxCapacity: 1,
       vpc: this.vpc,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        availabilityZones: [this.getEbsVolumeAz()]
+        subnets: [ec2.Subnet.fromSubnetId(this, 'Rdf4jSubnet', process.env.SUBNET_ID_A || '')]
       },
       userData,
       role: this.role
@@ -260,8 +259,7 @@ export class EcsStack extends Stack {
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
       vpcSubnets: {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        availabilityZones: [this.getEbsVolumeAz()]
+        subnets: [ec2.Subnet.fromSubnetId(this, 'Rdf4jSubnet', process.env.SUBNET_ID_A || '')]
       },
       capacityProviderStrategies: [
         {
