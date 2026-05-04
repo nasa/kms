@@ -198,11 +198,8 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
 Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
-- If `bamboo_EBS_VOLUME_ID` is set, CDK will import and use that existing restored `vol-...`
-  directly instead of creating a new volume.
-- When `bamboo_EBS_VOLUME_ID` is set, `deploy-bamboo.sh` first deploys `rdf4jEcsStack` and
-  `rdf4jSnapshotStack` exclusively so they stop depending on the legacy implicit volume export
-  before `rdf4jEbsStack` is updated.
+- If `bamboo_EBS_VOLUME_ID` is set, RDF4J will attach and use that existing restored `vol-...`,
+  and the default CDK-managed RDF4J EBS stack will be skipped for that deploy.
 - If `bamboo_EBS_VOLUME_ID` is not set, CDK will create a new blank RDF4J EBS volume.
 
 #### Deploy KMS Application
@@ -221,6 +218,19 @@ Set your AWS context first:
 export AWS_PROFILE=[your aws profile]
 export AWS_REGION=us-east-1
 export VAULT_NAME=rdf4j-backup-vault
+```
+
+Derive the target availability zone from `bamboo_SUBNET_ID_A` so the restored volume can attach to
+the RDF4J EC2 instance launched in that subnet:
+
+```bash
+SUBNET_AZ=$(aws ec2 describe-subnets \
+  --subnet-ids "$bamboo_SUBNET_ID_A" \
+  --region "$AWS_REGION" \
+  --query 'Subnets[0].AvailabilityZone' \
+  --output text)
+
+echo "Subnet AZ: $SUBNET_AZ"
 ```
 
 List the available EBS recovery points in the backup vault:
@@ -256,9 +266,10 @@ Restore the snapshot directly to a new EBS volume (bypassing AWS Backup IAM rest
 
 ```bash
 VOLUME_ID=$(aws ec2 create-volume \
-  --availability-zone "us-east-1a" \
+  --availability-zone "$SUBNET_AZ" \
   --snapshot-id "$SNAPSHOT_ID" \
   --volume-type "gp3" \
+  --region "$AWS_REGION" \
   --query 'VolumeId' \
   --output text)
 
@@ -270,6 +281,7 @@ Verify the volume is available:
 ```bash
 aws ec2 describe-volumes \
   --volume-ids "$VOLUME_ID" \
+  --region "$AWS_REGION" \
   --query 'Volumes[0].State' \
   --output text
 ```
@@ -278,5 +290,7 @@ Notes:
 
 - The EC2 `create-volume` command creates the new EBS volume instantly.
 - `VOLUME_ID` is the new `vol-...` identifier for the restored volume.
+- `deploy-bamboo.sh` now fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as
+  `bamboo_SUBNET_ID_A`.
 - If you want CDK to attach the restored volume directly, provide that `vol-...` value to
   `bamboo_EBS_VOLUME_ID` before deploying.

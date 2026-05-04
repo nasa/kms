@@ -18,11 +18,13 @@ import * as logs from 'aws-cdk-lib/aws-logs'
 import * as custom from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
+import { IEbsStack } from './EbsStack'
 import { ILoadBalancerStack } from './LoadBalancerStack'
 
 interface EcsStackProps extends StackProps {
   vpcId: string;
   roleArn: string;
+  ebsStack?: IEbsStack;
   lbStack: ILoadBalancerStack;
 }
 
@@ -46,6 +48,8 @@ interface EcsStackProps extends StackProps {
  * Zone as the EBS volume for data persistence.
  */
 export class EcsStack extends Stack {
+  private ebsStack?: IEbsStack
+
   private vpc!: ec2.IVpc
 
   private role!: iam.IRole
@@ -78,9 +82,12 @@ export class EcsStack extends Stack {
 
   private primarySubnet!: ec2.ISubnet
 
+  private configuredVolumeId?: string
+
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
-    const { vpcId } = props
+    const { vpcId, ebsStack } = props
+    this.ebsStack = ebsStack
     this.initializeBaseResources(vpcId)
     this.addSecurityGroupRules()
     this.addOutputs()
@@ -89,7 +96,12 @@ export class EcsStack extends Stack {
   private initializeBaseResources(vpcId: string): void {
     this.vpc = this.getVpc(vpcId)
     this.role = this.getRole()
-    this.primarySubnet = ec2.Subnet.fromSubnetId(this, 'PrimaryRdf4jSubnet', process.env.SUBNET_ID_A || '')
+    this.configuredVolumeId = this.getConfiguredVolumeId()
+
+    if (this.configuredVolumeId) {
+      this.primarySubnet = this.getPrimarySubnet()
+    }
+
     this.ebsVolumeId = this.getEbsVolumeId()
     this.ebsVolumeAz = this.getEbsVolumeAz()
 
@@ -144,14 +156,42 @@ export class EcsStack extends Stack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  // Import the stable exported RDF4J volume ID instead of creating an implicit cross-stack reference.
-  private getEbsVolumeId(): string {
-    return Fn.importValue('rdf4jVolumeId')
+  // Use a restored existing volume when one is configured for this deploy.
+  private getConfiguredVolumeId(): string | undefined {
+    return process.env.EBS_VOLUME_ID?.trim() || undefined
   }
 
-  // Import the stable exported RDF4J volume AZ instead of creating an implicit cross-stack reference.
+  // Import the Bamboo-selected subnet when we need to force RDF4J into the same AZ as a restored volume.
+  private getPrimarySubnet(): ec2.ISubnet {
+    const primarySubnetId = process.env.SUBNET_ID_A
+
+    if (!primarySubnetId) {
+      throw new Error('SUBNET_ID_A environment variable is required for RDF4J deployment')
+    }
+
+    return ec2.Subnet.fromSubnetId(this, 'PrimaryRdf4jSubnet', primarySubnetId)
+  }
+
+  // Prefer the restored existing volume ID when provided, otherwise use the CDK-managed volume.
+  private getEbsVolumeId(): string {
+    if (this.configuredVolumeId) {
+      return this.configuredVolumeId
+    }
+
+    if (!this.ebsStack) {
+      throw new Error('EbsStack is required when EBS_VOLUME_ID is not provided')
+    }
+
+    return this.ebsStack.volume.volumeId
+  }
+
+  // Keep using the CDK-managed volume AZ for the normal no-override deployment path.
   private getEbsVolumeAz(): string {
-    return Fn.importValue('rdf4jVolumeAz')
+    if (!this.ebsStack) {
+      throw new Error('EbsStack is required when EBS_VOLUME_ID is not provided')
+    }
+
+    return this.ebsStack.volume.availabilityZone
   }
 
   private getRole(): iam.IRole {
@@ -166,6 +206,20 @@ export class EcsStack extends Stack {
       ec2.InstanceClass[instanceClass as keyof typeof ec2.InstanceClass],
       ec2.InstanceSize[instanceSize as keyof typeof ec2.InstanceSize]
     )
+  }
+
+  // Use the Bamboo-selected subnet only when a restored volume override is configured.
+  private getRdf4jSubnets(): ec2.SubnetSelection {
+    if (this.configuredVolumeId) {
+      return {
+        subnets: [this.primarySubnet]
+      }
+    }
+
+    return {
+      subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      availabilityZones: [this.ebsVolumeAz]
+    }
   }
 
   private createEcsCluster(): ecs.Cluster {
@@ -187,9 +241,7 @@ export class EcsStack extends Stack {
       minCapacity: 1,
       maxCapacity: 1,
       vpc: this.vpc,
-      vpcSubnets: {
-        subnets: [this.primarySubnet]
-      },
+      vpcSubnets: this.getRdf4jSubnets(),
       userData,
       role: this.role
     })
@@ -261,9 +313,7 @@ export class EcsStack extends Stack {
       enableExecuteCommand: true,
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
-      vpcSubnets: {
-        subnets: [this.primarySubnet]
-      },
+      vpcSubnets: this.getRdf4jSubnets(),
       capacityProviderStrategies: [
         {
           capacityProvider: this.capacityProvider.capacityProviderName,

@@ -92,6 +92,7 @@ async function main() {
   let ecsStack: EcsStack | undefined
   let snapshotStack: SnapshotStack | undefined
   let redisStack: RedisStack | undefined
+  const configuredEbsVolumeId = process.env.EBS_VOLUME_ID?.trim() || undefined
   const redisEnabled = !useLocalstack && process.env.KMS_REDIS_ENABLED !== 'false'
   if (!useLocalstack) {
     // Create IAM Stack
@@ -108,18 +109,21 @@ async function main() {
       stackName: 'rdf4jLoadBalancerStack'
     })
 
-    // Create EBS Stack
-    ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
-      env,
-      vpcId,
-      stackName: 'rdf4jEbsStack'
-    })
+    if (!configuredEbsVolumeId) {
+      // Create the default RDF4J EBS Stack only when a restored volume override is not provided.
+      ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
+        env,
+        vpcId,
+        stackName: 'rdf4jEbsStack'
+      })
+    }
 
     // Create ECS Stack
     ecsStack = new EcsStack(app, 'rdf4jEcsStack', {
       env,
       vpcId,
       roleArn: iamStack.role.roleArn,
+      ebsStack,
       lbStack,
       stackName: 'rdf4jEcsStack'
     })
@@ -127,6 +131,7 @@ async function main() {
     // Create Snapshot Stack
     snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
       env,
+      ebsVolumeId: ebsStack?.volume.volumeId,
       stackName: 'rdf4jSnapshotStack'
     })
 
@@ -142,12 +147,15 @@ async function main() {
     }
 
     // Add dependencies
-    ebsStack.addDependency(iamStack)
+    ebsStack?.addDependency(iamStack)
     lbStack.addDependency(iamStack)
     ecsStack.addDependency(iamStack)
-    ecsStack.addDependency(ebsStack)
+    if (ebsStack) {
+      ecsStack.addDependency(ebsStack)
+      snapshotStack.addDependency(ebsStack)
+    }
+
     ecsStack.addDependency(lbStack)
-    snapshotStack.addDependency(ebsStack)
   }
 
   const redisConfigured = redisEnabled && Boolean(redisStack)

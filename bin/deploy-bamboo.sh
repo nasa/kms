@@ -42,6 +42,7 @@ EOF
 
 dockerTag=kms-$bamboo_STAGE_NAME
 stageOpts="--stage $bamboo_STAGE_NAME "
+deploymentRegion="${bamboo_AWS_REGION:-${AWS_REGION:-us-east-1}}"
 
 docker build -t $dockerTag .
 
@@ -79,17 +80,33 @@ dockerRun() {
     $dockerTag "$@"
 }
 
+awsWithBambooCreds() {
+  AWS_ACCESS_KEY_ID="$bamboo_AWS_ACCESS_KEY_ID" \
+  AWS_SECRET_ACCESS_KEY="$bamboo_AWS_SECRET_ACCESS_KEY" \
+  AWS_SESSION_TOKEN="$bamboo_AWS_SESSION_TOKEN" \
+  AWS_REGION="$deploymentRegion" \
+  aws "$@"
+}
+
 # Execute deployment commands in Docker
 #######################################
 
-# When we switch RDF4J to a restored existing vol-..., CloudFormation treats the old generated
-# EbsStack volume reference as an export replacement. If rdf4jEcsStack and rdf4jSnapshotStack are
-# still importing that old implicit export, rdf4jEbsStack rolls back because exports in use cannot
-# be deleted. Deploy the consumer stacks first so they move to the stable rdf4jVolumeId /
-# rdf4jVolumeAz exports before the producer stack is updated.
+# When reusing a restored RDF4J volume, fail early unless it lives in the same AZ as SUBNET_ID_A.
 if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
-  echo 'Migrating RDF4J consumer stacks to stable volume exports...'
-  dockerRun bash -lc 'cd /build/cdk && npm ci --include=dev && npx cdk deploy rdf4jEcsStack rdf4jSnapshotStack --exclusively --progress events --require-approval never'
+  subnetAz=$(awsWithBambooCreds ec2 describe-subnets \
+    --subnet-ids "$bamboo_SUBNET_ID_A" \
+    --query 'Subnets[0].AvailabilityZone' \
+    --output text)
+
+  volumeAz=$(awsWithBambooCreds ec2 describe-volumes \
+    --volume-ids "$bamboo_EBS_VOLUME_ID" \
+    --query 'Volumes[0].AvailabilityZone' \
+    --output text)
+
+  if [[ "$subnetAz" != "$volumeAz" ]]; then
+    echo "Refusing deploy: SUBNET_ID_A ($bamboo_SUBNET_ID_A) is in $subnetAz but EBS_VOLUME_ID ($bamboo_EBS_VOLUME_ID) is in $volumeAz."
+    exit 1
+  fi
 fi
 
 # Deploy to AWS

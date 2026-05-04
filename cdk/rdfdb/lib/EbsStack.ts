@@ -6,7 +6,6 @@ import {
   StackProps
 } from 'aws-cdk-lib'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
-import * as custom from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
 interface EbsStackProps extends StackProps {
@@ -21,7 +20,7 @@ interface EbsStackProps extends StackProps {
  * size, IOPS, and throughput settings.
  *
  * @property {ec2.IVpc} vpc - The VPC in which the EBS volume will be created.
- * @property {ec2.IVolume} volume - The RDF4J EBS volume, whether CDK created it or imported it.
+ * @property {ec2.Volume} volume - The RDF4J EBS volume created and managed by this stack.
  *
  * @example
  * const app = new cdk.App();
@@ -33,24 +32,19 @@ interface EbsStackProps extends StackProps {
 
 export interface IEbsStack {
   readonly vpc: ec2.IVpc;
-  // Use IVolume because this stack may either create a new ec2.Volume or import an existing one.
-  readonly volume: ec2.IVolume;
+  readonly volume: ec2.Volume;
 }
 
 export class EbsStack extends Stack implements IEbsStack {
   public readonly vpc: ec2.IVpc
 
-  // Keep the public type broad so downstream stacks can work with either created or imported volumes.
-  public readonly volume: ec2.IVolume
-
-  private readonly existingVolumeId?: string
+  public readonly volume: ec2.Volume
 
   constructor(scope: Construct, id: string, props: EbsStackProps) {
     super(scope, id, props)
     const { vpcId } = props
 
     this.vpc = this.getVpc(vpcId)
-    this.existingVolumeId = this.getExistingVolumeId()
     this.volume = this.createEbsVolume()
 
     this.createOutputs()
@@ -58,11 +52,6 @@ export class EbsStack extends Stack implements IEbsStack {
 
   private getVpc(vpcId: string): ec2.IVpc {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
-  }
-
-  // Return the restored EBS volume ID when we want CDK to attach an already-restored volume.
-  private getExistingVolumeId(): string | undefined {
-    return process.env.EBS_VOLUME_ID?.trim() || undefined
   }
 
   // Use the first VPC availability zone for the RDF4J EBS volume.
@@ -81,35 +70,8 @@ export class EbsStack extends Stack implements IEbsStack {
     return Size.gibibytes(32)
   }
 
-  // Read the availability zone of an existing restored volume so ECS can launch in the same AZ.
-  private getExistingVolumeAvailabilityZone(volumeId: string): string {
-    const describeVolume = new custom.AwsCustomResource(this, 'DescribeExistingRdf4jVolume', {
-      onUpdate: {
-        service: 'EC2',
-        action: 'describeVolumes',
-        parameters: {
-          VolumeIds: [volumeId]
-        },
-        physicalResourceId: custom.PhysicalResourceId.of(volumeId)
-      },
-      policy: custom.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: custom.AwsCustomResourcePolicy.ANY_RESOURCE
-      }),
-      installLatestAwsSdk: false
-    })
-
-    return describeVolume.getResponseField('Volumes.0.AvailabilityZone')
-  }
-
-  // Either import a pre-restored EBS volume or create a new blank one.
-  private createEbsVolume(): ec2.IVolume {
-    if (this.existingVolumeId) {
-      return ec2.Volume.fromVolumeAttributes(this, 'ImportedRdf4jVolume', {
-        volumeId: this.existingVolumeId,
-        availabilityZone: this.getExistingVolumeAvailabilityZone(this.existingVolumeId)
-      })
-    }
-
+  // Create the default RDF4J EBS volume managed by CDK.
+  private createEbsVolume(): ec2.Volume {
     return new ec2.Volume(this, 'rdf4jVolume', {
       availabilityZone: this.getAvailabilityZone(),
       size: this.getVolumeSize(),
@@ -133,13 +95,5 @@ export class EbsStack extends Stack implements IEbsStack {
       value: this.volume.availabilityZone,
       exportName: 'rdf4jVolumeAz'
     })
-
-    if (this.existingVolumeId) {
-      // eslint-disable-next-line no-new
-      new CfnOutput(this, 'ExistingVolumeId', {
-        value: this.existingVolumeId,
-        description: 'Existing restored RDF4J EBS volume imported into the stack'
-      })
-    }
   }
 }
