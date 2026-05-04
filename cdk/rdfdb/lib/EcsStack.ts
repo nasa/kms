@@ -102,13 +102,13 @@ export class EcsStack extends Stack {
   private initializeBaseResources(vpcId: string): void {
     this.vpc = this.getVpc(vpcId)
     this.role = this.getRole()
+    this.ebsVolumeId = this.getEbsVolumeId()
 
     if (this.configuredVolumeId) {
       this.primarySubnet = this.getPrimarySubnet()
+    } else {
+      this.ebsVolumeAz = this.getEbsVolumeAz()
     }
-
-    this.ebsVolumeId = this.getEbsVolumeId()
-    this.ebsVolumeAz = this.getEbsVolumeAz()
 
     this.createSecurityGroups()
     this.repository = this.createOrGetECRRepository()
