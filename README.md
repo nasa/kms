@@ -188,8 +188,7 @@ export bamboo_CMR_BASE_URL=[cmr base url]
 export bamboo_CORS_ORIGIN=[comma separated list of cors origins]
 export bamboo_RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
-export bamboo_EBS_VOLUME_SIZE=[optional volume size in GiB for a new blank RDF4J volume]
-export bamboo_EBS_SNAPSHOT_ID=[optional snapshot id when restoring the RDF4J volume from backup]
+export bamboo_EBS_VOLUME_ID=[optional existing restored vol-... id to attach directly]
 export bamboo_RDF_BUCKET_NAME=[name of bucket for storing archived versions]
 export bamboo_EXISTING_API_ID=[api id if deploying this into an existing api gateway]
 export bamboo_ROOT_RESOURCE_ID=[see CDK_MIGRATION.md for how to determine]
@@ -199,10 +198,88 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
 Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
-- If `bamboo_EBS_SNAPSHOT_ID` is set, CDK will create the RDF4J EBS volume from that snapshot and
-  use the snapshot's size unless `bamboo_EBS_VOLUME_SIZE` is also provided.
+- If `bamboo_EBS_VOLUME_ID` is set, CDK will import and use that existing restored `vol-...`
+  directly instead of creating a new volume.
+- If `bamboo_EBS_VOLUME_ID` is not set, CDK will create a new blank RDF4J EBS volume.
 
 #### Deploy KMS Application
 ```
 ./bin/deploy-bamboo.sh
 ```
+
+### Restore RDF4J EBS Volume From AWS Backup
+
+Use this flow when the RDF4J EBS volume has been deleted or needs to be recovered from the
+`rdf4j-backup-vault`.
+
+Set your AWS context first:
+
+```bash
+export AWS_PROFILE=[your aws profile]
+export AWS_REGION=us-east-1
+export VAULT_NAME=rdf4j-backup-vault
+```
+
+List the available EBS recovery points in the backup vault:
+
+```bash
+aws backup list-recovery-points-by-backup-vault \
+  --backup-vault-name "$VAULT_NAME" \
+  --by-resource-type EBS \
+  --query 'sort_by(RecoveryPoints,&CreationDate)[].{Created:CreationDate,RecoveryPointArn:RecoveryPointArn,Status:Status,SourceVolumeArn:ResourceArn}' \
+  --output table
+```
+
+Capture the latest recovery point ARN:
+
+```bash
+RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
+  --backup-vault-name "$VAULT_NAME" \
+  --by-resource-type EBS \
+  --query 'sort_by(RecoveryPoints,&CreationDate)[-1].RecoveryPointArn' \
+  --output text)
+
+echo "$RECOVERY_POINT_ARN"
+```
+
+Start the restore job:
+
+```bash
+RESTORE_JOB_ID=$(aws backup start-restore-job \
+  --recovery-point-arn "$RECOVERY_POINT_ARN" \
+  --iam-role-arn "arn:aws:iam::<account-id>:role/service-role/AWSBackupDefaultServiceRole" \
+  --resource-type EBS \
+  --metadata '{"availabilityZone":"us-east-1a","volumeType":"gp3","volumeSize":"32"}' \
+  --query 'RestoreJobId' \
+  --output text)
+
+echo "$RESTORE_JOB_ID"
+```
+
+Check the restore status:
+
+```bash
+aws backup describe-restore-job \
+  --restore-job-id "$RESTORE_JOB_ID" \
+  --query '{Status:Status,StatusMessage:StatusMessage,CreatedResourceArn:CreatedResourceArn}' \
+  --output table
+```
+
+Capture the restored volume ID after the job completes:
+
+```bash
+VOLUME_ARN=$(aws backup describe-restore-job \
+  --restore-job-id "$RESTORE_JOB_ID" \
+  --query 'CreatedResourceArn' \
+  --output text)
+
+VOLUME_ID="${VOLUME_ARN##*/}"
+echo "$VOLUME_ID"
+```
+
+Notes:
+
+- The restore job creates a new EBS volume and returns its ARN in `CreatedResourceArn`.
+- `VOLUME_ID` is the new `vol-...` identifier for the restored volume.
+- If you want CDK to attach the restored volume directly, provide that `vol-...` value to
+  `bamboo_EBS_VOLUME_ID`.

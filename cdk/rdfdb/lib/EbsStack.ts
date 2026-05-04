@@ -6,6 +6,7 @@ import {
   StackProps
 } from 'aws-cdk-lib'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as custom from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
 interface EbsStackProps extends StackProps {
@@ -32,22 +33,22 @@ interface EbsStackProps extends StackProps {
 
 export interface IEbsStack {
   readonly vpc: ec2.IVpc;
-  readonly volume: ec2.Volume;
+  readonly volume: ec2.IVolume;
 }
 
 export class EbsStack extends Stack implements IEbsStack {
   public readonly vpc: ec2.IVpc
 
-  public readonly volume: ec2.Volume
+  public readonly volume: ec2.IVolume
 
-  private readonly snapshotId?: string
+  private readonly existingVolumeId?: string
 
   constructor(scope: Construct, id: string, props: EbsStackProps) {
     super(scope, id, props)
     const { vpcId } = props
 
     this.vpc = this.getVpc(vpcId)
-    this.snapshotId = this.getSnapshotId()
+    this.existingVolumeId = this.getExistingVolumeId()
     this.volume = this.createEbsVolume()
 
     this.createOutputs()
@@ -55,6 +56,11 @@ export class EbsStack extends Stack implements IEbsStack {
 
   private getVpc(vpcId: string): ec2.IVpc {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
+  }
+
+  // Return the restored EBS volume ID when we want CDK to attach an already-restored volume.
+  private getExistingVolumeId(): string | undefined {
+    return process.env.EBS_VOLUME_ID?.trim() || undefined
   }
 
   // Use the first VPC availability zone for the RDF4J EBS volume.
@@ -68,31 +74,43 @@ export class EbsStack extends Stack implements IEbsStack {
     return defaultAvailabilityZone
   }
 
-  // Return the restored EBS snapshot ID when we are rebuilding the volume from backup.
-  private getSnapshotId(): string | undefined {
-    return process.env.EBS_SNAPSHOT_ID?.trim() || undefined
-  }
-
-  // Parse the configured EBS volume size and preserve the current 32 GiB default for blank volumes.
-  private getVolumeSize(snapshotId?: string): Size | undefined {
-    const configuredVolumeSize = process.env.EBS_VOLUME_SIZE?.trim()
-
-    if (configuredVolumeSize) {
-      return Size.gibibytes(parseInt(configuredVolumeSize, 10))
-    }
-
-    if (snapshotId) {
-      return undefined
-    }
-
+  // Preserve the current 32 GiB default when CDK needs to create a new blank volume.
+  private getVolumeSize(): Size {
     return Size.gibibytes(32)
   }
 
-  private createEbsVolume(): ec2.Volume {
+  // Read the availability zone of an existing restored volume so ECS can launch in the same AZ.
+  private getExistingVolumeAvailabilityZone(volumeId: string): string {
+    const describeVolume = new custom.AwsCustomResource(this, 'DescribeExistingRdf4jVolume', {
+      onUpdate: {
+        service: 'EC2',
+        action: 'describeVolumes',
+        parameters: {
+          VolumeIds: [volumeId]
+        },
+        physicalResourceId: custom.PhysicalResourceId.of(volumeId)
+      },
+      policy: custom.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: custom.AwsCustomResourcePolicy.ANY_RESOURCE
+      }),
+      installLatestAwsSdk: false
+    })
+
+    return describeVolume.getResponseField('Volumes.0.AvailabilityZone')
+  }
+
+  // Either import a pre-restored EBS volume or create a new blank one.
+  private createEbsVolume(): ec2.IVolume {
+    if (this.existingVolumeId) {
+      return ec2.Volume.fromVolumeAttributes(this, 'ImportedRdf4jVolume', {
+        volumeId: this.existingVolumeId,
+        availabilityZone: this.getExistingVolumeAvailabilityZone(this.existingVolumeId)
+      })
+    }
+
     return new ec2.Volume(this, 'rdf4jVolume', {
       availabilityZone: this.getAvailabilityZone(),
-      size: this.getVolumeSize(this.snapshotId),
-      snapshotId: this.snapshotId,
+      size: this.getVolumeSize(),
       volumeType: ec2.EbsDeviceVolumeType.GP3,
       iops: 3000,
       throughput: 125,
@@ -114,11 +132,11 @@ export class EbsStack extends Stack implements IEbsStack {
       exportName: 'rdf4jVolumeAz'
     })
 
-    if (this.snapshotId) {
+    if (this.existingVolumeId) {
       // eslint-disable-next-line no-new
-      new CfnOutput(this, 'SourceSnapshotId', {
-        value: this.snapshotId,
-        description: 'Snapshot used to restore the RDF4J EBS volume'
+      new CfnOutput(this, 'ExistingVolumeId', {
+        value: this.existingVolumeId,
+        description: 'Existing restored RDF4J EBS volume imported into the stack'
       })
     }
   }
