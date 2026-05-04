@@ -242,44 +242,38 @@ RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
 echo "$RECOVERY_POINT_ARN"
 ```
 
-Start the restore job:
+Extract the snapshot ID from the ARN:
 
 ```bash
-RESTORE_JOB_ID=$(aws backup start-restore-job \
-  --recovery-point-arn "$RECOVERY_POINT_ARN" \
-  --iam-role-arn "arn:aws:iam::<account-id>:role/service-role/AWSBackupDefaultServiceRole" \
-  --resource-type EBS \
-  --metadata '{"availabilityZone":"us-east-1a","volumeType":"gp3","volumeSize":"32"}' \
-  --query 'RestoreJobId' \
-  --output text)
-
-echo "$RESTORE_JOB_ID"
+SNAPSHOT_ID=$(echo "$RECOVERY_POINT_ARN" | awk -F'/' '{print $2}')
+echo "Snapshot ID: $SNAPSHOT_ID"
 ```
 
-Check the restore status:
+Restore the snapshot directly to a new EBS volume (bypassing AWS Backup IAM restrictions):
 
 ```bash
-aws backup describe-restore-job \
-  --restore-job-id "$RESTORE_JOB_ID" \
-  --query '{Status:Status,StatusMessage:StatusMessage,CreatedResourceArn:CreatedResourceArn}' \
-  --output table
-```
-
-Capture the restored volume ID after the job completes:
-
-```bash
-VOLUME_ARN=$(aws backup describe-restore-job \
-  --restore-job-id "$RESTORE_JOB_ID" \
-  --query 'CreatedResourceArn' \
+VOLUME_ID=$(aws ec2 create-volume \
+  --availability-zone "us-east-1a" \
+  --snapshot-id "$SNAPSHOT_ID" \
+  --volume-type "gp3" \
+  --query 'VolumeId' \
   --output text)
 
-VOLUME_ID="${VOLUME_ARN##*/}"
-echo "$VOLUME_ID"
+echo "New Volume ID: $VOLUME_ID"
+```
+
+Verify the volume is available:
+
+```bash
+aws ec2 describe-volumes \
+  --volume-ids "$VOLUME_ID" \
+  --query 'Volumes[0].State' \
+  --output text
 ```
 
 Notes:
 
-- The restore job creates a new EBS volume and returns its ARN in `CreatedResourceArn`.
+- The EC2 `create-volume` command creates the new EBS volume instantly.
 - `VOLUME_ID` is the new `vol-...` identifier for the restored volume.
 - If you want CDK to attach the restored volume directly, provide that `vol-...` value to
-  `bamboo_EBS_VOLUME_ID`.
+  `bamboo_EBS_VOLUME_ID` before deploying.
