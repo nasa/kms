@@ -76,6 +76,8 @@ export class EcsStack extends Stack {
 
   private capacityProvider!: ecs.AsgCapacityProvider
 
+  private primarySubnet!: ec2.ISubnet
+
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
     const { vpcId } = props
@@ -87,6 +89,7 @@ export class EcsStack extends Stack {
   private initializeBaseResources(vpcId: string): void {
     this.vpc = this.getVpc(vpcId)
     this.role = this.getRole()
+    this.primarySubnet = ec2.Subnet.fromSubnetId(this, 'PrimaryRdf4jSubnet', process.env.SUBNET_ID_A || '')
     this.ebsVolumeId = this.getEbsVolumeId()
     this.ebsVolumeAz = this.getEbsVolumeAz()
 
@@ -185,7 +188,7 @@ export class EcsStack extends Stack {
       maxCapacity: 1,
       vpc: this.vpc,
       vpcSubnets: {
-        subnets: [ec2.Subnet.fromSubnetId(this, 'Rdf4jSubnet', process.env.SUBNET_ID_A || '')]
+        subnets: [this.primarySubnet]
       },
       userData,
       role: this.role
@@ -259,7 +262,7 @@ export class EcsStack extends Stack {
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
       vpcSubnets: {
-        subnets: [ec2.Subnet.fromSubnetId(this, 'Rdf4jSubnet', process.env.SUBNET_ID_A || '')]
+        subnets: [this.primarySubnet]
       },
       capacityProviderStrategies: [
         {
