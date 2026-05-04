@@ -10,12 +10,8 @@ import { createConceptResponseCacheKeyByShortName } from '@/shared/redisCacheKey
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 // Mock shared modules
-let mockSchemes = ['platforms', 'instruments']
 const mockConfig = {
-  defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' },
-  get schemesForHistoricalConceptByShortName() {
-    return mockSchemes
-  }
+  defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' }
 }
 
 vi.mock('@/shared/getConfig', () => ({
@@ -33,7 +29,7 @@ vi.mock('@/shared/redisCacheKeys', () => ({
 }))
 
 vi.mock('@/shared/constants/shortNameForHistoricalConceptSchemes', () => ({
-  DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES: ['default-short-name-scheme']
+  HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES: ['providers', 'platforms', 'instruments', 'projects', 'idnnode', 'DataFormat']
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
@@ -41,24 +37,6 @@ vi.mock('@/shared/logAnalyticsData', () => ({
 }))
 
 describe('getHistoricalConceptByShortName', () => {
-  afterEach(() => {
-    // Reset mock schemes after each test
-    mockSchemes = ['platforms', 'instruments']
-  })
-
-  test('should use the default list from constants if the config list is empty', async () => {
-    mockSchemes = [] // Simulate an empty config from Bamboo
-
-    const event = {
-      pathParameters: { shortName: 'any' },
-      queryStringParameters: { scheme: 'default-short-name-scheme' } // This is in the mocked default list
-    }
-
-    const result = await getHistoricalConceptByShortName(event)
-    // We expect it NOT to return a 400 error, which means it passed the scheme check
-    expect(result.statusCode).not.toBe(400)
-  })
-
   test('should return 400 if shortName is not provided', async () => {
     const event = {
       pathParameters: {},
@@ -71,24 +49,27 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('should pass if the scheme is supported, ignoring case', async () => {
+    getCachedJsonResponse.mockResolvedValue(null)
+
     const event = {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'Platforms' } // Mixed case
     }
     const result = await getHistoricalConceptByShortName(event)
-    // Should not fail with a 400 for scheme validation
-    expect(result.statusCode).not.toBe(400)
+    // Should return 404 (not found) rather than 400 (unsupported scheme)
+    expect(result.statusCode).toBe(404)
   })
 
   test('should pass if the scheme is DataFormat, ignoring case', async () => {
-    mockSchemes = ['DataFormat']
+    getCachedJsonResponse.mockResolvedValue(null)
+
     const event = {
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'DataFormat' } // Exact case from default list
     }
     const result = await getHistoricalConceptByShortName(event)
-    // Should not fail with a 400 for scheme validation
-    expect(result.statusCode).not.toBe(400)
+    // Should return 404 (not found) rather than 400 (unsupported scheme)
+    expect(result.statusCode).toBe(404)
   })
 
   test('should return 400 if the scheme is not supported for caching by shortName', async () => {

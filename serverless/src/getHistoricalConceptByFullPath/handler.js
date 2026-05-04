@@ -1,5 +1,5 @@
 import {
-  DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
+  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
 } from '@/shared/constants/fullPathForHistoricalConceptSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
@@ -36,17 +36,11 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  * };
  */
 export const getHistoricalConceptByFullPath = async (event, context) => {
-  const {
-    defaultResponseHeaders,
-    schemesForHistoricalConceptByFullPath: schemesFromConfig
-  } = getApplicationConfig()
+  const { defaultResponseHeaders } = getApplicationConfig()
 
-  const sourceForSchemes = (schemesFromConfig && schemesFromConfig.length > 0)
-    ? schemesFromConfig
-    : DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
-  const schemesForHistoricalConceptByFullPath = sourceForSchemes.map((s) => s.toLowerCase())
-
-  logger.debug(`Using schemes for fullPath cache: ${JSON.stringify(schemesForHistoricalConceptByFullPath)}`)
+  const schemesForHistoricalConceptByFullPath = HISTORICAL_CONCEPT_FULL_PATH_SCHEMES.map(
+    (s) => s.toLowerCase()
+  )
 
   logAnalyticsData({
     event,

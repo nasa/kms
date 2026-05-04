@@ -1,5 +1,5 @@
 import {
-  DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
+  HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
 } from '@/shared/constants/shortNameForHistoricalConceptSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
@@ -39,17 +39,11 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  * };
  */
 export const getHistoricalConceptByShortName = async (event, context) => {
-  const {
-    defaultResponseHeaders,
-    schemesForHistoricalConceptByShortName: schemesFromConfig
-  } = getApplicationConfig()
+  const { defaultResponseHeaders } = getApplicationConfig()
 
-  const sourceForSchemes = (schemesFromConfig && schemesFromConfig.length > 0)
-    ? schemesFromConfig
-    : DEFAULT_HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
-  const schemesForHistoricalConceptByShortName = sourceForSchemes.map((s) => s.toLowerCase())
-
-  logger.debug(`Using schemes for shortName cache: ${JSON.stringify(schemesForHistoricalConceptByShortName)}`)
+  const schemesForHistoricalConceptByShortName = HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES.map(
+    (s) => s.toLowerCase()
+  )
 
   logAnalyticsData({
     event,

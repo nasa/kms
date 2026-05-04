@@ -10,12 +10,8 @@ import { createConceptResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 // Mock shared modules
-let mockSchemes = ['sciencekeywords', 'locations']
 const mockConfig = {
-  defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' },
-  get schemesForHistoricalConceptByFullPath() {
-    return mockSchemes
-  }
+  defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' }
 }
 
 vi.mock('@/shared/getConfig', () => ({
@@ -33,7 +29,7 @@ vi.mock('@/shared/redisCacheKeys', () => ({
 }))
 
 vi.mock('@/shared/constants/fullPathForHistoricalConceptSchemes', () => ({
-  DEFAULT_HISTORICAL_CONCEPT_FULL_PATH_SCHEMES: ['default-full-path-scheme']
+  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES: ['sciencekeywords', 'locations']
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
@@ -41,24 +37,6 @@ vi.mock('@/shared/logAnalyticsData', () => ({
 }))
 
 describe('getHistoricalConceptByFullPath', () => {
-  afterEach(() => {
-    // Reset mock schemes after each test
-    mockSchemes = ['sciencekeywords', 'locations']
-  })
-
-  test('should use the default list from constants if the config list is empty', async () => {
-    mockSchemes = [] // Simulate an empty config from Bamboo
-
-    const event = {
-      pathParameters: { fullPath: 'any' },
-      queryStringParameters: { scheme: 'default-full-path-scheme' } // This is in the mocked default list
-    }
-
-    const result = await getHistoricalConceptByFullPath(event)
-    // We expect it NOT to return a 400 error, which means it passed the scheme check
-    expect(result.statusCode).not.toBe(400)
-  })
-
   test('should return 400 if fullPath is not provided', async () => {
     const event = {
       pathParameters: {},
@@ -71,14 +49,16 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('should pass if the scheme is supported, ignoring case', async () => {
+    getCachedJsonResponse.mockResolvedValue(null)
+
     const event = {
       pathParameters: { fullPath: 'any' },
       queryStringParameters: { scheme: 'ScienceKeywords' } // Mixed case
     }
     const result = await getHistoricalConceptByFullPath(event)
 
-    // Should not fail with a 400 for scheme validation
-    expect(result.statusCode).not.toBe(400)
+    // Should return 404 (not found) rather than 400 (unsupported scheme)
+    expect(result.statusCode).toBe(404)
   })
 
   test('should return 400 if the scheme is not supported for caching by fullPath', async () => {
