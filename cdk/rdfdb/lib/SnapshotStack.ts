@@ -1,5 +1,6 @@
 import {
   Duration,
+  Fn,
   Stack,
   StackProps
 } from 'aws-cdk-lib'
@@ -10,10 +11,6 @@ import { Construct } from 'constructs'
 export interface ISnapshotStack {
   readonly backupVault: backup.BackupVault;
   readonly backupPlan: backup.BackupPlan;
-}
-
-interface SnapshotStackProps extends StackProps {
-  ebsVolumeId: string;
 }
 
 /**
@@ -35,10 +32,9 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
    * @param {string} id - The scoped construct ID.
    * @param {SnapshotStackProps} props - Initialization properties.
    */
-  constructor(scope: Construct, id: string, props: SnapshotStackProps) {
+  constructor(scope: Construct, id: string, props: StackProps) {
     super(scope, id, props)
-
-    const { ebsVolumeId } = props
+    const ebsVolumeId = Fn.importValue('rdf4jVolumeId')
 
     // Get the cron expression from environment variable or use a default
     const cronExpression = process.env.SNAPSHOT_CRON_EXPRESSION_UTC || '0 5 * * ? *' // Midnight EST

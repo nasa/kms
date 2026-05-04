@@ -121,14 +121,12 @@ async function main() {
       vpcId,
       roleArn: iamStack.role.roleArn,
       lbStack,
-      ebsStack,
       stackName: 'rdf4jEcsStack'
     })
 
     // Create Snapshot Stack
     snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
       env,
-      ebsVolumeId: ebsStack.volume.volumeId,
       stackName: 'rdf4jSnapshotStack'
     })
 

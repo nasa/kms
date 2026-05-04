@@ -18,13 +18,11 @@ import * as logs from 'aws-cdk-lib/aws-logs'
 import * as custom from 'aws-cdk-lib/custom-resources'
 import { Construct } from 'constructs'
 
-import { IEbsStack } from './EbsStack'
 import { ILoadBalancerStack } from './LoadBalancerStack'
 
 interface EcsStackProps extends StackProps {
   vpcId: string;
   roleArn: string;
-  ebsStack: IEbsStack;
   lbStack: ILoadBalancerStack;
 }
 
@@ -48,8 +46,6 @@ interface EcsStackProps extends StackProps {
  * Zone as the EBS volume for data persistence.
  */
 export class EcsStack extends Stack {
-  private ebsStack: IEbsStack
-
   private vpc!: ec2.IVpc
 
   private role!: iam.IRole
@@ -82,9 +78,7 @@ export class EcsStack extends Stack {
 
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
-    const { vpcId, ebsStack } = props
-
-    this.ebsStack = ebsStack
+    const { vpcId } = props
     this.initializeBaseResources(vpcId)
     this.addSecurityGroupRules()
     this.addOutputs()
@@ -147,12 +141,14 @@ export class EcsStack extends Stack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
+  // Import the stable exported RDF4J volume ID instead of creating an implicit cross-stack reference.
   private getEbsVolumeId(): string {
-    return this.ebsStack.volume.volumeId
+    return Fn.importValue('rdf4jVolumeId')
   }
 
+  // Import the stable exported RDF4J volume AZ instead of creating an implicit cross-stack reference.
   private getEbsVolumeAz(): string {
-    return this.ebsStack.volume.availabilityZone
+    return Fn.importValue('rdf4jVolumeAz')
   }
 
   private getRole(): iam.IRole {

@@ -200,6 +200,9 @@ Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_EBS_VOLUME_ID` is set, CDK will import and use that existing restored `vol-...`
   directly instead of creating a new volume.
+- When `bamboo_EBS_VOLUME_ID` is set, `deploy-bamboo.sh` first deploys `rdf4jEcsStack` and
+  `rdf4jSnapshotStack` exclusively so they stop depending on the legacy implicit volume export
+  before `rdf4jEbsStack` is updated.
 - If `bamboo_EBS_VOLUME_ID` is not set, CDK will create a new blank RDF4J EBS volume.
 
 #### Deploy KMS Application

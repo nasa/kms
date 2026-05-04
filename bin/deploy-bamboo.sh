@@ -82,6 +82,16 @@ dockerRun() {
 # Execute deployment commands in Docker
 #######################################
 
+# When we switch RDF4J to a restored existing vol-..., CloudFormation treats the old generated
+# EbsStack volume reference as an export replacement. If rdf4jEcsStack and rdf4jSnapshotStack are
+# still importing that old implicit export, rdf4jEbsStack rolls back because exports in use cannot
+# be deleted. Deploy the consumer stacks first so they move to the stable rdf4jVolumeId /
+# rdf4jVolumeAz exports before the producer stack is updated.
+if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
+  echo 'Migrating RDF4J consumer stacks to stable volume exports...'
+  dockerRun bash -lc 'cd /build/cdk && npm ci --include=dev && npx cdk deploy rdf4jEcsStack rdf4jSnapshotStack --exclusively --progress events --require-approval never'
+fi
+
 # Deploy to AWS
 echo 'Deploying to AWS Resources...'
 dockerRun npm run deploy-application

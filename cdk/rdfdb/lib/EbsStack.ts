@@ -21,7 +21,7 @@ interface EbsStackProps extends StackProps {
  * size, IOPS, and throughput settings.
  *
  * @property {ec2.IVpc} vpc - The VPC in which the EBS volume will be created.
- * @property {ec2.Volume} volume - The EBS volume created by this stack.
+ * @property {ec2.IVolume} volume - The RDF4J EBS volume, whether CDK created it or imported it.
  *
  * @example
  * const app = new cdk.App();
@@ -33,12 +33,14 @@ interface EbsStackProps extends StackProps {
 
 export interface IEbsStack {
   readonly vpc: ec2.IVpc;
+  // Use IVolume because this stack may either create a new ec2.Volume or import an existing one.
   readonly volume: ec2.IVolume;
 }
 
 export class EbsStack extends Stack implements IEbsStack {
   public readonly vpc: ec2.IVpc
 
+  // Keep the public type broad so downstream stacks can work with either created or imported volumes.
   public readonly volume: ec2.IVolume
 
   private readonly existingVolumeId?: string
