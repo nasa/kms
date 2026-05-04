@@ -188,6 +188,8 @@ export bamboo_CMR_BASE_URL=[cmr base url]
 export bamboo_CORS_ORIGIN=[comma separated list of cors origins]
 export bamboo_RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
+export bamboo_EBS_VOLUME_SIZE=[optional volume size in GiB for a new blank RDF4J volume]
+export bamboo_EBS_SNAPSHOT_ID=[optional snapshot id when restoring the RDF4J volume from backup]
 export bamboo_RDF_BUCKET_NAME=[name of bucket for storing archived versions]
 export bamboo_EXISTING_API_ID=[api id if deploying this into an existing api gateway]
 export bamboo_ROOT_RESOURCE_ID=[see CDK_MIGRATION.md for how to determine]
@@ -197,6 +199,8 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
 Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
+- If `bamboo_EBS_SNAPSHOT_ID` is set, CDK will create the RDF4J EBS volume from that snapshot and
+  use the snapshot's size unless `bamboo_EBS_VOLUME_SIZE` is also provided.
 
 #### Deploy KMS Application
 ```

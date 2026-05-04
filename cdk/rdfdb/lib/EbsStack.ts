@@ -40,11 +40,14 @@ export class EbsStack extends Stack implements IEbsStack {
 
   public readonly volume: ec2.Volume
 
+  private readonly snapshotId?: string
+
   constructor(scope: Construct, id: string, props: EbsStackProps) {
     super(scope, id, props)
     const { vpcId } = props
 
     this.vpc = this.getVpc(vpcId)
+    this.snapshotId = this.getSnapshotId()
     this.volume = this.createEbsVolume()
 
     this.createOutputs()
@@ -54,10 +57,42 @@ export class EbsStack extends Stack implements IEbsStack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
+  // Use the first VPC availability zone for the RDF4J EBS volume.
+  private getAvailabilityZone(): string {
+    const [defaultAvailabilityZone] = this.vpc.availabilityZones
+
+    if (!defaultAvailabilityZone) {
+      throw new Error('Could not determine an availability zone for the RDF4J EBS volume')
+    }
+
+    return defaultAvailabilityZone
+  }
+
+  // Return the restored EBS snapshot ID when we are rebuilding the volume from backup.
+  private getSnapshotId(): string | undefined {
+    return process.env.EBS_SNAPSHOT_ID?.trim() || undefined
+  }
+
+  // Parse the configured EBS volume size and preserve the current 32 GiB default for blank volumes.
+  private getVolumeSize(snapshotId?: string): Size | undefined {
+    const configuredVolumeSize = process.env.EBS_VOLUME_SIZE?.trim()
+
+    if (configuredVolumeSize) {
+      return Size.gibibytes(parseInt(configuredVolumeSize, 10))
+    }
+
+    if (snapshotId) {
+      return undefined
+    }
+
+    return Size.gibibytes(32)
+  }
+
   private createEbsVolume(): ec2.Volume {
     return new ec2.Volume(this, 'rdf4jVolume', {
-      availabilityZone: 'us-east-1a',
-      size: Size.gibibytes(parseInt(process.env.EBS_VOLUME_SIZE || '32', 10)),
+      availabilityZone: this.getAvailabilityZone(),
+      size: this.getVolumeSize(this.snapshotId),
+      snapshotId: this.snapshotId,
       volumeType: ec2.EbsDeviceVolumeType.GP3,
       iops: 3000,
       throughput: 125,
@@ -78,5 +113,13 @@ export class EbsStack extends Stack implements IEbsStack {
       value: this.volume.availabilityZone,
       exportName: 'rdf4jVolumeAz'
     })
+
+    if (this.snapshotId) {
+      // eslint-disable-next-line no-new
+      new CfnOutput(this, 'SourceSnapshotId', {
+        value: this.snapshotId,
+        description: 'Snapshot used to restore the RDF4J EBS volume'
+      })
+    }
   }
 }
