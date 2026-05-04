@@ -14,6 +14,7 @@ export interface ISnapshotStack {
 
 interface SnapshotStackProps extends StackProps {
   ebsVolumeId?: string;
+  configuredVolumeId?: string;
 }
 
 /**
@@ -37,10 +38,10 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
    */
   constructor(scope: Construct, id: string, props: SnapshotStackProps) {
     super(scope, id, props)
-    const ebsVolumeId = process.env.EBS_VOLUME_ID?.trim() || props.ebsVolumeId
+    const ebsVolumeId = props.configuredVolumeId || props.ebsVolumeId
 
     if (!ebsVolumeId) {
-      throw new Error('SnapshotStack requires either EBS_VOLUME_ID or ebsVolumeId')
+      throw new Error('SnapshotStack requires either configuredVolumeId or ebsVolumeId')
     }
 
     // Get the cron expression from environment variable or use a default

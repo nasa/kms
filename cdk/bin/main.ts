@@ -124,6 +124,7 @@ async function main() {
       vpcId,
       roleArn: iamStack.role.roleArn,
       ebsStack,
+      configuredVolumeId: configuredEbsVolumeId,
       lbStack,
       stackName: 'rdf4jEcsStack'
     })
@@ -132,6 +133,7 @@ async function main() {
     snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
       env,
       ebsVolumeId: ebsStack?.volume.volumeId,
+      configuredVolumeId: configuredEbsVolumeId,
       stackName: 'rdf4jSnapshotStack'
     })
 

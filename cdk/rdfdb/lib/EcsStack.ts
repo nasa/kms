@@ -25,6 +25,7 @@ interface EcsStackProps extends StackProps {
   vpcId: string;
   roleArn: string;
   ebsStack?: IEbsStack;
+  configuredVolumeId?: string;
   lbStack: ILoadBalancerStack;
 }
 
@@ -86,8 +87,13 @@ export class EcsStack extends Stack {
 
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
-    const { vpcId, ebsStack } = props
+    const {
+      vpcId,
+      ebsStack,
+      configuredVolumeId
+    } = props
     this.ebsStack = ebsStack
+    this.configuredVolumeId = configuredVolumeId
     this.initializeBaseResources(vpcId)
     this.addSecurityGroupRules()
     this.addOutputs()
@@ -96,7 +102,6 @@ export class EcsStack extends Stack {
   private initializeBaseResources(vpcId: string): void {
     this.vpc = this.getVpc(vpcId)
     this.role = this.getRole()
-    this.configuredVolumeId = this.getConfiguredVolumeId()
 
     if (this.configuredVolumeId) {
       this.primarySubnet = this.getPrimarySubnet()
@@ -154,11 +159,6 @@ export class EcsStack extends Stack {
 
   private getVpc(vpcId: string): ec2.IVpc {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
-  }
-
-  // Use a restored existing volume when one is configured for this deploy.
-  private getConfiguredVolumeId(): string | undefined {
-    return process.env.EBS_VOLUME_ID?.trim() || undefined
   }
 
   // Import the Bamboo-selected subnet when we need to force RDF4J into the same AZ as a restored volume.
