@@ -208,100 +208,77 @@ Notes:
 ./bin/deploy-bamboo.sh
 ```
 
-### Restore RDF4J EBS Volume From AWS Backup
-Use this flow when the RDF4J EBS volume has been deleted and you need a replacement `vol-...` for
-`bamboo_EBS_VOLUME_ID`.
+### Recover a Deleted RDF4J EBS Volume
+Use this flow when the RDF4J EBS volume has been deleted and you need to restore a replacement
+`vol-...` and redeploy KMS against it.
 
-Set your AWS context first:
+1. Set your AWS restore context:
+   ```bash
+   export AWS_PROFILE=[your aws profile]
+   export AWS_REGION=${bamboo_AWS_REGION:-us-east-1}
+   export VAULT_NAME=rdf4j-backup-vault
+   export RESTORE_AZ=us-east-1a
+   ```
 
-```bash
-export AWS_PROFILE=[your aws profile]
-export AWS_REGION=${bamboo_AWS_REGION:-us-east-1}
-export VAULT_NAME=rdf4j-backup-vault
-export RESTORE_AZ=us-east-1a
-```
+2. List the available EBS recovery points in the backup vault:
+   ```bash
+   aws backup list-recovery-points-by-backup-vault \
+     --backup-vault-name "$VAULT_NAME" \
+     --by-resource-type EBS \
+     --query 'sort_by(RecoveryPoints,&CreationDate)[].{Created:CreationDate,RecoveryPointArn:RecoveryPointArn,Status:Status,SourceVolumeArn:ResourceArn}' \
+     --output table
+   ```
 
-Use `us-east-1a` for the restored RDF4J volume.
+3. Capture the latest recovery point ARN and extract the snapshot ID:
+   ```bash
+   RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
+     --backup-vault-name "$VAULT_NAME" \
+     --by-resource-type EBS \
+     --query 'sort_by(RecoveryPoints,&CreationDate)[-1].RecoveryPointArn' \
+     --output text)
 
-List the available EBS recovery points in the backup vault:
+   SNAPSHOT_ID=$(echo "$RECOVERY_POINT_ARN" | awk -F'/' '{print $2}')
 
-```bash
-aws backup list-recovery-points-by-backup-vault \
-  --backup-vault-name "$VAULT_NAME" \
-  --by-resource-type EBS \
-  --query 'sort_by(RecoveryPoints,&CreationDate)[].{Created:CreationDate,RecoveryPointArn:RecoveryPointArn,Status:Status,SourceVolumeArn:ResourceArn}' \
-  --output table
-```
+   echo "Recovery Point ARN: $RECOVERY_POINT_ARN"
+   echo "Snapshot ID: $SNAPSHOT_ID"
+   ```
 
-Capture the latest recovery point ARN:
+4. Restore the snapshot directly to a new EBS volume in `us-east-1a`:
+   ```bash
+   VOLUME_ID=$(aws ec2 create-volume \
+     --availability-zone "$RESTORE_AZ" \
+     --snapshot-id "$SNAPSHOT_ID" \
+     --volume-type gp3 \
+     --region "$AWS_REGION" \
+     --query 'VolumeId' \
+     --output text)
 
-```bash
-RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
-  --backup-vault-name "$VAULT_NAME" \
-  --by-resource-type EBS \
-  --query 'sort_by(RecoveryPoints,&CreationDate)[-1].RecoveryPointArn' \
-  --output text)
+   echo "New Volume ID: $VOLUME_ID"
+   ```
 
-echo "$RECOVERY_POINT_ARN"
-```
+5. Verify the new volume is available:
+   ```bash
+   aws ec2 describe-volumes \
+     --volume-ids "$VOLUME_ID" \
+     --region "$AWS_REGION" \
+     --query 'Volumes[0].State' \
+     --output text
+   ```
 
-Extract the snapshot ID from the ARN:
+6. If the deploy is blocked by a CloudFormation rollback loop because the original volume was deleted outside CDK, clean up the old RDF4J stack state before redeploying:
+   In the AWS CloudFormation console, in the correct region, delete only `rdf4jEcsStack` and `rdf4jEbsStack`.
+   CLI alternative:
+   ```bash
+   cd cdk
+   npx aws-cdk@latest destroy --exclusively -f rdf4jEcsStack rdf4jEbsStack
+   cd ..
+   ```
 
-```bash
-SNAPSHOT_ID=$(echo "$RECOVERY_POINT_ARN" | awk -F'/' '{print $2}')
-echo "Snapshot ID: $SNAPSHOT_ID"
-```
-
-Restore the snapshot directly to a new EBS volume:
-
-```bash
-VOLUME_ID=$(aws ec2 create-volume \
-  --availability-zone "$RESTORE_AZ" \
-  --snapshot-id "$SNAPSHOT_ID" \
-  --volume-type gp3 \
-  --region "$AWS_REGION" \
-  --query 'VolumeId' \
-  --output text)
-
-echo "New Volume ID: $VOLUME_ID"
-```
-
-Verify the volume is available:
-
-```bash
-aws ec2 describe-volumes \
-  --volume-ids "$VOLUME_ID" \
-  --region "$AWS_REGION" \
-  --query 'Volumes[0].State' \
-  --output text
-```
+7. Deploy via Bamboo with the updated `bamboo_EBS_VOLUME_ID` set to the restored volume id.
 
 Notes:
 - The EC2 `create-volume` command creates the new EBS volume immediately.
 - `VOLUME_ID` is the restored `vol-...` identifier to pass in as `bamboo_EBS_VOLUME_ID`.
 - `RESTORE_AZ` should stay aligned with the RDF4J subnet/AZ used by this deployment flow.
 - `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
-
-### Handling CloudFormation Rollback Loops during Restore
-
-If the original EBS volume was deleted manually outside of CDK, CloudFormation might get stuck in an `UPDATE_ROLLBACK_FAILED` loop trying to attach the missing volume. To fix this, you must clean the stack state before deploying the restored volume:
-
-1. **Untangle Stack Dependencies (Temporarily):**
-   In `cdk/bin/main.ts`, comment out the line that links the API to ECS:
-   `// kmsStack.addDependency(ecsStack)`
-
-2. **Destroy the Corrupted State:**
-   ```bash
-   cd cdk
-   npx aws-cdk@latest destroy rdf4jEcsStack rdf4jEbsStack
-   ```
-
-3. **Re-tangle the Stacks:**
-   Uncomment `kmsStack.addDependency(ecsStack)` in `cdk/bin/main.ts`.
-
-4. **Deploy with the Restored Volume:**
-   Provide your newly created volume ID and deploy:
-   ```bash
-   export bamboo_EBS_VOLUME_ID="vol-..."
-   ./bin/deploy-bamboo.sh
-   ```
+- Step 6 is a fallback for a wedged deployment, not a required part of every restore.
