@@ -232,7 +232,7 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 Notes:
 
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
-- If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault.
+- If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault. This is useful when `rdf4jSnapshotStack` is being recreated after an RDF4J recovery event and you need the new stack to reuse an existing vault instead of trying to create the same vault name again.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is not set, `SnapshotStack` creates the default `rdf4j-backup-vault`.
 
 #### Deploy KMS Application
@@ -277,7 +277,7 @@ If you need to create that restored volume later, use this flow:
    ```bash
    export AWS_PROFILE=[your aws profile]
    export AWS_REGION=${AWS_REGION:-us-east-1}
-   export VAULT_NAME=rdf4j-backup-vault
+   export VAULT_NAME=${bamboo_RDF4J_BACKUP_VAULT_NAME:-rdf4j-backup-vault}
 
    # Dynamically find the running instance ID and its Availability Zone
    export INSTANCE_ID=$(aws ec2 describe-instances --region "$AWS_REGION" --filters "Name=tag:aws:autoscaling:groupName,Values=*rdf4jAutoScalingGroup*" "Name=instance-state-name,Values=running" --query 'Reservations[*].Instances[*].InstanceId' --output text)
@@ -311,7 +311,7 @@ If you need to create that restored volume later, use this flow:
    echo "Snapshot ID: $SNAPSHOT_ID"
    ```
 
-4. Restore the snapshot to a new EBS volume in `us-east-1a`:
+4. Restore the snapshot to a new EBS volume in `$RESTORE_AZ`:
 
    ```bash
    VOLUME_ID=$(aws ec2 create-volume \

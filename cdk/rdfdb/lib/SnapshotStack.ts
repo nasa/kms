@@ -44,8 +44,9 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
     // Get the cron expression from environment variable or use a default
     const cronExpression = process.env.SNAPSHOT_CRON_EXPRESSION_UTC || '0 5 * * ? *' // Midnight EST
 
-    // Import an existing vault when one is explicitly configured; otherwise create the
-    // default RDF4J vault for this environment.
+    // If rdf4jSnapshotStack has to be recreated after an RDF4J recovery event, this env var
+    // lets the new stack bind to an existing vault instead of trying to recreate a vault with
+    // the same name and hitting a name collision. Otherwise, create the default RDF4J vault.
     this.backupVault = configuredBackupVaultName
       ? backup.BackupVault.fromBackupVaultName(
         this,
