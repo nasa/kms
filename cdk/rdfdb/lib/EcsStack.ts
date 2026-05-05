@@ -205,13 +205,15 @@ export class EcsStack extends Stack {
     const { ebsVolumeId } = this
 
     const userData = ec2.UserData.forLinux()
+    const skipFormat = process.env.EBS_VOLUME_ID?.trim() ? 'true' : 'false'
 
     // Read the script from file
     const userDataScript = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'ebs-mount-script.sh'), 'utf8')
 
-    // Replace the placeholder with the actual EBS volume ID
-    // eslint-disable-next-line no-template-curly-in-string
-    const scriptWithVolume = userDataScript.replace('${EBS_VOLUME_ID}', ebsVolumeId)
+    // Replace the placeholders with the actual EBS mount settings
+    const scriptWithVolume = userDataScript
+      .replace('__EBS_VOLUME_ID__', ebsVolumeId)
+      .replace('__SKIP_FORMAT__', skipFormat)
     userData.addCommands(scriptWithVolume)
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {

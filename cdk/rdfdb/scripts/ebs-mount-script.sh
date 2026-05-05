@@ -21,8 +21,9 @@ echo "Region: $REGION"
 # Set the AWS region
 export AWS_DEFAULT_REGION=$REGION
 
-# Get EBS volume ID (passed as an environment variable in user data)
-EBS_VOLUME_ID="${EBS_VOLUME_ID}"
+# Get EBS volume settings (replaced in user data before boot)
+EBS_VOLUME_ID="__EBS_VOLUME_ID__"
+SKIP_FORMAT="__SKIP_FORMAT__"
 echo "EBS Volume ID: $EBS_VOLUME_ID"
 
 # Attach the EBS volume if not already attached
@@ -48,8 +49,12 @@ lsblk
 
 # Check if the device is already formatted
 if ! blkid $DEVICE; then
-    echo "Formatting $DEVICE..."
-    mkfs -t ext4 $DEVICE
+    if [ "$SKIP_FORMAT" != "true" ]; then
+        echo "Formatting $DEVICE..."
+        mkfs -t ext4 $DEVICE
+    else
+        echo "Skipping format for restored volume $EBS_VOLUME_ID"
+    fi
 else
     echo "$DEVICE is already formatted"
 fi
