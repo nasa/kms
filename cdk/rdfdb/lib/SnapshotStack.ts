@@ -45,7 +45,7 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
 
     // Create a backup vault
     // Import the original vault since it cannot be deleted and already contains our backups
-    this.backupVault = backup.BackupVault.fromBackupVaultName(this, 'ImportedRDF4JBackupVault', 'rdf4j-backup-vault') as backup.BackupVault;
+    this.backupVault = backup.BackupVault.fromBackupVaultName(this, 'ImportedRDF4JBackupVault', 'rdf4j-backup-vault') as backup.BackupVault
 
     // Create a backup plan
     this.backupPlan = new backup.BackupPlan(this, 'RDF4JBackupPlan', {

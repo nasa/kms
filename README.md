@@ -216,9 +216,9 @@ Use this flow when the RDF4J EBS volume has been deleted and you need to restore
    ```bash
    export AWS_PROFILE=[your aws profile]
    export AWS_REGION=${bamboo_AWS_REGION:-us-east-1}
-   # Find the latest Backup Vault automatically (CDK auto-generates names)
-export VAULT_NAME=$(aws backup list-backup-vaults --query 'sort_by(BackupVaultList, &CreationDate)[-1].BackupVaultName' --output text)
-echo "Using Vault: $VAULT_NAME"
+   # Reuse the original retained RDF4J backup vault to avoid name collisions on rebuilds
+   export VAULT_NAME=rdf4j-backup-vault
+   echo "Using Vault: $VAULT_NAME"
    export RESTORE_AZ=us-east-1a
    ```
 
