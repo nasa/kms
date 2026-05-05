@@ -20,7 +20,7 @@ interface EbsStackProps extends StackProps {
  * size, IOPS, and throughput settings.
  *
  * @property {ec2.IVpc} vpc - The VPC in which the EBS volume will be created.
- * @property {ec2.Volume} volume - The RDF4J EBS volume created and managed by this stack.
+ * @property {ec2.Volume} volume - The EBS volume created by this stack.
  *
  * @example
  * const app = new cdk.App();
@@ -54,21 +54,10 @@ export class EbsStack extends Stack implements IEbsStack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  // Preserve the main-branch RDF4J volume placement for deploys that do not use a restored volume.
-  private getAvailabilityZone(): string {
-    return 'us-east-1a'
-  }
-
-  // Preserve the current 32 GiB default when CDK needs to create a new blank volume.
-  private getVolumeSize(): Size {
-    return Size.gibibytes(32)
-  }
-
-  // Create the default RDF4J EBS volume managed by CDK.
   private createEbsVolume(): ec2.Volume {
     return new ec2.Volume(this, 'rdf4jVolume', {
-      availabilityZone: this.getAvailabilityZone(),
-      size: this.getVolumeSize(),
+      availabilityZone: 'us-east-1a',
+      size: Size.gibibytes(parseInt(process.env.EBS_VOLUME_SIZE || '32', 10)),
       volumeType: ec2.EbsDeviceVolumeType.GP3,
       iops: 3000,
       throughput: 125,

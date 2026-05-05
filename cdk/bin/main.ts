@@ -110,7 +110,6 @@ async function main() {
     })
 
     if (!configuredEbsVolumeId) {
-      // Create the default RDF4J EBS Stack only when a restored volume override is not provided.
       ebsStack = new EbsStack(app, 'rdf4jEbsStack', {
         env,
         vpcId,
@@ -124,7 +123,6 @@ async function main() {
       vpcId,
       roleArn: iamStack.role.roleArn,
       ebsStack,
-      configuredVolumeId: configuredEbsVolumeId,
       lbStack,
       stackName: 'rdf4jEcsStack'
     })
@@ -132,8 +130,7 @@ async function main() {
     // Create Snapshot Stack
     snapshotStack = new SnapshotStack(app, 'rdf4jSnapshotStack', {
       env,
-      ebsVolumeId: ebsStack?.volume.volumeId,
-      configuredVolumeId: configuredEbsVolumeId,
+      ebsVolumeId: configuredEbsVolumeId || ebsStack!.volume.volumeId,
       stackName: 'rdf4jSnapshotStack'
     })
 

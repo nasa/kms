@@ -82,16 +82,14 @@ dockerRun() {
 }
 
 awsWithBambooCreds() {
-  AWS_ACCESS_KEY_ID="$bamboo_AWS_ACCESS_KEY_ID" \
-  AWS_SECRET_ACCESS_KEY="$bamboo_AWS_SECRET_ACCESS_KEY" \
-  AWS_SESSION_TOKEN="$bamboo_AWS_SESSION_TOKEN" \
-  aws --region "$deploymentRegion" "$@"
+  AWS_ACCESS_KEY_ID="$bamboo_AWS_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$bamboo_AWS_SECRET_ACCESS_KEY" AWS_SESSION_TOKEN="$bamboo_AWS_SESSION_TOKEN" \
+    aws --region "$deploymentRegion" "$@"
 }
 
 # Execute deployment commands in Docker
 #######################################
 
-# When reusing a restored RDF4J volume, fail early unless it lives in the same AZ as SUBNET_ID_A.
+# When reusing a restored RDF4J volume, fail early unless it lives in the same AZ as SUBNET_ID_B.
 if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
   subnetAz=$(awsWithBambooCreds ec2 describe-subnets \
     --subnet-ids "$bamboo_SUBNET_ID_B" \

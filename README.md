@@ -133,38 +133,28 @@ To run the test suite, run:
 ```
 npm run test
 ```
-
 ## Setting up the RDF Database for local development
-
 In order to run KMS locally, you first need to setup a RDF database.
-
 ### Prerequisites
-
 RDF4J local defaults are in `bin/env/local_env.sh`.
 If needed, override per command (for example: `RDF4J_USER_NAME=... RDF4J_PASSWORD=... npm run rdf4j:setup`).
-
 ### Building and Running the RDF Database
-
 #### Build the docker image
 ```
 npm run rdf4j:build
 ```
-
 #### Create a docker network
 ```
 npm run rdf4j:create-network
 ```
-
 #### Run the docker image
 ```
 npm run rdf4j:start
 ```
-
 #### Pull latest concepts RDF files from CMR
 ```
 npm run rdf4j:pull
 ```
-
 #### Setup and load data into the RDF database
 ```
 npm run rdf4j:setup
@@ -176,11 +166,8 @@ npm run rdf4j:stop
 ```
 
 # Deployments
-
 ## Deploying KMS Application to AWS
-
 ### Prerequisites
-
 #### Copy your AWS credentials and set these up as env variables
 ```
 export RELEASE_VERSION=[app release version]
@@ -210,11 +197,9 @@ export bamboo_LOG_LEVEL=[INFO|DEBUG|WARN|ERROR]
 export bamboo_KMS_REDIS_ENABLED=[true|false]
 export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
-
 Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_EBS_VOLUME_ID` is set, RDF4J will attach and use that existing restored `vol-...`, and the default CDK-managed RDF4J EBS stack will be skipped for that deploy.
-- If `bamboo_EBS_VOLUME_ID` is not set, CDK will create a new blank RDF4J EBS volume.
 - When `bamboo_EBS_VOLUME_ID` is set, `deploy-bamboo.sh` fails early unless the restored volume is in the same availability zone as `bamboo_SUBNET_ID_B`.
 
 #### Deploy KMS Application
@@ -222,89 +207,5 @@ Notes:
 ./bin/deploy-bamboo.sh
 ```
 
-### Restore RDF4J EBS Volume From AWS Backup
-
-Use this flow when the RDF4J EBS volume has been deleted or needs to be recovered from the
-`rdf4j-backup-vault`.
-
-Set your AWS context first:
-
-```bash
-export AWS_PROFILE=[your aws profile]
-export AWS_REGION=${bamboo_AWS_REGION:-us-east-1}
-export VAULT_NAME=rdf4j-backup-vault
-```
-
-Derive the target availability zone from `bamboo_SUBNET_ID_B` so the restored volume can attach to
-the RDF4J EC2 instance launched in that subnet:
-
-```bash
-SUBNET_AZ=$(aws ec2 describe-subnets \
-  --subnet-ids "$bamboo_SUBNET_ID_B" \
-  --region "$AWS_REGION" \
-  --query 'Subnets[0].AvailabilityZone' \
-  --output text)
-
-echo "Subnet AZ: $SUBNET_AZ"
-```
-
-List the available EBS recovery points in the backup vault:
-
-```bash
-aws backup list-recovery-points-by-backup-vault \
-  --backup-vault-name "$VAULT_NAME" \
-  --by-resource-type EBS \
-  --query 'sort_by(RecoveryPoints,&CreationDate)[].{Created:CreationDate,RecoveryPointArn:RecoveryPointArn,Status:Status,SourceVolumeArn:ResourceArn}' \
-  --output table
-```
-
-Capture the latest recovery point ARN:
-
-```bash
-RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
-  --backup-vault-name "$VAULT_NAME" \
-  --by-resource-type EBS \
-  --query 'sort_by(RecoveryPoints,&CreationDate)[-1].RecoveryPointArn' \
-  --output text)
-
-echo "$RECOVERY_POINT_ARN"
-```
-
-Extract the snapshot ID from the ARN:
-
-```bash
-SNAPSHOT_ID=$(echo "$RECOVERY_POINT_ARN" | awk -F'/' '{print $2}')
-echo "Snapshot ID: $SNAPSHOT_ID"
-```
-
-Restore the snapshot directly to a new EBS volume:
-
-```bash
-VOLUME_ID=$(aws ec2 create-volume \
-  --availability-zone "$SUBNET_AZ" \
-  --snapshot-id "$SNAPSHOT_ID" \
-  --volume-type "gp3" \
-  --region "$AWS_REGION" \
-  --query 'VolumeId' \
-  --output text)
-
-echo "New Volume ID: $VOLUME_ID"
-```
-
-Verify the volume is available:
-
-```bash
-aws ec2 describe-volumes \
-  --volume-ids "$VOLUME_ID" \
-  --region "$AWS_REGION" \
-  --query 'Volumes[0].State' \
-  --output text
-```
-
-Notes:
-
-- The EC2 `create-volume` command creates the new EBS volume instantly.
-- `VOLUME_ID` is the new `vol-...` identifier for the restored volume.
-- `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
-- If you want KMS to attach the restored volume directly, provide that `vol-...` value to
-  `bamboo_EBS_VOLUME_ID` before deploying.
+If the RDF4J EBS volume has been deleted, restore or create a replacement `vol-...` in the same
+availability zone as `bamboo_SUBNET_ID_B`, then pass that value in `bamboo_EBS_VOLUME_ID`.

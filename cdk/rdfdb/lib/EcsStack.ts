@@ -25,7 +25,6 @@ interface EcsStackProps extends StackProps {
   vpcId: string;
   roleArn: string;
   ebsStack?: IEbsStack;
-  configuredVolumeId?: string;
   lbStack: ILoadBalancerStack;
 }
 
@@ -81,19 +80,12 @@ export class EcsStack extends Stack {
 
   private capacityProvider!: ecs.AsgCapacityProvider
 
-  private primarySubnet!: ec2.ISubnet
-
-  private configuredVolumeId?: string
+  private rdf4jSubnets!: ec2.SubnetSelection
 
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
-    const {
-      vpcId,
-      ebsStack,
-      configuredVolumeId
-    } = props
+    const { vpcId, ebsStack } = props
     this.ebsStack = ebsStack
-    this.configuredVolumeId = configuredVolumeId
     this.initializeBaseResources(vpcId)
     this.addSecurityGroupRules()
     this.addOutputs()
@@ -104,10 +96,22 @@ export class EcsStack extends Stack {
     this.role = this.getRole()
     this.ebsVolumeId = this.getEbsVolumeId()
 
-    if (this.configuredVolumeId) {
-      this.primarySubnet = this.getPrimarySubnet()
+    if (process.env.EBS_VOLUME_ID?.trim()) {
+      const primarySubnetId = process.env.SUBNET_ID_B
+
+      if (!primarySubnetId) {
+        throw new Error('SUBNET_ID_B environment variable is required for RDF4J deployment')
+      }
+
+      this.rdf4jSubnets = {
+        subnets: [ec2.Subnet.fromSubnetId(this, 'PrimaryRdf4jSubnet', primarySubnetId)]
+      }
     } else {
       this.ebsVolumeAz = this.getEbsVolumeAz()
+      this.rdf4jSubnets = {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        availabilityZones: [this.ebsVolumeAz]
+      }
     }
 
     this.createSecurityGroups()
@@ -161,21 +165,11 @@ export class EcsStack extends Stack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  // Import the Bamboo-selected subnet when we need to force RDF4J into the same AZ as a restored volume.
-  private getPrimarySubnet(): ec2.ISubnet {
-    const primarySubnetId = process.env.SUBNET_ID_B
-
-    if (!primarySubnetId) {
-      throw new Error('SUBNET_ID_A environment variable is required for RDF4J deployment')
-    }
-
-    return ec2.Subnet.fromSubnetId(this, 'PrimaryRdf4jSubnet', primarySubnetId)
-  }
-
-  // Prefer the restored existing volume ID when provided, otherwise use the CDK-managed volume.
   private getEbsVolumeId(): string {
-    if (this.configuredVolumeId) {
-      return this.configuredVolumeId
+    const configuredVolumeId = process.env.EBS_VOLUME_ID?.trim()
+
+    if (configuredVolumeId) {
+      return configuredVolumeId
     }
 
     if (!this.ebsStack) {
@@ -185,7 +179,6 @@ export class EcsStack extends Stack {
     return this.ebsStack.volume.volumeId
   }
 
-  // Keep using the CDK-managed volume AZ for the normal no-override deployment path.
   private getEbsVolumeAz(): string {
     if (!this.ebsStack) {
       throw new Error('EbsStack is required when EBS_VOLUME_ID is not provided')
@@ -208,20 +201,6 @@ export class EcsStack extends Stack {
     )
   }
 
-  // Use the Bamboo-selected subnet only when a restored volume override is configured.
-  private getRdf4jSubnets(): ec2.SubnetSelection {
-    if (this.configuredVolumeId) {
-      return {
-        subnets: [this.primarySubnet]
-      }
-    }
-
-    return {
-      subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      availabilityZones: [this.ebsVolumeAz]
-    }
-  }
-
   private createEcsCluster(): ecs.Cluster {
     const { ebsVolumeId } = this
 
@@ -241,7 +220,7 @@ export class EcsStack extends Stack {
       minCapacity: 1,
       maxCapacity: 1,
       vpc: this.vpc,
-      vpcSubnets: this.getRdf4jSubnets(),
+      vpcSubnets: this.rdf4jSubnets,
       userData,
       role: this.role
     })
@@ -313,7 +292,7 @@ export class EcsStack extends Stack {
       enableExecuteCommand: true,
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
-      vpcSubnets: this.getRdf4jSubnets(),
+      vpcSubnets: this.rdf4jSubnets,
       capacityProviderStrategies: [
         {
           capacityProvider: this.capacityProvider.capacityProviderName,
