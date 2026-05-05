@@ -68,6 +68,7 @@ dockerRun() {
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
         --env "RDF4J_INSTANCE_TYPE=$bamboo_RDF4J_INSTANCE_TYPE" \
         --env "RDF4J_CONTAINER_MEMORY_LIMIT=$bamboo_RDF4J_CONTAINER_MEMORY_LIMIT" \
+        --env "RDF4J_BACKUP_VAULT_NAME=${bamboo_RDF4J_BACKUP_VAULT_NAME:-}" \
         --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
         --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
         --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \

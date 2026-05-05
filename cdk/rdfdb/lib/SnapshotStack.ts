@@ -39,13 +39,22 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
     super(scope, id, props)
 
     const { ebsVolumeId } = props
+    const configuredBackupVaultName = process.env.RDF4J_BACKUP_VAULT_NAME?.trim()
 
     // Get the cron expression from environment variable or use a default
     const cronExpression = process.env.SNAPSHOT_CRON_EXPRESSION_UTC || '0 5 * * ? *' // Midnight EST
 
-    // Create a backup vault
-    // Import the original vault since it cannot be deleted and already contains our backups
-    this.backupVault = backup.BackupVault.fromBackupVaultName(this, 'ImportedRDF4JBackupVault', 'rdf4j-backup-vault') as backup.BackupVault
+    // Import an existing vault when one is explicitly configured; otherwise create the
+    // default RDF4J vault for this environment.
+    this.backupVault = configuredBackupVaultName
+      ? backup.BackupVault.fromBackupVaultName(
+        this,
+        'ImportedRDF4JBackupVault',
+        configuredBackupVaultName
+      ) as backup.BackupVault
+      : new backup.BackupVault(this, 'RDF4JBackupVault', {
+        backupVaultName: 'rdf4j-backup-vault'
+      })
 
     // Create a backup plan
     this.backupPlan = new backup.BackupPlan(this, 'RDF4JBackupPlan', {
