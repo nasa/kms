@@ -267,16 +267,21 @@ echo "Using Vault: $VAULT_NAME"
      --output text
    ```
 
-6. Delete `rdf4jEcsStack`, `rdf4jEbsStack`, and `rdf4jSnapshotStack` before redeploying, because they still reference the deleted original RDF4J volume:
+6. Scale the RDF4J Auto Scaling Group down to `0` before deleting the stacks, so the running EC2 instance and ECS capacity do not block stack deletion:
+   ```bash
+   ./bin/scale_asg_down.sh
+   ```
+
+7. Delete `rdf4jEcsStack`, `rdf4jEbsStack`, and `rdf4jSnapshotStack` before redeploying, because they still reference the deleted original RDF4J volume:
    In the AWS CloudFormation console, in the correct region, delete `rdf4jEcsStack`, `rdf4jEbsStack`, and `rdf4jSnapshotStack`.
-   CLI alternative:
+   CLI alternative using CDK `destroy --exclusively` so only these RDF4J stacks are removed:
    ```bash
    cd cdk
    npx aws-cdk@latest destroy --exclusively -f rdf4jEcsStack rdf4jEbsStack rdf4jSnapshotStack
    cd ..
    ```
 
-7. Deploy via Bamboo with the updated `bamboo_EBS_VOLUME_ID` set to the restored volume id.
+8. Deploy via Bamboo with the updated `bamboo_EBS_VOLUME_ID` set to the restored volume id.
 
 Notes:
 - The EC2 `create-volume` command creates the new EBS volume immediately.
