@@ -267,7 +267,7 @@ echo "Using Vault: $VAULT_NAME"
      --output text
    ```
 
-6. To avoid CloudFormation rollback traps from the deleted original volume, clean up the old RDF4J stack state before redeploying:
+6. Delete `rdf4jEcsStack`, `rdf4jEbsStack`, and `rdf4jSnapshotStack` before redeploying, because they still reference the deleted original RDF4J volume:
    In the AWS CloudFormation console, in the correct region, delete `rdf4jEcsStack`, `rdf4jEbsStack`, and `rdf4jSnapshotStack`.
    CLI alternative:
    ```bash
@@ -283,9 +283,6 @@ Notes:
 - `VOLUME_ID` is the restored `vol-...` identifier to pass in as `bamboo_EBS_VOLUME_ID`.
 - `RESTORE_AZ` should stay aligned with the RDF4J subnet/AZ used by this deployment flow.
 - `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
-- You can try a direct redeploy without step 6, but if the update fails, CloudFormation can roll back to the deleted old volume id and get stuck again.
-
-
 ### Troubleshooting: RDF4J 500 Errors After Restore
 
 If the deployment succeeds but your API returns `500 Unable to get statements` or `SailException` errors, the AWS Backup snapshot likely captured the database in a "dirty" state (mid-transaction).
