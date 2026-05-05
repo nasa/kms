@@ -201,7 +201,7 @@ Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_EBS_VOLUME_ID` is set, RDF4J will attach and use that existing restored `vol-...`, and the default CDK-managed RDF4J EBS stack will be skipped for that deploy.
 - If `bamboo_EBS_VOLUME_ID` is not set, CDK will create a new blank RDF4J EBS volume.
-- When `bamboo_EBS_VOLUME_ID` is set, `deploy-bamboo.sh` fails early unless the restored volume is in the same availability zone as `bamboo_SUBNET_ID_B`.
+- When `bamboo_EBS_VOLUME_ID` is set, `deploy-bamboo.sh` fails early unless both `bamboo_SUBNET_ID_B` and the restored volume are in `us-east-1a`.
 
 #### Deploy KMS Application
 ```
@@ -287,7 +287,7 @@ Notes:
 - The EC2 `create-volume` command creates the new EBS volume immediately.
 - `VOLUME_ID` is the restored `vol-...` identifier to pass in as `bamboo_EBS_VOLUME_ID`.
 - `RESTORE_AZ` should stay aligned with the RDF4J subnet/AZ used by this deployment flow.
-- `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
+- `deploy-bamboo.sh` fails early unless both `bamboo_SUBNET_ID_B` and `bamboo_EBS_VOLUME_ID` are in `us-east-1a`.
 ### Troubleshooting: RDF4J 500 Errors After Restore
 
 If the deployment succeeds but your API returns `500 Unable to get statements` or `SailException` errors, the AWS Backup snapshot likely captured the database in a "dirty" state (mid-transaction).

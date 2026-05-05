@@ -43,6 +43,7 @@ EOF
 dockerTag=kms-$bamboo_STAGE_NAME
 stageOpts="--stage $bamboo_STAGE_NAME "
 deploymentRegion="${bamboo_AWS_REGION:-${AWS_REGION:-us-east-1}}"
+rdf4jRestoreAz="us-east-1a"
 
 docker build -t $dockerTag .
 
@@ -89,7 +90,8 @@ awsWithBambooCreds() {
 # Execute deployment commands in Docker
 #######################################
 
-# When reusing a restored RDF4J volume, fail early unless it lives in the same AZ as SUBNET_ID_B.
+# When reusing a restored RDF4J volume, fail early unless both SUBNET_ID_B and the
+# restored volume are in the RDF4J restore AZ.
 if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
   subnetAz=$(awsWithBambooCreds ec2 describe-subnets \
     --subnet-ids "$bamboo_SUBNET_ID_B" \
@@ -101,8 +103,13 @@ if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
     --query 'Volumes[0].AvailabilityZone' \
     --output text)
 
-  if [[ "$subnetAz" != "$volumeAz" ]]; then
-    echo "Refusing deploy: SUBNET_ID_B ($bamboo_SUBNET_ID_B) is in $subnetAz but EBS_VOLUME_ID ($bamboo_EBS_VOLUME_ID) is in $volumeAz."
+  if [[ "$subnetAz" != "$rdf4jRestoreAz" ]]; then
+    echo "Refusing deploy: SUBNET_ID_B ($bamboo_SUBNET_ID_B) must be in $rdf4jRestoreAz but is in $subnetAz."
+    exit 1
+  fi
+
+  if [[ "$volumeAz" != "$rdf4jRestoreAz" ]]; then
+    echo "Refusing deploy: EBS_VOLUME_ID ($bamboo_EBS_VOLUME_ID) must be in $rdf4jRestoreAz but is in $volumeAz."
     exit 1
   fi
 fi
