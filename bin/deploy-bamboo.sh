@@ -42,7 +42,7 @@ EOF
 
 dockerTag=kms-$bamboo_STAGE_NAME
 stageOpts="--stage $bamboo_STAGE_NAME "
-deploymentRegion="${bamboo_AWS_REGION:-${AWS_REGION:-us-east-1}}"
+deploymentRegion="${bamboo_AWS_REGION:-us-east-1}"
 rdf4jRestoreAz="us-east-1a"
 
 docker build -t $dockerTag .

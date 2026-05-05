@@ -175,7 +175,7 @@ export bamboo_STAGE_NAME=[sit|uat|prod]
 export bamboo_AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 export bamboo_AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 export bamboo_AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-export bamboo_AWS_REGION=[for example us-east-1]
+export bamboo_AWS_REGION=[optional, defaults to us-east-1]
 export bamboo_SUBNET_ID_A={subnet #1}
 export bamboo_SUBNET_ID_B={subnet #2}
 export bamboo_SUBNET_ID_C={subnet #3}
@@ -215,7 +215,7 @@ Use this flow when the RDF4J EBS volume has been deleted and you need to restore
 1. Set your AWS restore context:
    ```bash
    export AWS_PROFILE=[your aws profile]
-   export AWS_REGION=${bamboo_AWS_REGION:-us-east-1}
+   export AWS_REGION=${AWS_REGION:-us-east-1}
    # Reuse the original retained RDF4J backup vault to avoid name collisions on rebuilds
    export VAULT_NAME=rdf4j-backup-vault
    echo "Using Vault: $VAULT_NAME"
