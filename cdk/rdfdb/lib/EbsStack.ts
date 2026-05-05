@@ -54,15 +54,9 @@ export class EbsStack extends Stack implements IEbsStack {
     return ec2.Vpc.fromLookup(this, 'VPC', { vpcId })
   }
 
-  // Use the first VPC availability zone for the RDF4J EBS volume.
+  // Preserve the main-branch RDF4J volume placement for deploys that do not use a restored volume.
   private getAvailabilityZone(): string {
-    const [defaultAvailabilityZone] = this.vpc.availabilityZones
-
-    if (!defaultAvailabilityZone) {
-      throw new Error('Could not determine an availability zone for the RDF4J EBS volume')
-    }
-
-    return defaultAvailabilityZone
+    return 'us-east-1a'
   }
 
   // Preserve the current 32 GiB default when CDK needs to create a new blank volume.
