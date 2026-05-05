@@ -24,31 +24,26 @@ npm install
 ### Running local server
 
 Prerequisites:
-
 - Docker
 - aws-sam-cli (`brew install aws-sam-cli`)
 
 To start local server, first make sure to start LocalStack:
-
 ```
 npm run localstack:start
 ```
 
 By default, `start-local` enables Redis with the local container settings from `bin/env/local_env.sh`, so the normal local startup path is:
-
 ```bash
 npm run redis:start
 npm run start-local
 ```
 
 If you do not need Redis for your local test, start local with Redis disabled:
-
 ```bash
 REDIS_ENABLED=false npm run start-local
 ```
 
 To run local server with SAM watch mode enabled
-
 ```
 npm run start-local:watch
 ```
@@ -73,36 +68,30 @@ By default, local `start-local` does not provision Redis in CDK. You can still t
 Local defaults are centralized in `bin/env/local_env.sh`.
 
 1. Ensure the docker network exists:
-
 ```
 npm run rdf4j:create-network
 ```
 
 2. Start Redis on the same docker network used by SAM:
-
 ```
 npm run redis:start
 ```
 
 3. (Optional) override defaults in `bin/env/local_env.sh` or per-command, for example:
-
 ```
 REDIS_ENABLED=true REDIS_HOST=kms-redis-local REDIS_PORT=6379 npm run start-local
 ```
 
 4. Start local API:
-
 ```
 npm run start-local
 ```
 
 5. Verify cache behavior (published reads only):
-
 - `GET /concepts?version=published`
 - `GET /concepts/concept_scheme/{scheme}?version=published`
 
 6. Check Redis cache memory usage:
-
 ```
 npm run redis:memory_used
 ```
@@ -111,20 +100,19 @@ npm run redis:memory_used
 
 Common burstable node types for Redis/Valkey:
 
-| Node type          | Memory (GiB) |
-| ------------------ | ------------ |
-| `cache.t4g.micro`  | `0.5`        |
-| `cache.t4g.small`  | `1.37`       |
-| `cache.t4g.medium` | `3.09`       |
-| `cache.t3.micro`   | `0.5`        |
-| `cache.t3.small`   | `1.37`       |
-| `cache.t3.medium`  | `3.09`       |
+| Node type | Memory (GiB) |
+| --- | --- |
+| `cache.t4g.micro` | `0.5` |
+| `cache.t4g.small` | `1.37` |
+| `cache.t4g.medium` | `3.09` |
+| `cache.t3.micro` | `0.5` |
+| `cache.t3.small` | `1.37` |
+| `cache.t3.medium` | `3.09` |
 
 For full and latest node-family capacities (m/r/t and region support), see:
 https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/CacheNodes.SupportedTypes.html
 
 To disable local Redis cache again:
-
 ```
 REDIS_ENABLED=false npm run start-local
 ```
@@ -145,62 +133,42 @@ To run the test suite, run:
 ```
 npm run test
 ```
-
 ## Setting up the RDF Database for local development
-
 In order to run KMS locally, you first need to setup a RDF database.
-
 ### Prerequisites
-
 RDF4J local defaults are in `bin/env/local_env.sh`.
 If needed, override per command (for example: `RDF4J_USER_NAME=... RDF4J_PASSWORD=... npm run rdf4j:setup`).
-
 ### Building and Running the RDF Database
-
 #### Build the docker image
-
 ```
 npm run rdf4j:build
 ```
-
 #### Create a docker network
-
 ```
 npm run rdf4j:create-network
 ```
-
 #### Run the docker image
-
 ```
 npm run rdf4j:start
 ```
-
 #### Pull latest concepts RDF files from CMR
-
 ```
 npm run rdf4j:pull
 ```
-
 #### Setup and load data into the RDF database
-
 ```
 npm run rdf4j:setup
 ```
 
 ### At any time, you can stop the RDF database by issuing:
-
 ```
 npm run rdf4j:stop
 ```
 
 # Deployments
-
 ## Deploying KMS Application to AWS
-
 ### Prerequisites
-
 #### Copy your AWS credentials and set these up as env variables
-
 ```
 export RELEASE_VERSION=[app release version]
 export bamboo_STAGE_NAME=[sit|uat|prod]
@@ -228,15 +196,12 @@ export bamboo_LOG_LEVEL=[INFO|DEBUG|WARN|ERROR]
 export bamboo_KMS_REDIS_ENABLED=[true|false]
 export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
-
 Notes:
-
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault. This is useful when `rdf4jSnapshotStack` is being recreated after an RDF4J recovery event and you need the new stack to reuse an existing vault instead of trying to create the same vault name again.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is not set, `SnapshotStack` creates the default `rdf4j-backup-vault`.
 
 #### Deploy KMS Application
-
 ```
 ./bin/deploy-bamboo.sh
 ```
@@ -384,7 +349,7 @@ If you need to create that restored volume later, use this flow:
       sudo find /mnt/rdf4j-data -name "write.lock" -type f -delete
       ```
 
-      7. Unmount the temporary restored volume and restart the EC2 instance to cleanly rebuild the ECS networking containers:
+   7. Unmount the temporary restored volume and restart the EC2 instance to cleanly rebuild the ECS networking containers:
 
       ```bash
       sudo umount /mnt/rdf4j-restore
@@ -393,7 +358,7 @@ If you need to create that restored volume later, use this flow:
 
       _(Note: It may take 3-5 minutes for the instance to reboot and the API to become healthy. If the API consistently returns `Failed to fetch RDF4J status`, go to the AWS ECS Console -> select your service -> click **Update** -> check **Force new deployment** to force ECS to cycle the task)._
 
-   7. Optional verification:
+   8. Optional verification:
 
       ```bash
       mount | grep rdf4j
@@ -401,7 +366,7 @@ If you need to create that restored volume later, use this flow:
       sudo docker logs --tail 100 $(sudo docker ps -q)
       ```
 
-   8. Clean up the temporary restored volume from your local shell:
+   9. Clean up the temporary restored volume from your local shell:
       ```bash
       aws ec2 detach-volume --volume-id "$VOLUME_ID"
       sleep 10
