@@ -200,6 +200,7 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 Notes:
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_EBS_VOLUME_ID` is set, RDF4J will attach and use that existing restored `vol-...`, and the default CDK-managed RDF4J EBS stack will be skipped for that deploy.
+- If `bamboo_EBS_VOLUME_ID` is not set, CDK will create a new blank RDF4J EBS volume.
 - When `bamboo_EBS_VOLUME_ID` is set, `deploy-bamboo.sh` fails early unless the restored volume is in the same availability zone as `bamboo_SUBNET_ID_B`.
 
 #### Deploy KMS Application
@@ -207,5 +208,76 @@ Notes:
 ./bin/deploy-bamboo.sh
 ```
 
-If the RDF4J EBS volume has been deleted, restore or create a replacement `vol-...` in the same
-availability zone as `bamboo_SUBNET_ID_B`, then pass that value in `bamboo_EBS_VOLUME_ID`.
+### Restore RDF4J EBS Volume From AWS Backup
+Use this flow when the RDF4J EBS volume has been deleted and you need a replacement `vol-...` for
+`bamboo_EBS_VOLUME_ID`.
+
+Set your AWS context first:
+
+```bash
+export AWS_PROFILE=[your aws profile]
+export AWS_REGION=${bamboo_AWS_REGION:-us-east-1}
+export VAULT_NAME=rdf4j-backup-vault
+export RESTORE_AZ=us-east-1a
+```
+
+Use `us-east-1a` for the restored RDF4J volume.
+
+List the available EBS recovery points in the backup vault:
+
+```bash
+aws backup list-recovery-points-by-backup-vault \
+  --backup-vault-name "$VAULT_NAME" \
+  --by-resource-type EBS \
+  --query 'sort_by(RecoveryPoints,&CreationDate)[].{Created:CreationDate,RecoveryPointArn:RecoveryPointArn,Status:Status,SourceVolumeArn:ResourceArn}' \
+  --output table
+```
+
+Capture the latest recovery point ARN:
+
+```bash
+RECOVERY_POINT_ARN=$(aws backup list-recovery-points-by-backup-vault \
+  --backup-vault-name "$VAULT_NAME" \
+  --by-resource-type EBS \
+  --query 'sort_by(RecoveryPoints,&CreationDate)[-1].RecoveryPointArn' \
+  --output text)
+
+echo "$RECOVERY_POINT_ARN"
+```
+
+Extract the snapshot ID from the ARN:
+
+```bash
+SNAPSHOT_ID=$(echo "$RECOVERY_POINT_ARN" | awk -F'/' '{print $2}')
+echo "Snapshot ID: $SNAPSHOT_ID"
+```
+
+Restore the snapshot directly to a new EBS volume:
+
+```bash
+VOLUME_ID=$(aws ec2 create-volume \
+  --availability-zone "$RESTORE_AZ" \
+  --snapshot-id "$SNAPSHOT_ID" \
+  --volume-type gp3 \
+  --region "$AWS_REGION" \
+  --query 'VolumeId' \
+  --output text)
+
+echo "New Volume ID: $VOLUME_ID"
+```
+
+Verify the volume is available:
+
+```bash
+aws ec2 describe-volumes \
+  --volume-ids "$VOLUME_ID" \
+  --region "$AWS_REGION" \
+  --query 'Volumes[0].State' \
+  --output text
+```
+
+Notes:
+- The EC2 `create-volume` command creates the new EBS volume immediately.
+- `VOLUME_ID` is the restored `vol-...` identifier to pass in as `bamboo_EBS_VOLUME_ID`.
+- `RESTORE_AZ` should stay aligned with the RDF4J subnet/AZ used by this deployment flow.
+- `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
