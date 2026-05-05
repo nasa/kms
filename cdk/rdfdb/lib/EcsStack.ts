@@ -24,7 +24,7 @@ import { ILoadBalancerStack } from './LoadBalancerStack'
 interface EcsStackProps extends StackProps {
   vpcId: string;
   roleArn: string;
-  ebsStack?: IEbsStack;
+  ebsStack: IEbsStack;
   lbStack: ILoadBalancerStack;
 }
 
@@ -48,7 +48,7 @@ interface EcsStackProps extends StackProps {
  * Zone as the EBS volume for data persistence.
  */
 export class EcsStack extends Stack {
-  private ebsStack?: IEbsStack
+  private ebsStack: IEbsStack
 
   private vpc!: ec2.IVpc
 
@@ -83,6 +83,7 @@ export class EcsStack extends Stack {
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
     const { vpcId, ebsStack } = props
+
     this.ebsStack = ebsStack
     this.initializeBaseResources(vpcId)
     this.addSecurityGroupRules()
@@ -93,7 +94,7 @@ export class EcsStack extends Stack {
     this.vpc = this.getVpc(vpcId)
     this.role = this.getRole()
     this.ebsVolumeId = this.getEbsVolumeId()
-    this.ebsVolumeAz = process.env.EBS_VOLUME_ID?.trim() ? 'us-east-1a' : this.getEbsVolumeAz()
+    this.ebsVolumeAz = this.getEbsVolumeAz()
 
     this.createSecurityGroups()
     this.repository = this.createOrGetECRRepository()
@@ -147,24 +148,10 @@ export class EcsStack extends Stack {
   }
 
   private getEbsVolumeId(): string {
-    const configuredVolumeId = process.env.EBS_VOLUME_ID?.trim()
-
-    if (configuredVolumeId) {
-      return configuredVolumeId
-    }
-
-    if (!this.ebsStack) {
-      throw new Error('EbsStack is required when EBS_VOLUME_ID is not provided')
-    }
-
     return this.ebsStack.volume.volumeId
   }
 
   private getEbsVolumeAz(): string {
-    if (!this.ebsStack) {
-      throw new Error('EbsStack is required when EBS_VOLUME_ID is not provided')
-    }
-
     return this.ebsStack.volume.availabilityZone
   }
 
@@ -203,7 +190,7 @@ export class EcsStack extends Stack {
       vpc: this.vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        availabilityZones: [this.ebsVolumeAz]
+        availabilityZones: [this.getEbsVolumeAz()]
       },
       userData,
       role: this.role
@@ -278,7 +265,7 @@ export class EcsStack extends Stack {
       assignPublicIp: false,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        availabilityZones: [this.ebsVolumeAz]
+        availabilityZones: [this.getEbsVolumeAz()]
       },
       capacityProviderStrategies: [
         {

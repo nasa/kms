@@ -42,8 +42,6 @@ EOF
 
 dockerTag=kms-$bamboo_STAGE_NAME
 stageOpts="--stage $bamboo_STAGE_NAME "
-deploymentRegion="${bamboo_AWS_REGION:-us-east-1}"
-rdf4jRestoreAz="us-east-1a"
 
 docker build -t $dockerTag .
 
@@ -54,7 +52,6 @@ dockerRun() {
         --env "AWS_ACCESS_KEY_ID=$bamboo_AWS_ACCESS_KEY_ID" \
         --env "AWS_SECRET_ACCESS_KEY=$bamboo_AWS_SECRET_ACCESS_KEY" \
         --env "AWS_SESSION_TOKEN=$bamboo_AWS_SESSION_TOKEN" \
-        --env "AWS_REGION=$deploymentRegion" \
         --env "STAGE_NAME=$bamboo_STAGE_NAME" \
         --env "NODE_ENV=$bamboo_STAGE_NAME" \
         --env "NODE_OPTIONS=--max_old_space_size=4096" \
@@ -71,7 +68,6 @@ dockerRun() {
         --env "CORS_ORIGIN=$bamboo_CORS_ORIGIN" \
         --env "RDF4J_INSTANCE_TYPE=$bamboo_RDF4J_INSTANCE_TYPE" \
         --env "RDF4J_CONTAINER_MEMORY_LIMIT=$bamboo_RDF4J_CONTAINER_MEMORY_LIMIT" \
-        --env "EBS_VOLUME_ID=${bamboo_EBS_VOLUME_ID:-}" \
         --env "RDF_BUCKET_NAME=$bamboo_RDF_BUCKET_NAME" \
         --env "EXISTING_API_ID=$bamboo_EXISTING_API_ID" \
         --env "ROOT_RESOURCE_ID=$bamboo_ROOT_RESOURCE_ID" \
@@ -82,37 +78,8 @@ dockerRun() {
     $dockerTag "$@"
 }
 
-awsWithBambooCreds() {
-  AWS_ACCESS_KEY_ID="$bamboo_AWS_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$bamboo_AWS_SECRET_ACCESS_KEY" AWS_SESSION_TOKEN="$bamboo_AWS_SESSION_TOKEN" \
-    aws --region "$deploymentRegion" "$@"
-}
-
 # Execute deployment commands in Docker
 #######################################
-
-# When reusing a restored RDF4J volume, fail early unless both SUBNET_ID_B and the
-# restored volume are in the RDF4J restore AZ.
-if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
-  subnetAz=$(awsWithBambooCreds ec2 describe-subnets \
-    --subnet-ids "$bamboo_SUBNET_ID_B" \
-    --query 'Subnets[0].AvailabilityZone' \
-    --output text)
-
-  volumeAz=$(awsWithBambooCreds ec2 describe-volumes \
-    --volume-ids "$bamboo_EBS_VOLUME_ID" \
-    --query 'Volumes[0].AvailabilityZone' \
-    --output text)
-
-  if [[ "$subnetAz" != "$rdf4jRestoreAz" ]]; then
-    echo "Refusing deploy: SUBNET_ID_B ($bamboo_SUBNET_ID_B) must be in $rdf4jRestoreAz but is in $subnetAz."
-    exit 1
-  fi
-
-  if [[ "$volumeAz" != "$rdf4jRestoreAz" ]]; then
-    echo "Refusing deploy: EBS_VOLUME_ID ($bamboo_EBS_VOLUME_ID) must be in $rdf4jRestoreAz but is in $volumeAz."
-    exit 1
-  fi
-fi
 
 # Deploy to AWS
 echo 'Deploying to AWS Resources...'
