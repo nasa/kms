@@ -163,7 +163,7 @@ export class EcsStack extends Stack {
 
   // Import the Bamboo-selected subnet when we need to force RDF4J into the same AZ as a restored volume.
   private getPrimarySubnet(): ec2.ISubnet {
-    const primarySubnetId = process.env.SUBNET_ID_A
+    const primarySubnetId = process.env.SUBNET_ID_B
 
     if (!primarySubnetId) {
       throw new Error('SUBNET_ID_A environment variable is required for RDF4J deployment')

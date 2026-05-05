@@ -94,7 +94,7 @@ awsWithBambooCreds() {
 # When reusing a restored RDF4J volume, fail early unless it lives in the same AZ as SUBNET_ID_A.
 if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
   subnetAz=$(awsWithBambooCreds ec2 describe-subnets \
-    --subnet-ids "$bamboo_SUBNET_ID_A" \
+    --subnet-ids "$bamboo_SUBNET_ID_B" \
     --query 'Subnets[0].AvailabilityZone' \
     --output text)
 
@@ -104,7 +104,7 @@ if [[ -n "${bamboo_EBS_VOLUME_ID:-}" ]]; then
     --output text)
 
   if [[ "$subnetAz" != "$volumeAz" ]]; then
-    echo "Refusing deploy: SUBNET_ID_A ($bamboo_SUBNET_ID_A) is in $subnetAz but EBS_VOLUME_ID ($bamboo_EBS_VOLUME_ID) is in $volumeAz."
+    echo "Refusing deploy: SUBNET_ID_B ($bamboo_SUBNET_ID_B) is in $subnetAz but EBS_VOLUME_ID ($bamboo_EBS_VOLUME_ID) is in $volumeAz."
     exit 1
   fi
 fi
