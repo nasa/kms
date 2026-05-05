@@ -265,12 +265,12 @@ Use this flow when the RDF4J EBS volume has been deleted and you need to restore
      --output text
    ```
 
-6. If the deploy is blocked by a CloudFormation rollback loop because the original volume was deleted outside CDK, clean up the old RDF4J stack state before redeploying:
-   In the AWS CloudFormation console, in the correct region, delete only `rdf4jEcsStack` and `rdf4jEbsStack`.
+6. To avoid CloudFormation rollback traps from the deleted original volume, clean up the old RDF4J stack state before redeploying:
+   In the AWS CloudFormation console, in the correct region, delete `rdf4jEcsStack`, `rdf4jEbsStack`, and `rdf4jSnapshotStack`.
    CLI alternative:
    ```bash
    cd cdk
-   npx aws-cdk@latest destroy --exclusively -f rdf4jEcsStack rdf4jEbsStack
+   npx aws-cdk@latest destroy --exclusively -f rdf4jEcsStack rdf4jEbsStack rdf4jSnapshotStack
    cd ..
    ```
 
@@ -281,4 +281,4 @@ Notes:
 - `VOLUME_ID` is the restored `vol-...` identifier to pass in as `bamboo_EBS_VOLUME_ID`.
 - `RESTORE_AZ` should stay aligned with the RDF4J subnet/AZ used by this deployment flow.
 - `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
-- Step 6 is a fallback for a wedged deployment, not a required part of every restore.
+- You can try a direct redeploy without step 6, but if the update fails, CloudFormation can roll back to the deleted old volume id and get stuck again.
