@@ -44,8 +44,11 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
     const cronExpression = process.env.SNAPSHOT_CRON_EXPRESSION_UTC || '0 5 * * ? *' // Midnight EST
 
     // Create a backup vault
-    // Let CloudFormation auto-generate a unique name with a hash so it never conflicts on rebuilds
-    this.backupVault = new backup.BackupVault(this, 'RDF4JBackupVault')
+    // Because Backup Vaults cannot be deleted if they contain snapshots, we must use a dynamic
+    // naming strategy that generates a completely new hash every single deploy if we destroy the stack.
+    this.backupVault = new backup.BackupVault(this, 'RDF4JBackupVault', {
+      backupVaultName: `rdf4j-vault-${Date.now()}`
+    })
 
     // Create a backup plan
     this.backupPlan = new backup.BackupPlan(this, 'RDF4JBackupPlan', {
