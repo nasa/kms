@@ -80,8 +80,6 @@ export class EcsStack extends Stack {
 
   private capacityProvider!: ecs.AsgCapacityProvider
 
-  private rdf4jSubnets!: ec2.SubnetSelection
-
   constructor(scope: Construct, id: string, props: EcsStackProps) {
     super(scope, id, props)
     const { vpcId, ebsStack } = props
@@ -95,24 +93,7 @@ export class EcsStack extends Stack {
     this.vpc = this.getVpc(vpcId)
     this.role = this.getRole()
     this.ebsVolumeId = this.getEbsVolumeId()
-
-    if (process.env.EBS_VOLUME_ID?.trim()) {
-      const primarySubnetId = process.env.SUBNET_ID_B
-
-      if (!primarySubnetId) {
-        throw new Error('SUBNET_ID_B environment variable is required for RDF4J deployment')
-      }
-
-      this.rdf4jSubnets = {
-        subnets: [ec2.Subnet.fromSubnetId(this, 'PrimaryRdf4jSubnet', primarySubnetId)]
-      }
-    } else {
-      this.ebsVolumeAz = this.getEbsVolumeAz()
-      this.rdf4jSubnets = {
-        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        availabilityZones: [this.ebsVolumeAz]
-      }
-    }
+    this.ebsVolumeAz = process.env.EBS_VOLUME_ID?.trim() ? 'us-east-1a' : this.getEbsVolumeAz()
 
     this.createSecurityGroups()
     this.repository = this.createOrGetECRRepository()
@@ -205,15 +186,13 @@ export class EcsStack extends Stack {
     const { ebsVolumeId } = this
 
     const userData = ec2.UserData.forLinux()
-    const skipFormat = process.env.EBS_VOLUME_ID?.trim() ? 'true' : 'false'
 
     // Read the script from file
     const userDataScript = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'ebs-mount-script.sh'), 'utf8')
 
-    // Replace the placeholders with the actual EBS mount settings
-    const scriptWithVolume = userDataScript
-      .replace('__EBS_VOLUME_ID__', ebsVolumeId)
-      .replace('__SKIP_FORMAT__', skipFormat)
+    // Replace the placeholder with the actual EBS volume ID
+    // eslint-disable-next-line no-template-curly-in-string
+    const scriptWithVolume = userDataScript.replace('${EBS_VOLUME_ID}', ebsVolumeId)
     userData.addCommands(scriptWithVolume)
 
     const autoScalingGroup = new autoscaling.AutoScalingGroup(this, 'rdf4jAutoScalingGroup', {
@@ -222,7 +201,10 @@ export class EcsStack extends Stack {
       minCapacity: 1,
       maxCapacity: 1,
       vpc: this.vpc,
-      vpcSubnets: this.rdf4jSubnets,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        availabilityZones: [this.ebsVolumeAz]
+      },
       userData,
       role: this.role
     })
@@ -294,7 +276,10 @@ export class EcsStack extends Stack {
       enableExecuteCommand: true,
       securityGroups: [this.ecsTasksSecurityGroup],
       assignPublicIp: false,
-      vpcSubnets: this.rdf4jSubnets,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        availabilityZones: [this.ebsVolumeAz]
+      },
       capacityProviderStrategies: [
         {
           capacityProvider: this.capacityProvider.capacityProviderName,
