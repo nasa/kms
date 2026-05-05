@@ -284,3 +284,23 @@ Notes:
 - `RESTORE_AZ` should stay aligned with the RDF4J subnet/AZ used by this deployment flow.
 - `deploy-bamboo.sh` fails early if `bamboo_EBS_VOLUME_ID` is not in the same AZ as `bamboo_SUBNET_ID_B`.
 - You can try a direct redeploy without step 6, but if the update fails, CloudFormation can roll back to the deleted old volume id and get stuck again.
+
+
+### Troubleshooting: RDF4J 500 Errors After Restore
+
+If the deployment succeeds but your API returns `500 Unable to get statements` or `SailException` errors, the AWS Backup snapshot likely captured the database in a "dirty" state (mid-transaction).
+
+To fix this without losing data, you must clear the stale lock files left behind by the snapshot:
+
+1. Connect to the running EC2 instance via AWS Systems Manager (Session Manager).
+2. Run the following commands to safely remove the stale transaction logs and lock files:
+   ```bash
+   sudo find /mnt/rdf4j-data -name "lock" -type f -delete
+   sudo find /mnt/rdf4j-data -name "extx" -type f -delete
+   sudo find /mnt/rdf4j-data -name "*.txn" -type f -delete
+   sudo find /mnt/rdf4j-data -name "write.lock" -type f -delete
+   ```
+3. Restart the Docker container so Tomcat/RDF4J cleanly rebuilds its indexes in memory:
+   ```bash
+   sudo docker restart $(sudo docker ps -q)
+   ```
