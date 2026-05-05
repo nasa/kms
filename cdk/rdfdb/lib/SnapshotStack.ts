@@ -44,9 +44,8 @@ export class SnapshotStack extends Stack implements ISnapshotStack {
     const cronExpression = process.env.SNAPSHOT_CRON_EXPRESSION_UTC || '0 5 * * ? *' // Midnight EST
 
     // Create a backup vault
-    this.backupVault = new backup.BackupVault(this, 'RDF4JBackupVault', {
-      backupVaultName: 'rdf4j-backup-vault'
-    })
+    // Let CloudFormation auto-generate a unique name with a hash so it never conflicts on rebuilds
+    this.backupVault = new backup.BackupVault(this, 'RDF4JBackupVault')
 
     // Create a backup plan
     this.backupPlan = new backup.BackupPlan(this, 'RDF4JBackupPlan', {
