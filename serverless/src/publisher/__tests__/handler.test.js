@@ -6,12 +6,14 @@ import {
   vi
 } from 'vitest'
 
+import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
 import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
@@ -54,6 +56,8 @@ vi.mock('@/shared/publishKeywordEvent')
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/exportPublishSchemeCsvToS3')
+vi.mock('@/shared/buildHistoricalConceptCache')
+vi.mock('@/shared/getConfig')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
     send: sendEventBridgeMock
@@ -78,6 +82,8 @@ describe('publisher handler', () => {
     vi.spyOn(logger, 'error').mockImplementation(() => {})
     vi.spyOn(logger, 'info').mockImplementation(() => {})
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
+    getApplicationConfig.mockReturnValue({ env: 'sit' })
+
     vi.spyOn(logger, 'warn').mockImplementation(() => {})
   })
 
@@ -970,6 +976,11 @@ describe('publisher handler', () => {
         postPublishFailures: []
       })
 
+      expect(logger.info).toHaveBeenLastCalledWith(
+        expect.stringMatching(/Completed with status: success in \d+\.\d{2} seconds/),
+        result
+      )
+
       expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
       expect(emitPublisherMetrics).toHaveBeenCalledWith({
         metrics: [
@@ -1387,8 +1398,8 @@ describe('publisher handler', () => {
       await expect(publisher(mockEvent)).rejects.toThrow('Failed to execute publish update: 500 Internal Server Error')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
-        expect.stringContaining('Failed to execute publish update')
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
+        'Failed to execute publish update: 500 Internal Server Error'
       )
     })
 
@@ -1493,7 +1504,7 @@ describe('publisher handler', () => {
       await expect(publisher(invalidEvent)).rejects.toThrow('versionName is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
         'versionName is required in event.detail'
       )
     })
@@ -1502,7 +1513,7 @@ describe('publisher handler', () => {
       await expect(publisher({})).rejects.toThrow('versionName is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
         'versionName is required in event.detail'
       )
     })
@@ -1513,7 +1524,7 @@ describe('publisher handler', () => {
       await expect(publisher(invalidEvent)).rejects.toThrow('publishDate is required in event.detail')
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Error in publisher handler:',
+        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
         'publishDate is required in event.detail'
       )
     })
@@ -1792,6 +1803,59 @@ describe('publisher handler', () => {
 
       expect(publishKeywordEvent).not.toHaveBeenCalled()
       expect(sendEventBridgeMock).not.toHaveBeenCalled()
+    })
+
+    test('should build UUID cache after successful S3 export', async () => {
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      await publisher(mockEvent)
+
+      expect(buildHistoricalConceptCache).toHaveBeenCalledWith('kms-rdf-backup-sit')
+      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built Historical Concept cache from S3 bucket [kms-rdf-backup-sit].')
+    })
+
+    test('should handle UUID cache build failures gracefully', async () => {
+      const cacheBuildError = new Error('Cache build failed')
+      buildHistoricalConceptCache.mockRejectedValue(cacheBuildError)
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      expect(result.status).toBe('partial_success')
+      expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build Historical Concept cache from S3: Cache build failed')
     })
   })
 })

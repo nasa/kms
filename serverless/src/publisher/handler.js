@@ -1,12 +1,14 @@
 import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
 import { getEventBridgeClient } from '@/shared/awsClients'
+import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
 import { CsvComparator } from '@/shared/csvComparator'
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
 import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
+import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
@@ -472,6 +474,7 @@ const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
  * await publisher(event);
  */
 export const publisher = async (event) => {
+  const startTime = Date.now()
   logger.info('[publisher] start')
   try {
     const { versionName, publishDate } = event.detail || {}
@@ -553,8 +556,9 @@ export const publisher = async (event) => {
     // #########################################################################
     // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
     // ##
-    // ## The following S3 export operations are part of the critical path for
-    // ## publish completion. This work MUST stay comfortably under the Lambda
+    // ## The following S3 export operations, as well as the subsequent UUID cache
+    // ## build, are part of the critical path for publish completion. This work MUST
+    // ## stay comfortably under the Lambda
     // ## function timeout.
     // ##
     // ## If S3 exports start getting close to the timeout, we should:
@@ -565,6 +569,7 @@ export const publisher = async (event) => {
     // Export RDF and CSV data to S3 after publishing
     logger.info('[publisher] Starting S3 exports of RDF and CSV data.')
 
+    // Export published RDF to S3
     try {
       await exportRdfToS3({ version: 'published' })
       logger.info('[publisher] Successfully exported Published RDF to S3.')
@@ -574,6 +579,7 @@ export const publisher = async (event) => {
       logger.error(`[publisher] ${failureMessage}`)
     }
 
+    // Export draft RDF to S3
     try {
       await exportRdfToS3({ version: 'draft' })
       logger.info('[publisher] Successfully exported Draft RDF to S3.')
@@ -583,6 +589,7 @@ export const publisher = async (event) => {
       logger.error(`[publisher] ${failureMessage}`)
     }
 
+    // Export published schemes CSVs to S3
     try {
       await exportPublishSchemeCsvToS3()
       logger.info('[publisher] Successfully exported Published Scheme CSVs to S3.')
@@ -592,6 +599,20 @@ export const publisher = async (event) => {
       logger.error(`[publisher] ${failureMessage}`)
     }
 
+    // Building the historical concept cache for all versions
+    logger.info('[publisher] Starting Historical Concept cache build from S3.')
+    try {
+      const { env } = getApplicationConfig()
+      const bucketName = `kms-rdf-backup-${env}`
+      await buildHistoricalConceptCache(bucketName)
+      logger.info(`[publisher] Successfully built Historical Concept cache from S3 bucket [${bucketName}].`)
+    } catch (cacheBuildError) {
+      const failureMessage = `Failed to build Historical Concept cache from S3: ${cacheBuildError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    // Emit publisher metrics
     await emitPublisherMetricsSafely(
       [
         {
@@ -647,11 +668,15 @@ export const publisher = async (event) => {
       postPublishFailures
     }
 
-    logger.info(`[publisher] Completed with status: ${result.status}`, result)
+    const durationInMs = Date.now() - startTime
+    const durationInSeconds = (durationInMs / 1000).toFixed(2)
+    logger.info(`[publisher] Completed with status: ${result.status} in ${durationInSeconds} seconds`, result)
 
     return result
   } catch (error) {
-    logger.error('[publisher] Error in publisher handler:', error.message)
+    const durationInMs = Date.now() - startTime
+    const durationInSeconds = (durationInMs / 1000).toFixed(2)
+    logger.error(`[publisher] Error in publisher handler after ${durationInSeconds} seconds:`, error.message)
     throw error
   }
 }

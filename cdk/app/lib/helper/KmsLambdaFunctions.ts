@@ -281,6 +281,24 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'getHistoricalConceptByFullPath/handler.js',
+      'get-historical-concept-by-full-path',
+      'getHistoricalConceptByFullPath',
+      '/concept/historical/full_path/{fullPath+}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
+      'getHistoricalConceptByShortName/handler.js',
+      'get-historical-concept-by-short-name',
+      'getHistoricalConceptByShortName',
+      '/concept/historical/short_name/{shortName+}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
       'getKeywordFullPathHistory/handler.js',
       'get-keyword-full-path-history',
       'getKeywordFullPathHistory',

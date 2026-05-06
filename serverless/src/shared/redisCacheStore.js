@@ -14,6 +14,10 @@ export const isRedisConfigured = () => (
   REDIS_ENABLED === 'true' && Boolean(REDIS_HOST) && Number.isInteger(REDIS_PORT)
 )
 
+/**
+ * Get or create a Redis client connection.
+ * @returns {Promise<RedisClient|null>} Redis client or null if not configured
+ */
 export const getRedisClient = async () => {
   if (!isRedisConfigured()) {
     if (!hasLoggedRedisConfig) {

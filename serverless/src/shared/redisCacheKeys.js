@@ -2,6 +2,7 @@ export const CONCEPT_CACHE_KEY_PREFIX = 'kms:concept'
 export const CONCEPTS_CACHE_KEY_PREFIX = 'kms:concepts'
 export const TREE_CACHE_KEY_PREFIX = 'kms:tree'
 export const CONCEPTS_CACHE_VERSION_KEY = `${CONCEPTS_CACHE_KEY_PREFIX}:published:version`
+export const UUID_CACHE_KEY_PREFIX = 'kms:uuid'
 
 const normalizeConceptsScheme = (scheme) => {
   if (!scheme) return ''
@@ -70,4 +71,18 @@ export const createTreeResponseCacheKey = ({
   const normalizedFilter = normalizeValue((filter || '').toLowerCase())
 
   return `${TREE_CACHE_KEY_PREFIX}:${normalizedVersion}:${normalizedScheme}:${normalizedFilter}`
+}
+
+export const createConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) => {
+  const normalizedFullPath = normalizeValue(fullPath)
+  const normalizedScheme = normalizeValue(scheme)
+
+  return `kms:${normalizedScheme}:historical_concept:full_path:${normalizedFullPath}`
+}
+
+export const createConceptResponseCacheKeyByShortName = ({ shortName, scheme }) => {
+  const normalizedShortName = normalizeValue(shortName)
+  const normalizedScheme = normalizeValue(scheme)
+
+  return `kms:${normalizedScheme}:historical_concept:short_name:${normalizedShortName}`
 }
