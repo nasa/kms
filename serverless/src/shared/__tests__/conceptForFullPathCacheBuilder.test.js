@@ -10,16 +10,10 @@ import { ConceptForFullPathCacheBuilder } from '../conceptForFullPathCacheBuilde
 import { logger } from '../logger'
 import { createConceptResponseCacheKeyByFullPath } from '../redisCacheKeys'
 
-const mockExec = vi.fn(() => Promise.resolve())
-const mockSet = vi.fn()
-const mockMulti = vi.fn(() => ({
-  set: mockSet,
-  exec: mockExec
-}))
+const mockMSet = vi.fn(() => Promise.resolve())
 
 const mockRedisClient = {
-  multi: mockMulti,
-  set: mockSet
+  mSet: mockMSet
 }
 
 // Mock the redisCacheStore functions
@@ -47,10 +41,8 @@ describe('ConceptForFullPathCacheBuilder', () => {
     builder = new ConceptForFullPathCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
-    mockSet.mockClear()
-    mockMulti.mockClear()
-    mockExec.mockClear()
-    mockExec.mockResolvedValue([])
+    mockMSet.mockClear()
+    mockMSet.mockResolvedValue(undefined)
   })
 
   describe('parseCsvContent', () => {
@@ -75,7 +67,7 @@ describe('ConceptForFullPathCacheBuilder', () => {
   })
 
   describe('processToCache', () => {
-    it('should process CSV content and cache the results using Redis pipeline', async () => {
+    it('should process CSV content and cache the results using Redis mSet', async () => {
       const csvContent = `"Keyword Version: 23.4","Revision: 2026-03-17T17:34:00.294Z","Timestamp: 2026-03-17 17:35:41"
 "Category","Topic","Term","Variable_Level_1","Variable_Level_2","Variable_Level_3","Detailed_Variable","UUID"
 "EARTH SCIENCE","OCEANS","AQUATIC SCIENCES","FISHERIES","","","","fa57b0a0-9723-4195-bdd1-4f26aefa0e07"
@@ -84,11 +76,13 @@ describe('ConceptForFullPathCacheBuilder', () => {
 
       await builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
 
-      expect(mockMulti).toHaveBeenCalled()
-      expect(mockSet).toHaveBeenCalledTimes(2)
-      expect(mockExec).toHaveBeenCalled()
+      expect(mockMSet).toHaveBeenCalled()
 
-      // Verify one of the calls
+      // Verify the mSet call contains the expected key-value pairs
+      const calls = mockMSet.mock.calls[0][0]
+      expect(calls.length).toBe(4) // 2 entries * 2 (key + value)
+
+      // Verify one of the entries
       const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
       const uuid = 'fa57b0a0-9723-4195-bdd1-4f26aefa0e07'
       const cacheKey = createConceptResponseCacheKeyByFullPath({
@@ -106,18 +100,17 @@ describe('ConceptForFullPathCacheBuilder', () => {
         })
       }
 
-      expect(mockSet).toHaveBeenCalledWith(
-        cacheKey,
-        JSON.stringify(expectedResponse)
-      )
+      const keyIndex = calls.indexOf(cacheKey)
+      expect(keyIndex).toBeGreaterThanOrEqual(0)
+      expect(calls[keyIndex + 1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should handle pipeline errors gracefully', async () => {
+    it('should handle mSet errors gracefully', async () => {
       const csvContent = `"Keyword Version: 23.4"
 "Category","UUID"
 "EARTH SCIENCE","a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4"`
-      const mockError = new Error('Pipeline failed')
-      mockExec.mockRejectedValueOnce(mockError)
+      const mockError = new Error('mSet failed')
+      mockMSet.mockRejectedValueOnce(mockError)
 
       // Should not throw
       await expect(

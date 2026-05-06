@@ -130,7 +130,7 @@ describe('buildHistoricalConceptCache', () => {
     expect(mockShortNameProcessToCache).not.toHaveBeenCalled()
   })
 
-  it('should warn when no builder is found for a scheme', async () => {
+  it('should skip CSV files for unrecognized schemes', async () => {
     // Mock ListObjectsV2Command for directories
     mockS3Send.mockImplementationOnce((command) => {
       if (command instanceof ListObjectsV2Command && command.input.Delimiter === '/') {
@@ -140,19 +140,24 @@ describe('buildHistoricalConceptCache', () => {
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    // Mock ListObjectsV2Command for files in '1.0/'
+    // Mock ListObjectsV2Command for files in '1.0/' - includes both valid and invalid schemes
     mockS3Send.mockImplementationOnce((command) => {
       if (command instanceof ListObjectsV2Command && command.input.Prefix === '1.0/') {
-        return Promise.resolve({ Contents: [{ Key: '1.0/unknown.csv' }] })
+        return Promise.resolve({
+          Contents: [
+            { Key: '1.0/sciencekeywords.csv' },
+            { Key: '1.0/unknown.csv' } // This should be filtered out
+          ]
+        })
       }
 
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    // Mock GetObjectCommand for unknown.csv
+    // Mock GetObjectCommand for sciencekeywords.csv only (unknown.csv should not be downloaded)
     mockS3Send.mockImplementationOnce((command) => {
-      if (command instanceof GetObjectCommand && command.input.Key === '1.0/unknown.csv') {
-        return Promise.resolve({ Body: Readable.from([Buffer.from('some-content')]) })
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/sciencekeywords.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('valid-content')]) })
       }
 
       return Promise.reject(new Error('Unexpected S3 command'))
@@ -160,7 +165,12 @@ describe('buildHistoricalConceptCache', () => {
 
     await buildHistoricalConceptCache('test-bucket')
 
-    expect(logger.warn).toHaveBeenCalledWith('No cache builder found for scheme [unknown] in file [1.0/unknown.csv].')
+    // Should only process the valid scheme
+    expect(mockFullPathProcessToCache).toHaveBeenCalledTimes(1)
+    expect(mockFullPathProcessToCache).toHaveBeenCalledWith('valid-content', { scheme: 'sciencekeywords' })
+
+    // Should not attempt to download unknown.csv
+    expect(mockS3Send).toHaveBeenCalledTimes(3) // ListDirs + listFiles + getObject for sciencekeywords only
   })
 
   it('should log an error if processing a file fails', async () => {
@@ -195,5 +205,58 @@ describe('buildHistoricalConceptCache', () => {
     await buildHistoricalConceptCache('test-bucket')
 
     expect(logger.error).toHaveBeenCalledWith('Failed to process file [1.0/sciencekeywords.csv]: S3 Download Failed')
+  })
+
+  it('should skip non-CSV files when listing files', async () => {
+    // Mock ListObjectsV2Command for directories
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Delimiter === '/') {
+        return Promise.resolve({ CommonPrefixes: [{ Prefix: '1.0/' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    // Mock ListObjectsV2Command for files in '1.0/' - includes CSV and non-CSV files
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Prefix === '1.0/') {
+        return Promise.resolve({
+          Contents: [
+            { Key: '1.0/sciencekeywords.csv' },
+            { Key: '1.0/readme.txt' }, // Non-CSV file - should be filtered
+            { Key: '1.0/metadata.json' }, // Non-CSV file - should be filtered
+            { Key: '1.0/platforms.csv' }
+          ]
+        })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    // Mock GetObjectCommand for CSV files only
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/sciencekeywords.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('csv-content-1')]) })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/platforms.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('csv-content-2')]) })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    await buildHistoricalConceptCache('test-bucket')
+
+    // Should process both CSV files
+    expect(mockFullPathProcessToCache).toHaveBeenCalledTimes(1)
+    expect(mockShortNameProcessToCache).toHaveBeenCalledTimes(1)
+
+    // Should not attempt to download non-CSV files
+    expect(mockS3Send).toHaveBeenCalledTimes(4) // ListDirs + listFiles + getObject×2 for CSV files only
   })
 })

@@ -80,6 +80,11 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   /**
    * Lists the top-level directories in the S3 bucket, which correspond to keyword versions.
+   *
+   * WARNING: This only reads the first page of results (max 1000 directories).
+   * If we ever have more than 1000 version directories, we'll need to implement
+   * pagination using the ContinuationToken.
+   *
    * @returns {Promise<string[]>} A promise that resolves to an array of version directory prefixes.
    */
   const listVersionDirectories = async () => {
@@ -95,9 +100,14 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   }
 
   /**
-   * Lists all `.csv` files within a given directory prefix in the S3 bucket.
+   * Lists all `.csv` files for valid schemes within a given directory prefix in the S3 bucket.
+   *
+   * WARNING: This only reads the first page of results (max 1000 objects per directory).
+   * If a single version directory ever contains more than 1000 CSV files, we'll need to
+   * implement pagination using the ContinuationToken.
+   *
    * @param {string} prefix - The directory prefix to scan for CSV files.
-   * @returns {Promise<string[]>} A promise that resolves to an array of S3 keys for the CSV files.
+   * @returns {Promise<string[]>} A promise that resolves to an array of S3 keys for the CSV files matching valid schemes.
    */
   const listCsvFilesInDirectory = async (prefix) => {
     const command = new ListObjectsV2Command({
@@ -105,10 +115,21 @@ export const buildHistoricalConceptCache = async (bucketName) => {
       Prefix: prefix
     })
     const response = await s3Client.send(command)
+
+    const allValidSchemes = [...fullPathSchemes, ...shortNameSchemes]
     const csvFiles = (response.Contents || [])
       .map((obj) => obj.Key)
-      .filter((key) => key.toLowerCase().endsWith('.csv'))
-    logger.debug(`Found ${csvFiles.length} CSV files in [${prefix}].`)
+      .filter((key) => {
+        if (!key.toLowerCase().endsWith('.csv')) {
+          return false
+        }
+
+        const scheme = path.basename(key, '.csv').toLowerCase()
+
+        return allValidSchemes.includes(scheme)
+      })
+
+    logger.debug(`Found ${csvFiles.length} valid CSV files in [${prefix}].`)
 
     return csvFiles
   }
@@ -131,14 +152,20 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   logger.info(`Starting cache build from S3 bucket [${bucketName}].`)
 
+  const phaseTimes = {}
+
+  // Phase 1: List version directories
+  let phaseStartTime = Date.now()
   const versionDirs = await listVersionDirectories()
+  phaseTimes.listDirectories = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
   if (versionDirs.length === 0) {
     logger.warn('No version directories found in the bucket. Nothing to process.')
 
     return
   }
 
-  // List files with controlled concurrency
+  // Phase 2: List CSV files in all directories
+  phaseStartTime = Date.now()
   const LIST_BATCH_SIZE = 5
   const allCsvFiles = (await processBatch(
     versionDirs,
@@ -147,6 +174,7 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   ))
     .filter((result) => result.status === 'fulfilled')
     .flatMap((result) => result.value)
+  phaseTimes.listFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
 
   if (allCsvFiles.length === 0) {
     logger.warn('No CSV files found in any version directory. Nothing to process.')
@@ -154,33 +182,47 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     return
   }
 
-  logger.info(`Found a total of ${allCsvFiles.length} CSV files to process.`)
+  logger.info(`Found a total of ${allCsvFiles.length} valid CSV files to process.`)
 
-  // Process CSV files in parallel batches
+  // Phase 3: Download, parse, and write to Redis
+  phaseStartTime = Date.now()
   const PROCESS_BATCH_SIZE = 5
   logger.info(`Processing files in parallel batches of ${PROCESS_BATCH_SIZE}.`)
 
   let successCount = 0
   let failCount = 0
+  let totalDownloadTime = 0
+  let totalParseAndWriteTime = 0
 
   const results = await processBatch(
     allCsvFiles,
     async (key) => {
       const scheme = path.basename(key, '.csv').toLowerCase()
-      const csvContent = await getObjectContent(key)
 
+      // Track download time
+      const downloadStartTime = Date.now()
+      const csvContent = await getObjectContent(key)
+      totalDownloadTime += Date.now() - downloadStartTime
+
+      // Track parse and Redis write time
+      const parseStartTime = Date.now()
+      // All files have been pre-filtered, so we know they match a valid scheme
       if (fullPathSchemes.includes(scheme)) {
         await fullPathCacheBuilder.processToCache(csvContent, { scheme })
         logger.info(`Successfully processed [${key}] with ConceptForFullPathCacheBuilder.`)
-      } else if (shortNameSchemes.includes(scheme)) {
+      } else {
+        // Must be a short name scheme since it was pre-filtered
         await shortNameCacheBuilder.processToCache(csvContent, { scheme })
         logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
-      } else {
-        logger.warn(`No cache builder found for scheme [${scheme}] in file [${key}].`)
       }
+
+      totalParseAndWriteTime += Date.now() - parseStartTime
     },
     PROCESS_BATCH_SIZE
   )
+  phaseTimes.processFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
+  phaseTimes.downloadCsv = (totalDownloadTime / 1000).toFixed(2)
+  phaseTimes.parseAndRedisWrite = (totalParseAndWriteTime / 1000).toFixed(2)
 
   results.forEach((result, index) => {
     if (result.status === 'fulfilled') {
@@ -193,6 +235,11 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   logger.info(
     `Cache build process finished for bucket [${bucketName}]. `
-    + `Success: ${successCount}, Failed: ${failCount}`
+    + `Success: ${successCount}, Failed: ${failCount}. `
+    + `Timing: ListDirs=${phaseTimes.listDirectories}s `
+    + `ListFiles=${phaseTimes.listFiles}s `
+    + `DownloadCSV=${phaseTimes.downloadCsv}s `
+    + `ParseAndWrite=${phaseTimes.parseAndRedisWrite}s `
+    + `TotalProcess=${phaseTimes.processFiles}s`
   )
 }

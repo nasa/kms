@@ -9,16 +9,10 @@ import {
 
 import { BaseConceptCacheBuilder } from '../baseConceptCacheBuilder'
 
-const mockExec = vi.fn(() => Promise.resolve())
-const mockSet = vi.fn()
-const mockMulti = vi.fn(() => ({
-  set: mockSet,
-  exec: mockExec
-}))
+const mockMSet = vi.fn(() => Promise.resolve())
 
 const mockRedisClient = {
-  multi: mockMulti,
-  set: mockSet
+  mSet: mockMSet
 }
 
 vi.mock('../redisCacheStore', () => ({
@@ -120,42 +114,41 @@ describe('BaseConceptCacheBuilder', () => {
 
   describe('processToCache', () => {
     beforeEach(() => {
-      mockSet.mockClear()
-      mockMulti.mockClear()
-      mockExec.mockClear()
-      mockExec.mockResolvedValue([])
+      mockMSet.mockClear()
+      mockMSet.mockResolvedValue(undefined)
     })
 
-    it('should process all records and cache them using Redis pipeline', async () => {
+    it('should process all records and cache them using Redis mSet', async () => {
       await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
-      expect(mockMulti).toHaveBeenCalled()
-      expect(mockSet).toHaveBeenCalledTimes(2)
-      expect(mockSet).toHaveBeenCalledWith(
-        'test:test-scheme:key1',
-        JSON.stringify({
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            key: 'key1',
-            value: 'value1'
-          })
-        })
-      )
+      expect(mockMSet).toHaveBeenCalled()
 
-      expect(mockSet).toHaveBeenCalledWith(
-        'test:test-scheme:key2',
-        JSON.stringify({
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            key: 'key2',
-            value: 'value2'
-          })
-        })
-      )
+      // Verify the mSet call contains the expected key-value pairs
+      const calls = mockMSet.mock.calls[0][0]
+      expect(calls.length).toBe(4) // 2 entries * 2 (key + value)
 
-      expect(mockExec).toHaveBeenCalled()
+      const expectedResponse1 = JSON.stringify({
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'key1',
+          value: 'value1'
+        })
+      })
+
+      const expectedResponse2 = JSON.stringify({
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'key2',
+          value: 'value2'
+        })
+      })
+
+      expect(calls).toContain('test:test-scheme:key1')
+      expect(calls).toContain('test:test-scheme:key2')
+      expect(calls).toContain(expectedResponse1)
+      expect(calls).toContain(expectedResponse2)
     })
 
     it('should skip records that fail shouldCache validation', async () => {
@@ -164,11 +157,13 @@ describe('BaseConceptCacheBuilder', () => {
 
       await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
-      expect(mockSet).toHaveBeenCalledTimes(1)
-      expect(mockSet).toHaveBeenCalledWith(
-        'test:test-scheme:key1',
-        expect.any(String)
-      )
+      expect(mockMSet).toHaveBeenCalled()
+
+      // Verify only key1 is in the mSet call
+      const calls = mockMSet.mock.calls[0][0]
+      expect(calls.length).toBe(2) // 1 entry * 2 (key + value)
+      expect(calls[0]).toBe('test:test-scheme:key1')
+      expect(calls).not.toContain('test:test-scheme:key2')
     })
 
     it('should handle Redis client not being configured', async () => {
@@ -177,12 +172,24 @@ describe('BaseConceptCacheBuilder', () => {
 
       await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
-      expect(mockMulti).not.toHaveBeenCalled()
-      expect(mockSet).not.toHaveBeenCalled()
+      expect(mockMSet).not.toHaveBeenCalled()
     })
 
-    it('should handle pipeline errors gracefully', async () => {
-      mockExec.mockRejectedValueOnce(new Error('Pipeline failed'))
+    it('should handle empty cache entries when all records fail validation', async () => {
+      const { logger } = await import('../logger')
+
+      // Override shouldCache to reject all records
+      builder.shouldCache = () => false
+
+      await builder.processToCache('csv content', { scheme: 'test-scheme' })
+
+      // Should not call mSet when there are no entries to cache
+      expect(mockMSet).not.toHaveBeenCalled()
+      expect(logger.debug).toHaveBeenCalledWith('No entries to cache')
+    })
+
+    it('should handle mSet errors gracefully', async () => {
+      mockMSet.mockRejectedValueOnce(new Error('mSet failed'))
 
       // Should not throw
       await expect(
@@ -194,10 +201,14 @@ describe('BaseConceptCacheBuilder', () => {
       const largeBuilder = new LargeCacheBuilder()
       await largeBuilder.processToCache('csv content', { scheme: 'test-scheme' })
 
-      // Should have called multi/exec 3 times (1000 + 1000 + 500)
-      expect(mockMulti).toHaveBeenCalledTimes(3)
-      expect(mockExec).toHaveBeenCalledTimes(3)
-      expect(mockSet).toHaveBeenCalledTimes(2500)
+      // Should have called mSet 3 times (1000 + 1000 + 500)
+      expect(mockMSet).toHaveBeenCalledTimes(3)
+
+      // Verify batch sizes
+      const { calls } = mockMSet.mock
+      expect(calls[0][0].length).toBe(2000) // 1000 entries * 2
+      expect(calls[1][0].length).toBe(2000) // 1000 entries * 2
+      expect(calls[2][0].length).toBe(1000) // 500 entries * 2
     })
   })
 
