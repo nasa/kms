@@ -191,21 +191,14 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   let successCount = 0
   let failCount = 0
-  let totalDownloadTime = 0
-  let totalParseAndWriteTime = 0
 
   const results = await processBatch(
     allCsvFiles,
     async (key) => {
       const scheme = path.basename(key, '.csv').toLowerCase()
 
-      // Track download time
-      const downloadStartTime = Date.now()
       const csvContent = await getObjectContent(key)
-      totalDownloadTime += Date.now() - downloadStartTime
 
-      // Track parse and Redis write time
-      const parseStartTime = Date.now()
       // All files have been pre-filtered, so we know they match a valid scheme
       if (fullPathSchemes.includes(scheme)) {
         await fullPathCacheBuilder.processToCache(csvContent, { scheme })
@@ -215,14 +208,10 @@ export const buildHistoricalConceptCache = async (bucketName) => {
         await shortNameCacheBuilder.processToCache(csvContent, { scheme })
         logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
       }
-
-      totalParseAndWriteTime += Date.now() - parseStartTime
     },
     PROCESS_BATCH_SIZE
   )
   phaseTimes.processFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
-  phaseTimes.downloadCsv = (totalDownloadTime / 1000).toFixed(2)
-  phaseTimes.parseAndRedisWrite = (totalParseAndWriteTime / 1000).toFixed(2)
 
   results.forEach((result, index) => {
     if (result.status === 'fulfilled') {
@@ -238,8 +227,6 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     + `Success: ${successCount}, Failed: ${failCount}. `
     + `Timing: ListDirs=${phaseTimes.listDirectories}s `
     + `ListFiles=${phaseTimes.listFiles}s `
-    + `DownloadCSV=${phaseTimes.downloadCsv}s `
-    + `ParseAndWrite=${phaseTimes.parseAndRedisWrite}s `
-    + `TotalProcess=${phaseTimes.processFiles}s`
+    + `ProcessFiles=${phaseTimes.processFiles}s`
   )
 }
