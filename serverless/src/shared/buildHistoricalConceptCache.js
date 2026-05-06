@@ -35,8 +35,10 @@ const streamToString = (stream) => new Promise((resolve, reject) => {
 const processBatch = async (items, processor, batchSize) => {
   const results = []
 
+  // Process batches sequentially to control concurrency and avoid overwhelming S3/Redis
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize)
+    // eslint-disable-next-line no-await-in-loop
     const batchResults = await Promise.allSettled(batch.map(processor))
 
     results.push(...batchResults)
@@ -182,9 +184,9 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   results.forEach((result, index) => {
     if (result.status === 'fulfilled') {
-      successCount++
+      successCount += 1
     } else {
-      failCount++
+      failCount += 1
       logger.error(`Failed to process file [${allCsvFiles[index]}]: ${result.reason?.message}`)
     }
   })

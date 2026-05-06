@@ -48,8 +48,6 @@ export class BaseConceptCacheBuilder {
     }
   }
 
-
-
   /**
    * Processes CSV content and caches all records in Redis using pipelined batch writes.
    * This is significantly faster than individual SET operations.
@@ -61,9 +59,10 @@ export class BaseConceptCacheBuilder {
     const records = this.parseCsvContent(csvContent, options)
 
     const redisClient = await getRedisClient()
-    
+
     if (!redisClient) {
       logger.warn('Redis not configured, skipping cache write')
+
       return
     }
 
@@ -74,7 +73,7 @@ export class BaseConceptCacheBuilder {
         const cacheKey = this.createCacheKey(key, options.scheme)
         const bodyData = this.createResponseBody(key, value)
         const response = this.createResponse(bodyData)
-        
+
         cacheEntries.push({
           key: cacheKey,
           value: JSON.stringify(response)
@@ -84,6 +83,7 @@ export class BaseConceptCacheBuilder {
 
     if (cacheEntries.length === 0) {
       logger.debug('No entries to cache')
+
       return
     }
 
@@ -91,6 +91,8 @@ export class BaseConceptCacheBuilder {
     const BATCH_SIZE = 1000
     let totalWritten = 0
 
+    // Process batches sequentially to avoid overwhelming Redis with concurrent pipelines
+    /* eslint-disable no-await-in-loop */
     for (let i = 0; i < cacheEntries.length; i += BATCH_SIZE) {
       const batch = cacheEntries.slice(i, i + BATCH_SIZE)
       const pipeline = redisClient.multi()
@@ -103,20 +105,21 @@ export class BaseConceptCacheBuilder {
         await pipeline.exec()
         totalWritten += batch.length
         logger.debug(
-          `[cache-builder] Wrote batch progress=${totalWritten}/${cacheEntries.length} ` +
-          `scheme=${options.scheme}`
+          `[cache-builder] Wrote batch progress=${totalWritten}/${cacheEntries.length} `
+          + `scheme=${options.scheme}`
         )
       } catch (error) {
         logger.error(
-          `[cache-builder] Pipeline batch failed scheme=${options.scheme} ` +
-          `batch=${Math.floor(i / BATCH_SIZE) + 1} error=${error.message}`
+          `[cache-builder] Pipeline batch failed scheme=${options.scheme} `
+          + `batch=${Math.floor(i / BATCH_SIZE) + 1} error=${error.message}`
         )
       }
     }
+    /* eslint-enable no-await-in-loop */
 
     logger.info(
-      `[cache-builder] Finished caching scheme=${options.scheme} ` +
-      `totalRecords=${cacheEntries.length} written=${totalWritten}`
+      `[cache-builder] Finished caching scheme=${options.scheme} `
+      + `totalRecords=${cacheEntries.length} written=${totalWritten}`
     )
   }
 
