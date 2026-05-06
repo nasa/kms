@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file */
 import {
   beforeEach,
   describe,
@@ -7,16 +8,29 @@ import {
 } from 'vitest'
 
 import { BaseConceptCacheBuilder } from '../baseConceptCacheBuilder'
-import { setCachedJsonResponse } from '../redisCacheStore'
+
+const mockExec = vi.fn(() => Promise.resolve())
+const mockSet = vi.fn()
+const mockMulti = vi.fn(() => ({
+  set: mockSet,
+  exec: mockExec
+}))
+
+const mockRedisClient = {
+  multi: mockMulti,
+  set: mockSet
+}
 
 vi.mock('../redisCacheStore', () => ({
-  setCachedJsonResponse: vi.fn(() => Promise.resolve())
+  getRedisClient: vi.fn(() => Promise.resolve(mockRedisClient))
 }))
 
 vi.mock('../logger', () => ({
   logger: {
     debug: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn()
   }
 }))
 
@@ -29,6 +43,30 @@ class TestCacheBuilder extends BaseConceptCacheBuilder {
       ['key1', 'value1'],
       ['key2', 'value2']
     ])
+  }
+
+  createCacheKey(key, scheme) {
+    return `test:${scheme}:${key}`
+  }
+
+  createResponseBody(key, value) {
+    return {
+      key,
+      value
+    }
+  }
+}
+
+// Large cache builder for batch testing
+class LargeCacheBuilder extends BaseConceptCacheBuilder {
+  parseCsvContent() {
+    const records = new Map()
+    // Create 2500 records (more than 2x BATCH_SIZE of 1000)
+    for (let i = 0; i < 2500; i += 1) {
+      records.set(`key${i}`, `value${i}`)
+    }
+
+    return records
   }
 
   createCacheKey(key, scheme) {
@@ -80,69 +118,44 @@ describe('BaseConceptCacheBuilder', () => {
     })
   })
 
-  describe('cacheRecord', () => {
-    it('should cache a record successfully', async () => {
-      const cacheKey = 'test:key'
-      const response = {
-        statusCode: 200,
-        body: '{}'
-      }
-      const identifier = 'test-id'
-
-      await builder.cacheRecord(cacheKey, response, identifier)
-
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
-        cacheKey,
-        response
-      })
-    })
-
-    it('should handle caching errors gracefully', async () => {
-      const error = new Error('Cache write failed')
-      vi.mocked(setCachedJsonResponse).mockRejectedValueOnce(error)
-
-      const cacheKey = 'test:key'
-      const response = {
-        statusCode: 200,
-        body: '{}'
-      }
-      const identifier = 'test-id'
-
-      // Should not throw
-      await expect(
-        builder.cacheRecord(cacheKey, response, identifier)
-      ).resolves.toBeUndefined()
-    })
-  })
-
   describe('processToCache', () => {
-    it('should process all records and cache them', async () => {
+    beforeEach(() => {
+      mockSet.mockClear()
+      mockMulti.mockClear()
+      mockExec.mockClear()
+      mockExec.mockResolvedValue([])
+    })
+
+    it('should process all records and cache them using Redis pipeline', async () => {
       await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
-      expect(setCachedJsonResponse).toHaveBeenCalledTimes(2)
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
-        cacheKey: 'test:test-scheme:key1',
-        response: {
+      expect(mockMulti).toHaveBeenCalled()
+      expect(mockSet).toHaveBeenCalledTimes(2)
+      expect(mockSet).toHaveBeenCalledWith(
+        'test:test-scheme:key1',
+        JSON.stringify({
           statusCode: 200,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             key: 'key1',
             value: 'value1'
           })
-        }
-      })
+        })
+      )
 
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
-        cacheKey: 'test:test-scheme:key2',
-        response: {
+      expect(mockSet).toHaveBeenCalledWith(
+        'test:test-scheme:key2',
+        JSON.stringify({
           statusCode: 200,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             key: 'key2',
             value: 'value2'
           })
-        }
-      })
+        })
+      )
+
+      expect(mockExec).toHaveBeenCalled()
     })
 
     it('should skip records that fail shouldCache validation', async () => {
@@ -151,11 +164,40 @@ describe('BaseConceptCacheBuilder', () => {
 
       await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
-      expect(setCachedJsonResponse).toHaveBeenCalledTimes(1)
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
-        cacheKey: 'test:test-scheme:key1',
-        response: expect.any(Object)
-      })
+      expect(mockSet).toHaveBeenCalledTimes(1)
+      expect(mockSet).toHaveBeenCalledWith(
+        'test:test-scheme:key1',
+        expect.any(String)
+      )
+    })
+
+    it('should handle Redis client not being configured', async () => {
+      const { getRedisClient } = await import('../redisCacheStore')
+      vi.mocked(getRedisClient).mockResolvedValueOnce(null)
+
+      await builder.processToCache('csv content', { scheme: 'test-scheme' })
+
+      expect(mockMulti).not.toHaveBeenCalled()
+      expect(mockSet).not.toHaveBeenCalled()
+    })
+
+    it('should handle pipeline errors gracefully', async () => {
+      mockExec.mockRejectedValueOnce(new Error('Pipeline failed'))
+
+      // Should not throw
+      await expect(
+        builder.processToCache('csv content', { scheme: 'test-scheme' })
+      ).resolves.toBeUndefined()
+    })
+
+    it('should process large datasets in batches', async () => {
+      const largeBuilder = new LargeCacheBuilder()
+      await largeBuilder.processToCache('csv content', { scheme: 'test-scheme' })
+
+      // Should have called multi/exec 3 times (1000 + 1000 + 500)
+      expect(mockMulti).toHaveBeenCalledTimes(3)
+      expect(mockExec).toHaveBeenCalledTimes(3)
+      expect(mockSet).toHaveBeenCalledTimes(2500)
     })
   })
 

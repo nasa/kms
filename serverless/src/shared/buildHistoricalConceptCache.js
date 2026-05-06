@@ -26,6 +26,30 @@ const streamToString = (stream) => new Promise((resolve, reject) => {
 })
 
 /**
+ * Process items in parallel batches with controlled concurrency.
+ * @param {Array} items - Items to process
+ * @param {Function} processor - Async function to process each item
+ * @param {number} batchSize - Number of concurrent operations
+ * @returns {Promise<Array>} Results of processing
+ */
+const processBatch = async (items, processor, batchSize) => {
+  const results = []
+
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize)
+    const batchResults = await Promise.allSettled(batch.map(processor))
+
+    results.push(...batchResults)
+
+    logger.info(
+      `[cache-builder] Batch progress ${Math.min(i + batchSize, items.length)}/${items.length}`
+    )
+  }
+
+  return results
+}
+
+/**
  * Orchestrates building the Historical Concept cache from CSV files stored in an S3 bucket.
  * It scans a given S3 bucket for version directories, finds all `.csv` files
  * within them, and uses the appropriate cache builder to process each file's content.
@@ -112,13 +136,15 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     return
   }
 
-  // Sequentially list files in each directory to avoid excessive ListObjects calls
-  const allCsvFiles = await versionDirs.reduce(async (accPromise, prefix) => {
-    const acc = await accPromise
-    const filesInDir = await listCsvFilesInDirectory(prefix)
-
-    return acc.concat(filesInDir)
-  }, Promise.resolve([]))
+  // List files with controlled concurrency
+  const LIST_BATCH_SIZE = 5
+  const allCsvFiles = (await processBatch(
+    versionDirs,
+    async (prefix) => listCsvFilesInDirectory(prefix),
+    LIST_BATCH_SIZE
+  ))
+    .filter((result) => result.status === 'fulfilled')
+    .flatMap((result) => result.value)
 
   if (allCsvFiles.length === 0) {
     logger.warn('No CSV files found in any version directory. Nothing to process.')
@@ -127,13 +153,17 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   }
 
   logger.info(`Found a total of ${allCsvFiles.length} CSV files to process.`)
-  logger.info('Processing files sequentially to respect S3 rate limits.')
 
-  // Process files sequentially to avoid S3 throttling
-  await allCsvFiles.reduce(async (previousPromise, key) => {
-    await previousPromise
+  // Process CSV files in parallel batches
+  const PROCESS_BATCH_SIZE = 5
+  logger.info(`Processing files in parallel batches of ${PROCESS_BATCH_SIZE}.`)
 
-    try {
+  let successCount = 0
+  let failCount = 0
+
+  const results = await processBatch(
+    allCsvFiles,
+    async (key) => {
       const scheme = path.basename(key, '.csv').toLowerCase()
       const csvContent = await getObjectContent(key)
 
@@ -146,10 +176,21 @@ export const buildHistoricalConceptCache = async (bucketName) => {
       } else {
         logger.warn(`No cache builder found for scheme [${scheme}] in file [${key}].`)
       }
-    } catch (error) {
-      logger.error(`Failed to process file [${key}]: ${error.message}`)
-    }
-  }, Promise.resolve())
+    },
+    PROCESS_BATCH_SIZE
+  )
 
-  logger.info(`Cache build process finished for bucket [${bucketName}].`)
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      successCount++
+    } else {
+      failCount++
+      logger.error(`Failed to process file [${allCsvFiles[index]}]: ${result.reason?.message}`)
+    }
+  })
+
+  logger.info(
+    `Cache build process finished for bucket [${bucketName}]. `
+    + `Success: ${successCount}, Failed: ${failCount}`
+  )
 }

@@ -1,7 +1,7 @@
 import { parse } from 'csv/sync'
 
 import { logger } from './logger'
-import { setCachedJsonResponse } from './redisCacheStore'
+import { getRedisClient } from './redisCacheStore'
 
 /**
  * Base class for building concept caches from CSV content.
@@ -48,27 +48,11 @@ export class BaseConceptCacheBuilder {
     }
   }
 
-  /**
-   * Caches a single record in Redis with error handling.
-   * @param {string} cacheKey - The Redis cache key.
-   * @param {Object} response - The response object to cache.
-   * @param {string} identifier - An identifier for logging purposes.
-   * @returns {Promise<void>}
-   */
-  async cacheRecord(cacheKey, response, identifier) {
-    try {
-      await setCachedJsonResponse({
-        cacheKey,
-        response
-      })
-    } catch (error) {
-      logger.error(`Error setting cache for ${identifier}: ${error.message}`)
-    }
-  }
+
 
   /**
-   * Processes CSV content and caches all records in Redis.
-   * This method orchestrates parsing and caching, delegating specifics to subclass implementations.
+   * Processes CSV content and caches all records in Redis using pipelined batch writes.
+   * This is significantly faster than individual SET operations.
    *
    * @param {string} csvContent - The CSV content as a string.
    * @param {Object} options - Options for processing (e.g., scheme).
@@ -76,22 +60,64 @@ export class BaseConceptCacheBuilder {
   async processToCache(csvContent, options) {
     const records = this.parseCsvContent(csvContent, options)
 
-    const cacheOperations = []
+    const redisClient = await getRedisClient()
+    
+    if (!redisClient) {
+      logger.warn('Redis not configured, skipping cache write')
+      return
+    }
 
+    // Collect all cache operations
+    const cacheEntries = []
     records.forEach((value, key) => {
       if (this.shouldCache(key, value)) {
         const cacheKey = this.createCacheKey(key, options.scheme)
         const bodyData = this.createResponseBody(key, value)
         const response = this.createResponse(bodyData)
-        const identifier = this.getIdentifier(key)
-
-        cacheOperations.push(this.cacheRecord(cacheKey, response, identifier))
+        
+        cacheEntries.push({
+          key: cacheKey,
+          value: JSON.stringify(response)
+        })
       }
     })
 
-    await Promise.all(cacheOperations)
+    if (cacheEntries.length === 0) {
+      logger.debug('No entries to cache')
+      return
+    }
 
-    logger.debug('Finished processing and caching CSV content.')
+    // Use Redis pipeline for batch writes
+    const BATCH_SIZE = 1000
+    let totalWritten = 0
+
+    for (let i = 0; i < cacheEntries.length; i += BATCH_SIZE) {
+      const batch = cacheEntries.slice(i, i + BATCH_SIZE)
+      const pipeline = redisClient.multi()
+
+      batch.forEach(({ key, value }) => {
+        pipeline.set(key, value)
+      })
+
+      try {
+        await pipeline.exec()
+        totalWritten += batch.length
+        logger.debug(
+          `[cache-builder] Wrote batch progress=${totalWritten}/${cacheEntries.length} ` +
+          `scheme=${options.scheme}`
+        )
+      } catch (error) {
+        logger.error(
+          `[cache-builder] Pipeline batch failed scheme=${options.scheme} ` +
+          `batch=${Math.floor(i / BATCH_SIZE) + 1} error=${error.message}`
+        )
+      }
+    }
+
+    logger.info(
+      `[cache-builder] Finished caching scheme=${options.scheme} ` +
+      `totalRecords=${cacheEntries.length} written=${totalWritten}`
+    )
   }
 
   /**

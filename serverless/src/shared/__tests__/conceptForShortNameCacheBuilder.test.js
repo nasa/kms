@@ -9,11 +9,22 @@ import {
 import { ConceptForShortNameCacheBuilder } from '../conceptForShortNameCacheBuilder'
 import { logger } from '../logger'
 import { createConceptResponseCacheKeyByShortName } from '../redisCacheKeys'
-import { setCachedJsonResponse } from '../redisCacheStore'
+
+const mockExec = vi.fn(() => Promise.resolve())
+const mockSet = vi.fn()
+const mockMulti = vi.fn(() => ({
+  set: mockSet,
+  exec: mockExec
+}))
+
+const mockRedisClient = {
+  multi: mockMulti,
+  set: mockSet
+}
 
 // Mock the dependencies
 vi.mock('../redisCacheStore', () => ({
-  setCachedJsonResponse: vi.fn(() => Promise.resolve())
+  getRedisClient: vi.fn(() => Promise.resolve(mockRedisClient))
 }))
 
 vi.mock('../redisCacheKeys', () => ({
@@ -23,7 +34,9 @@ vi.mock('../redisCacheKeys', () => ({
 vi.mock('../logger', () => ({
   logger: {
     debug: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn()
   }
 }))
 
@@ -34,6 +47,10 @@ describe('ConceptForShortNameCacheBuilder', () => {
     builder = new ConceptForShortNameCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
+    mockSet.mockClear()
+    mockMulti.mockClear()
+    mockExec.mockClear()
+    mockExec.mockResolvedValue([])
   })
 
   describe('parseCsvContent', () => {
@@ -97,14 +114,16 @@ describe('ConceptForShortNameCacheBuilder', () => {
   })
 
   describe('processToCache', () => {
-    it('should process instrument CSV and cache the results', async () => {
+    it('should process instrument CSV and cache the results using Redis pipeline', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
 `
       await builder.processToCache(csvContent, { scheme: 'instruments' })
 
-      expect(setCachedJsonResponse).toHaveBeenCalledTimes(1)
+      expect(mockMulti).toHaveBeenCalled()
+      expect(mockSet).toHaveBeenCalledTimes(1)
+      expect(mockExec).toHaveBeenCalled()
 
       const shortName = 'AC-690A'
       const uuid = '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'
@@ -126,20 +145,22 @@ describe('ConceptForShortNameCacheBuilder', () => {
         })
       }
 
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
+      expect(mockSet).toHaveBeenCalledWith(
         cacheKey,
-        response: expectedResponse
-      })
+        JSON.stringify(expectedResponse)
+      )
     })
 
-    it('should process provider CSV and cache the results', async () => {
+    it('should process provider CSV and cache the results using Redis pipeline', async () => {
       const csvContent = `"Keyword Version: 1.0.0"
 "Bucket_Level0","Bucket_Level1","Bucket_Level2","Bucket_Level3","Short_Name","Long_Name","Data_Center_URL","UUID"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
 `
       await builder.processToCache(csvContent, { scheme: 'providers' })
 
-      expect(setCachedJsonResponse).toHaveBeenCalledTimes(1)
+      expect(mockMulti).toHaveBeenCalled()
+      expect(mockSet).toHaveBeenCalledTimes(1)
+      expect(mockExec).toHaveBeenCalled()
 
       const shortName = 'ANU/ICAM'
       const uuid = '268174c2-14f0-4bfc-9fe7-4ef148a26345'
@@ -161,22 +182,25 @@ describe('ConceptForShortNameCacheBuilder', () => {
         })
       }
 
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
+      expect(mockSet).toHaveBeenCalledWith(
         cacheKey,
-        response: expectedResponse
-      })
+        JSON.stringify(expectedResponse)
+      )
     })
 
-    it('should log an error if caching fails', async () => {
+    it('should handle pipeline errors gracefully', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"`
-      const mockError = new Error('Cache write failed')
-      vi.mocked(setCachedJsonResponse).mockRejectedValueOnce(mockError)
+      const mockError = new Error('Pipeline failed')
+      mockExec.mockRejectedValueOnce(mockError)
 
-      await builder.processToCache(csvContent, { scheme: 'instruments' })
+      // Should not throw
+      await expect(
+        builder.processToCache(csvContent, { scheme: 'instruments' })
+      ).resolves.toBeUndefined()
 
-      expect(logger.error).toHaveBeenCalledWith('Error setting cache for AC-690A: Cache write failed')
+      expect(logger.error).toHaveBeenCalled()
     })
   })
 })

@@ -9,11 +9,22 @@ import {
 import { ConceptForFullPathCacheBuilder } from '../conceptForFullPathCacheBuilder'
 import { logger } from '../logger'
 import { createConceptResponseCacheKeyByFullPath } from '../redisCacheKeys'
-import { setCachedJsonResponse } from '../redisCacheStore'
+
+const mockExec = vi.fn(() => Promise.resolve())
+const mockSet = vi.fn()
+const mockMulti = vi.fn(() => ({
+  set: mockSet,
+  exec: mockExec
+}))
+
+const mockRedisClient = {
+  multi: mockMulti,
+  set: mockSet
+}
 
 // Mock the redisCacheStore functions
 vi.mock('../redisCacheStore', () => ({
-  setCachedJsonResponse: vi.fn(() => Promise.resolve())
+  getRedisClient: vi.fn(() => Promise.resolve(mockRedisClient))
 }))
 
 vi.mock('../redisCacheKeys', () => ({
@@ -23,7 +34,9 @@ vi.mock('../redisCacheKeys', () => ({
 vi.mock('../logger', () => ({
   logger: {
     debug: vi.fn(),
-    error: vi.fn()
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn()
   }
 }))
 
@@ -34,6 +47,10 @@ describe('ConceptForFullPathCacheBuilder', () => {
     builder = new ConceptForFullPathCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
+    mockSet.mockClear()
+    mockMulti.mockClear()
+    mockExec.mockClear()
+    mockExec.mockResolvedValue([])
   })
 
   describe('parseCsvContent', () => {
@@ -58,7 +75,7 @@ describe('ConceptForFullPathCacheBuilder', () => {
   })
 
   describe('processToCache', () => {
-    it('should process CSV content and cache the results', async () => {
+    it('should process CSV content and cache the results using Redis pipeline', async () => {
       const csvContent = `"Keyword Version: 23.4","Revision: 2026-03-17T17:34:00.294Z","Timestamp: 2026-03-17 17:35:41"
 "Category","Topic","Term","Variable_Level_1","Variable_Level_2","Variable_Level_3","Detailed_Variable","UUID"
 "EARTH SCIENCE","OCEANS","AQUATIC SCIENCES","FISHERIES","","","","fa57b0a0-9723-4195-bdd1-4f26aefa0e07"
@@ -67,7 +84,9 @@ describe('ConceptForFullPathCacheBuilder', () => {
 
       await builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
 
-      expect(setCachedJsonResponse).toHaveBeenCalled()
+      expect(mockMulti).toHaveBeenCalled()
+      expect(mockSet).toHaveBeenCalledTimes(2)
+      expect(mockExec).toHaveBeenCalled()
 
       // Verify one of the calls
       const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
@@ -87,22 +106,25 @@ describe('ConceptForFullPathCacheBuilder', () => {
         })
       }
 
-      expect(setCachedJsonResponse).toHaveBeenCalledWith({
+      expect(mockSet).toHaveBeenCalledWith(
         cacheKey,
-        response: expectedResponse
-      })
+        JSON.stringify(expectedResponse)
+      )
     })
 
-    it('should log an error if caching fails', async () => {
+    it('should handle pipeline errors gracefully', async () => {
       const csvContent = `"Keyword Version: 23.4"
 "Category","UUID"
 "EARTH SCIENCE","a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4"`
-      const mockError = new Error('Cache write failed')
-      vi.mocked(setCachedJsonResponse).mockRejectedValueOnce(mockError)
+      const mockError = new Error('Pipeline failed')
+      mockExec.mockRejectedValueOnce(mockError)
 
-      await builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
+      // Should not throw
+      await expect(
+        builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
+      ).resolves.toBeUndefined()
 
-      expect(logger.error).toHaveBeenCalledWith('Error setting cache for EARTH SCIENCE: Cache write failed')
+      expect(logger.error).toHaveBeenCalled()
     })
   })
 })
