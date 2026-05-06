@@ -112,7 +112,11 @@ describe('getHistoricalConceptByShortName', () => {
     const mockResponse = {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uuid: 'mock-uuid-123' })
+      body: JSON.stringify({
+        uuid: 'mock-uuid-123',
+        fullPath: 'Space-based Platforms > TERRA',
+        longName: 'Terra (satellite)'
+      })
     }
     getCachedJsonResponse.mockResolvedValue(mockResponse)
 

@@ -8,7 +8,7 @@ import { createConceptResponseCacheKeyByShortName } from '@/shared/redisCacheKey
 import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 
 /**
- * Retrieves a historical concept (UUID and fullPath) for a given shortName from the cache. This handler ONLY checks the cache
+ * Retrieves a historical concept (UUID, fullPath, and longName) for a given shortName from the cache. This handler ONLY checks the cache
  * and will return a 404 if the value is not already cached.
  *
  * @async
@@ -29,13 +29,14 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  * };
  *
  * // Assuming the cache is populated for the shortName 'AC-690A'
- * // with UUID '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d' and fullPath 'Air-based Platforms > Propeller > AC-690A', the handler returns:
+ * // with UUID '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d', fullPath 'Air-based Platforms > Propeller > AC-690A',
+ * // and longName 'Aerocommander aircraft', the handler returns:
  * const response = {
  *   statusCode: 200,
  *   headers: {
  *     'Content-Type': 'application/json'
  *   },
- *   body: '{\"uuid\":\"6fa682b9-c6b5-46ca-971f-b7ecd4bf304d\",\"fullPath\":\"Air-based Platforms > Propeller > AC-690A\"}'
+ *   body: '{\"uuid\":\"6fa682b9-c6b5-46ca-971f-b7ecd4bf304d\",\"fullPath\":\"Air-based Platforms > Propeller > AC-690A\",\"longName\":\"Aerocommander aircraft\"}'
  * };
  */
 export const getHistoricalConceptByShortName = async (event, context) => {
