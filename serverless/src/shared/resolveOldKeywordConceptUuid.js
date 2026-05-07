@@ -1,7 +1,10 @@
+import { buildFullPath } from './buildFullPath'
 import { getConceptUuidByFullPath } from './getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from './getConceptUuidByShortName'
 
 const OLD_KEYWORD_PLACEHOLDER_PREFIX = '[resolve old keyword from UMM-C value: '
+const INTERNAL_PATH_SEPARATOR = '|'
+const HISTORICAL_CACHE_PATH_SEPARATOR = ' > '
 
 /*
  * Lookup routing reference
@@ -18,7 +21,7 @@ const OLD_KEYWORD_PLACEHOLDER_PREFIX = '[resolve old keyword from UMM-C value: '
  * - short_name: providers, platforms, instruments, projects, idnnode,
  *   DataFormat, GranuleDataFormat
  *
- * KMS-664 is expected to replace the stub helpers behind these two routes.
+ * KMS-664 now provides the Redis-backed historical lookups behind these two routes.
  */
 const FULL_PATH_SCHEMES = new Set([
   'sciencekeywords',
@@ -29,7 +32,7 @@ const FULL_PATH_SCHEMES = new Set([
   'temporalresolutionrange',
   'horizontalresolutionrange',
   'verticalresolutionrange',
-  'ProductLevelId'
+  'productlevelid'
 ])
 
 const SHORT_NAME_SCHEMES = new Set([
@@ -38,8 +41,8 @@ const SHORT_NAME_SCHEMES = new Set([
   'instruments',
   'projects',
   'idnnode',
-  'DataFormat',
-  'GranuleDataFormat'
+  'dataformat',
+  'granuledataformat'
 ])
 
 // Convert the current placeholder string back into the raw lookup value expected by the stub.
@@ -51,21 +54,68 @@ const extractLookupValue = (oldKeyword) => {
   return oldKeyword
 }
 
-// Keep the old and new keyword paths identical until KMS-664 adds current-path lookup by UUID.
+const toHistoricalCacheFullPath = (keywordPath) => keywordPath
+  .split(INTERNAL_PATH_SEPARATOR)
+  .join(HISTORICAL_CACHE_PATH_SEPARATOR)
+
+const toDelegateKeywordPath = (keywordPath) => keywordPath
+  .split(INTERNAL_PATH_SEPARATOR)
+  .join(HISTORICAL_CACHE_PATH_SEPARATOR)
+
+const isDeleteMatchForKeyword = ({
+  keywordEvent = {},
+  normalizedScheme,
+  keywordConceptUuid
+}) => (
+  keywordEvent?.eventType === 'DELETED'
+  && keywordEvent?.uuid
+  && keywordEvent.uuid === keywordConceptUuid
+  && (
+    !keywordEvent?.scheme
+    || String(keywordEvent.scheme).toLowerCase() === normalizedScheme
+  )
+)
+
+const getCurrentKeywordPath = async (keywordConceptUuid) => {
+  if (!keywordConceptUuid) {
+    return undefined
+  }
+
+  const currentKeywordPath = await buildFullPath(keywordConceptUuid, 'published')
+
+  return currentKeywordPath
+    ? toDelegateKeywordPath(currentKeywordPath)
+    : undefined
+}
+
 const buildKeywordReference = ({
   keywordConceptUuid,
-  keywordPath
-}) => ({
-  keywordConceptUuid,
-  oldKeywordPath: keywordPath,
-  newKeywordPath: keywordPath
-})
+  oldKeywordPath,
+  newKeywordPath,
+  action
+}) => {
+  if (!keywordConceptUuid || !oldKeywordPath || !action) {
+    return undefined
+  }
+
+  if (action === 'replace' && !newKeywordPath) {
+    return undefined
+  }
+
+  return {
+    keywordConceptUuid,
+    oldKeywordPath,
+    newKeywordPath,
+    action
+  }
+}
 
 /**
- * Routes extracted UMM-C keyword values to the correct concept-uuid lookup stub.
+ * Routes extracted UMM-C keyword values to the correct historical lookup and then resolves
+ * the current published keyword path by UUID.
  *
- * KMS-664 is expected to replace these stubs with real KMS UUID lookup APIs. KMS-675 uses
- * this shared helper so the metadata-correction flow already has a single handoff point.
+ * KMS-675 uses this shared helper so the metadata-correction flow already has a single
+ * handoff point from extracted broken UMM-C values to historical/current keyword references.
  *
  * @param {object} params - Lookup parameters.
  * @param {string} params.scheme - KMS scheme for the broken keyword.
@@ -78,33 +128,79 @@ const buildKeywordReference = ({
  */
 export const resolveOldKeywordConceptUuid = async ({
   scheme,
-  oldKeyword
+  oldKeyword,
+  keywordEvent = {}
 }) => {
   if (!scheme || !oldKeyword) {
     return undefined
   }
 
+  const normalizedScheme = scheme.toLowerCase()
   const lookupValue = extractLookupValue(oldKeyword)
 
   if (!lookupValue) {
     return undefined
   }
 
-  if (FULL_PATH_SCHEMES.has(scheme)) {
+  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+    const historicalConcept = await getConceptUuidByFullPath({
+      fullPath: toHistoricalCacheFullPath(lookupValue),
+      scheme: normalizedScheme
+    })
+    const keywordConceptUuid = historicalConcept?.uuid
+    const isDeleteMatch = isDeleteMatchForKeyword({
+      keywordEvent,
+      normalizedScheme,
+      keywordConceptUuid
+    })
+
+    if (isDeleteMatch) {
+      return buildKeywordReference({
+        keywordConceptUuid,
+        oldKeywordPath: historicalConcept?.fullPath,
+        newKeywordPath: '',
+        action: 'delete'
+      })
+    }
+
+    const newKeywordPath = await getCurrentKeywordPath(keywordConceptUuid)
+
     return buildKeywordReference({
-      keywordConceptUuid: await getConceptUuidByFullPath({
-        fullPath: lookupValue
-      }),
-      keywordPath: lookupValue
+      keywordConceptUuid,
+      oldKeywordPath: historicalConcept?.fullPath,
+      newKeywordPath,
+      action: 'replace'
     })
   }
 
-  if (SHORT_NAME_SCHEMES.has(scheme)) {
+  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+    const historicalConcept = await getConceptUuidByShortName({
+      shortName: lookupValue,
+      scheme: normalizedScheme
+    })
+    const keywordConceptUuid = historicalConcept?.uuid
+    const isDeleteMatch = isDeleteMatchForKeyword({
+      keywordEvent,
+      normalizedScheme,
+      keywordConceptUuid
+    })
+
+    if (isDeleteMatch) {
+      return buildKeywordReference({
+        keywordConceptUuid,
+        oldKeywordPath: historicalConcept?.fullPath,
+        newKeywordPath: '',
+        action: 'delete'
+      })
+    }
+
+    const newKeywordPath = await getCurrentKeywordPath(keywordConceptUuid)
+
     return buildKeywordReference({
-      keywordConceptUuid: await getConceptUuidByShortName({
-        shortName: lookupValue
-      }),
-      keywordPath: lookupValue
+      keywordConceptUuid,
+      oldKeywordPath: historicalConcept?.fullPath,
+      newKeywordPath,
+      action: 'replace'
     })
   }
 

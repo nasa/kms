@@ -35,6 +35,127 @@ describe('metadata correction delegate stubs', () => {
     })
   })
 
+  test('applies science keyword and platform corrections to UMM metadata', async () => {
+    await expect(applyUmmMetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: {
+        ShortName: 'TEST',
+        Platforms: [
+          {
+            ShortName: 'Aqua Legacy'
+          }
+        ],
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS'
+          }
+        ]
+      },
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
+          newKeywordPath: 'Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+        },
+        {
+          scheme: 'platforms',
+          ummPath: ['Platforms', 0],
+          oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy',
+          newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+        }
+      ]
+    })).resolves.toEqual({
+      nativeFormat: 'UMM',
+      delegateName: 'umm',
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      correctionCount: 2,
+      correctedMetadata: {
+        ShortName: 'TEST',
+        Platforms: [
+          {
+            ShortName: 'Aqua'
+          }
+        ],
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS'
+          }
+        ]
+      },
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
+          newKeywordPath: 'Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+        },
+        {
+          scheme: 'platforms',
+          ummPath: ['Platforms', 0],
+          oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy',
+          newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+        }
+      ],
+      stubbed: true
+    })
+  })
+
+  test('removes a project keyword when a delete correction is applied', async () => {
+    await expect(applyUmmMetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: {
+        ShortName: 'TEST',
+        Projects: [
+          {
+            ShortName: 'Legacy Climate Study'
+          }
+        ]
+      },
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          ummPath: ['Projects', 0],
+          oldKeywordPath: 'Projects > Legacy Climate Study',
+          newKeywordPath: ''
+        }
+      ]
+    })).resolves.toEqual({
+      nativeFormat: 'UMM',
+      delegateName: 'umm',
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      correctionCount: 1,
+      correctedMetadata: {
+        ShortName: 'TEST',
+        Projects: []
+      },
+      correctionsApplied: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          ummPath: ['Projects', 0],
+          oldKeywordPath: 'Projects > Legacy Climate Study',
+          newKeywordPath: ''
+        }
+      ],
+      stubbed: true
+    })
+  })
+
   test('returns the expected ISO19115 delegate stub shape', async () => {
     await expect(applyIso19115MetadataCorrections({
       collectionConceptId: 'C2',
@@ -114,9 +235,12 @@ describe('metadata correction delegate stubs', () => {
       correctionCount: 3
     })).resolves.toEqual({
       collectionConceptId: 'C6',
+      providerId: undefined,
+      nativeId: undefined,
       nativeFormat: 'UMM',
       correctionCount: 3,
       ingested: false,
+      updated: false,
       stubbed: true
     })
   })

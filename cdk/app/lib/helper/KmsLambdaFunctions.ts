@@ -299,6 +299,15 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'getMetadataCorrectionAudit/handler.js',
+      'get-metadata-correction-audit',
+      'getMetadataCorrectionAudit',
+      '/metadata_correction_audit',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
       'getKeywordFullPathHistory/handler.js',
       'get-keyword-full-path-history',
       'getKeywordFullPathHistory',

@@ -1,21 +1,41 @@
+import { createConceptResponseCacheKeyByShortName } from './redisCacheKeys'
+import { getCachedJsonResponse } from './redisCacheStore'
+
 /**
- * Stub lookup for the future `/concept_uuid/short_name/{shortname}` KMS API.
- *
- * KMS-664 is expected to provide the real concept-uuid lookup. Until then, return the
- * extracted UMM-C value in the same placeholder shape we already carry through KMS-675.
+ * Looks up a historical concept by short name using the KMS-664 Redis-backed cache.
  *
  * @param {object} params - Lookup parameters.
- * @param {string} params.shortName - Short-name value extracted from UMM-C.
- * @returns {Promise<string>} Placeholder result that will later be replaced by a real UUID.
+ * @param {string} params.shortName - Historical short-name value.
+ * @param {string} params.scheme - KMS scheme for the lookup.
+ * @returns {Promise<{uuid: string, fullPath: string, longName?: string}|undefined>} Cached historical concept payload.
  */
 export const getConceptUuidByShortName = async ({
-  shortName
+  shortName,
+  scheme
 }) => {
   if (!shortName) {
-    throw new Error('Missing short name for concept uuid lookup stub')
+    throw new Error('Missing short name for historical concept lookup')
   }
 
-  return `[resolve old keyword from UMM-C value: ${shortName}]`
+  if (!scheme) {
+    throw new Error('Missing scheme for historical concept lookup')
+  }
+
+  const cacheKey = createConceptResponseCacheKeyByShortName({
+    shortName: shortName.toLowerCase(),
+    scheme: scheme.toLowerCase()
+  })
+
+  const cachedResponse = await getCachedJsonResponse({
+    cacheKey,
+    entityLabel: 'Historical Concept by shortName'
+  })
+
+  if (!cachedResponse?.body) {
+    return undefined
+  }
+
+  return JSON.parse(cachedResponse.body)
 }
 
 export default getConceptUuidByShortName

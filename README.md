@@ -201,6 +201,32 @@ Notes:
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault. This is useful when `rdf4jSnapshotStack` is being recreated after an RDF4J recovery event and you need the new stack to reuse an existing vault instead of trying to create the same vault name again.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is not set, `SnapshotStack` creates the default `rdf4j-backup-vault`.
 
+#### Refresh RDF4J AMI / ASG
+
+Use this when the RDF4J EC2 instance needs a refresh, for example after an AMI update or when
+we want to replace the current instance cleanly. The normal operational path for that has been to
+run this script. In practice, if the EC2 AMIs are on a 90-day refresh cadence, this is the step
+we use to roll RDF4J onto the refreshed instance.
+
+1. In `cloud.earthdata.nasa.gov`, generate short-term AWS credentials for the target account.
+2. Paste those credentials into the same terminal where you will run the refresh:
+
+   ```bash
+   export AWS_ACCESS_KEY_ID=[temporary access key id]
+   export AWS_SECRET_ACCESS_KEY=[temporary secret access key]
+   export AWS_SESSION_TOKEN=[temporary session token]
+   ```
+
+3. Run the refresh script:
+
+   ```bash
+   ./bin/refresh_asg.sh
+   ```
+
+This script fully drains the RDF4J Auto Scaling Group to `0`, waits for the old instance to
+terminate, and then brings the group back to `1` so a fresh EC2 instance comes up and ECS
+stabilizes.
+
 #### Deploy KMS Application
 ```
 ./bin/deploy-bamboo.sh

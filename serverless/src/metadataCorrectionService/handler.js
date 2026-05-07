@@ -4,11 +4,44 @@ import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
 import { ingestCorrectedMetadataStub } from '@/shared/ingestCorrectedMetadataStub'
 import { invokeMetadataCorrectionDelegate } from '@/shared/invokeMetadataCorrectionDelegate'
 import { logger } from '@/shared/logger'
+import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
 import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptUuid'
 import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 
 // Keep validation paths grep-friendly in logs without dumping full JSON payloads.
 const formatValidationPath = (path = []) => path.join('.')
+
+const buildValidationResultForMockWriteback = (resolvedKeywordValidationFailures) => {
+  const unresolvedValidationErrors = resolvedKeywordValidationFailures
+    .filter(({
+      keywordConceptUuid,
+      oldKeywordPath,
+      newKeywordPath,
+      keywordAction
+    }) => (
+      keywordAction === 'delete'
+        ? !(keywordConceptUuid && oldKeywordPath)
+        : !(keywordConceptUuid && oldKeywordPath && newKeywordPath)
+    ))
+    .map(({ path, errors = [] }) => ({
+      path,
+      errors
+    }))
+
+  if (unresolvedValidationErrors.length === 0) {
+    return {
+      status: 200,
+      errors: [],
+      warnings: []
+    }
+  }
+
+  return {
+    status: 400,
+    errors: unresolvedValidationErrors,
+    warnings: []
+  }
+}
 
 /**
  * Metadata correction service that consumes metadata correction requests from SQS.
@@ -96,14 +129,16 @@ export const metadataCorrectionService = async (event) => {
           } = keywordValidationFailure
           const keywordReference = await resolveOldKeywordConceptUuid({
             scheme: failureScheme,
-            oldKeyword
+            oldKeyword,
+            keywordEvent
           })
 
           return {
             ...keywordValidationFailure,
             keywordConceptUuid: keywordReference?.keywordConceptUuid,
             oldKeywordPath: keywordReference?.oldKeywordPath,
-            newKeywordPath: keywordReference?.newKeywordPath
+            newKeywordPath: keywordReference?.newKeywordPath,
+            keywordAction: keywordReference?.action
           }
         })
       )
@@ -112,8 +147,13 @@ export const metadataCorrectionService = async (event) => {
         ({
           keywordConceptUuid,
           oldKeywordPath,
-          newKeywordPath
-        }) => Boolean(keywordConceptUuid && oldKeywordPath && newKeywordPath)
+          newKeywordPath,
+          keywordAction
+        }) => (
+          keywordAction === 'delete'
+            ? Boolean(keywordConceptUuid && oldKeywordPath)
+            : Boolean(keywordConceptUuid && oldKeywordPath && newKeywordPath)
+        )
       )
       // Keep track of the failures we found but could not yet turn into a replacement reference.
       const unresolvedKeywordValidationFailureCount = (
@@ -179,6 +219,18 @@ export const metadataCorrectionService = async (event) => {
       })
 
       if (actionableKeywordValidationFailures.length > 0) {
+        actionableKeywordValidationFailures.forEach((keywordValidationFailure) => {
+          logger.info(
+            '[metadata-correction] Resolved keyword correction '
+            + `collectionConceptId=${collectionConceptId} `
+            + `scheme=${keywordValidationFailure.scheme} `
+            + `action=${keywordValidationFailure.keywordAction || 'replace'} `
+            + `keywordConceptUuid=${keywordValidationFailure.keywordConceptUuid} `
+            + `oldKeywordPath=${keywordValidationFailure.oldKeywordPath} `
+            + `newKeywordPath=${keywordValidationFailure.newKeywordPath || 'n/a'}`
+          )
+        })
+
         // Hand only fully-resolved corrections to the format-specific delegate.
         const delegateResult = await invokeMetadataCorrectionDelegate({
           nativeFormat,
@@ -188,6 +240,7 @@ export const metadataCorrectionService = async (event) => {
           metadataPayload: nativeFormat === 'UMM' ? umm : undefined,
           corrections: actionableKeywordValidationFailures.map((keywordValidationFailure) => ({
             scheme: keywordValidationFailure.scheme,
+            action: keywordValidationFailure.keywordAction || 'replace',
             ummPath: keywordValidationFailure.path,
             keywordConceptUuid: keywordValidationFailure.keywordConceptUuid,
             oldKeywordPath: keywordValidationFailure.oldKeywordPath,
@@ -207,9 +260,55 @@ export const metadataCorrectionService = async (event) => {
         // Keep the ingest call in place so the end-to-end flow is wired even while ingest is stubbed.
         const ingestResult = await ingestCorrectedMetadataStub({
           collectionConceptId,
+          providerId,
+          nativeId,
           nativeFormat: delegateResult.nativeFormat,
-          correctionCount: delegateResult.correctionCount
+          correctionCount: delegateResult.correctionCount,
+          correctedMetadata: delegateResult.correctedMetadata,
+          validation: buildValidationResultForMockWriteback(resolvedKeywordValidationFailures)
         })
+
+        const auditStatus = ingestResult.ingested ? 'applied' : 'pending'
+
+        if (ingestResult.updated) {
+          logger.info(
+            '[metadata-correction] Updated mock CMR metadata '
+            + `collectionConceptId=${collectionConceptId} `
+            + `revisionId=${ingestResult.revisionId} `
+            + `updated=${ingestResult.updated}`
+          )
+        } else if (ingestResult.writebackErrorMessage) {
+          logger.error(
+            '[metadata-correction] Failed to update mock CMR metadata',
+            new Error(ingestResult.writebackErrorMessage)
+          )
+        }
+
+        try {
+          const auditResult = await persistMetadataCorrectionAuditLog({
+            collectionConceptId,
+            keywordEvent,
+            nativeFormat: delegateResult.nativeFormat,
+            delegateName: delegateResult.delegateName,
+            corrections: actionableKeywordValidationFailures.map((keywordValidationFailure) => ({
+              scheme: keywordValidationFailure.scheme,
+              keywordConceptUuid: keywordValidationFailure.keywordConceptUuid,
+              oldKeywordPath: keywordValidationFailure.oldKeywordPath,
+              newKeywordPath: keywordValidationFailure.newKeywordPath
+            })),
+            status: auditStatus
+          })
+
+          logger.info(
+            '[metadata-correction] Persisted metadata correction audit log '
+            + `collectionConceptId=${collectionConceptId} `
+            + `insertedCount=${auditResult.insertedCount} `
+            + `publishedVersionName=${auditResult.publishedVersionName} `
+            + `status=${auditResult.status}`
+          )
+        } catch (error) {
+          logger.error('[metadata-correction] Failed to persist metadata correction audit log', error)
+        }
 
         logger.info(
           '[metadata-correction] Invoked metadata ingest stub '

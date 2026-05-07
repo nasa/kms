@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { buildFullPath } from '../buildFullPath'
 import { getConceptUuidByFullPath } from '../getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from '../getConceptUuidByShortName'
 import { resolveOldKeywordConceptUuid } from '../resolveOldKeywordConceptUuid'
@@ -18,60 +19,138 @@ vi.mock('../getConceptUuidByShortName', () => ({
   getConceptUuidByShortName: vi.fn()
 }))
 
+vi.mock('../buildFullPath', () => ({
+  buildFullPath: vi.fn()
+}))
+
 describe('resolveOldKeywordConceptUuid', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   test('routes hierarchy schemes to the full path stub', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue('resolved-full-path')
+    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+    })
+
+    vi.mocked(buildFullPath).mockResolvedValue('EARTH SCIENCE|ATMOSPHERE|AEROSOLS')
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
       oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|AEROSOLS]'
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-full-path',
-      oldKeywordPath: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS',
-      newKeywordPath: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
+      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+      newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+      action: 'replace'
     })
 
     expect(getConceptUuidByFullPath).toHaveBeenCalledWith({
-      fullPath: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+      scheme: 'sciencekeywords'
     })
+
+    expect(buildFullPath).toHaveBeenCalledWith('resolved-full-path', 'published')
   })
 
   test('routes short-name schemes to the short-name stub', async () => {
-    vi.mocked(getConceptUuidByShortName).mockResolvedValue('resolved-short-name')
+    vi.mocked(getConceptUuidByShortName).mockResolvedValue({
+      uuid: 'resolved-short-name',
+      fullPath: 'AIR-BASED PLATFORMS > HU-25A'
+    })
+
+    vi.mocked(buildFullPath).mockResolvedValue('AIR-BASED PLATFORMS|HU-25A')
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'platforms',
       oldKeyword: '[resolve old keyword from UMM-C value: HU-25A]'
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-short-name',
-      oldKeywordPath: 'HU-25A',
-      newKeywordPath: 'HU-25A'
+      oldKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+      newKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+      action: 'replace'
     })
 
     expect(getConceptUuidByShortName).toHaveBeenCalledWith({
-      shortName: 'HU-25A'
+      shortName: 'HU-25A',
+      scheme: 'platforms'
     })
+
+    expect(buildFullPath).toHaveBeenCalledWith('resolved-short-name', 'published')
   })
 
   test('passes through raw lookup values that are already normalized', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue('resolved-full-path')
+    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+    })
+
+    vi.mocked(buildFullPath).mockResolvedValue('EARTH SCIENCE|ATMOSPHERE|AEROSOLS')
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
       oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-full-path',
-      oldKeywordPath: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS',
-      newKeywordPath: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
+      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+      newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+      action: 'replace'
     })
 
     expect(getConceptUuidByFullPath).toHaveBeenCalledWith({
-      fullPath: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+      scheme: 'sciencekeywords'
     })
+  })
+
+  test('returns undefined when the historical lookup misses', async () => {
+    vi.mocked(getConceptUuidByFullPath).mockResolvedValue(undefined)
+
+    await expect(resolveOldKeywordConceptUuid({
+      scheme: 'sciencekeywords',
+      oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
+    })).resolves.toBeUndefined()
+  })
+
+  test('returns undefined when the current published path cannot be built', async () => {
+    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+    })
+
+    vi.mocked(buildFullPath).mockResolvedValue(undefined)
+
+    await expect(resolveOldKeywordConceptUuid({
+      scheme: 'sciencekeywords',
+      oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
+    })).resolves.toBeUndefined()
+
+    expect(buildFullPath).toHaveBeenCalledWith('resolved-full-path', 'published')
+  })
+
+  test('returns a delete action when a delete event uuid matches the historical concept', async () => {
+    vi.mocked(getConceptUuidByShortName).mockResolvedValue({
+      uuid: 'deleted-project-uuid',
+      fullPath: 'Projects > Legacy Climate Study'
+    })
+
+    await expect(resolveOldKeywordConceptUuid({
+      scheme: 'projects',
+      oldKeyword: '[resolve old keyword from UMM-C value: Legacy Climate Study]',
+      keywordEvent: {
+        eventType: 'DELETED',
+        scheme: 'projects',
+        uuid: 'deleted-project-uuid'
+      }
+    })).resolves.toEqual({
+      keywordConceptUuid: 'deleted-project-uuid',
+      oldKeywordPath: 'Projects > Legacy Climate Study',
+      newKeywordPath: '',
+      action: 'delete'
+    })
+
+    expect(buildFullPath).not.toHaveBeenCalled()
   })
 
   test('returns undefined when inputs are missing', async () => {

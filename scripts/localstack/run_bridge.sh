@@ -44,4 +44,4 @@ export BRIDGE_REGISTRY_JSON="${BRIDGE_REGISTRY_JSON:-$(cat <<'EOF'
 EOF
 )}"
 
-vite-node --config "${PROJECT_ROOT}/vite.config.js" "${SCRIPT_DIR}/bridge.js"
+npx vite-node --config "${PROJECT_ROOT}/vite.config.js" "${SCRIPT_DIR}/bridge.js"

@@ -139,6 +139,14 @@ export const getCapabilities = async () => {
             },
             {
               ':@': {
+                name: 'get_metadata_correction_audit',
+                href: '/metadata_correction_audit',
+                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&limit=',
+                action: 'GET'
+              }
+            },
+            {
+              ':@': {
                 name: 'get_concept_versions',
                 href: '/concept_versions/version_type/{versionType}',
                 params: 'None',
