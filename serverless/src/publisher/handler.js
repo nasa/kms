@@ -623,7 +623,11 @@ export const publisher = async (event) => {
     }
 
     // 6. Building the historical concept cache for all versions
-    // Only rebuild cache if CSV export succeeded to avoid serving stale data
+    // Only rebuild cache if CSV export succeeded to avoid serving stale data.
+    // Note: buildHistoricalConceptCache now fails fast on any listing or processing errors
+    // to ensure cache completeness. We catch these errors here to allow the publish to
+    // complete (since the SPARQL update has already succeeded), but report partial_success
+    // so operators know the cache rebuild failed and can retry it separately.
     processStartTime = Date.now()
     if (csvExportSucceeded) {
       logger.info('[publisher] Starting Historical Concept cache build from S3.')

@@ -167,13 +167,23 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   // Phase 2: List CSV files in all directories
   phaseStartTime = Date.now()
   const LIST_BATCH_SIZE = 5
-  const allCsvFiles = (await processBatch(
+  const listResults = await processBatch(
     versionDirs,
     async (prefix) => listCsvFilesInDirectory(prefix),
     LIST_BATCH_SIZE
-  ))
-    .filter((result) => result.status === 'fulfilled')
-    .flatMap((result) => result.value)
+  )
+
+  // Fail fast if any directory listing failed - we need complete coverage
+  const failures = listResults.filter((result) => result.status === 'rejected')
+  if (failures.length > 0) {
+    const errorMessages = failures.map((f, idx) => `Directory ${versionDirs[idx]}: ${f.reason?.message || 'Unknown error'}`).join('; ')
+    throw new Error(
+      `Failed to list CSV files in ${failures.length} version directories. `
+      + `Historical cache must include all versions. Errors: ${errorMessages}`
+    )
+  }
+
+  const allCsvFiles = listResults.flatMap((result) => result.value)
   phaseTimes.listFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
 
   if (allCsvFiles.length === 0) {
@@ -188,9 +198,6 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   phaseStartTime = Date.now()
   const PROCESS_BATCH_SIZE = 5
   logger.info(`Processing files in parallel batches of ${PROCESS_BATCH_SIZE}.`)
-
-  let successCount = 0
-  let failCount = 0
 
   const results = await processBatch(
     allCsvFiles,
@@ -213,18 +220,25 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   )
   phaseTimes.processFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
 
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      successCount += 1
-    } else {
-      failCount += 1
-      logger.error(`Failed to process file [${allCsvFiles[index]}]: ${result.reason?.message}`)
-    }
-  })
+  // Fail if any files couldn't be processed - we need complete cache coverage
+  const processingFailures = results.filter((result) => result.status === 'rejected')
+  if (processingFailures.length > 0) {
+    const errorDetails = processingFailures.map((f) => {
+      const failedFileIndex = results.indexOf(f)
+      const failedKey = allCsvFiles[failedFileIndex]
+
+      return `${failedKey}: ${f.reason?.message || 'Unknown error'}`
+    }).join('; ')
+
+    throw new Error(
+      `Failed to process ${processingFailures.length} of ${allCsvFiles.length} CSV files. `
+      + `Historical cache must include all archived versions. Failed files: ${errorDetails}`
+    )
+  }
 
   logger.info(
-    `Cache build process finished for bucket [${bucketName}]. `
-    + `Success: ${successCount}, Failed: ${failCount}. `
+    `Cache build process completed successfully for bucket [${bucketName}]. `
+    + `Processed ${allCsvFiles.length} files. `
     + `Timing: ListDirs=${phaseTimes.listDirectories}s `
     + `ListFiles=${phaseTimes.listFiles}s `
     + `ProcessFiles=${phaseTimes.processFiles}s`

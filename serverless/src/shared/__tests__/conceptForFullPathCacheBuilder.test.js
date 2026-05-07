@@ -105,17 +105,16 @@ describe('ConceptForFullPathCacheBuilder', () => {
       expect(calls[keyIndex + 1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should handle mSet errors gracefully', async () => {
+    it('should throw error when mSet fails', async () => {
       const csvContent = `"Keyword Version: 23.4"
-"Category","UUID"
-"EARTH SCIENCE","a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4"`
+        "Category","UUID"
+        "EARTH SCIENCE","a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4"`
       const mockError = new Error('mSet failed')
       mockMSet.mockRejectedValueOnce(mockError)
 
-      // Should not throw
       await expect(
         builder.processToCache(csvContent, { scheme: 'sciencekeywords' })
-      ).resolves.toBeUndefined()
+      ).rejects.toThrow('Failed to cache 1/1 entries for scheme=sciencekeywords')
 
       expect(logger.error).toHaveBeenCalled()
     })

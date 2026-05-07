@@ -90,12 +90,14 @@ export class BaseConceptCacheBuilder {
     // Use Redis mSet for batch writes (more efficient than MULTI/EXEC for non-transactional writes)
     const BATCH_SIZE = 1000
     let totalWritten = 0
+    const failedBatches = []
 
     // Process batches sequentially to avoid overwhelming Redis with concurrent operations
     /* eslint-disable no-await-in-loop */
     for (let i = 0; i < cacheEntries.length; i += BATCH_SIZE) {
       const batch = cacheEntries.slice(i, i + BATCH_SIZE)
       const keyValuePairs = batch.flatMap(({ key, value }) => [key, value])
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1
 
       try {
         await redisClient.mSet(keyValuePairs)
@@ -107,11 +109,27 @@ export class BaseConceptCacheBuilder {
       } catch (error) {
         logger.error(
           `[cache-builder] mSet batch failed scheme=${options.scheme} `
-          + `batch=${Math.floor(i / BATCH_SIZE) + 1} error=${error.message}`
+          + `batch=${batchNumber} error=${error.message}`
         )
+
+        failedBatches.push({
+          batchNumber,
+          size: batch.length,
+          error: error.message
+        })
       }
     }
     /* eslint-enable no-await-in-loop */
+
+    // Throw if any batches failed
+    if (failedBatches.length > 0) {
+      const totalFailed = failedBatches.reduce((sum, b) => sum + b.size, 0)
+      const errorSummary = failedBatches.map((b) => `batch ${b.batchNumber}: ${b.error}`).join('; ')
+      throw new Error(
+        `Failed to cache ${totalFailed}/${cacheEntries.length} entries for scheme=${options.scheme}. `
+        + `Failures: ${errorSummary}`
+      )
+    }
 
     logger.info(
       `[cache-builder] Finished caching scheme=${options.scheme} `
