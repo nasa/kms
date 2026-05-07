@@ -110,4 +110,21 @@ describe('cmrGetRequest', () => {
       }
     )
   })
+
+  test('should prefer CMR_LB_URL when it is configured', async () => {
+    process.env.CMR_LB_URL = 'http://internal-cmr.example.local'
+
+    global.fetch.mockResolvedValueOnce({ ok: true })
+
+    await cmrGetRequest({
+      path: '/collections'
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://internal-cmr.example.local/collections',
+      {
+        method: 'GET'
+      }
+    )
+  })
 })

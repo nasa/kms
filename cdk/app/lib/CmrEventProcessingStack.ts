@@ -11,6 +11,7 @@ import { MetadataCorrectionSetup } from './helper/MetadataCorrectionSetup'
  */
 export interface CmrEventProcessingStackProps extends cdk.StackProps {
   cmrBaseUrl: string
+  cmrLbUrl?: string
   prefix: string
   stage: string
   topicArn: string
@@ -41,12 +42,14 @@ export class CmrEventProcessingStack extends cdk.Stack {
 
     const metadataCorrectionSetup = new MetadataCorrectionSetup(this, 'MetadataCorrection', {
       cmrBaseUrl: props.cmrBaseUrl,
+      cmrLbUrl: props.cmrLbUrl,
       prefix: props.prefix,
       stage: props.stage
     })
 
     const listenerSetup = new CmrKeywordEventsListenerSetup(this, 'CmrKeywordEventsListener', {
       cmrBaseUrl: props.cmrBaseUrl,
+      cmrLbUrl: props.cmrLbUrl,
       prefix: props.prefix,
       stage: props.stage,
       keywordEventsTopic: topic,

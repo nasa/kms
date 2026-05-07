@@ -166,4 +166,28 @@ describe('cmrPostRequest', () => {
       }
     )
   })
+
+  test('should prefer CMR_LB_URL when it is configured', async () => {
+    process.env.CMR_LB_URL = 'http://internal-cmr.example.local'
+
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: 'test' })
+    })
+
+    await cmrPostRequest({
+      path: '/search/collections.json'
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://internal-cmr.example.local/search/collections.json',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        }
+      }
+    )
+  })
 })

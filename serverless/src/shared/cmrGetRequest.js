@@ -24,12 +24,13 @@ export const cmrGetRequest = async ({
   headers = {}
 }) => {
   const getCmrEndpoint = () => {
-    const baseUrl = process.env.CMR_BASE_URL
+    const baseUrl = process.env.CMR_LB_URL || process.env.CMR_BASE_URL
 
     return `${baseUrl}`
   }
 
   const endpoint = getCmrEndpoint()
+
   const requestHeaders = {
     ...(accept ? { Accept: accept } : {}),
     ...headers

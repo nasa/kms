@@ -15,6 +15,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
+  cmrLbUrl?: string
   prefix: string
   stage: string
 }
@@ -51,6 +52,7 @@ export class MetadataCorrectionSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrLbUrl,
       prefix,
       stage
     } = props
@@ -105,7 +107,8 @@ export class MetadataCorrectionSetup extends Construct {
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
         environment: {
-          CMR_BASE_URL: cmrBaseUrl
+          CMR_BASE_URL: cmrBaseUrl,
+          ...(cmrLbUrl ? { CMR_LB_URL: cmrLbUrl } : {})
         },
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
         projectRoot
