@@ -23,6 +23,7 @@ describe('cmrGetRequest', () => {
 
     // Mock the logger
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -69,6 +70,50 @@ describe('cmrGetRequest', () => {
     global.fetch.mockRejectedValueOnce(error)
 
     await expect(cmrGetRequest({ path: '/test' })).rejects.toThrow('Network error')
+  })
+
+  test('should log request context when fetch fails', async () => {
+    const error = new TypeError('fetch failed')
+
+    error.cause = {
+      code: 'ECONNREFUSED',
+      errno: -61,
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 8080,
+      message: 'connect ECONNREFUSED 127.0.0.1:8080',
+      name: 'Error'
+    }
+
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrGetRequest({ path: '/test' })).rejects.toThrow('fetch failed')
+
+    expect(logger.error).toHaveBeenCalledWith('[cmr-get] CMR fetch failed', {
+      method: 'GET',
+      baseUrlSource: 'CMR_BASE_URL',
+      endpoint: 'https://cmr.example.com',
+      path: '/test',
+      fullUrl: 'https://cmr.example.com/test',
+      error: {
+        name: 'TypeError',
+        message: 'fetch failed',
+        code: undefined,
+        errno: undefined,
+        syscall: undefined,
+        address: undefined,
+        port: undefined
+      },
+      cause: {
+        name: 'Error',
+        message: 'connect ECONNREFUSED 127.0.0.1:8080',
+        code: 'ECONNREFUSED',
+        errno: -61,
+        syscall: 'connect',
+        address: '127.0.0.1',
+        port: 8080
+      }
+    })
   })
 
   test('should log the correct URL and options', async () => {

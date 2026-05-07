@@ -348,7 +348,28 @@ describe('when the CMR keyword events processor is invoked', () => {
 
     describe('when concept-id lookup fails', () => {
       test('should log the error and throw', async () => {
-        vi.mocked(getCmrCollectionConceptIds).mockRejectedValue(new Error('CMR unavailable'))
+        const error = new TypeError('fetch failed')
+
+        error.cmrRequest = {
+          method: 'POST',
+          baseUrlSource: 'CMR_LB_URL',
+          endpoint: 'http://internal-cmr.local',
+          path: '/search/collections?page_size=2000&page_num=1',
+          fullUrl: 'http://internal-cmr.local/search/collections?page_size=2000&page_num=1',
+          bodyLength: 68
+        }
+
+        error.cmrCause = {
+          name: 'Error',
+          message: 'connect ETIMEDOUT 10.0.0.15:443',
+          code: 'ETIMEDOUT',
+          errno: -60,
+          syscall: 'connect',
+          address: '10.0.0.15',
+          port: 443
+        }
+
+        vi.mocked(getCmrCollectionConceptIds).mockRejectedValue(error)
 
         await expect(cmrKeywordEventsListener({
           Records: [
@@ -364,9 +385,35 @@ describe('when the CMR keyword events processor is invoked', () => {
               })
             }
           ]
-        })).rejects.toThrow('CMR unavailable')
+        })).rejects.toThrow('fetch failed')
 
-        expect(logger.error).toHaveBeenCalled()
+        expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
+          messageId: 'message-123',
+          eventType: 'UPDATED',
+          scheme: 'sciencekeywords',
+          uuid: '1234',
+          error: expect.objectContaining({
+            name: 'TypeError',
+            message: 'fetch failed',
+            cmrRequest: {
+              method: 'POST',
+              baseUrlSource: 'CMR_LB_URL',
+              endpoint: 'http://internal-cmr.local',
+              path: '/search/collections?page_size=2000&page_num=1',
+              fullUrl: 'http://internal-cmr.local/search/collections?page_size=2000&page_num=1',
+              bodyLength: 68
+            },
+            cmrCause: {
+              name: 'Error',
+              message: 'connect ETIMEDOUT 10.0.0.15:443',
+              code: 'ETIMEDOUT',
+              errno: -60,
+              syscall: 'connect',
+              address: '10.0.0.15',
+              port: 443
+            }
+          })
+        })
       })
     })
 
@@ -382,6 +429,7 @@ describe('when the CMR keyword events processor is invoked', () => {
                 Type: 'Notification',
                 Message: JSON.stringify({
                   EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
                   UUID: '1234'
                 })
               })

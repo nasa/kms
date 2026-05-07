@@ -38,6 +38,22 @@ const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
   'DELETED'
 ])
 
+const serializeError = (error) => {
+  if (!error) {
+    return undefined
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+    status: error.status,
+    url: error.url,
+    cmrRequest: error.cmrRequest,
+    cmrCause: error.cmrCause,
+    stack: error.stack
+  }
+}
+
 /**
  * CMR event processor that consumes SNS notifications delivered through SQS.
  *
@@ -52,21 +68,27 @@ export const cmrKeywordEventsListener = async (event) => {
   const records = event?.Records || []
 
   await Promise.all(records.map(async (record) => {
+    let messageId = record?.messageId
+    let eventType
+    let scheme
+    let uuid
+
     try {
       const {
         body,
-        messageId
+        messageId: recordMessageId
       } = record
+      messageId = recordMessageId
+
       const snsEnvelope = JSON.parse(body || '{}')
       const keywordEvent = snsEnvelope.Message
         ? JSON.parse(snsEnvelope.Message)
         : null
 
-      const {
-        EventType: eventType,
-        Scheme: scheme,
-        UUID: uuid
-      } = keywordEvent || {}
+      eventType = keywordEvent?.EventType
+      scheme = keywordEvent?.Scheme
+      uuid = keywordEvent?.UUID
+
       const keywordEventType = String(eventType || '').toUpperCase()
 
       logger.info(
@@ -121,7 +143,14 @@ export const cmrKeywordEventsListener = async (event) => {
         )
       }
     } catch (error) {
-      logger.error('Failed to process keyword event record', error)
+      logger.error('Failed to process keyword event record', {
+        messageId: messageId || 'n/a',
+        eventType: eventType || 'n/a',
+        scheme: scheme || 'n/a',
+        uuid: uuid || 'n/a',
+        error: serializeError(error)
+      })
+
       throw error
     }
   }))

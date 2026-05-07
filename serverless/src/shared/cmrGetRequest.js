@@ -1,4 +1,30 @@
 import { logger } from './logger'
+
+const getEndpointConfig = () => {
+  const baseUrl = process.env.CMR_LB_URL || process.env.CMR_BASE_URL
+
+  return {
+    endpoint: `${baseUrl}`,
+    baseUrlSource: process.env.CMR_LB_URL ? 'CMR_LB_URL' : 'CMR_BASE_URL'
+  }
+}
+
+const extractErrorDetails = (error) => {
+  if (!error) {
+    return undefined
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+    code: error.code,
+    errno: error.errno,
+    syscall: error.syscall,
+    address: error.address,
+    port: error.port
+  }
+}
+
 /**
  * Make a GET request to the NASA Common Metadata Repository (CMR) API.
  *
@@ -23,13 +49,11 @@ export const cmrGetRequest = async ({
   accept,
   headers = {}
 }) => {
-  const getCmrEndpoint = () => {
-    const baseUrl = process.env.CMR_LB_URL || process.env.CMR_BASE_URL
-
-    return `${baseUrl}`
-  }
-
-  const endpoint = getCmrEndpoint()
+  const {
+    endpoint,
+    baseUrlSource
+  } = getEndpointConfig()
+  const fullUrl = `${endpoint}${path}`
 
   const requestHeaders = {
     ...(accept ? { Accept: accept } : {}),
@@ -44,7 +68,30 @@ export const cmrGetRequest = async ({
     fetchOptions.headers = requestHeaders
   }
 
-  logger.debug('URL:', `${endpoint}${path}`, 'with options:', fetchOptions)
+  logger.debug('URL:', fullUrl, 'with options:', fetchOptions)
 
-  return fetch(`${endpoint}${path}`, fetchOptions)
+  try {
+    return await fetch(fullUrl, fetchOptions)
+  } catch (error) {
+    const requestContext = {
+      method: 'GET',
+      baseUrlSource,
+      endpoint,
+      path,
+      fullUrl
+    }
+
+    logger.error('[cmr-get] CMR fetch failed', {
+      ...requestContext,
+      error: extractErrorDetails(error),
+      cause: extractErrorDetails(error?.cause)
+    })
+
+    if (error && typeof error === 'object') {
+      error.cmrRequest = requestContext
+      error.cmrCause = extractErrorDetails(error?.cause)
+    }
+
+    throw error
+  }
 }
