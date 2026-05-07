@@ -489,13 +489,20 @@ export const publisher = async (event) => {
 
     logger.info(`[publisher] Starting analysis for version=${versionName}`)
 
+    // Track timing for each process
+    const processTimes = {}
+
+    // 1. Detect keyword changes and create keyword change events
+    let processStartTime = Date.now()
     const keywordChanges = await getKeywordChanges()
     const keywordChangesDetected = countKeywordChanges(keywordChanges)
 
     const keywordEvents = createKeywordEvents(keywordChanges)
     const keywordEventsGenerated = keywordEvents.length
+    processTimes.keywordChangesDetection = ((Date.now() - processStartTime) / 1000).toFixed(2)
 
-    // Execute the publish operation
+    // 2. Execute the publish operation
+    processStartTime = Date.now()
     logger.info(`[publisher] Executing publish update for version=${versionName}`)
     const publishQuery = getPublishUpdateQuery(versionName, publishDate)
 
@@ -510,12 +517,15 @@ export const publisher = async (event) => {
       throw new Error(`Failed to execute publish update: ${response.status} ${response.statusText}`)
     }
 
+    processTimes.publishOperation = ((Date.now() - processStartTime) / 1000).toFixed(2)
     logger.info(`[publisher] Publish update completed for version=${versionName}`)
 
     let keywordEventsPublished = 0
     let keywordEventPublishFailures = 0
     const postPublishFailures = []
 
+    // 3. Publish keyword events
+    processStartTime = Date.now()
     if (keywordEvents.length > 0) {
       const publishSummary = await publishKeywordEvents(keywordEvents)
       keywordEventsPublished = publishSummary.publishedCount
@@ -553,6 +563,8 @@ export const publisher = async (event) => {
       logger.info('[publisher] No keyword events generated, skipping SNS publish')
     }
 
+    processTimes.keywordEventsPublish = ((Date.now() - processStartTime) / 1000).toFixed(2)
+
     // #########################################################################
     // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
     // ##
@@ -569,50 +581,73 @@ export const publisher = async (event) => {
     // Export RDF and CSV data to S3 after publishing
     logger.info('[publisher] Starting S3 exports of RDF and CSV data.')
 
-    // Export published RDF to S3
+    // 4. Export published RDF to S3
+    processStartTime = Date.now()
     try {
       await exportRdfToS3({ version: 'published' })
+      processTimes.exportPublishedRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
       logger.info('[publisher] Successfully exported Published RDF to S3.')
     } catch (exportError) {
+      processTimes.exportPublishedRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
       const failureMessage = `Failed to export Published RDF to S3: ${exportError.message}`
       postPublishFailures.push(failureMessage)
       logger.error(`[publisher] ${failureMessage}`)
     }
 
     // Export draft RDF to S3
+    processStartTime = Date.now()
     try {
       await exportRdfToS3({ version: 'draft' })
+      processTimes.exportDraftRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
       logger.info('[publisher] Successfully exported Draft RDF to S3.')
     } catch (exportError) {
+      processTimes.exportDraftRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
       const failureMessage = `Failed to export Draft RDF to S3: ${exportError.message}`
       postPublishFailures.push(failureMessage)
       logger.error(`[publisher] ${failureMessage}`)
     }
 
-    // Export published schemes CSVs to S3
+    // 5. Export published schemes CSVs to S3
+    processStartTime = Date.now()
+    let csvExportSucceeded = false
     try {
       await exportPublishSchemeCsvToS3()
+      processTimes.exportPublishedCsv = ((Date.now() - processStartTime) / 1000).toFixed(2)
+      csvExportSucceeded = true
       logger.info('[publisher] Successfully exported Published Scheme CSVs to S3.')
     } catch (exportError) {
+      processTimes.exportPublishedCsv = ((Date.now() - processStartTime) / 1000).toFixed(2)
       const failureMessage = `Failed to export Published Scheme CSVs to S3: ${exportError.message}`
       postPublishFailures.push(failureMessage)
       logger.error(`[publisher] ${failureMessage}`)
     }
 
-    // Building the historical concept cache for all versions
-    logger.info('[publisher] Starting Historical Concept cache build from S3.')
-    try {
-      const { env } = getApplicationConfig()
-      const bucketName = `kms-rdf-backup-${env}`
-      await buildHistoricalConceptCache(bucketName)
-      logger.info(`[publisher] Successfully built Historical Concept cache from S3 bucket [${bucketName}].`)
-    } catch (cacheBuildError) {
-      const failureMessage = `Failed to build Historical Concept cache from S3: ${cacheBuildError.message}`
-      postPublishFailures.push(failureMessage)
-      logger.error(`[publisher] ${failureMessage}`)
+    // 6. Building the historical concept cache for all versions
+    // Only rebuild cache if CSV export succeeded to avoid serving stale data
+    processStartTime = Date.now()
+    if (csvExportSucceeded) {
+      logger.info('[publisher] Starting Historical Concept cache build from S3.')
+      try {
+        const { env } = getApplicationConfig()
+        const bucketName = `kms-rdf-backup-${env}`
+        await buildHistoricalConceptCache(bucketName)
+        processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
+        logger.info(`[publisher] Successfully built Historical Concept cache from S3 bucket [${bucketName}].`)
+      } catch (cacheBuildError) {
+        processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
+        const failureMessage = `Failed to build Historical Concept cache from S3: ${cacheBuildError.message}`
+        postPublishFailures.push(failureMessage)
+        logger.error(`[publisher] ${failureMessage}`)
+      }
+    } else {
+      processTimes.buildHistoricalCache = '0.00'
+      const skipMessage = 'Skipped Historical Concept cache build because CSV export failed'
+      postPublishFailures.push(skipMessage)
+      logger.warn(`[publisher] ${skipMessage}`)
     }
 
-    // Emit publisher metrics
+    // 7. Emit publisher metrics
+    processStartTime = Date.now()
     await emitPublisherMetricsSafely(
       [
         {
@@ -635,8 +670,11 @@ export const publisher = async (event) => {
       'keyword sync summary'
     )
 
-    // Emit event for cache-prime to consume
+    processTimes.emitMetrics = ((Date.now() - processStartTime) / 1000).toFixed(2)
+
+    // 8. Emit event for cache-prime to consume
     let cachePrimeEventEmitted = false
+    processStartTime = Date.now()
 
     try {
       await emitCachingEvent({
@@ -646,9 +684,11 @@ export const publisher = async (event) => {
       })
 
       cachePrimeEventEmitted = true
+      processTimes.emitCachePrimeEvent = ((Date.now() - processStartTime) / 1000).toFixed(2)
       logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
     } catch (eventError) {
       // Analysis and publish succeeded; log error but don't fail the function.
+      processTimes.emitCachePrimeEvent = ((Date.now() - processStartTime) / 1000).toFixed(2)
       const failureMessage = 'Publish completed, but failed to emit cache-prime event'
       postPublishFailures.push(failureMessage)
       logger.error(`[publisher] ${failureMessage}. Error: ${eventError.message}`)
@@ -670,7 +710,20 @@ export const publisher = async (event) => {
 
     const durationInMs = Date.now() - startTime
     const durationInSeconds = (durationInMs / 1000).toFixed(2)
-    logger.info(`[publisher] Completed with status: ${result.status} in ${durationInSeconds} seconds`, result)
+
+    logger.info(
+      `[publisher] Completed with status: ${result.status} in ${durationInSeconds} seconds. `
+      + `Timing: 1.KeywordChanges=${processTimes.keywordChangesDetection}s `
+      + `2.PublishOp=${processTimes.publishOperation}s `
+      + `3.PublishEvents=${processTimes.keywordEventsPublish}s `
+      + `4.ExportPubRdf=${processTimes.exportPublishedRdf}s `
+      + `5.ExportDraftRdf=${processTimes.exportDraftRdf}s `
+      + `6.ExportCsv=${processTimes.exportPublishedCsv}s `
+      + `7.BuildCache=${processTimes.buildHistoricalCache}s `
+      + `8.EmitMetrics=${processTimes.emitMetrics}s `
+      + `9.EmitCachePrime=${processTimes.emitCachePrimeEvent}s`,
+      result
+    )
 
     return result
   } catch (error) {

@@ -10,16 +10,10 @@ import { ConceptForShortNameCacheBuilder } from '../conceptForShortNameCacheBuil
 import { logger } from '../logger'
 import { createConceptResponseCacheKeyByShortName } from '../redisCacheKeys'
 
-const mockExec = vi.fn(() => Promise.resolve())
-const mockSet = vi.fn()
-const mockMulti = vi.fn(() => ({
-  set: mockSet,
-  exec: mockExec
-}))
+const mockMSet = vi.fn(() => Promise.resolve())
 
 const mockRedisClient = {
-  multi: mockMulti,
-  set: mockSet
+  mSet: mockMSet
 }
 
 // Mock the dependencies
@@ -47,10 +41,8 @@ describe('ConceptForShortNameCacheBuilder', () => {
     builder = new ConceptForShortNameCacheBuilder()
     // Clear mocks before each test
     vi.clearAllMocks()
-    mockSet.mockClear()
-    mockMulti.mockClear()
-    mockExec.mockClear()
-    mockExec.mockResolvedValue([])
+    mockMSet.mockClear()
+    mockMSet.mockResolvedValue(undefined)
   })
 
   describe('parseCsvContent', () => {
@@ -114,16 +106,18 @@ describe('ConceptForShortNameCacheBuilder', () => {
   })
 
   describe('processToCache', () => {
-    it('should process instrument CSV and cache the results using Redis pipeline', async () => {
+    it('should process instrument CSV and cache the results using Redis mSet', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
 `
       await builder.processToCache(csvContent, { scheme: 'instruments' })
 
-      expect(mockMulti).toHaveBeenCalled()
-      expect(mockSet).toHaveBeenCalledTimes(1)
-      expect(mockExec).toHaveBeenCalled()
+      expect(mockMSet).toHaveBeenCalled()
+
+      // Verify the mSet call contains the expected key-value pairs
+      const calls = mockMSet.mock.calls[0][0]
+      expect(calls.length).toBe(2) // 1 entry * 2 (key + value)
 
       const shortName = 'AC-690A'
       const uuid = '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'
@@ -145,22 +139,22 @@ describe('ConceptForShortNameCacheBuilder', () => {
         })
       }
 
-      expect(mockSet).toHaveBeenCalledWith(
-        cacheKey,
-        JSON.stringify(expectedResponse)
-      )
+      expect(calls[0]).toBe(cacheKey)
+      expect(calls[1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should process provider CSV and cache the results using Redis pipeline', async () => {
+    it('should process provider CSV and cache the results using Redis mSet', async () => {
       const csvContent = `"Keyword Version: 1.0.0"
 "Bucket_Level0","Bucket_Level1","Bucket_Level2","Bucket_Level3","Short_Name","Long_Name","Data_Center_URL","UUID"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
 `
       await builder.processToCache(csvContent, { scheme: 'providers' })
 
-      expect(mockMulti).toHaveBeenCalled()
-      expect(mockSet).toHaveBeenCalledTimes(1)
-      expect(mockExec).toHaveBeenCalled()
+      expect(mockMSet).toHaveBeenCalled()
+
+      // Verify the mSet call contains the expected key-value pairs
+      const calls = mockMSet.mock.calls[0][0]
+      expect(calls.length).toBe(2) // 1 entry * 2 (key + value)
 
       const shortName = 'ANU/ICAM'
       const uuid = '268174c2-14f0-4bfc-9fe7-4ef148a26345'
@@ -182,18 +176,16 @@ describe('ConceptForShortNameCacheBuilder', () => {
         })
       }
 
-      expect(mockSet).toHaveBeenCalledWith(
-        cacheKey,
-        JSON.stringify(expectedResponse)
-      )
+      expect(calls[0]).toBe(cacheKey)
+      expect(calls[1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should handle pipeline errors gracefully', async () => {
+    it('should handle mSet errors gracefully', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"`
-      const mockError = new Error('Pipeline failed')
-      mockExec.mockRejectedValueOnce(mockError)
+      const mockError = new Error('mSet failed')
+      mockMSet.mockRejectedValueOnce(mockError)
 
       // Should not throw
       await expect(

@@ -152,7 +152,24 @@ export const getCapabilities = async () => {
                 params: 'None',
                 action: 'GET'
               }
+            },
+            {
+              ':@': {
+                name: 'get_historical_concept_by_full_path',
+                href: '/concept/historical/full_path/{full_path}',
+                params: 'scheme=',
+                action: 'GET'
+              }
+            },
+            {
+              ':@': {
+                name: 'get_historical_concept_by_short_name',
+                href: '/concept/historical/short_name/{short_name}',
+                params: 'scheme=',
+                action: 'GET'
+              }
             }
+
           ]
         }
       }

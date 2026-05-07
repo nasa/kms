@@ -87,22 +87,18 @@ export class BaseConceptCacheBuilder {
       return
     }
 
-    // Use Redis pipeline for batch writes
+    // Use Redis mSet for batch writes (more efficient than MULTI/EXEC for non-transactional writes)
     const BATCH_SIZE = 1000
     let totalWritten = 0
 
-    // Process batches sequentially to avoid overwhelming Redis with concurrent pipelines
+    // Process batches sequentially to avoid overwhelming Redis with concurrent operations
     /* eslint-disable no-await-in-loop */
     for (let i = 0; i < cacheEntries.length; i += BATCH_SIZE) {
       const batch = cacheEntries.slice(i, i + BATCH_SIZE)
-      const pipeline = redisClient.multi()
-
-      batch.forEach(({ key, value }) => {
-        pipeline.set(key, value)
-      })
+      const keyValuePairs = batch.flatMap(({ key, value }) => [key, value])
 
       try {
-        await pipeline.exec()
+        await redisClient.mSet(keyValuePairs)
         totalWritten += batch.length
         logger.debug(
           `[cache-builder] Wrote batch progress=${totalWritten}/${cacheEntries.length} `
@@ -110,7 +106,7 @@ export class BaseConceptCacheBuilder {
         )
       } catch (error) {
         logger.error(
-          `[cache-builder] Pipeline batch failed scheme=${options.scheme} `
+          `[cache-builder] mSet batch failed scheme=${options.scheme} `
           + `batch=${Math.floor(i / BATCH_SIZE) + 1} error=${error.message}`
         )
       }

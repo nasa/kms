@@ -1045,9 +1045,10 @@ describe('publisher handler', () => {
       const result = await publisher(mockEvent)
 
       expect(result.status).toBe('partial_success')
-      expect(result.postPublishFailures).toHaveLength(2)
+      expect(result.postPublishFailures).toHaveLength(3)
       expect(result.postPublishFailures).toContain('Failed to export Published RDF to S3: S3 RDF published export failed')
       expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
+      expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
 
       // Ensure both RDF exports were attempted
       expect(exportRdfToS3).toHaveBeenCalledTimes(2)
@@ -1856,6 +1857,44 @@ describe('publisher handler', () => {
       expect(result.status).toBe('partial_success')
       expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
       expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build Historical Concept cache from S3: Cache build failed')
+    })
+
+    test('should skip cache build when CSV export fails to prevent stale data', async () => {
+      const csvExportError = new Error('S3 CSV export failed')
+      exportPublishSchemeCsvToS3.mockRejectedValue(csvExportError)
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map(),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 0,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      // Cache build should be skipped
+      expect(buildHistoricalConceptCache).not.toHaveBeenCalled()
+
+      // Should have partial success status
+      expect(result.status).toBe('partial_success')
+
+      // Should include both the CSV export failure and the skip message
+      expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
+      expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
+
+      // Should log the warning
+      expect(logger.warn).toHaveBeenCalledWith('[publisher] Skipped Historical Concept cache build because CSV export failed')
+      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
     })
   })
 })
