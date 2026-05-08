@@ -8,6 +8,20 @@ import {
 } from './redisCacheKeys'
 import { getRedisClient } from './redisCacheStore'
 
+/**
+ * Publish-time Redis cache priming for the current published keyword set.
+ *
+ * This module takes the CSV content generated for one published concept scheme and writes the
+ * fast lookup entries the application needs at runtime. Unlike the historical cache builder,
+ * which walks archived S3 versions, this helper only concerns itself with the current published
+ * CSV payload being exported right now.
+ *
+ * The cache entries written here support:
+ * - full-path lookups for supported full-path schemes
+ * - short-name lookups for supported short-name schemes
+ * - UUID-to-current-published-concept lookups so correction resolution can find the latest path
+ */
+
 const PUBLISHED_CONCEPT_FULL_PATH_SCHEMES = new Set([
   'sciencekeywords',
   'locations',

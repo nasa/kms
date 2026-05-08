@@ -1,6 +1,19 @@
 import { cmrPostRequest } from './cmrPostRequest'
 import { logger } from './logger'
 
+/**
+ * CMR collection fanout lookup for keyword-event processing.
+ *
+ * This module answers the first question in the metadata-correction pipeline:
+ * "given a keyword UUID, which collections in CMR currently reference it?"
+ *
+ * The keyword-events listener uses this helper to turn one keyword change event into a list of
+ * affected collection concept ids, which then become one metadata-correction request per
+ * collection. The helper is intentionally limited to the CMR schemes that support UUID-based
+ * collection search, and it handles paged CMR UMM results so callers get one deduplicated list
+ * back regardless of how many result pages were required.
+ */
+
 const CMR_COLLECTION_PAGE_SIZE = 2000
 
 // Build the paged CMR collection search path for the requested result page.
@@ -38,13 +51,19 @@ const createCmrLookupError = async (response) => {
 /**
  * Gets the CMR collection concept ids associated with a keyword UUID.
  *
+ * The lookup works by mapping the KMS scheme name to the corresponding CMR search field,
+ * issuing a paged UMM-results collection search, and then flattening/deduplicating the returned
+ * concept ids across every page.
+ *
  * This helper is intentionally limited to the CMR keyword schemes that support UUID-based
- * collection lookup. Schemes that do not support UUID lookup in CMR are not handled here.
+ * collection lookup. Schemes that do not support UUID lookup in CMR are rejected here so the
+ * caller fails loudly instead of silently returning an incomplete collection set.
  *
  * @param {object} params - The parameters object.
  * @param {string} params.scheme - Keyword scheme from the keyword event.
  * @param {string} params.uuid - Keyword UUID from the keyword event.
  * @returns {Promise<string[]>} Unique CMR collection concept ids.
+ * @throws {Error} If the scheme is unsupported, the UUID is missing, or CMR returns a failed response.
  */
 export const getCmrCollectionConceptIds = async ({
   scheme,

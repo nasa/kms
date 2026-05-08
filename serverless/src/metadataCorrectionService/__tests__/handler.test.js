@@ -308,11 +308,6 @@ describe('when the metadata correction service is invoked', () => {
         nativeId: 'native-id-123',
         nativeFormat: 'UMM',
         correctionCount: 1,
-        validation: {
-          status: 200,
-          errors: [],
-          warnings: []
-        },
         correctedMetadata: {
           ShortName: 'TEST'
         }
@@ -338,11 +333,6 @@ describe('when the metadata correction service is invoked', () => {
         correctionCount: 1,
         correctedMetadata: {
           ShortName: 'TEST'
-        },
-        validation: {
-          status: 200,
-          errors: [],
-          warnings: []
         }
       })
 
@@ -447,7 +437,7 @@ describe('when the metadata correction service is invoked', () => {
       })
 
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('[metadata-correction] Updated mock CMR metadata ')
+        expect.stringContaining('[metadata-correction] Updated collection metadata ')
       )
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -650,16 +640,6 @@ describe('when the metadata correction service is invoked', () => {
         correctionCount: 1,
         correctedMetadata: {
           ShortName: 'TEST-PARTIAL'
-        },
-        validation: {
-          status: 400,
-          errors: [
-            {
-              path: ['Projects', 0],
-              errors: ['Project was not a valid keyword combination.']
-            }
-          ],
-          warnings: []
         }
       })
 
@@ -882,11 +862,6 @@ describe('when the metadata correction service is invoked', () => {
         nativeId: 'native-id-delete',
         nativeFormat: 'UMM',
         correctionCount: 1,
-        validation: {
-          status: 200,
-          errors: [],
-          warnings: []
-        },
         correctedMetadata: {
           ShortName: 'TEST-DELETE',
           Projects: []
@@ -1008,12 +983,7 @@ describe('when the metadata correction service is invoked', () => {
         nativeId: 'native-id-iso-actionable',
         nativeFormat: 'ISO19115',
         correctionCount: 1,
-        correctedMetadata: undefined,
-        validation: {
-          status: 200,
-          errors: [],
-          warnings: []
-        }
+        correctedMetadata: undefined
       })
     })
 

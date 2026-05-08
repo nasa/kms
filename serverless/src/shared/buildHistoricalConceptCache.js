@@ -14,6 +14,20 @@ import {
 import { logger } from './logger'
 import { getRedisClient } from './redisCacheStore'
 
+/**
+ * Historical concept-cache rebuild orchestration for archived KMS keyword versions.
+ *
+ * This module walks the versioned CSV snapshots stored in S3 and writes Redis lookup entries that
+ * let KMS resolve old keyword values back to their historical concept UUIDs and paths. Those
+ * historical lookups are what power metadata-correction resolution when a collection still
+ * contains an outdated keyword after KMS has published a newer version.
+ *
+ * The important optimization here is that S3 version directories are immutable. Once a version's
+ * CSV files have been fully processed into Redis, we record that version in a small Redis set and
+ * skip it on later rebuilds. That lets repeated publishes process only newly archived versions
+ * instead of re-reading the entire historical bucket every time.
+ */
+
 // Historical keyword versions in S3 are immutable, so once a version's CSVs have been
 // fully written to Redis we can remember that fact and skip it on future rebuilds.
 const HISTORICAL_CACHE_BUILD_MARKER_VERSION = 'v1'

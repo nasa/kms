@@ -52,8 +52,23 @@ export class BaseConceptCacheBuilder {
    * Processes CSV content and caches all records in Redis using pipelined batch writes.
    * This is significantly faster than individual SET operations.
    *
+   * The return value is a small status summary rather than just `void` because callers need to
+   * distinguish between:
+   * - a true no-op with no cacheable entries
+   * - a skipped write because Redis is unavailable or disabled
+   * - a successful write with one or more cached entries
+   *
+   * That distinction matters when higher-level workflows decide whether a version can be marked
+   * as fully cached or should remain pending for a later retry.
+   *
    * @param {string} csvContent - The CSV content as a string.
    * @param {Object} options - Options for processing (e.g., scheme).
+   * @returns {Promise<{
+   *   attemptedCount: number,
+   *   writtenCount: number,
+   *   failedCount: number,
+   *   skipped: boolean
+   * }>} Summary of what happened during cache processing.
    */
   async processToCache(csvContent, options) {
     const records = this.parseCsvContent(csvContent, options)

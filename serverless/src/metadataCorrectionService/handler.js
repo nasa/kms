@@ -11,48 +11,23 @@ import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 // Keep validation paths grep-friendly in logs without dumping full JSON payloads.
 const formatValidationPath = (path = []) => path.join('.')
 
-const buildValidationResultForMockWriteback = (resolvedKeywordValidationFailures) => {
-  const unresolvedValidationErrors = resolvedKeywordValidationFailures
-    .filter(({
-      keywordConceptUuid,
-      oldKeywordPath,
-      newKeywordPath,
-      keywordAction
-    }) => (
-      keywordAction === 'delete'
-        ? !(keywordConceptUuid && oldKeywordPath)
-        : !(keywordConceptUuid && oldKeywordPath && newKeywordPath)
-    ))
-    .map(({ path, errors = [] }) => ({
-      path,
-      errors
-    }))
-
-  if (unresolvedValidationErrors.length === 0) {
-    return {
-      status: 200,
-      errors: [],
-      warnings: []
-    }
-  }
-
-  return {
-    status: 400,
-    errors: unresolvedValidationErrors,
-    warnings: []
-  }
-}
-
 /**
- * Metadata correction service that consumes metadata correction requests from SQS.
+ * Collection-scoped metadata-correction worker for KMS keyword events.
  *
- * This stage of KMS-675 fetches a collection's UMM-C from CMR, validates its supported
- * keywords against the published KMS Redis cache, and extracts keyword-related validation
- * failures for the later resolver/delegate flow.
+ * This Lambda consumes the fanout requests published by the CMR keyword-events listener and does
+ * the heavier correction work for one collection at a time. It fetches the current collection
+ * UMM from CMR, validates supported keywords against the published Redis cache, resolves invalid
+ * values through the historical and published keyword caches, hands actionable fixes to the
+ * format-specific delegate, records audit rows, and finally performs the current ingest/writeback
+ * step for the local smoke flow.
  *
- * The current KMS-675 implementation already wires keyword-resolution stubs, native-format
- * detection, delegate routing, and ingest handoff. Follow-on work should replace those stubs
- * with real KMS lookup, real format-specific metadata mutation, and real CMR write-back.
+ * In practice this is the core of the KMS-675 pipeline:
+ * 1. fetch collection metadata
+ * 2. find invalid keywords
+ * 3. resolve replace/delete actions
+ * 4. apply corrections through the delegate
+ * 5. persist audit history
+ * 6. hand corrected metadata to the ingest seam
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
  * @returns {Promise<{batchItemFailures: Array}>} Empty batch failures for acknowledged messages.
@@ -60,6 +35,7 @@ const buildValidationResultForMockWriteback = (resolvedKeywordValidationFailures
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
 
+  // Process each collection-level correction request independently within the SQS batch.
   await Promise.all(records.map(async (record) => {
     try {
       // Parse the queue message into the collection-level correction request we will process.
@@ -160,6 +136,7 @@ export const metadataCorrectionService = async (event) => {
         resolvedKeywordValidationFailures.length - actionableKeywordValidationFailures.length
       )
 
+      // A fully clean validation pass means there is nothing for the correction flow to do.
       if (resolvedKeywordValidationFailures.length === 0) {
         logger.info(
           '[metadata-correction] No keyword validation failures extracted '
@@ -171,6 +148,7 @@ export const metadataCorrectionService = async (event) => {
         )
       }
 
+      // We found invalid keywords, but none of them could be resolved into a replace/delete action.
       if (
         resolvedKeywordValidationFailures.length > 0
         && actionableKeywordValidationFailures.length === 0
@@ -184,6 +162,7 @@ export const metadataCorrectionService = async (event) => {
         )
       }
 
+      // Some keywords were resolvable and some were not, so continue with the actionable subset.
       if (
         actionableKeywordValidationFailures.length > 0
         && unresolvedKeywordValidationFailureCount > 0
@@ -198,6 +177,7 @@ export const metadataCorrectionService = async (event) => {
         )
       }
 
+      // Log every extracted keyword failure so CloudWatch shows both actionable and unresolved cases.
       resolvedKeywordValidationFailures.forEach((keywordValidationFailure) => {
         const {
           scheme: failureScheme,
@@ -264,27 +244,31 @@ export const metadataCorrectionService = async (event) => {
           nativeId,
           nativeFormat: delegateResult.nativeFormat,
           correctionCount: delegateResult.correctionCount,
-          correctedMetadata: delegateResult.correctedMetadata,
-          validation: buildValidationResultForMockWriteback(resolvedKeywordValidationFailures)
+          correctedMetadata: delegateResult.correctedMetadata
         })
 
+        // A successful writeback means the correction was actually applied for this run.
         const auditStatus = ingestResult.ingested ? 'applied' : 'pending'
 
+        // Surface writeback behavior separately because it controls whether later events
+        // see corrected metadata or keep observing the original broken collection.
         if (ingestResult.updated) {
           logger.info(
-            '[metadata-correction] Updated mock CMR metadata '
+            '[metadata-correction] Updated collection metadata '
             + `collectionConceptId=${collectionConceptId} `
             + `revisionId=${ingestResult.revisionId} `
             + `updated=${ingestResult.updated}`
           )
         } else if (ingestResult.writebackErrorMessage) {
           logger.error(
-            '[metadata-correction] Failed to update mock CMR metadata',
+            '[metadata-correction] Failed to update collection metadata',
             new Error(ingestResult.writebackErrorMessage)
           )
         }
 
         try {
+          // Persist one audit row per actionable correction so we can inspect what the service
+          // decided to do even if downstream writeback behavior changes later.
           const auditResult = await persistMetadataCorrectionAuditLog({
             collectionConceptId,
             keywordEvent,
@@ -310,6 +294,8 @@ export const metadataCorrectionService = async (event) => {
           logger.error('[metadata-correction] Failed to persist metadata correction audit log', error)
         }
 
+        // Log the ingest seam last so the local smoke flow can distinguish delegate, audit,
+        // and writeback milestones in order.
         logger.info(
           '[metadata-correction] Invoked metadata ingest stub '
           + `collectionConceptId=${collectionConceptId} `
@@ -320,6 +306,7 @@ export const metadataCorrectionService = async (event) => {
         )
       }
     } catch (error) {
+      // Re-throw so the record fails visibly and normal Lambda/SQS retry behavior can take over.
       logger.error('[metadata-correction] Failed to process metadata correction request', error)
       throw error
     }

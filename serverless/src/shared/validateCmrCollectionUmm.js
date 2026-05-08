@@ -1,3 +1,20 @@
+/**
+ * Redis-backed published keyword validation for collection UMM-C.
+ *
+ * This module replaces the old dependency on CMR's keyword validation timing for the
+ * metadata-correction flow. Instead of asking CMR whether a collection's keywords are valid,
+ * it inspects the supported keyword fields directly in UMM-C and checks them against the current
+ * published keyword cache in Redis.
+ *
+ * We need to do this because CMR's own keyword validation view can lag behind a fresh KMS
+ * publish. In that window, a keyword event may already tell us a concept changed or was deleted,
+ * while CMR validation can still report the old metadata as valid. Using the published Redis
+ * cache lets metadata correction validate against the current KMS state immediately.
+ *
+ * The result is intentionally shaped like the older validation response contract
+ * (`{ status, errors, warnings, responseBody }`) so downstream correction logic can keep working
+ * without needing to care whether validation came from CMR or from the published cache.
+ */
 import { extractKeywordValue } from './extractKeywordValue'
 import { logger } from './logger'
 import {
@@ -395,41 +412,43 @@ const validatePublishedKeywordCandidate = async ({
 /**
  * Validates a collection's UMM-C against the published KMS keyword cache.
  *
- * We intentionally keep the return shape close to the old CMR validation helper so the
+ * The validation flow is:
+ * 1. extract the supported keyword candidates from the UMM-C payload
+ * 2. convert each candidate into the lookup form expected by the published Redis cache
+ * 3. check that lookup against the appropriate published cache namespace
+ * 4. emit a CMR-like validation error whenever the published lookup is missing
+ *
+ * We intentionally keep the return shape close to the older validation helper so the
  * metadata-correction flow can continue to consume `{ status, errors, warnings, responseBody }`
- * without any downstream changes.
+ * without needing to know whether validation came from CMR or from Redis.
  *
  * @param {object} params - Validation parameters.
- * @param {string} params.providerId - Collection provider id.
- * @param {string} params.nativeId - Collection native id.
+ * @param {string} [params.providerId] - Collection provider id, used only for log context.
+ * @param {string} [params.nativeId] - Collection native id, used only for log context.
  * @param {Record<string, unknown>} params.umm - Collection UMM-C payload.
  * @returns {Promise<{status: number, errors: Array, warnings: Array, responseBody: Record<string, unknown>}>}
- * Validation results shaped like the previous CMR response.
+ * Validation results shaped like the previous response contract.
+ * @throws {Error} If the UMM payload is missing or the published keyword cache is unavailable.
  */
 export const validateCmrCollectionUmm = async ({
   providerId,
   nativeId,
   umm
 }) => {
-  if (!providerId) {
-    throw new Error('Missing provider id for CMR collection validation')
-  }
-
-  if (!nativeId) {
-    throw new Error('Missing native id for CMR collection validation')
-  }
-
   if (!umm) {
-    throw new Error('Missing UMM-C payload for CMR collection validation')
+    throw new Error('Missing UMM-C payload for published keyword cache validation')
   }
 
+  // The validator depends on the published Redis cache being available in this process.
   const redisClient = await getRedisClient()
 
   if (!redisClient) {
     throw new Error('Published keyword cache is unavailable for metadata correction validation')
   }
 
+  // Enumerate only the supported keyword families we know how to validate today.
   const keywordCandidates = extractKeywordCandidatesFromUmm(umm)
+  // Validate every candidate independently so one collection can surface multiple invalid keywords.
   const validationErrors = (await Promise.all(
     keywordCandidates.map(async (keywordCandidate) => validatePublishedKeywordCandidate({
       ...keywordCandidate,
@@ -437,6 +456,7 @@ export const validateCmrCollectionUmm = async ({
     }))
   )).filter(Boolean)
 
+  // Preserve the familiar validation response shape expected by downstream correction logic.
   const validationResult = {
     status: validationErrors.length > 0 ? 400 : 200,
     errors: validationErrors,
@@ -451,10 +471,12 @@ export const validateCmrCollectionUmm = async ({
       }
   }
 
+  // Keep the result summary explicit in logs so correction runs can quickly tell whether the
+  // collection is clean or how many invalid keywords were found.
   logger.info(
     '[metadata-correction] Validated collection UMM through published keyword cache '
-    + `providerId=${providerId} `
-    + `nativeId=${nativeId} `
+    + `providerId=${providerId || 'n/a'} `
+    + `nativeId=${nativeId || 'n/a'} `
     + `status=${validationResult.status} `
     + `errorCount=${validationResult.errors.length} `
     + `warningCount=${validationResult.warnings.length}`

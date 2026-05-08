@@ -2,27 +2,28 @@ import { getConceptUuidByFullPath } from './getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from './getConceptUuidByShortName'
 import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
 
+/**
+ * Historical-to-published keyword resolution helper for metadata correction.
+ *
+ * This module sits between keyword extraction and metadata mutation. After the correction flow
+ * has identified an invalid keyword value inside UMM-C, this helper decides how that extracted
+ * value should be resolved:
+ * - some schemes are resolved through historical full-path lookups
+ * - some schemes are resolved through historical short-name lookups
+ *
+ * Once the historical concept is found, the helper either:
+ * - resolves the current published concept path for replacement-style updates
+ * - or recognizes that the triggering event is a true delete and returns a delete action with no
+ *   replacement path
+ *
+ * In other words, this is the point where a broken metadata value becomes a concrete correction
+ * plan: `{ keywordConceptUuid, oldKeywordPath, newKeywordPath, action }`.
+ */
+
 const OLD_KEYWORD_PLACEHOLDER_PREFIX = '[resolve old keyword from UMM-C value: '
 const INTERNAL_PATH_SEPARATOR = '|'
 const HISTORICAL_CACHE_PATH_SEPARATOR = ' > '
 
-/*
- * Lookup routing reference
- *
- * After extractKeywordValidationFailures builds `oldKeyword`, this file decides whether
- * the extracted value should be treated like:
- * - `/concept_uuid/full_path/{full_path}`
- * - `/concept_uuid/short_name/{shortname}`
- *
- * Current routing:
- * - full_path: sciencekeywords, locations, chronounits, rucontenttype,
- *   isotopiccategory, temporalresolutionrange, horizontalresolutionrange,
- *   verticalresolutionrange, ProductLevelId
- * - short_name: providers, platforms, instruments, projects, idnnode,
- *   DataFormat, GranuleDataFormat
- *
- * KMS-664 now provides the Redis-backed historical lookups behind these two routes.
- */
 const FULL_PATH_SCHEMES = new Set([
   'sciencekeywords',
   'locations',
@@ -45,7 +46,12 @@ const SHORT_NAME_SCHEMES = new Set([
   'granuledataformat'
 ])
 
-// Convert the current placeholder string back into the raw lookup value expected by the stub.
+/**
+ * Converts the current extraction placeholder back into the raw lookup value.
+ *
+ * @param {string} oldKeyword - Placeholder or raw extracted keyword value.
+ * @returns {string} Raw lookup value suitable for historical cache lookup.
+ */
 const extractLookupValue = (oldKeyword) => {
   if (oldKeyword.startsWith(OLD_KEYWORD_PLACEHOLDER_PREFIX) && oldKeyword.endsWith(']')) {
     return oldKeyword.slice(OLD_KEYWORD_PLACEHOLDER_PREFIX.length, -1)
@@ -54,10 +60,26 @@ const extractLookupValue = (oldKeyword) => {
   return oldKeyword
 }
 
+/**
+ * Converts the internal placeholder path separator back into the historical cache path format.
+ *
+ * @param {string} keywordPath - Placeholder path using the internal separator.
+ * @returns {string} Historical cache full path using the normal KMS path separator.
+ */
 const toHistoricalCacheFullPath = (keywordPath) => keywordPath
   .split(INTERNAL_PATH_SEPARATOR)
   .join(HISTORICAL_CACHE_PATH_SEPARATOR)
 
+/**
+ * Determines whether the triggering keyword event should be treated as a true delete for the
+ * resolved historical concept.
+ *
+ * @param {object} params - Delete-match parameters.
+ * @param {{ eventType?: string, uuid?: string, scheme?: string }} [params.keywordEvent={}] - Triggering keyword event.
+ * @param {string} params.normalizedScheme - Normalized KMS scheme being resolved.
+ * @param {string|undefined} params.keywordConceptUuid - Resolved historical concept UUID.
+ * @returns {boolean} `true` when the event proves this keyword should be deleted.
+ */
 const isDeleteMatchForKeyword = ({
   keywordEvent = {},
   normalizedScheme,
@@ -72,6 +94,14 @@ const isDeleteMatchForKeyword = ({
   )
 )
 
+/**
+ * Resolves the current published keyword path for a known concept UUID.
+ *
+ * @param {object} params - Published lookup parameters.
+ * @param {string|undefined} params.keywordConceptUuid - Resolved concept UUID.
+ * @param {string} params.normalizedScheme - Normalized KMS scheme namespace.
+ * @returns {Promise<string|undefined>} Current published full path when found.
+ */
 const getCurrentKeywordPath = async ({
   keywordConceptUuid,
   normalizedScheme
@@ -88,6 +118,17 @@ const getCurrentKeywordPath = async ({
   return currentPublishedConcept?.fullPath
 }
 
+/**
+ * Builds the normalized correction descriptor returned to the metadata-correction service.
+ *
+ * @param {object} params - Correction descriptor fields.
+ * @param {string|undefined} params.keywordConceptUuid - Resolved concept UUID.
+ * @param {string|undefined} params.oldKeywordPath - Historical keyword path.
+ * @param {string|undefined} params.newKeywordPath - Current published keyword path.
+ * @param {'replace'|'delete'|string|undefined} params.action - Correction action.
+ * @returns {{keywordConceptUuid: string, oldKeywordPath: string, newKeywordPath: string|undefined, action: string}|undefined}
+ * Normalized correction descriptor, or `undefined` if required fields are missing.
+ */
 const buildKeywordReference = ({
   keywordConceptUuid,
   oldKeywordPath,
@@ -111,26 +152,33 @@ const buildKeywordReference = ({
 }
 
 /**
- * Routes extracted UMM-C keyword values to the correct historical lookup and then resolves
- * the current published keyword path by UUID.
+ * Resolves an extracted invalid keyword value into a concrete correction descriptor.
  *
- * KMS-675 uses this shared helper so the metadata-correction flow already has a single
- * handoff point from extracted broken UMM-C values to historical/current keyword references.
+ * The helper first chooses the appropriate historical cache lookup strategy based on scheme:
+ * - full-path lookup for schemes represented as hierarchical paths
+ * - short-name lookup for schemes represented by short-name values
+ *
+ * After the historical concept is found, the helper either:
+ * - returns `action: 'delete'` when the triggering event proves this exact concept was deleted
+ * - or looks up the current published concept path by UUID and returns `action: 'replace'`
  *
  * @param {object} params - Lookup parameters.
  * @param {string} params.scheme - KMS scheme for the broken keyword.
  * @param {string} params.oldKeyword - Current placeholder value extracted from UMM-C.
+ * @param {{ eventType?: string, scheme?: string, uuid?: string }} [params.keywordEvent={}] - Triggering keyword event context.
  * @returns {Promise<{
  *   keywordConceptUuid: string,
  *   oldKeywordPath: string,
- *   newKeywordPath: string
- * }|undefined>} Placeholder keyword reference for later delegate replacement.
+ *   newKeywordPath: string,
+ *   action: string
+ * }|undefined>} Concrete correction descriptor for later delegate application.
  */
 export const resolveOldKeywordConceptUuid = async ({
   scheme,
   oldKeyword,
   keywordEvent = {}
 }) => {
+  // Without both scheme and extracted keyword value, there is nothing to resolve.
   if (!scheme || !oldKeyword) {
     return undefined
   }
@@ -138,11 +186,13 @@ export const resolveOldKeywordConceptUuid = async ({
   const normalizedScheme = scheme.toLowerCase()
   const lookupValue = extractLookupValue(oldKeyword)
 
+  // The placeholder may normalize down to an empty lookup token; treat that as unresolved.
   if (!lookupValue) {
     return undefined
   }
 
   if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+    // Resolve schemes whose historical cache key is based on a hierarchical full path.
     const historicalConcept = await getConceptUuidByFullPath({
       fullPath: toHistoricalCacheFullPath(lookupValue),
       scheme: normalizedScheme
@@ -155,6 +205,7 @@ export const resolveOldKeywordConceptUuid = async ({
     })
 
     if (isDeleteMatch) {
+      // True delete events do not need a replacement path; removing the historical concept match is enough.
       return buildKeywordReference({
         keywordConceptUuid,
         oldKeywordPath: historicalConcept?.fullPath,
@@ -163,6 +214,7 @@ export const resolveOldKeywordConceptUuid = async ({
       })
     }
 
+    // Replacement-style updates reuse the same UUID to find the current published path.
     const newKeywordPath = await getCurrentKeywordPath({
       keywordConceptUuid,
       normalizedScheme
@@ -177,6 +229,7 @@ export const resolveOldKeywordConceptUuid = async ({
   }
 
   if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+    // Resolve schemes whose historical cache key is based on a short-name lookup.
     const historicalConcept = await getConceptUuidByShortName({
       shortName: lookupValue,
       scheme: normalizedScheme
@@ -189,6 +242,7 @@ export const resolveOldKeywordConceptUuid = async ({
     })
 
     if (isDeleteMatch) {
+      // Delete handling is the same here: once the UUID matches the delete event, no replacement path is required.
       return buildKeywordReference({
         keywordConceptUuid,
         oldKeywordPath: historicalConcept?.fullPath,
@@ -197,6 +251,7 @@ export const resolveOldKeywordConceptUuid = async ({
       })
     }
 
+    // Otherwise, resolve the current published concept path for a replace-style correction.
     const newKeywordPath = await getCurrentKeywordPath({
       keywordConceptUuid,
       normalizedScheme
@@ -210,6 +265,7 @@ export const resolveOldKeywordConceptUuid = async ({
     })
   }
 
+  // Unsupported schemes are intentionally ignored until the correction pipeline adds rules for them.
   return undefined
 }
 

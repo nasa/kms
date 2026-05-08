@@ -8,14 +8,45 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { primePublishedConceptCacheFromCsv } from '@/shared/primePublishedConceptCacheFromCsv'
 
+/**
+ * Publisher-side export and cache-prime helper for the current published keyword set.
+ *
+ * This module is responsible for taking the live published KMS concepts and materializing them in
+ * two places during publish:
+ * 1. versioned CSV snapshots in the RDF backup S3 bucket
+ * 2. Redis lookup entries for the current published keyword cache
+ *
+ * That pairing matters because the CSV archive gives us durable historical snapshots, while the
+ * Redis priming step gives the application fast runtime lookups for “is this keyword currently
+ * valid?” and “what is the current published path for this UUID?”.
+ */
 const s3 = getS3Client()
 
+/**
+ * Waits between per-scheme export operations so local/dev runs can reduce request bursts if needed.
+ *
+ * @param {number} ms - Delay duration in milliseconds.
+ * @returns {Promise<void>}
+ */
 const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms) })
 
 /**
- * For all published schemes, downloads the concepts as CSV and uploads them to an S3 bucket.
- * The bucket is determined by the environment, and the key includes the published version name.
- * @returns {Promise<void>}
+ * Exports every published concept scheme as a versioned CSV snapshot and primes the published
+ * Redis cache from the same CSV content.
+ *
+ * The flow for each published scheme is:
+ * 1. download the published concepts in CSV form
+ * 2. prime the published Redis cache from that CSV
+ * 3. upload the CSV to the environment-specific backup bucket under `{versionName}/{scheme}.csv`
+ *
+ * We process schemes serially so failures are isolated and optional delays can smooth out bursts
+ * to dependent services during local or lower-environment runs.
+ *
+ * If any scheme fails its download, cache-prime, or upload step, the function throws after the
+ * loop with a summary of failed schemes so the caller can treat the publish as incomplete.
+ *
+ * Resolves when every published scheme has been cached and uploaded successfully.
+ * @throws {Error} If the published version cannot be determined or any scheme export fails.
  */
 export const exportPublishSchemeCsvToS3 = async () => {
   const s3ExportDelayMs = parseInt(process.env.S3_EXPORT_DELAY_MS || '100', 10)

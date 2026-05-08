@@ -128,36 +128,6 @@
               "VariableLevel1": "LEGACY AEROSOLS"
             }
           ]
-        },
-        "validation": {
-          "status": 400,
-          "errors": [
-            {
-              "path": [
-                "ScienceKeywords",
-                0
-              ],
-              "errors": [
-                "Science keyword was not a valid keyword combination."
-              ]
-            },
-            {
-              "path": [
-                "Platforms",
-                0
-              ],
-              "errors": [
-                "Platform was not a valid keyword combination."
-              ]
-            },
-            {
-              "path": ["Platforms", 0, "Instruments", 0],
-              "errors": [
-                "Instrument was not a valid keyword combination."
-              ]
-            }
-          ],
-          "warnings": []
         }
       }
     ]

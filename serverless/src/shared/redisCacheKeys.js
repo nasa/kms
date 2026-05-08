@@ -1,9 +1,22 @@
+/**
+ * Shared Redis cache-key builders for KMS.
+ *
+ * This module centralizes the cache namespaces used across KMS so callers do not have to rebuild
+ * Redis key formats by hand. It covers two broad categories:
+ * - response caches for published API reads such as concepts, concept lists, and trees
+ * - lookup caches for metadata-correction workflows, including historical and published concept
+ *   lookups by full path, short name, and published UUID
+ *
+ * Keeping these key builders in one place ensures the publisher, cache-priming jobs, and runtime
+ * lookup helpers all agree on the exact Redis key shape.
+ */
 export const CONCEPT_CACHE_KEY_PREFIX = 'kms:concept'
 export const CONCEPTS_CACHE_KEY_PREFIX = 'kms:concepts'
 export const TREE_CACHE_KEY_PREFIX = 'kms:tree'
 export const CONCEPTS_CACHE_VERSION_KEY = `${CONCEPTS_CACHE_KEY_PREFIX}:published:version`
 export const UUID_CACHE_KEY_PREFIX = 'kms:uuid'
 
+// Normalize scheme aliases that share a common cache namespace.
 const normalizeConceptsScheme = (scheme) => {
   if (!scheme) return ''
 
@@ -17,6 +30,21 @@ const normalizePath = (path) => (path || '').toLowerCase()
 const normalizePattern = (pattern) => (pattern || '').toLowerCase()
 const normalizeValue = (value) => (value ? encodeURIComponent(value) : '')
 
+/**
+ * Builds the published concept-response cache key used for individual concept API responses.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} [params.version='published'] - Concept version namespace.
+ * @param {string} [params.path] - Resource path segment.
+ * @param {string} [params.endpointPath] - Endpoint path segment.
+ * @param {string} [params.format='rdf'] - Response format segment.
+ * @param {string} [params.conceptId] - Concept id segment.
+ * @param {string} [params.shortName] - Short-name segment.
+ * @param {string} [params.altLabel] - Alt-label segment.
+ * @param {string} [params.fullPath] - Full-path segment.
+ * @param {string} [params.scheme] - Scheme segment.
+ * @returns {string} Redis cache key for a concept response.
+ */
 export const createConceptResponseCacheKey = ({
   version,
   path,
@@ -41,6 +69,20 @@ export const createConceptResponseCacheKey = ({
   return `${CONCEPT_CACHE_KEY_PREFIX}:${normalizedVersion}:${normalizedResourcePath}:${normalizedEndpointPath}:${normalizedFormat}:${normalizedConceptId}:${normalizedShortName}:${normalizedAltLabel}:${normalizedFullPath}:${normalizedScheme}`
 }
 
+/**
+ * Builds the published concepts-list cache key used for list/search style concept responses.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} [params.version='published'] - Concept version namespace.
+ * @param {string} [params.path] - Resource path segment.
+ * @param {string} [params.conceptScheme] - Concept scheme segment.
+ * @param {string} [params.pattern] - Search/filter pattern segment.
+ * @param {string} [params.endpointPath] - Endpoint path segment.
+ * @param {string|number} [params.pageNum] - Page number segment.
+ * @param {string|number} [params.pageSize] - Page size segment.
+ * @param {string} [params.format='rdf'] - Response format segment.
+ * @returns {string} Redis cache key for a concepts response.
+ */
 export const createConceptsResponseCacheKey = ({
   version,
   path,
@@ -61,6 +103,15 @@ export const createConceptsResponseCacheKey = ({
   return `${CONCEPTS_CACHE_KEY_PREFIX}:${normalizedVersion}:${normalizedResourcePath}:${normalizedEndpointPath}:${normalizedScheme}:${normalizedPattern}:${pageNum}:${pageSize}:${normalizedFormat}`
 }
 
+/**
+ * Builds the published keyword-tree cache key.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} [params.version='published'] - Concept version namespace.
+ * @param {string} [params.conceptScheme] - Concept scheme segment.
+ * @param {string} [params.filter] - Tree filter segment.
+ * @returns {string} Redis cache key for a tree response.
+ */
 export const createTreeResponseCacheKey = ({
   version,
   conceptScheme,
@@ -73,6 +124,14 @@ export const createTreeResponseCacheKey = ({
   return `${TREE_CACHE_KEY_PREFIX}:${normalizedVersion}:${normalizedScheme}:${normalizedFilter}`
 }
 
+/**
+ * Builds the historical full-path lookup key used by metadata-correction resolution.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} params.fullPath - Historical full-path value.
+ * @param {string} params.scheme - KMS scheme namespace.
+ * @returns {string} Redis cache key for a historical full-path lookup.
+ */
 export const createConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) => {
   const normalizedFullPath = normalizeValue(fullPath)
   const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
@@ -80,6 +139,14 @@ export const createConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) =>
   return `kms:${normalizedScheme}:historical_concept:full_path:${normalizedFullPath}`
 }
 
+/**
+ * Builds the historical short-name lookup key used by metadata-correction resolution.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} params.shortName - Historical short-name value.
+ * @param {string} params.scheme - KMS scheme namespace.
+ * @returns {string} Redis cache key for a historical short-name lookup.
+ */
 export const createConceptResponseCacheKeyByShortName = ({ shortName, scheme }) => {
   const normalizedShortName = normalizeValue(shortName)
   const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
@@ -87,6 +154,14 @@ export const createConceptResponseCacheKeyByShortName = ({ shortName, scheme }) 
   return `kms:${normalizedScheme}:historical_concept:short_name:${normalizedShortName}`
 }
 
+/**
+ * Builds the published full-path lookup key used for current keyword validation.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} params.fullPath - Published full-path value.
+ * @param {string} params.scheme - KMS scheme namespace.
+ * @returns {string} Redis cache key for a published full-path lookup.
+ */
 export const createPublishedConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) => {
   const normalizedFullPath = normalizeValue(fullPath)
   const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
@@ -94,6 +169,14 @@ export const createPublishedConceptResponseCacheKeyByFullPath = ({ fullPath, sch
   return `kms:${normalizedScheme}:published_concept:full_path:${normalizedFullPath}`
 }
 
+/**
+ * Builds the published short-name lookup key used for current keyword validation.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} params.shortName - Published short-name value.
+ * @param {string} params.scheme - KMS scheme namespace.
+ * @returns {string} Redis cache key for a published short-name lookup.
+ */
 export const createPublishedConceptResponseCacheKeyByShortName = ({ shortName, scheme }) => {
   const normalizedShortName = normalizeValue(shortName)
   const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
@@ -101,6 +184,14 @@ export const createPublishedConceptResponseCacheKeyByShortName = ({ shortName, s
   return `kms:${normalizedScheme}:published_concept:short_name:${normalizedShortName}`
 }
 
+/**
+ * Builds the published UUID lookup key used to resolve the current published concept by UUID.
+ *
+ * @param {object} params - Key parameters.
+ * @param {string} params.uuid - Published concept UUID.
+ * @param {string} params.scheme - KMS scheme namespace.
+ * @returns {string} Redis cache key for a published UUID lookup.
+ */
 export const createPublishedConceptResponseCacheKeyByUuid = ({ uuid, scheme }) => {
   const normalizedUuid = normalizeValue((uuid || '').toLowerCase())
   const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())

@@ -1,3 +1,35 @@
+/**
+ * UMM-C keyword value extraction helper for the metadata-correction pipeline.
+ *
+ * This module is the bridge between a validation error path and the actual keyword value living
+ * inside a collection's UMM-C payload. Once validation tells us "the broken keyword is at this
+ * path", this helper walks that path back into UMM-C and returns the scheme-specific value shape
+ * that later steps use for lookup and resolution.
+ *
+ * It exists because the metadata-correction flow needs something more precise than a generic
+ * "get object at path" helper:
+ * - some schemes are stored as nested full-path fragments in UMM-C
+ * - some are stored as short-name objects
+ * - some need field normalization before they can be matched against KMS lookups
+ *
+ * This helper only supports the subset of UMM-C keyword families that KMS-675 currently validates
+ * and corrects. Today that includes:
+ * - science keywords
+ * - platforms and instruments
+ * - projects
+ * - locations
+ * - chrono units
+ * - providers
+ * - idn nodes
+ * - ISO topic categories
+ * - temporal / horizontal / vertical resolution ranges
+ * - product level id
+ * - data format and granule data format
+ * - related URL content type
+ *
+ * Anything outside that supported set is intentionally out of scope for this helper until the
+ * metadata-correction pipeline adds validation and resolution rules for it.
+ */
 // CMR returns `IsoTopicCategories`, but UMM-C stores `ISOTopicCategories`.
 const normalizeValidationPath = (path = []) => {
   const [rootField, ...rest] = path
@@ -23,8 +55,18 @@ const getValueAtPath = (source, path) => path.reduce(
 /**
  * Pulls the current broken keyword value out of UMM-C for a supported KMS scheme.
  *
- * This helper only extracts the scheme-specific value shape. Later steps decide whether that
- * value should be flattened into a full-path lookup, a short-name lookup, or another placeholder.
+ * The input path usually comes from keyword validation output. We first normalize any known
+ * path-name mismatches between validation and UMM-C, walk to the target value, and then reshape
+ * that value when a scheme needs a more KMS-friendly representation.
+ *
+ * Examples:
+ * - `chronounits` remaps UMM-C fields like `Stage` -> `Age`
+ * - `rucontenttype` extracts only `URLContentType`, `Type`, and `Subtype`
+ * - `DataFormat` and `GranuleDataFormat` collapse to the format string
+ *
+ * This helper deliberately stops at extraction. Later steps decide whether the extracted value
+ * should be interpreted as a full-path lookup, a short-name lookup, or a placeholder used during
+ * historical keyword resolution.
  *
  * @param {object} params - Extraction parameters.
  * @param {string} params.scheme - Supported KMS scheme.

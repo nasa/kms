@@ -3,6 +3,10 @@ import { logger } from './logger'
 const getEndpointConfig = () => {
   const baseUrl = process.env.CMR_BASE_URL
 
+  if (!baseUrl) {
+    throw new Error('CMR_BASE_URL environment variable is not set')
+  }
+
   return {
     endpoint: `${baseUrl}`
   }

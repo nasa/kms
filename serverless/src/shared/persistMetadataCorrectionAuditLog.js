@@ -8,6 +8,18 @@ import {
 } from '@/shared/metadataCorrectionAudit'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
+/**
+ * RDF4J audit-log writer for metadata-correction activity.
+ *
+ * This module is the write-side counterpart to `getMetadataCorrectionAuditLog`. It takes the
+ * resolved corrections produced by the metadata-correction service and appends one RDF audit
+ * record per correction into the dedicated metadata-correction audit graph.
+ *
+ * The audit records are intentionally append-only and correction-centric. That means one keyword
+ * event affecting one collection can produce multiple audit rows when several resolved corrections
+ * are applied during the same run.
+ */
+
 const optionalLiteralTriple = (subject, predicate, value) => {
   if (value === undefined || value === null || value === '') {
     return ''

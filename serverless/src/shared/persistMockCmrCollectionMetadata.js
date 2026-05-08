@@ -1,3 +1,14 @@
+/**
+ * Local mock-CMR writeback helper for the metadata-correction smoke flow.
+ *
+ * This module exists so the current correction pipeline can simulate a real post-correction
+ * ingest/writeback step during local testing. Instead of sending corrected metadata to an actual
+ * CMR ingest endpoint, it updates the local in-memory mock collection state through a dedicated
+ * local-only route.
+ *
+ * That lets later smoke-test events observe the corrected collection state, which is important
+ * for proving "first event fixes it, later events become no-ops" behavior locally.
+ */
 const isLocalMode = () => (
   String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
   || String(process.env.useLocalstack || '').toLowerCase() === 'true'
@@ -19,8 +30,7 @@ export const persistMockCmrCollectionMetadata = async ({
   providerId,
   nativeId,
   nativeFormat,
-  correctedMetadata,
-  validation
+  correctedMetadata
 }) => {
   if (!isEnabled()) {
     return {
@@ -58,8 +68,7 @@ export const persistMockCmrCollectionMetadata = async ({
         providerId,
         nativeId,
         nativeFormat,
-        umm: correctedMetadata,
-        validation
+        umm: correctedMetadata
       })
     }
   )

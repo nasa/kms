@@ -212,6 +212,7 @@ export class KmsStack extends cdk.Stack {
     if (methods.length) {
       methods.forEach((method) => deployment.node.addDependency(method))
     }
+
     // Create Stage for the deployment
     if (existingApiId) {
       // For existing API, create a new Stage managed by CDK

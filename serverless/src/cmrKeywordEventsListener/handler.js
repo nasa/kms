@@ -3,6 +3,24 @@ import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 /**
+ * Metadata-correction fanout listener for KMS keyword events.
+ *
+ * This Lambda sits between raw keyword change events and the per-collection metadata-correction
+ * work. When KMS publishes an UPDATED or DELETED keyword event, this listener finds the CMR
+ * collection concept ids that reference the affected keyword uuid and then publishes one
+ * metadata-correction request for each impacted collection.
+ *
+ * In practice the flow is:
+ * 1. consume the SNS message delivered through SQS
+ * 2. parse the original keyword event payload
+ * 3. ask CMR which collections reference that keyword uuid
+ * 4. publish one collection-scoped metadata correction request per concept id
+ *
+ * This keeps keyword-event intake separate from the heavier collection fetch / validate /
+ * resolve / delegate work performed by the metadata-correction service itself.
+ */
+
+/**
  * Builds a metadata correction request for a specific affected collection.
  *
  * @param {string} collectionConceptId - Affected CMR collection concept id.
@@ -67,6 +85,7 @@ const serializeError = (error) => {
 export const cmrKeywordEventsListener = async (event) => {
   const records = event?.Records || []
 
+  // Process the SQS batch in parallel; each record contains one SNS-delivered keyword event.
   await Promise.all(records.map(async (record) => {
     let messageId = record?.messageId
     let eventType
@@ -74,6 +93,7 @@ export const cmrKeywordEventsListener = async (event) => {
     let uuid
 
     try {
+      // Unwrap the SNS envelope first, then parse the original KMS keyword event payload.
       const {
         body,
         messageId: recordMessageId
@@ -100,6 +120,8 @@ export const cmrKeywordEventsListener = async (event) => {
       )
 
       if (keywordEvent && LOOKUP_ELIGIBLE_EVENT_TYPES.has(keywordEventType)) {
+        // Find every collection that currently references this keyword uuid so we can fan out
+        // one metadata-correction request per affected collection.
         const collectionConceptIds = await getCmrCollectionConceptIds({
           scheme,
           uuid
@@ -120,6 +142,7 @@ export const cmrKeywordEventsListener = async (event) => {
           )
         }
 
+        // Publish a collection-scoped correction request for each affected concept id.
         await Promise.all(collectionConceptIds.map(async (collectionConceptId) => {
           const metadataCorrectionRequest = buildMetadataCorrectionRequest(
             collectionConceptId,
@@ -135,6 +158,7 @@ export const cmrKeywordEventsListener = async (event) => {
           )
         }))
       } else if (keywordEvent) {
+        // Only UPDATED and DELETED keyword events trigger collection lookup fanout.
         logger.info(
           '[consumer] Skipping metadata correction concept-id lookup for event type '
           + `eventType=${eventType || 'n/a'} `
@@ -143,6 +167,7 @@ export const cmrKeywordEventsListener = async (event) => {
         )
       }
     } catch (error) {
+      // Surface enough keyword-event context to debug the failing record quickly in CloudWatch.
       logger.error('Failed to process keyword event record', {
         messageId: messageId || 'n/a',
         eventType: eventType || 'n/a',

@@ -17,14 +17,39 @@ const normalizeLimit = (limit) => {
 /**
  * Reads metadata-correction audit rows from the dedicated RDF4J audit graph.
  *
+ * This helper is the read-side pair to `persistMetadataCorrectionAuditLog`. It builds a SPARQL
+ * query against the dedicated audit graph, applies any optional filters the caller supplied, and
+ * returns a normalized array of audit records ordered newest-first.
+ *
+ * The returned rows describe resolved metadata corrections, not raw keyword events. Each row
+ * represents one correction the service decided to apply (or mark pending), including the
+ * collection it targeted, the resolved keyword UUID/path information, the delegate/native format
+ * used, and the triggering event metadata when present.
+ *
  * @param {object} [filters={}] - Optional query filters.
  * @param {string} [filters.collectionConceptId] - Filter by collection concept id.
  * @param {string} [filters.keywordConceptUuid] - Filter by resolved keyword UUID.
  * @param {string} [filters.action] - Filter by triggering event action.
  * @param {string} [filters.scheme] - Filter by corrected keyword scheme.
  * @param {string} [filters.status] - Filter by audit status.
- * @param {string|number} [filters.limit=100] - Maximum number of rows to return.
- * @returns {Promise<Array<object>>} Audit log rows ordered newest-first.
+ * @param {string|number} [filters.limit=100] - Maximum number of rows to return. Values are
+ * normalized into the inclusive range `1..500`, with invalid values falling back to `100`.
+ * @returns {Promise<Array<{
+ *   recordUri: string | undefined,
+ *   timestamp: string | undefined,
+ *   publishedVersionName: string | undefined,
+ *   collectionConceptId: string | undefined,
+ *   keywordConceptUuid: string | undefined,
+ *   scheme: string | undefined,
+ *   action: string | undefined,
+ *   oldKeywordPath: string | undefined,
+ *   newKeywordPath: string | undefined,
+ *   nativeFormat: string | undefined,
+ *   delegateName: string | undefined,
+ *   status: string | undefined,
+ *   triggerScheme: string | undefined,
+ *   triggerKeywordUuid: string | undefined
+ * }>>} Audit log rows ordered newest-first.
  */
 export const getMetadataCorrectionAuditLog = async (filters = {}) => {
   const {

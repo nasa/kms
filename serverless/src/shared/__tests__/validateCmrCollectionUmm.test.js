@@ -89,8 +89,6 @@ describe('validateCmrCollectionUmm', () => {
     })
 
     const result = await validateCmrCollectionUmm({
-      providerId: 'LARC_ASDC',
-      nativeId: 'ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
       umm: {
         ShortName: 'TEST',
         ScienceKeywords: [
@@ -143,8 +141,6 @@ describe('validateCmrCollectionUmm', () => {
     vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
 
     const result = await validateCmrCollectionUmm({
-      providerId: 'LARC_ASDC',
-      nativeId: 'ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
       umm: {
         ShortName: 'TEST',
         ScienceKeywords: [
@@ -244,8 +240,6 @@ describe('validateCmrCollectionUmm', () => {
     })
 
     await validateCmrCollectionUmm({
-      providerId: 'PROV',
-      nativeId: 'native-id',
       umm: {
         ShortName: 'TEST',
         RelatedUrls: [
@@ -268,28 +262,14 @@ describe('validateCmrCollectionUmm', () => {
     vi.mocked(getRedisClient).mockResolvedValue(null)
 
     await expect(validateCmrCollectionUmm({
-      providerId: 'PROV',
-      nativeId: 'native-id',
       umm: {
         ShortName: 'TEST'
       }
     })).rejects.toThrow('Published keyword cache is unavailable for metadata correction validation')
   })
 
-  test('should throw when required inputs are missing', async () => {
+  test('should throw when the UMM-C payload is missing', async () => {
     await expect(validateCmrCollectionUmm({
-      nativeId: 'native-id',
-      umm: {}
-    })).rejects.toThrow('Missing provider id for CMR collection validation')
-
-    await expect(validateCmrCollectionUmm({
-      providerId: 'PROV',
-      umm: {}
-    })).rejects.toThrow('Missing native id for CMR collection validation')
-
-    await expect(validateCmrCollectionUmm({
-      providerId: 'PROV',
-      nativeId: 'native-id'
-    })).rejects.toThrow('Missing UMM-C payload for CMR collection validation')
+    })).rejects.toThrow('Missing UMM-C payload for published keyword cache validation')
   })
 })

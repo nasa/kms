@@ -63,11 +63,6 @@ describe('persistMockCmrCollectionMetadata', () => {
       providerId: 'LOCAL',
       nativeId: 'native-1',
       nativeFormat: 'UMM',
-      validation: {
-        status: 200,
-        errors: [],
-        warnings: []
-      },
       correctedMetadata: {
         ShortName: 'TEST'
       }
@@ -94,11 +89,6 @@ describe('persistMockCmrCollectionMetadata', () => {
       nativeFormat: 'UMM',
       umm: {
         ShortName: 'TEST'
-      },
-      validation: {
-        status: 200,
-        errors: [],
-        warnings: []
       }
     })
   })

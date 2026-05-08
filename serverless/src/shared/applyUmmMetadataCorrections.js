@@ -1,3 +1,15 @@
+/**
+ * UMM-C correction delegate used by the KMS-675 smoke flow.
+ *
+ * This module is intentionally narrower than a real production ingest/mutation layer. Its job is
+ * to take already-resolved metadata corrections and apply them directly to an in-memory UMM-C
+ * payload so local end-to-end tests can prove the correction pipeline works from event intake
+ * through audit/writeback.
+ *
+ * In other words, this is still a stub for the broader native-format story, but it is a useful
+ * stub: it knows just enough UMM-C structure to rewrite supported keyword shapes and remove
+ * delete-targets during the smoke test.
+ */
 const SHORT_NAME_SCHEMES = new Set([
   'platforms',
   'instruments',
