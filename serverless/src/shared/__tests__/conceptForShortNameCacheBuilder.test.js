@@ -180,21 +180,16 @@ describe('ConceptForShortNameCacheBuilder', () => {
       expect(calls[1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should handle mSet errors gracefully', async () => {
+    it('should throw error when mSet fails', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
-"Category","Class","Subclass","Short_Name","Long_Name","UUID"
-"Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"`
+        "Category","Class","Subclass","Short_Name","Long_Name","UUID"
+        "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"`
       const mockError = new Error('mSet failed')
       mockMSet.mockRejectedValueOnce(mockError)
 
       await expect(
         builder.processToCache(csvContent, { scheme: 'instruments' })
-      ).resolves.toEqual({
-        attemptedCount: 1,
-        writtenCount: 0,
-        failedCount: 1,
-        skipped: false
-      })
+      ).rejects.toThrow('Failed to cache 1/1 entries for scheme=instruments')
 
       expect(logger.error).toHaveBeenCalled()
     })

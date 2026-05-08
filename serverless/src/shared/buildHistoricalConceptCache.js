@@ -239,7 +239,7 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     return
   }
 
-  // Phase 2: List CSV files in all directories
+  // Phase 2: List CSV files in all pending directories
   phaseStartTime = Date.now()
   const LIST_BATCH_SIZE = 5
   const csvListResults = await processBatch(
@@ -254,6 +254,8 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   phaseTimes.listFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
 
   const versionCsvGroups = []
+  const listFailures = []
+
   csvListResults.forEach((result, index) => {
     if (result.status === 'fulfilled') {
       versionCsvGroups.push(result.value)
@@ -262,7 +264,13 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     }
 
     // A directory listing failure means we cannot trust that version to be complete,
-    // so we log it and leave the version out of the "built" marker set.
+    // so we leave the version out of the "built" marker set and report the issue after
+    // we finish marking any versions that did succeed.
+    listFailures.push({
+      prefix: pendingVersionDirs[index],
+      message: result.reason?.message || 'Unknown error'
+    })
+
     logger.error(
       `Failed listing CSV files for version directory [${pendingVersionDirs[index]}]: ${result.reason?.message}`
     )
@@ -278,6 +286,17 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   ))
 
   if (allCsvFiles.length === 0) {
+    if (listFailures.length > 0) {
+      const errorMessages = listFailures
+        .map(({ prefix, message }) => `Directory ${prefix}: ${message}`)
+        .join('; ')
+
+      throw new Error(
+        `Failed to list CSV files in ${listFailures.length} version directories. `
+        + `Historical cache must include all versions. Errors: ${errorMessages}`
+      )
+    }
+
     logger.warn('No CSV files found in any version directory. Nothing to process.')
 
     return
@@ -290,14 +309,10 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   const PROCESS_BATCH_SIZE = 5
   logger.info(`Processing files in parallel batches of ${PROCESS_BATCH_SIZE}.`)
 
-  let successCount = 0
-  let failCount = 0
-
   const results = await processBatch(
     allCsvFiles,
     async ({ key }) => {
       const scheme = path.basename(key, '.csv').toLowerCase()
-
       const csvContent = await getObjectContent(key)
       let cacheWriteResult
 
@@ -311,8 +326,8 @@ export const buildHistoricalConceptCache = async (bucketName) => {
         logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
       }
 
-      // The cache builders intentionally do batched mSet writes and report whether every
-      // entry made it into Redis. A partial write should not let us mark the version as done.
+      // The cache builders throw on incomplete Redis writes, but keep this defensive check
+      // for mocked/tested builder responses that may report failures instead of throwing.
       if (cacheWriteResult?.failedCount > 0) {
         throw new Error(
           `Redis cache write incomplete for [${key}] failedCount=${cacheWriteResult.failedCount}`
@@ -323,23 +338,24 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   )
   phaseTimes.processFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
 
+  const processingFailures = []
   results.forEach((result, index) => {
-    if (result.status === 'fulfilled') {
-      successCount += 1
-    } else {
-      failCount += 1
-      logger.error(`Failed to process file [${allCsvFiles[index].key}]: ${result.reason?.message}`)
+    if (result.status === 'rejected') {
+      const failedFile = allCsvFiles[index]
+      processingFailures.push({
+        ...failedFile,
+        message: result.reason?.message || 'Unknown error'
+      })
+
+      logger.error(`Failed to process file [${failedFile.key}]: ${result.reason?.message}`)
     }
   })
 
   // Redis markers are version-level, not file-level. If any CSV in a version fails,
   // that version stays pending and will be retried on the next historical cache build.
-  const failuresByVersion = results.reduce((accumulator, result, index) => {
-    if (result.status === 'fulfilled') return accumulator
-
-    const { version } = allCsvFiles[index]
-    const currentFailures = accumulator.get(version) || 0
-    accumulator.set(version, currentFailures + 1)
+  const failuresByVersion = processingFailures.reduce((accumulator, failure) => {
+    const currentFailures = accumulator.get(failure.version) || 0
+    accumulator.set(failure.version, currentFailures + 1)
 
     return accumulator
   }, new Map())
@@ -368,9 +384,31 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     await markHistoricalVersionBuilt(version)
   }))
 
+  if (listFailures.length > 0) {
+    const errorMessages = listFailures
+      .map(({ prefix, message }) => `Directory ${prefix}: ${message}`)
+      .join('; ')
+
+    throw new Error(
+      `Failed to list CSV files in ${listFailures.length} version directories. `
+      + `Historical cache must include all versions. Errors: ${errorMessages}`
+    )
+  }
+
+  if (processingFailures.length > 0) {
+    const errorDetails = processingFailures
+      .map(({ key, message }) => `${key}: ${message}`)
+      .join('; ')
+
+    throw new Error(
+      `Failed to process ${processingFailures.length} of ${allCsvFiles.length} CSV files. `
+      + `Historical cache must include all archived versions. Failed files: ${errorDetails}`
+    )
+  }
+
   logger.info(
-    `Cache build process finished for bucket [${bucketName}]. `
-    + `Success: ${successCount}, Failed: ${failCount}. `
+    `Cache build process completed successfully for bucket [${bucketName}]. `
+    + `Processed ${allCsvFiles.length} files. `
     + `Timing: ListDirs=${phaseTimes.listDirectories}s `
     + `ListFiles=${phaseTimes.listFiles}s `
     + `ProcessFiles=${phaseTimes.processFiles}s`

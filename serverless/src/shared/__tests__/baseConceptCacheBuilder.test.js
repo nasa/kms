@@ -200,17 +200,63 @@ describe('BaseConceptCacheBuilder', () => {
       })
     })
 
-    it('should handle mSet errors gracefully', async () => {
-      mockMSet.mockRejectedValueOnce(new Error('mSet failed'))
+    it('should throw error when mSet fails', async () => {
+      const error = new Error('mSet failed')
+      mockMSet.mockRejectedValueOnce(error)
 
       await expect(
         builder.processToCache('csv content', { scheme: 'test-scheme' })
-      ).resolves.toEqual({
-        attemptedCount: 2,
-        writtenCount: 0,
-        failedCount: 2,
-        skipped: false
-      })
+      ).rejects.toThrow(
+        'Failed to cache 2/2 entries for scheme=test-scheme'
+      )
+    })
+
+    it('should include batch details in error when mSet fails', async () => {
+      const error = new Error('Redis connection timeout')
+      mockMSet.mockRejectedValueOnce(error)
+
+      await expect(
+        builder.processToCache('csv content', { scheme: 'test-scheme' })
+      ).rejects.toThrow(
+        'batch 1: Redis connection timeout'
+      )
+    })
+
+    it('should process all batches even when some fail', async () => {
+      const largeBuilder = new LargeCacheBuilder()
+
+      // Make the second batch fail
+      mockMSet
+        .mockResolvedValueOnce(undefined) // Batch 1 succeeds
+        .mockRejectedValueOnce(new Error('Batch 2 failed')) // Batch 2 fails
+        .mockResolvedValueOnce(undefined) // Batch 3 succeeds
+
+      await expect(
+        largeBuilder.processToCache('csv content', { scheme: 'test-scheme' })
+      ).rejects.toThrow(
+        'Failed to cache 1000/2500 entries for scheme=test-scheme'
+      )
+
+      // Should have attempted all 3 batches
+      expect(mockMSet).toHaveBeenCalledTimes(3)
+    })
+
+    it('should aggregate multiple batch failures in error message', async () => {
+      const largeBuilder = new LargeCacheBuilder()
+
+      // Make multiple batches fail
+      mockMSet
+        .mockRejectedValueOnce(new Error('Batch 1 failed'))
+        .mockRejectedValueOnce(new Error('Batch 2 failed'))
+        .mockResolvedValueOnce(undefined) // Batch 3 succeeds
+
+      await expect(
+        largeBuilder.processToCache('csv content', { scheme: 'test-scheme' })
+      ).rejects.toThrow(
+        'Failed to cache 2000/2500 entries for scheme=test-scheme. Failures: batch 1: Batch 1 failed; batch 2: Batch 2 failed'
+      )
+
+      expect(mockMSet).toHaveBeenCalledTimes(3)
     })
 
     it('should process large datasets in batches', async () => {
