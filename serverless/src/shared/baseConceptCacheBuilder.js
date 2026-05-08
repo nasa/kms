@@ -63,7 +63,12 @@ export class BaseConceptCacheBuilder {
     if (!redisClient) {
       logger.warn('Redis not configured, skipping cache write')
 
-      return
+      return {
+        attemptedCount: 0,
+        writtenCount: 0,
+        failedCount: 0,
+        skipped: true
+      }
     }
 
     // Collect all cache operations
@@ -84,7 +89,12 @@ export class BaseConceptCacheBuilder {
     if (cacheEntries.length === 0) {
       logger.debug('No entries to cache')
 
-      return
+      return {
+        attemptedCount: 0,
+        writtenCount: 0,
+        failedCount: 0,
+        skipped: false
+      }
     }
 
     // Use Redis mSet for batch writes (more efficient than MULTI/EXEC for non-transactional writes)
@@ -117,6 +127,13 @@ export class BaseConceptCacheBuilder {
       `[cache-builder] Finished caching scheme=${options.scheme} `
       + `totalRecords=${cacheEntries.length} written=${totalWritten}`
     )
+
+    return {
+      attemptedCount: cacheEntries.length,
+      writtenCount: totalWritten,
+      failedCount: cacheEntries.length - totalWritten,
+      skipped: false
+    }
   }
 
   /**

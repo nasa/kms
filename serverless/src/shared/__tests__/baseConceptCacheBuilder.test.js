@@ -170,9 +170,15 @@ describe('BaseConceptCacheBuilder', () => {
       const { getRedisClient } = await import('../redisCacheStore')
       vi.mocked(getRedisClient).mockResolvedValueOnce(null)
 
-      await builder.processToCache('csv content', { scheme: 'test-scheme' })
+      const result = await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
       expect(mockMSet).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        attemptedCount: 0,
+        writtenCount: 0,
+        failedCount: 0,
+        skipped: true
+      })
     })
 
     it('should handle empty cache entries when all records fail validation', async () => {
@@ -181,20 +187,30 @@ describe('BaseConceptCacheBuilder', () => {
       // Override shouldCache to reject all records
       builder.shouldCache = () => false
 
-      await builder.processToCache('csv content', { scheme: 'test-scheme' })
+      const result = await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
       // Should not call mSet when there are no entries to cache
       expect(mockMSet).not.toHaveBeenCalled()
       expect(logger.debug).toHaveBeenCalledWith('No entries to cache')
+      expect(result).toEqual({
+        attemptedCount: 0,
+        writtenCount: 0,
+        failedCount: 0,
+        skipped: false
+      })
     })
 
     it('should handle mSet errors gracefully', async () => {
       mockMSet.mockRejectedValueOnce(new Error('mSet failed'))
 
-      // Should not throw
       await expect(
         builder.processToCache('csv content', { scheme: 'test-scheme' })
-      ).resolves.toBeUndefined()
+      ).resolves.toEqual({
+        attemptedCount: 2,
+        writtenCount: 0,
+        failedCount: 2,
+        skipped: false
+      })
     })
 
     it('should process large datasets in batches', async () => {

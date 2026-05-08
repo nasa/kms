@@ -12,6 +12,15 @@ import {
   HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
 } from './constants/shortNameForHistoricalConceptSchemes'
 import { logger } from './logger'
+import { getRedisClient } from './redisCacheStore'
+
+// Historical keyword versions in S3 are immutable, so once a version's CSVs have been
+// fully written to Redis we can remember that fact and skip it on future rebuilds.
+const HISTORICAL_CACHE_BUILD_MARKER_VERSION = 'v1'
+const HISTORICAL_CACHE_BUILT_VERSIONS_KEY = `kms:historical_concept:versions:built:${HISTORICAL_CACHE_BUILD_MARKER_VERSION}`
+
+// S3 returns version directories with trailing slashes, but Redis markers are stored as bare version names.
+const normalizeVersionDirectory = (prefix = '') => prefix.replace(/\/+$/, '')
 
 /**
  * Helper function to convert a stream to a string.
@@ -77,6 +86,7 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   const fullPathCacheBuilder = new ConceptForFullPathCacheBuilder()
   const shortNameCacheBuilder = new ConceptForShortNameCacheBuilder()
+  const redisClient = await getRedisClient()
 
   /**
    * Lists the top-level directories in the S3 bucket, which correspond to keyword versions.
@@ -150,6 +160,52 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     return streamToString(response.Body)
   }
 
+  /**
+   * Reads the Redis set of immutable historical versions that were already cached successfully.
+   * We keep this separate from the concept keys so we can skip reprocessing old versions on later publishes.
+   *
+   * If the marker key ever needs to be invalidated because the cache format or supported schemes changed,
+   * bump HISTORICAL_CACHE_BUILD_MARKER_VERSION above and Redis will rebuild every version once.
+   *
+   * @returns {Promise<Set<string>>} Cached version names already written successfully.
+   */
+  const getBuiltHistoricalVersions = async () => {
+    if (!redisClient) return new Set()
+
+    try {
+      const versions = await redisClient.sMembers(HISTORICAL_CACHE_BUILT_VERSIONS_KEY)
+
+      return new Set(versions)
+    } catch (error) {
+      logger.warn(
+        `[cache-builder] Failed reading historical cache version markers key=${HISTORICAL_CACHE_BUILT_VERSIONS_KEY} `
+        + `error=${error.message}`
+      )
+
+      return new Set()
+    }
+  }
+
+  /**
+   * Marks one immutable keyword version as successfully cached so future historical builds can skip it.
+   *
+   * @param {string} version - Version directory name without a trailing slash.
+   * @returns {Promise<void>}
+   */
+  const markHistoricalVersionBuilt = async (version) => {
+    if (!redisClient || !version) return
+
+    try {
+      await redisClient.sAdd(HISTORICAL_CACHE_BUILT_VERSIONS_KEY, version)
+      logger.info(`[cache-builder] Marked historical cache version built version=${version}`)
+    } catch (error) {
+      logger.warn(
+        `[cache-builder] Failed writing historical cache version marker version=${version} `
+        + `key=${HISTORICAL_CACHE_BUILT_VERSIONS_KEY} error=${error.message}`
+      )
+    }
+  }
+
   logger.info(`Starting cache build from S3 bucket [${bucketName}].`)
 
   const phaseTimes = {}
@@ -164,17 +220,62 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     return
   }
 
+  const builtVersions = await getBuiltHistoricalVersions()
+  // Skip historical versions that were already fully cached. This is the main
+  // speedup: old published keyword snapshots never change, so there is no value
+  // in re-downloading and re-writing them on every publish.
+  const pendingVersionDirs = versionDirs.filter(
+    (prefix) => !builtVersions.has(normalizeVersionDirectory(prefix))
+  )
+
+  logger.info(
+    `[cache-builder] Historical version marker status total=${versionDirs.length} `
+    + `built=${builtVersions.size} pending=${pendingVersionDirs.length}`
+  )
+
+  if (pendingVersionDirs.length === 0) {
+    logger.info('All historical keyword versions are already cached in Redis. Nothing to process.')
+
+    return
+  }
+
   // Phase 2: List CSV files in all directories
   phaseStartTime = Date.now()
   const LIST_BATCH_SIZE = 5
-  const allCsvFiles = (await processBatch(
-    versionDirs,
-    async (prefix) => listCsvFilesInDirectory(prefix),
+  const csvListResults = await processBatch(
+    pendingVersionDirs,
+    async (prefix) => ({
+      prefix,
+      version: normalizeVersionDirectory(prefix),
+      csvFiles: await listCsvFilesInDirectory(prefix)
+    }),
     LIST_BATCH_SIZE
-  ))
-    .filter((result) => result.status === 'fulfilled')
-    .flatMap((result) => result.value)
+  )
   phaseTimes.listFiles = ((Date.now() - phaseStartTime) / 1000).toFixed(2)
+
+  const versionCsvGroups = []
+  csvListResults.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      versionCsvGroups.push(result.value)
+
+      return
+    }
+
+    // A directory listing failure means we cannot trust that version to be complete,
+    // so we log it and leave the version out of the "built" marker set.
+    logger.error(
+      `Failed listing CSV files for version directory [${pendingVersionDirs[index]}]: ${result.reason?.message}`
+    )
+  })
+
+  // Keep track of which S3 object belongs to which immutable version so we can
+  // decide later whether a whole version succeeded and is safe to mark as built.
+  const allCsvFiles = versionCsvGroups.flatMap(({ version, csvFiles }) => (
+    csvFiles.map((key) => ({
+      key,
+      version
+    }))
+  ))
 
   if (allCsvFiles.length === 0) {
     logger.warn('No CSV files found in any version directory. Nothing to process.')
@@ -194,19 +295,28 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   const results = await processBatch(
     allCsvFiles,
-    async (key) => {
+    async ({ key }) => {
       const scheme = path.basename(key, '.csv').toLowerCase()
 
       const csvContent = await getObjectContent(key)
+      let cacheWriteResult
 
       // All files have been pre-filtered, so we know they match a valid scheme
       if (fullPathSchemes.includes(scheme)) {
-        await fullPathCacheBuilder.processToCache(csvContent, { scheme })
+        cacheWriteResult = await fullPathCacheBuilder.processToCache(csvContent, { scheme })
         logger.info(`Successfully processed [${key}] with ConceptForFullPathCacheBuilder.`)
       } else {
         // Must be a short name scheme since it was pre-filtered
-        await shortNameCacheBuilder.processToCache(csvContent, { scheme })
+        cacheWriteResult = await shortNameCacheBuilder.processToCache(csvContent, { scheme })
         logger.info(`Successfully processed [${key}] with ConceptForShortNameCacheBuilder.`)
+      }
+
+      // The cache builders intentionally do batched mSet writes and report whether every
+      // entry made it into Redis. A partial write should not let us mark the version as done.
+      if (cacheWriteResult?.failedCount > 0) {
+        throw new Error(
+          `Redis cache write incomplete for [${key}] failedCount=${cacheWriteResult.failedCount}`
+        )
       }
     },
     PROCESS_BATCH_SIZE
@@ -218,9 +328,45 @@ export const buildHistoricalConceptCache = async (bucketName) => {
       successCount += 1
     } else {
       failCount += 1
-      logger.error(`Failed to process file [${allCsvFiles[index]}]: ${result.reason?.message}`)
+      logger.error(`Failed to process file [${allCsvFiles[index].key}]: ${result.reason?.message}`)
     }
   })
+
+  // Redis markers are version-level, not file-level. If any CSV in a version fails,
+  // that version stays pending and will be retried on the next historical cache build.
+  const failuresByVersion = results.reduce((accumulator, result, index) => {
+    if (result.status === 'fulfilled') return accumulator
+
+    const { version } = allCsvFiles[index]
+    const currentFailures = accumulator.get(version) || 0
+    accumulator.set(version, currentFailures + 1)
+
+    return accumulator
+  }, new Map())
+
+  await Promise.all(versionCsvGroups.map(async ({ version, csvFiles }) => {
+    if (csvFiles.length === 0) {
+      logger.info(
+        `[cache-builder] Skipping historical cache version marker version=${version} reason=no-valid-csv-files`
+      )
+
+      return
+    }
+
+    const failureCount = failuresByVersion.get(version) || 0
+    if (failureCount > 0) {
+      logger.warn(
+        `[cache-builder] Not marking historical cache version built version=${version} `
+        + `failedFiles=${failureCount}`
+      )
+
+      return
+    }
+
+    // We only record a version as built after every recognized CSV in that immutable
+    // version directory finished successfully. Future runs can now skip it entirely.
+    await markHistoricalVersionBuilt(version)
+  }))
 
   logger.info(
     `Cache build process finished for bucket [${bucketName}]. `

@@ -187,10 +187,14 @@ describe('ConceptForShortNameCacheBuilder', () => {
       const mockError = new Error('mSet failed')
       mockMSet.mockRejectedValueOnce(mockError)
 
-      // Should not throw
       await expect(
         builder.processToCache(csvContent, { scheme: 'instruments' })
-      ).resolves.toBeUndefined()
+      ).resolves.toEqual({
+        attemptedCount: 1,
+        writtenCount: 0,
+        failedCount: 1,
+        skipped: false
+      })
 
       expect(logger.error).toHaveBeenCalled()
     })
