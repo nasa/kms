@@ -72,7 +72,15 @@ describe('publisher handler', () => {
     emitPublisherMetrics.mockResolvedValue()
     sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
     exportRdfToS3.mockResolvedValue({ s3Key: 'test/rdf.xml' })
-    exportPublishSchemeCsvToS3.mockResolvedValue()
+
+    exportPublishSchemeCsvToS3.mockResolvedValue({
+      cacheReady: true
+    })
+
+    buildHistoricalConceptCache.mockResolvedValue({
+      cacheReady: true
+    })
+
     publishKeywordEvent.mockResolvedValue({
       messageId: 'message-1',
       message: '{}',
@@ -1530,7 +1538,7 @@ describe('publisher handler', () => {
       )
     })
 
-    test('should create keyword events before the SPARQL publish and publish them to SNS only after publish succeeds', async () => {
+    test('should create keyword events before the SPARQL publish and publish them to SNS only after cache preparation succeeds', async () => {
       const mockSchemes = [{ notation: 'sciencekeywords' }]
       getConceptSchemeDetails.mockResolvedValue(mockSchemes)
       downloadConcepts.mockResolvedValue('csv content')
@@ -1567,6 +1575,18 @@ describe('publisher handler', () => {
         return { ok: true }
       })
 
+      exportPublishSchemeCsvToS3.mockImplementation(async () => {
+        callOrder.push('export-published-csv')
+
+        return { cacheReady: true }
+      })
+
+      buildHistoricalConceptCache.mockImplementation(async () => {
+        callOrder.push('build-historical-cache')
+
+        return { cacheReady: true }
+      })
+
       publishKeywordEvent.mockImplementation(async () => {
         callOrder.push('publish-keyword-event')
 
@@ -1582,6 +1602,8 @@ describe('publisher handler', () => {
       expect(callOrder).toEqual([
         'build-publish-query',
         'execute-publish',
+        'export-published-csv',
+        'build-historical-cache',
         'publish-keyword-event'
       ])
     })
@@ -1857,6 +1879,77 @@ describe('publisher handler', () => {
       expect(result.status).toBe('partial_success')
       expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
       expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build Historical Concept cache from S3: Cache build failed')
+    })
+
+    test('should skip keyword event publish when CSV export fails and caches are not ready', async () => {
+      const csvExportError = new Error('S3 CSV export failed')
+      exportPublishSchemeCsvToS3.mockRejectedValue(csvExportError)
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map([['uuid1', {
+          oldPath: undefined,
+          newPath: 'PATH'
+        }]]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 1,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      expect(publishKeywordEvent).not.toHaveBeenCalled()
+      expect(result.status).toBe('partial_success')
+      expect(result.keywordEventsGenerated).toBe(1)
+      expect(result.keywordEventsPublished).toBe(0)
+      expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
+      expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
+      expect(result.postPublishFailures).toContain('Skipped keyword event publish because keyword caches were not fully prepared')
+      expect(logger.warn).toHaveBeenCalledWith('[publisher] Skipped keyword event publish because keyword caches were not fully prepared')
+    })
+
+    test('should skip keyword event publish when historical cache build fails and caches are not ready', async () => {
+      const cacheBuildError = new Error('Cache build failed')
+      buildHistoricalConceptCache.mockRejectedValue(cacheBuildError)
+      const mockSchemes = [{ notation: 'sciencekeywords' }]
+      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
+      downloadConcepts.mockResolvedValue('csv content')
+      const mockComparison = {
+        addedKeywords: new Map([['uuid1', {
+          oldPath: undefined,
+          newPath: 'PATH'
+        }]]),
+        removedKeywords: new Map(),
+        changedKeywords: new Map()
+      }
+      const mockComparator = {
+        compare: vi.fn().mockReturnValue(mockComparison),
+        getSummary: vi.fn().mockReturnValue({
+          addedCount: 1,
+          removedCount: 0,
+          changedCount: 0
+        })
+      }
+      CsvComparator.mockImplementation(() => mockComparator)
+
+      const result = await publisher(mockEvent)
+
+      expect(publishKeywordEvent).not.toHaveBeenCalled()
+      expect(result.status).toBe('partial_success')
+      expect(result.keywordEventsGenerated).toBe(1)
+      expect(result.keywordEventsPublished).toBe(0)
+      expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
+      expect(result.postPublishFailures).toContain('Skipped keyword event publish because keyword caches were not fully prepared')
+      expect(logger.warn).toHaveBeenCalledWith('[publisher] Skipped keyword event publish because keyword caches were not fully prepared')
     })
 
     test('should skip cache build when CSV export fails to prevent stale data', async () => {

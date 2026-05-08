@@ -92,7 +92,9 @@ describe('primePublishedConceptCacheFromCsv', () => {
 
     expect(result).toEqual({
       cachedCount: 2,
-      skipped: false
+      skipped: false,
+      skipReason: null,
+      cacheReady: true
     })
   })
 
@@ -154,7 +156,9 @@ describe('primePublishedConceptCacheFromCsv', () => {
 
     expect(result).toEqual({
       cachedCount: 2,
-      skipped: false
+      skipped: false,
+      skipReason: null,
+      cacheReady: true
     })
   })
 
@@ -170,7 +174,9 @@ describe('primePublishedConceptCacheFromCsv', () => {
 
     expect(result).toEqual({
       cachedCount: 0,
-      skipped: true
+      skipped: true,
+      skipReason: 'unsupported_scheme',
+      cacheReady: true
     })
 
     expect(mockParseFullPathCsvContent).not.toHaveBeenCalled()
@@ -191,7 +197,9 @@ describe('primePublishedConceptCacheFromCsv', () => {
 
     expect(result).toEqual({
       cachedCount: 0,
-      skipped: true
+      skipped: true,
+      skipReason: 'redis_unavailable',
+      cacheReady: false
     })
   })
 })

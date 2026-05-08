@@ -451,8 +451,9 @@ const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
  * 1. Receives a publish event with versionName and publishDate
  * 2. Analyzes keyword changes between draft and published versions
  * 3. Executes the publish update
- * 4. Creates and publishes keyword change events to SNS
- * 5. Emits a publisher-analysis-completed event for downstream consumers (cache-prime)
+ * 4. Prepares the published and historical keyword caches used by downstream consumers
+ * 5. Creates and publishes keyword change events to SNS once caches are ready
+ * 6. Emits a publisher-analysis-completed event for downstream consumers (cache-prime)
  *
  * @async
  * @function publisher
@@ -524,96 +525,18 @@ export const publisher = async (event) => {
     let keywordEventPublishFailures = 0
     const postPublishFailures = []
 
-    // 3. Publish keyword events
+    // 3. Prepare the published and historical keyword caches before any downstream
+    // metadata-correction consumers see the keyword events.
     processStartTime = Date.now()
-    if (keywordEvents.length > 0) {
-      const publishSummary = await publishKeywordEvents(keywordEvents)
-      keywordEventsPublished = publishSummary.publishedCount
-      keywordEventPublishFailures = publishSummary.failedEvents.length
+    logger.info('[publisher] Starting published keyword cache preparation.')
 
-      if (publishSummary.failedEvents.length > 0) {
-        postPublishFailures.push(
-          `Publish completed, but ${publishSummary.failedEvents.length} `
-          + 'keyword event publishes failed after retries'
-        )
-
-        publishSummary.failedEvents.forEach(({ keywordEvent, error, attempts }) => {
-          logger.error(
-            '[publisher] Keyword event publish exhausted retries',
-            {
-              uuid: keywordEvent.UUID,
-              scheme: keywordEvent.Scheme,
-              eventType: keywordEvent.EventType,
-              oldKeywordPath: keywordEvent.OldKeywordPath,
-              newKeywordPath: keywordEvent.NewKeywordPath,
-              attempts,
-              error
-            }
-          )
-        })
-      }
-
-      logger.info(
-        '[publisher] Keyword event publish summary '
-        + `attempted=${publishSummary.attemptedCount} `
-        + `published=${publishSummary.publishedCount} `
-        + `failed=${publishSummary.failedEvents.length}`
-      )
-    } else {
-      logger.info('[publisher] No keyword events generated, skipping SNS publish')
-    }
-
-    processTimes.keywordEventsPublish = ((Date.now() - processStartTime) / 1000).toFixed(2)
-
-    // #########################################################################
-    // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
-    // ##
-    // ## The following S3 export operations, as well as the subsequent UUID cache
-    // ## build, are part of the critical path for publish completion. This work MUST
-    // ## stay comfortably under the Lambda
-    // ## function timeout.
-    // ##
-    // ## If S3 exports start getting close to the timeout, we should:
-    // ##  1. Move this work to a separate, asynchronous Lambda function.
-    // ##  2. Reconsider emitting the cache-prime event *before* these exports
-    // ##     to ensure downstream processes are not blocked.
-    // #########################################################################
-    // Export RDF and CSV data to S3 after publishing
-    logger.info('[publisher] Starting S3 exports of RDF and CSV data.')
-
-    // 4. Export published RDF to S3
-    processStartTime = Date.now()
-    try {
-      await exportRdfToS3({ version: 'published' })
-      processTimes.exportPublishedRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
-      logger.info('[publisher] Successfully exported Published RDF to S3.')
-    } catch (exportError) {
-      processTimes.exportPublishedRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
-      const failureMessage = `Failed to export Published RDF to S3: ${exportError.message}`
-      postPublishFailures.push(failureMessage)
-      logger.error(`[publisher] ${failureMessage}`)
-    }
-
-    // Export draft RDF to S3
-    processStartTime = Date.now()
-    try {
-      await exportRdfToS3({ version: 'draft' })
-      processTimes.exportDraftRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
-      logger.info('[publisher] Successfully exported Draft RDF to S3.')
-    } catch (exportError) {
-      processTimes.exportDraftRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
-      const failureMessage = `Failed to export Draft RDF to S3: ${exportError.message}`
-      postPublishFailures.push(failureMessage)
-      logger.error(`[publisher] ${failureMessage}`)
-    }
-
-    // 5. Export published schemes CSVs to S3
-    processStartTime = Date.now()
     let csvExportSucceeded = false
+    let publishedCacheReady = false
     try {
-      await exportPublishSchemeCsvToS3()
+      const csvExportResult = await exportPublishSchemeCsvToS3()
       processTimes.exportPublishedCsv = ((Date.now() - processStartTime) / 1000).toFixed(2)
       csvExportSucceeded = true
+      publishedCacheReady = csvExportResult.cacheReady
       logger.info('[publisher] Successfully exported Published Scheme CSVs to S3.')
     } catch (exportError) {
       processTimes.exportPublishedCsv = ((Date.now() - processStartTime) / 1000).toFixed(2)
@@ -622,20 +545,24 @@ export const publisher = async (event) => {
       logger.error(`[publisher] ${failureMessage}`)
     }
 
-    // 6. Building the historical concept cache for all versions
+    // 4. Build the historical concept cache for all versions
     // Only rebuild cache if CSV export succeeded to avoid serving stale data.
     // Note: buildHistoricalConceptCache now fails fast on any listing or processing errors
     // to ensure cache completeness. We catch these errors here to allow the publish to
     // complete (since the SPARQL update has already succeeded), but report partial_success
-    // so operators know the cache rebuild failed and can retry it separately.
+    // so operators know the cache rebuild failed and no keyword events were emitted.
     processStartTime = Date.now()
+    let historicalCacheBuildSucceeded = false
+    let historicalCacheReady = false
     if (csvExportSucceeded) {
       logger.info('[publisher] Starting Historical Concept cache build from S3.')
       try {
         const { env } = getApplicationConfig()
         const bucketName = `kms-rdf-backup-${env}`
-        await buildHistoricalConceptCache(bucketName)
+        const historicalCacheResult = await buildHistoricalConceptCache(bucketName)
         processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
+        historicalCacheBuildSucceeded = true
+        historicalCacheReady = historicalCacheResult.cacheReady
         logger.info(`[publisher] Successfully built Historical Concept cache from S3 bucket [${bucketName}].`)
       } catch (cacheBuildError) {
         processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
@@ -650,7 +577,101 @@ export const publisher = async (event) => {
       logger.warn(`[publisher] ${skipMessage}`)
     }
 
-    // 7. Emit publisher metrics
+    const keywordCachesReady = (
+      csvExportSucceeded
+      && publishedCacheReady
+      && historicalCacheBuildSucceeded
+      && historicalCacheReady
+    )
+
+    // 5. Publish keyword events only after both cache families are ready.
+    processStartTime = Date.now()
+    if (keywordEvents.length > 0) {
+      if (!keywordCachesReady) {
+        const skipMessage = 'Skipped keyword event publish because keyword caches were not fully prepared'
+        postPublishFailures.push(skipMessage)
+        logger.warn(`[publisher] ${skipMessage}`)
+      } else {
+        const publishSummary = await publishKeywordEvents(keywordEvents)
+        keywordEventsPublished = publishSummary.publishedCount
+        keywordEventPublishFailures = publishSummary.failedEvents.length
+
+        if (publishSummary.failedEvents.length > 0) {
+          postPublishFailures.push(
+            `Publish completed, but ${publishSummary.failedEvents.length} `
+            + 'keyword event publishes failed after retries'
+          )
+
+          publishSummary.failedEvents.forEach(({ keywordEvent, error, attempts }) => {
+            logger.error(
+              '[publisher] Keyword event publish exhausted retries',
+              {
+                uuid: keywordEvent.UUID,
+                scheme: keywordEvent.Scheme,
+                eventType: keywordEvent.EventType,
+                oldKeywordPath: keywordEvent.OldKeywordPath,
+                newKeywordPath: keywordEvent.NewKeywordPath,
+                attempts,
+                error
+              }
+            )
+          })
+        }
+
+        logger.info(
+          '[publisher] Keyword event publish summary '
+          + `attempted=${publishSummary.attemptedCount} `
+          + `published=${publishSummary.publishedCount} `
+          + `failed=${publishSummary.failedEvents.length}`
+        )
+      }
+    } else {
+      logger.info('[publisher] No keyword events generated, skipping SNS publish')
+    }
+
+    processTimes.keywordEventsPublish = ((Date.now() - processStartTime) / 1000).toFixed(2)
+
+    // #########################################################################
+    // ## IMPORTANT: ARCHIVAL EXPORT TIMEOUT CONSIDERATIONS
+    // ##
+    // ## The RDF exports below are post-publish archival work. The keyword-event
+    // ## consumers now rely on the Redis cache-preparation path above, so cache
+    // ## readiness stays ahead of SNS publication even if these exports slow down.
+    // ##
+    // ## If the archival exports start getting close to the timeout, we should:
+    // ##  1. Move this work to a separate, asynchronous Lambda function.
+    // ##  2. Keep cache preparation ahead of keyword event publication so
+    // ##     metadata-correction consumers never observe a cold Redis state.
+    // #########################################################################
+    logger.info('[publisher] Starting archival RDF exports.')
+
+    // 6. Export published RDF to S3
+    processStartTime = Date.now()
+    try {
+      await exportRdfToS3({ version: 'published' })
+      processTimes.exportPublishedRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
+      logger.info('[publisher] Successfully exported Published RDF to S3.')
+    } catch (exportError) {
+      processTimes.exportPublishedRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
+      const failureMessage = `Failed to export Published RDF to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    // 7. Export draft RDF to S3
+    processStartTime = Date.now()
+    try {
+      await exportRdfToS3({ version: 'draft' })
+      processTimes.exportDraftRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
+      logger.info('[publisher] Successfully exported Draft RDF to S3.')
+    } catch (exportError) {
+      processTimes.exportDraftRdf = ((Date.now() - processStartTime) / 1000).toFixed(2)
+      const failureMessage = `Failed to export Draft RDF to S3: ${exportError.message}`
+      postPublishFailures.push(failureMessage)
+      logger.error(`[publisher] ${failureMessage}`)
+    }
+
+    // 8. Emit publisher metrics
     processStartTime = Date.now()
     await emitPublisherMetricsSafely(
       [
@@ -676,7 +697,7 @@ export const publisher = async (event) => {
 
     processTimes.emitMetrics = ((Date.now() - processStartTime) / 1000).toFixed(2)
 
-    // 8. Emit event for cache-prime to consume
+    // 9. Emit event for cache-prime to consume
     let cachePrimeEventEmitted = false
     processStartTime = Date.now()
 
@@ -719,11 +740,11 @@ export const publisher = async (event) => {
       `[publisher] Completed with status: ${result.status} in ${durationInSeconds} seconds. `
       + `Timing: 1.KeywordChanges=${processTimes.keywordChangesDetection}s `
       + `2.PublishOp=${processTimes.publishOperation}s `
-      + `3.PublishEvents=${processTimes.keywordEventsPublish}s `
-      + `4.ExportPubRdf=${processTimes.exportPublishedRdf}s `
-      + `5.ExportDraftRdf=${processTimes.exportDraftRdf}s `
-      + `6.ExportCsv=${processTimes.exportPublishedCsv}s `
-      + `7.BuildCache=${processTimes.buildHistoricalCache}s `
+      + `3.ExportCsv=${processTimes.exportPublishedCsv}s `
+      + `4.BuildCache=${processTimes.buildHistoricalCache}s `
+      + `5.PublishEvents=${processTimes.keywordEventsPublish}s `
+      + `6.ExportPubRdf=${processTimes.exportPublishedRdf}s `
+      + `7.ExportDraftRdf=${processTimes.exportDraftRdf}s `
       + `8.EmitMetrics=${processTimes.emitMetrics}s `
       + `9.EmitCachePrime=${processTimes.emitCachePrimeEvent}s`,
       result

@@ -100,7 +100,12 @@ const buildCacheEntries = ({
  * @param {object} params - Cache-prime parameters.
  * @param {string} params.csvContent - Published CSV content for one scheme.
  * @param {string} params.scheme - Scheme notation for the CSV.
- * @returns {Promise<{ cachedCount: number, skipped: boolean }>} Cache summary.
+ * @returns {Promise<{
+ *   cachedCount: number,
+ *   skipped: boolean,
+ *   skipReason: 'redis_unavailable' | 'unsupported_scheme' | null,
+ *   cacheReady: boolean
+ * }>} Cache summary that tells callers whether Redis-backed published lookups are ready.
  */
 export const primePublishedConceptCacheFromCsv = async ({
   csvContent,
@@ -120,7 +125,9 @@ export const primePublishedConceptCacheFromCsv = async ({
 
     return {
       cachedCount: 0,
-      skipped: true
+      skipped: true,
+      skipReason: 'redis_unavailable',
+      cacheReady: false
     }
   }
 
@@ -163,14 +170,18 @@ export const primePublishedConceptCacheFromCsv = async ({
   } else {
     return {
       cachedCount: 0,
-      skipped: true
+      skipped: true,
+      skipReason: 'unsupported_scheme',
+      cacheReady: true
     }
   }
 
   if (cacheEntries.length === 0) {
     return {
       cachedCount: 0,
-      skipped: false
+      skipped: false,
+      skipReason: null,
+      cacheReady: true
     }
   }
 
@@ -193,7 +204,9 @@ export const primePublishedConceptCacheFromCsv = async ({
 
   return {
     cachedCount: totalWritten,
-    skipped: false
+    skipped: false,
+    skipReason: null,
+    cacheReady: true
   }
 }
 

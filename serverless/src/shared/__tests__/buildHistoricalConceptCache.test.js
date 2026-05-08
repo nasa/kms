@@ -10,6 +10,7 @@ import {
 } from 'vitest'
 
 import { buildHistoricalConceptCache } from '../buildHistoricalConceptCache'
+import { getRedisClient } from '../redisCacheStore'
 
 const mockFullPathProcessToCache = vi.fn()
 const mockShortNameProcessToCache = vi.fn()
@@ -81,6 +82,14 @@ describe('buildHistoricalConceptCache', () => {
     )
   })
 
+  it('throws an error when redis is unavailable', async () => {
+    vi.mocked(getRedisClient).mockResolvedValueOnce(null)
+
+    await expect(buildHistoricalConceptCache('test-bucket')).rejects.toThrow(
+      'Redis is required to build the historical concept cache.'
+    )
+  })
+
   it('should find and process all CSV files using the correct builder', async () => {
     mockS3Send.mockImplementationOnce((command) => {
       if (command instanceof ListObjectsV2Command && command.input.Delimiter === '/') {
@@ -122,7 +131,7 @@ describe('buildHistoricalConceptCache', () => {
       return Promise.reject(new Error('Unexpected S3 command'))
     })
 
-    await buildHistoricalConceptCache('test-bucket')
+    const result = await buildHistoricalConceptCache('test-bucket')
 
     expect(mockFullPathProcessToCache).toHaveBeenCalledTimes(1)
     expect(mockFullPathProcessToCache).toHaveBeenCalledWith('full-path-content', { scheme: 'sciencekeywords' })
@@ -130,6 +139,13 @@ describe('buildHistoricalConceptCache', () => {
     expect(mockShortNameProcessToCache).toHaveBeenCalledWith('short-name-content', { scheme: 'platforms' })
     expect(mockSAdd).toHaveBeenCalledWith('kms:historical_concept:versions:built:v1', '1.0')
     expect(mockSAdd).toHaveBeenCalledWith('kms:historical_concept:versions:built:v1', '2.0')
+    expect(result).toEqual({
+      cacheReady: true,
+      totalVersionCount: 2,
+      pendingVersionCount: 2,
+      processedFileCount: 2,
+      markedVersionCount: 2
+    })
   })
 
   it('handles cases where no version directories are found', async () => {
@@ -351,6 +367,45 @@ describe('buildHistoricalConceptCache', () => {
       writtenCount: 0,
       failedCount: 1,
       skipped: false
+    })
+
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Delimiter === '/') {
+        return Promise.resolve({ CommonPrefixes: [{ Prefix: '1.0/' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof ListObjectsV2Command && command.input.Prefix === '1.0/') {
+        return Promise.resolve({ Contents: [{ Key: '1.0/sciencekeywords.csv' }] })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    mockS3Send.mockImplementationOnce((command) => {
+      if (command instanceof GetObjectCommand && command.input.Key === '1.0/sciencekeywords.csv') {
+        return Promise.resolve({ Body: Readable.from([Buffer.from('valid-content')]) })
+      }
+
+      return Promise.reject(new Error('Unexpected S3 command'))
+    })
+
+    await expect(buildHistoricalConceptCache('test-bucket')).rejects.toThrow(
+      'Failed to process 1 of 1 CSV files. Historical cache must include all archived versions.'
+    )
+
+    expect(mockSAdd).not.toHaveBeenCalled()
+  })
+
+  it('should throw when a cache builder reports Redis writes were skipped', async () => {
+    mockFullPathProcessToCache.mockResolvedValueOnce({
+      attemptedCount: 0,
+      writtenCount: 0,
+      failedCount: 0,
+      skipped: true
     })
 
     mockS3Send.mockImplementationOnce((command) => {

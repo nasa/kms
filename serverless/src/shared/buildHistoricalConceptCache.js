@@ -86,6 +86,13 @@ const processBatch = async (items, processor, batchSize) => {
  * the `ConceptForShortNameCacheBuilder` if 'instruments' is a short-name scheme.
  *
  * @param {string} bucketName - The name of the S3 bucket to process.
+ * @returns {Promise<{
+ *   cacheReady: boolean,
+ *   totalVersionCount: number,
+ *   pendingVersionCount: number,
+ *   processedFileCount: number,
+ *   markedVersionCount: number
+ * }>} Summary describing whether Redis-backed historical lookups are ready.
  * @throws {Error} If the bucket name is not provided.
  */
 export const buildHistoricalConceptCache = async (bucketName) => {
@@ -101,6 +108,10 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   const fullPathCacheBuilder = new ConceptForFullPathCacheBuilder()
   const shortNameCacheBuilder = new ConceptForShortNameCacheBuilder()
   const redisClient = await getRedisClient()
+
+  if (!redisClient) {
+    throw new Error('Redis is required to build the historical concept cache.')
+  }
 
   /**
    * Lists the top-level directories in the S3 bucket, which correspond to keyword versions.
@@ -231,7 +242,13 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   if (versionDirs.length === 0) {
     logger.warn('No version directories found in the bucket. Nothing to process.')
 
-    return
+    return {
+      cacheReady: true,
+      totalVersionCount: 0,
+      pendingVersionCount: 0,
+      processedFileCount: 0,
+      markedVersionCount: 0
+    }
   }
 
   const builtVersions = await getBuiltHistoricalVersions()
@@ -250,7 +267,13 @@ export const buildHistoricalConceptCache = async (bucketName) => {
   if (pendingVersionDirs.length === 0) {
     logger.info('All historical keyword versions are already cached in Redis. Nothing to process.')
 
-    return
+    return {
+      cacheReady: true,
+      totalVersionCount: versionDirs.length,
+      pendingVersionCount: 0,
+      processedFileCount: 0,
+      markedVersionCount: 0
+    }
   }
 
   // Phase 2: List CSV files in all pending directories
@@ -313,7 +336,13 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
     logger.warn('No CSV files found in any version directory. Nothing to process.')
 
-    return
+    return {
+      cacheReady: true,
+      totalVersionCount: versionDirs.length,
+      pendingVersionCount: pendingVersionDirs.length,
+      processedFileCount: 0,
+      markedVersionCount: 0
+    }
   }
 
   logger.info(`Found a total of ${allCsvFiles.length} valid CSV files to process.`)
@@ -347,6 +376,10 @@ export const buildHistoricalConceptCache = async (bucketName) => {
           `Redis cache write incomplete for [${key}] failedCount=${cacheWriteResult.failedCount}`
         )
       }
+
+      if (cacheWriteResult?.skipped) {
+        throw new Error(`Redis cache write skipped for [${key}]`)
+      }
     },
     PROCESS_BATCH_SIZE
   )
@@ -374,6 +407,7 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     return accumulator
   }, new Map())
 
+  let markedVersionCount = 0
   await Promise.all(versionCsvGroups.map(async ({ version, csvFiles }) => {
     if (csvFiles.length === 0) {
       logger.info(
@@ -396,6 +430,7 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     // We only record a version as built after every recognized CSV in that immutable
     // version directory finished successfully. Future runs can now skip it entirely.
     await markHistoricalVersionBuilt(version)
+    markedVersionCount += 1
   }))
 
   if (listFailures.length > 0) {
@@ -427,4 +462,12 @@ export const buildHistoricalConceptCache = async (bucketName) => {
     + `ListFiles=${phaseTimes.listFiles}s `
     + `ProcessFiles=${phaseTimes.processFiles}s`
   )
+
+  return {
+    cacheReady: true,
+    totalVersionCount: versionDirs.length,
+    pendingVersionCount: pendingVersionDirs.length,
+    processedFileCount: allCsvFiles.length,
+    markedVersionCount
+  }
 }

@@ -46,6 +46,17 @@ const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms) })
  * loop with a summary of failed schemes so the caller can treat the publish as incomplete.
  *
  * Resolves when every published scheme has been cached and uploaded successfully.
+ *
+ * The returned summary is used by the publisher to confirm the current published Redis lookup
+ * cache is actually ready before keyword events are emitted to downstream consumers.
+ *
+ * @returns {Promise<{
+ *   versionName: string,
+ *   schemeCount: number,
+ *   uploadedCount: number,
+ *   cachedCount: number,
+ *   cacheReady: boolean
+ * }>} Export summary for the published cache-preparation step.
  * @throws {Error} If the published version cannot be determined or any scheme export fails.
  */
 export const exportPublishSchemeCsvToS3 = async () => {
@@ -63,7 +74,13 @@ export const exportPublishSchemeCsvToS3 = async () => {
     if (!schemes || schemes.length === 0) {
       logger.warn('No published concept schemes found to export.')
 
-      return
+      return {
+        versionName,
+        schemeCount: 0,
+        uploadedCount: 0,
+        cachedCount: 0,
+        cacheReady: true
+      }
     }
 
     logger.info(
@@ -71,6 +88,7 @@ export const exportPublishSchemeCsvToS3 = async () => {
     )
 
     const failedSchemes = []
+    const cachePrimeReadinessFailures = []
     let uploadedCount = 0
     let cachedCount = 0
 
@@ -87,6 +105,13 @@ export const exportPublishSchemeCsvToS3 = async () => {
           csvContent: csvData,
           scheme: notation
         })
+
+        if (!publishedCachePrimeResult.cacheReady) {
+          throw new Error(
+            `Published concept cache not ready for scheme=${notation} `
+            + `reason=${publishedCachePrimeResult.skipReason || 'unknown'}`
+          )
+        }
 
         cachedCount += publishedCachePrimeResult.cachedCount
 
@@ -110,6 +135,10 @@ export const exportPublishSchemeCsvToS3 = async () => {
           notation,
           error
         })
+
+        if (String(error.message || '').includes('Published concept cache not ready')) {
+          cachePrimeReadinessFailures.push(notation)
+        }
       }
     }), Promise.resolve())
 
@@ -120,6 +149,14 @@ export const exportPublishSchemeCsvToS3 = async () => {
     logger.info(
       `[publisher] Completed published CSV export version=${versionName} bucket=${bucketName} schemes=${schemes.length} uploaded=${uploadedCount} cached=${cachedCount} failed=${failedSchemes.length}`
     )
+
+    return {
+      versionName,
+      schemeCount: schemes.length,
+      uploadedCount,
+      cachedCount,
+      cacheReady: cachePrimeReadinessFailures.length === 0
+    }
   } catch (error) {
     logger.error(`Error in exportPublishSchemeCsvToS3: ${error.message}`)
     throw error

@@ -48,7 +48,9 @@ describe('exportPublishSchemeCsvToS3', () => {
 
     primePublishedConceptCacheFromCsv.mockResolvedValue({
       cachedCount: 0,
-      skipped: true
+      skipped: true,
+      skipReason: 'unsupported_scheme',
+      cacheReady: true
     })
 
     // Mocking resolved values for each download call
@@ -63,7 +65,7 @@ describe('exportPublishSchemeCsvToS3', () => {
   test('should successfully export CSVs for all published schemes', async () => {
     const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
 
-    await Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()])
+    const [result] = await Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()])
 
     // Verify initial setup calls
     expect(getVersionMetadata).toHaveBeenCalledWith('published')
@@ -111,6 +113,14 @@ describe('exportPublishSchemeCsvToS3', () => {
     expect(logger.info).toHaveBeenCalledWith(
       '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 cached=0 failed=0'
     )
+
+    expect(result).toEqual({
+      versionName: 'v22.1',
+      schemeCount: 2,
+      uploadedCount: 2,
+      cachedCount: 0,
+      cacheReady: true
+    })
   })
 
   test('should log a warning and exit if no schemes are found', async () => {
@@ -248,15 +258,21 @@ describe('exportPublishSchemeCsvToS3', () => {
     primePublishedConceptCacheFromCsv
       .mockResolvedValueOnce({
         cachedCount: 12,
-        skipped: false
+        skipped: false,
+        skipReason: null,
+        cacheReady: true
       })
       .mockResolvedValueOnce({
         cachedCount: 5,
-        skipped: false
+        skipped: false,
+        skipReason: null,
+        cacheReady: true
       })
       .mockResolvedValueOnce({
         cachedCount: 9,
-        skipped: false
+        skipped: false,
+        skipReason: null,
+        cacheReady: true
       })
 
     const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
@@ -282,6 +298,23 @@ describe('exportPublishSchemeCsvToS3', () => {
 
     expect(logger.info).toHaveBeenCalledWith(
       '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=3 uploaded=3 cached=26 failed=0'
+    )
+  })
+
+  test('should fail when published cache prime reports redis is unavailable', async () => {
+    vi.mocked(getConceptSchemeDetails).mockResolvedValue([{ notation: 'sciencekeywords' }])
+    vi.mocked(downloadConcepts).mockResolvedValue('csv,data,for,sciencekeywords')
+    primePublishedConceptCacheFromCsv.mockResolvedValue({
+      cachedCount: 0,
+      skipped: true,
+      skipReason: 'redis_unavailable',
+      cacheReady: false
+    })
+
+    const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
+
+    await expect(exportPublishSchemeCsvToS3()).rejects.toThrow(
+      'Failed to export CSV for schemes: sciencekeywords'
     )
   })
 })
