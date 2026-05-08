@@ -9,6 +9,8 @@ import {
   CONCEPTS_CACHE_KEY_PREFIX,
   CONCEPTS_CACHE_VERSION_KEY,
   createConceptResponseCacheKey,
+  createConceptResponseCacheKeyByFullPath,
+  createConceptResponseCacheKeyByShortName,
   createConceptsResponseCacheKey,
   createTreeResponseCacheKey,
   TREE_CACHE_KEY_PREFIX
@@ -86,6 +88,42 @@ describe('when creating response cache keys', () => {
       })
 
       expect(key).toBe(`${TREE_CACHE_KEY_PREFIX}:published:earth%20science:water%20vapor`)
+    })
+  })
+
+  describe('when creating uuid keys', () => {
+    describe('by full path', () => {
+      test('handles missing fullPath and scheme', () => {
+        const key = createConceptResponseCacheKeyByFullPath({})
+
+        expect(key).toBe('kms::historical_concept:full_path:')
+      })
+
+      test('url-encodes fullPath and scheme values', () => {
+        const key = createConceptResponseCacheKeyByFullPath({
+          fullPath: 'A/B > C',
+          scheme: 'platforms'
+        })
+
+        expect(key).toBe('kms:platforms:historical_concept:full_path:A%2FB%20%3E%20C')
+      })
+    })
+
+    describe('by short name', () => {
+      test('handles missing shortName and scheme', () => {
+        const key = createConceptResponseCacheKeyByShortName({})
+
+        expect(key).toBe('kms::historical_concept:short_name:')
+      })
+
+      test('url-encodes shortName and scheme values', () => {
+        const key = createConceptResponseCacheKeyByShortName({
+          shortName: 'CESSNA 188',
+          scheme: 'platforms'
+        })
+
+        expect(key).toBe('kms:platforms:historical_concept:short_name:CESSNA%20188')
+      })
     })
   })
 
