@@ -12,6 +12,7 @@ import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
+import { primePublishedConceptCacheFromCsv } from '@/shared/primePublishedConceptCacheFromCsv'
 
 // Mock dependencies
 vi.mock('@aws-sdk/client-s3')
@@ -20,13 +21,14 @@ vi.mock('@/shared/getConceptSchemeDetails')
 vi.mock('@/shared/getVersionMetadata')
 vi.mock('@/shared/logger')
 vi.mock('@/shared/getConfig')
+vi.mock('@/shared/primePublishedConceptCacheFromCsv')
 
 describe('exportPublishSchemeCsvToS3', () => {
   beforeEach(() => {
     // Use fake timers to control setTimeout used in the delay function
     vi.useFakeTimers()
     vi.resetModules()
-    vi.resetAllMocks()
+    vi.clearAllMocks()
 
     // Mock S3Client's send method globally
     S3Client.prototype.send = vi.fn().mockResolvedValue({})
@@ -43,6 +45,11 @@ describe('exportPublishSchemeCsvToS3', () => {
       { notation: 'SCHEME1' },
       { notation: 'SCHEME2' }
     ])
+
+    primePublishedConceptCacheFromCsv.mockResolvedValue({
+      cachedCount: 0,
+      skipped: true
+    })
 
     // Mocking resolved values for each download call
     downloadConcepts.mockImplementation(async ({ conceptScheme }) => {
@@ -76,6 +83,8 @@ describe('exportPublishSchemeCsvToS3', () => {
       version: 'published'
     })
 
+    expect(primePublishedConceptCacheFromCsv).toHaveBeenCalledTimes(2)
+
     // Verify S3 upload for each scheme
     const S3ClientMock = vi.mocked(S3Client)
     const s3SendMock = S3ClientMock.mock.results[0].value.send
@@ -100,7 +109,7 @@ describe('exportPublishSchemeCsvToS3', () => {
     )
 
     expect(logger.info).toHaveBeenCalledWith(
-      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 failed=0'
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 cached=0 failed=0'
     )
   })
 
@@ -166,7 +175,7 @@ describe('exportPublishSchemeCsvToS3', () => {
     })
 
     expect(logger.info).not.toHaveBeenCalledWith(
-      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 failed=0'
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=2 uploaded=2 cached=0 failed=0'
     )
   })
 
@@ -223,7 +232,56 @@ describe('exportPublishSchemeCsvToS3', () => {
 
     // Verify it does NOT log the final success message
     expect(logger.info).not.toHaveBeenCalledWith(
-      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=3 uploaded=1 failed=0'
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=3 uploaded=1 cached=0 failed=0'
+    )
+  })
+
+  test('should prime published concept cache entries for supported schemes', async () => {
+    vi.mocked(getConceptSchemeDetails).mockResolvedValue([
+      { notation: 'sciencekeywords' },
+      { notation: 'platforms' },
+      { notation: 'locations' }
+    ])
+
+    vi.mocked(downloadConcepts).mockImplementation(async ({ conceptScheme }) => `csv,data,for,${conceptScheme}`)
+
+    primePublishedConceptCacheFromCsv
+      .mockResolvedValueOnce({
+        cachedCount: 12,
+        skipped: false
+      })
+      .mockResolvedValueOnce({
+        cachedCount: 5,
+        skipped: false
+      })
+      .mockResolvedValueOnce({
+        cachedCount: 9,
+        skipped: false
+      })
+
+    const { exportPublishSchemeCsvToS3 } = await import('../exportPublishSchemeCsvToS3')
+
+    await Promise.all([exportPublishSchemeCsvToS3(), vi.runAllTimersAsync()])
+
+    expect(primePublishedConceptCacheFromCsv).toHaveBeenCalledTimes(3)
+
+    expect(primePublishedConceptCacheFromCsv).toHaveBeenCalledWith({
+      csvContent: 'csv,data,for,sciencekeywords',
+      scheme: 'sciencekeywords'
+    })
+
+    expect(primePublishedConceptCacheFromCsv).toHaveBeenCalledWith({
+      csvContent: 'csv,data,for,platforms',
+      scheme: 'platforms'
+    })
+
+    expect(primePublishedConceptCacheFromCsv).toHaveBeenCalledWith({
+      csvContent: 'csv,data,for,locations',
+      scheme: 'locations'
+    })
+
+    expect(logger.info).toHaveBeenCalledWith(
+      '[publisher] Completed published CSV export version=v22.1 bucket=kms-rdf-backup-sit schemes=3 uploaded=3 cached=26 failed=0'
     )
   })
 })

@@ -46,9 +46,9 @@ const buildValidationResultForMockWriteback = (resolvedKeywordValidationFailures
 /**
  * Metadata correction service that consumes metadata correction requests from SQS.
  *
- * This stage of KMS-675 fetches a collection's UMM-C from CMR, validates it through the
- * CMR validate-collection endpoint, and extracts keyword-related validation failures for the
- * later resolver/delegate flow.
+ * This stage of KMS-675 fetches a collection's UMM-C from CMR, validates its supported
+ * keywords against the published KMS Redis cache, and extracts keyword-related validation
+ * failures for the later resolver/delegate flow.
  *
  * The current KMS-675 implementation already wires keyword-resolution stubs, native-format
  * detection, delegate routing, and ingest handoff. Follow-on work should replace those stubs

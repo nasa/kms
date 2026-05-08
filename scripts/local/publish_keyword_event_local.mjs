@@ -40,6 +40,11 @@ const endpoint = process.env.LOCALSTACK_HOST_ENDPOINT || `http://localhost:${loc
 const stackPrefix = process.env.STACK_PREFIX || 'kms'
 const stageName = process.env.STAGE_NAME || 'dev'
 const topicName = `${stackPrefix}-${stageName}-keyword-events`
+const publishDelayMs = Number(process.env.KEYWORD_EVENT_DELAY_MS || '3000')
+
+const delay = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms)
+})
 
 const snsClient = new SNSClient({
   endpoint,
@@ -56,7 +61,7 @@ const main = async () => {
   }))
 
   await keywordEvents.reduce(
-    (publishChain, keywordEvent) => publishChain.then(async () => {
+    (publishChain, keywordEvent, index) => publishChain.then(async () => {
       const response = await snsClient.send(new PublishCommand({
         TopicArn: topicArn,
         Message: JSON.stringify(keywordEvent)
@@ -70,6 +75,14 @@ const main = async () => {
         + `messageId=${response.MessageId || 'n/a'} `
         + `topicArn=${topicArn}`
       )
+
+      if (publishDelayMs > 0 && index < keywordEvents.length - 1) {
+        console.log(
+          `[publish-keyword-event-local] Waiting ${publishDelayMs}ms before next fixture event`
+        )
+
+        await delay(publishDelayMs)
+      }
     }),
     Promise.resolve()
   )

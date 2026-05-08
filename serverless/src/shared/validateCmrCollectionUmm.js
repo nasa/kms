@@ -1,60 +1,410 @@
-import { cmrPostRequest } from './cmrPostRequest'
+import { extractKeywordValue } from './extractKeywordValue'
 import { logger } from './logger'
+import {
+  createPublishedConceptResponseCacheKeyByFullPath,
+  createPublishedConceptResponseCacheKeyByShortName
+} from './redisCacheKeys'
+import { getCachedJsonResponse, getRedisClient } from './redisCacheStore'
 
-const CMR_UMM_JSON_CONTENT_TYPE = 'application/vnd.nasa.cmr.umm+json'
-const VALIDATION_ERROR_STATUSES = new Set([400, 422])
+const FULL_PATH_SCHEMES = new Set([
+  'sciencekeywords',
+  'locations',
+  'chronounits',
+  'rucontenttype',
+  'isotopiccategory',
+  'temporalresolutionrange',
+  'horizontalresolutionrange',
+  'verticalresolutionrange',
+  'productlevelid'
+])
 
-// Build the CMR ingest validate endpoint path for a collection native id.
-const buildValidateCollectionPath = ({
-  providerId,
-  nativeId
-}) => `/ingest/providers/${encodeURIComponent(providerId)}/validate/collection/${encodeURIComponent(nativeId)}`
+const SHORT_NAME_SCHEMES = new Set([
+  'providers',
+  'platforms',
+  'instruments',
+  'projects',
+  'idnnode',
+  'dataformat',
+  'granuledataformat'
+])
 
-// Validation errors come back as JSON, but unexpected failures may still be plain text.
-const parseResponseBody = async (response) => {
-  const responseText = await response.text()
-
-  if (!responseText) {
-    return {}
-  }
-
-  try {
-    return JSON.parse(responseText)
-  } catch {
-    return {
-      raw: responseText
-    }
-  }
+const VALIDATION_MESSAGES = {
+  sciencekeywords: 'Science keyword was not a valid keyword combination.',
+  platforms: 'Platform short name was not a valid keyword combination.',
+  instruments: 'Instrument short name was not a valid keyword combination.',
+  locations: 'Location keyword was not a valid keyword combination.',
+  chronounits: 'Chronostratigraphic unit was not a valid keyword combination.',
+  projects: 'Project short name was not a valid keyword combination.',
+  providers: 'Data center short name was not a valid keyword.',
+  idnnode: 'Directory name short name was not a valid keyword.',
+  isotopiccategory: 'ISO Topic Category was not a valid keyword.',
+  temporalresolutionrange: 'Temporal resolution was not a valid keyword.',
+  horizontalresolutionrange: 'Horizontal resolution was not a valid keyword range.',
+  verticalresolutionrange: 'Vertical resolution was not a valid keyword range.',
+  productlevelid: 'ProcessingLevel Id was not a valid keyword.',
+  dataformat: 'Format was not a valid keyword.',
+  granuledataformat: 'Format was not a valid keyword.',
+  rucontenttype: 'Related URL Content Type was not a valid set together.'
 }
 
-// Preserve the raw CMR validation failure payload on unexpected non-400 errors.
-const createValidationError = ({
-  response,
-  responseBody
+const LOOKUP_PATH_SEPARATOR = ' > '
+
+// Flattens nested keyword objects/arrays into a simple list of string values.
+const flattenKeywordValues = (keywordValue) => {
+  if (keywordValue === undefined || keywordValue === null) {
+    return []
+  }
+
+  if (Array.isArray(keywordValue)) {
+    return keywordValue.flatMap(flattenKeywordValues)
+  }
+
+  if (typeof keywordValue === 'object') {
+    return Object.values(keywordValue).flatMap(flattenKeywordValues)
+  }
+
+  return [String(keywordValue)]
+}
+
+// Converts a scheme-specific UMM keyword value into the published-cache lookup value.
+const getKeywordLookupValue = ({
+  scheme,
+  keywordValue
 }) => {
-  const message = responseBody?.raw || `HTTP error! status: ${response.status}`
-  const error = new Error(message)
+  const normalizedScheme = String(scheme).toLowerCase()
 
-  error.status = response.status
-  error.url = response.url
-  error.responseBody = responseBody
+  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+    if (keywordValue?.ShortName) {
+      return String(keywordValue.ShortName)
+    }
 
-  return error
+    return flattenKeywordValues(keywordValue)[0]
+  }
+
+  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+    const pathSegments = flattenKeywordValues(keywordValue)
+
+    return pathSegments.length > 0
+      ? pathSegments.join(LOOKUP_PATH_SEPARATOR)
+      : undefined
+  }
+
+  return undefined
 }
 
+// Reads a published concept from Redis using the normalized full-path lookup key.
+const getPublishedConceptByFullPath = async ({
+  fullPath,
+  scheme
+}) => {
+  const cacheKey = createPublishedConceptResponseCacheKeyByFullPath({
+    fullPath: fullPath.toLowerCase(),
+    scheme: scheme.toLowerCase()
+  })
+  const cachedResponse = await getCachedJsonResponse({
+    cacheKey,
+    entityLabel: 'Published Concept by fullPath'
+  })
+
+  if (!cachedResponse?.body) {
+    return undefined
+  }
+
+  return JSON.parse(cachedResponse.body)
+}
+
+// Reads a published concept from Redis using the normalized short-name lookup key.
+const getPublishedConceptByShortName = async ({
+  shortName,
+  scheme
+}) => {
+  const cacheKey = createPublishedConceptResponseCacheKeyByShortName({
+    shortName: shortName.toLowerCase(),
+    scheme: scheme.toLowerCase()
+  })
+  const cachedResponse = await getCachedJsonResponse({
+    cacheKey,
+    entityLabel: 'Published Concept by shortName'
+  })
+
+  if (!cachedResponse?.body) {
+    return undefined
+  }
+
+  return JSON.parse(cachedResponse.body)
+}
+
+// Builds the CMR-like validation error shape expected by downstream correction logic.
+const createValidationError = ({
+  scheme,
+  path
+}) => ({
+  path,
+  errors: [VALIDATION_MESSAGES[scheme] || 'Keyword was not a valid keyword.']
+})
+
+// Appends one supported keyword candidate to the validation work list.
+const pushKeywordCandidate = ({
+  candidates,
+  scheme,
+  path
+}) => {
+  candidates.push({
+    scheme,
+    path
+  })
+}
+
+// Walks the supported UMM-C keyword fields and records the validation paths we should check.
+const extractKeywordCandidatesFromUmm = (umm = {}) => {
+  const candidates = [];
+  (umm.ScienceKeywords || []).forEach((keyword, index) => {
+    if (keyword) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', index]
+      })
+    }
+  });
+
+  (umm.Platforms || []).forEach((platform, platformIndex) => {
+    if (!platform) {
+      return
+    }
+
+    pushKeywordCandidate({
+      candidates,
+      scheme: 'platforms',
+      path: ['Platforms', platformIndex]
+    });
+
+    (platform.Instruments || []).forEach((instrument, instrumentIndex) => {
+      if (instrument) {
+        pushKeywordCandidate({
+          candidates,
+          scheme: 'instruments',
+          path: ['Platforms', platformIndex, 'Instruments', instrumentIndex]
+        })
+      }
+    })
+  });
+
+  (umm.LocationKeywords || []).forEach((keyword, index) => {
+    if (keyword) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'locations',
+        path: ['LocationKeywords', index]
+      })
+    }
+  });
+
+  (umm.PaleoTemporalCoverages || []).forEach((coverage, coverageIndex) => {
+    (coverage?.ChronostratigraphicUnits || []).forEach((unit, unitIndex) => {
+      if (unit) {
+        pushKeywordCandidate({
+          candidates,
+          scheme: 'chronounits',
+          path: ['PaleoTemporalCoverages', coverageIndex, 'ChronostratigraphicUnits', unitIndex]
+        })
+      }
+    })
+  });
+
+  (umm.Projects || []).forEach((project, index) => {
+    if (project) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'projects',
+        path: ['Projects', index]
+      })
+    }
+  });
+
+  (umm.DataCenters || []).forEach((dataCenter, index) => {
+    if (dataCenter) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'providers',
+        path: ['DataCenters', index]
+      })
+    }
+  });
+
+  (umm.DirectoryNames || []).forEach((directoryName, index) => {
+    if (directoryName) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'idnnode',
+        path: ['DirectoryNames', index]
+      })
+    }
+  });
+
+  ((umm.ISOTopicCategories || umm.IsoTopicCategories) || []).forEach((category, index) => {
+    if (category) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'isotopiccategory',
+        path: ['IsoTopicCategories', index]
+      })
+    }
+  });
+
+  (umm.TemporalExtents || []).forEach((temporalExtent, index) => {
+    if (temporalExtent?.TemporalResolution) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'temporalresolutionrange',
+        path: ['TemporalExtents', index, 'TemporalResolution']
+      })
+    }
+  })
+
+  if (umm.SpatialInformation?.ResolutionAndCoordinateSystem?.HorizontalDataResolution) {
+    pushKeywordCandidate({
+      candidates,
+      scheme: 'horizontalresolutionrange',
+      path: ['SpatialInformation', 'ResolutionAndCoordinateSystem', 'HorizontalDataResolution']
+    })
+  }
+
+  (umm.SpatialExtent?.VerticalSpatialDomains || []).forEach((domain, index) => {
+    if (domain) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'verticalresolutionrange',
+        path: ['SpatialExtent', 'VerticalSpatialDomains', index]
+      })
+    }
+  })
+
+  if (umm.ProcessingLevel?.Id) {
+    pushKeywordCandidate({
+      candidates,
+      scheme: 'productlevelid',
+      path: ['ProcessingLevel', 'Id']
+    })
+  }
+
+  (umm.ArchiveAndDistributionInformation?.FileArchiveInformation || []).forEach((item, index) => {
+    if (item) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'dataformat',
+        path: ['ArchiveAndDistributionInformation', 'FileArchiveInformation', index]
+      })
+    }
+  });
+
+  (
+    umm.ArchiveAndDistributionInformation?.FileDistributionInformation
+    || []
+  ).forEach((item, index) => {
+    if (item) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'dataformat',
+        path: ['ArchiveAndDistributionInformation', 'FileDistributionInformation', index]
+      })
+    }
+  });
+
+  (umm.RelatedUrls || []).forEach((relatedUrl, index) => {
+    if (!relatedUrl) {
+      return
+    }
+
+    if (relatedUrl.URLContentType || relatedUrl.Type || relatedUrl.Subtype) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'rucontenttype',
+        path: ['RelatedUrls', index]
+      })
+    }
+
+    if (relatedUrl.GetData?.Format) {
+      pushKeywordCandidate({
+        candidates,
+        scheme: 'granuledataformat',
+        path: ['RelatedUrls', index, 'GetData', 'Format']
+      })
+    }
+  })
+
+  return candidates
+}
+
+// Validates one extracted keyword candidate against the published Redis cache.
+const validatePublishedKeywordCandidate = async ({
+  scheme,
+  path,
+  umm
+}) => {
+  const normalizedScheme = String(scheme).toLowerCase()
+  const keywordValue = extractKeywordValue({
+    scheme,
+    path,
+    umm
+  })
+  const lookupValue = getKeywordLookupValue({
+    scheme,
+    keywordValue
+  })
+
+  if (!lookupValue) {
+    return createValidationError({
+      scheme: normalizedScheme,
+      path
+    })
+  }
+
+  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+    const publishedConcept = await getPublishedConceptByFullPath({
+      fullPath: lookupValue,
+      scheme: normalizedScheme
+    })
+
+    return publishedConcept
+      ? undefined
+      : createValidationError({
+        scheme: normalizedScheme,
+        path
+      })
+  }
+
+  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+    const publishedConcept = await getPublishedConceptByShortName({
+      shortName: lookupValue,
+      scheme: normalizedScheme
+    })
+
+    return publishedConcept
+      ? undefined
+      : createValidationError({
+        scheme: normalizedScheme,
+        path
+      })
+  }
+
+  return undefined
+}
+
+// Validates the collection's supported keywords against the published cache and returns a CMR-like result.
 /**
- * Validates a collection's UMM-C against CMR ingest validation.
+ * Validates a collection's UMM-C against the published KMS keyword cache.
  *
- * KMS-675 uses this to surface keyword validation failures from CMR without attempting to
- * update the metadata yet. A 400/422 response is expected when validation errors are present,
- * so those statuses are returned as part of the normal helper result instead of being thrown.
+ * We intentionally keep the return shape close to the old CMR validation helper so the
+ * metadata-correction flow can continue to consume `{ status, errors, warnings, responseBody }`
+ * without any downstream changes.
  *
  * @param {object} params - Validation parameters.
  * @param {string} params.providerId - Collection provider id.
  * @param {string} params.nativeId - Collection native id.
  * @param {Record<string, unknown>} params.umm - Collection UMM-C payload.
  * @returns {Promise<{status: number, errors: Array, warnings: Array, responseBody: Record<string, unknown>}>}
- * Validation results from CMR.
+ * Validation results shaped like the previous CMR response.
  */
 export const validateCmrCollectionUmm = async ({
   providerId,
@@ -73,36 +423,36 @@ export const validateCmrCollectionUmm = async ({
     throw new Error('Missing UMM-C payload for CMR collection validation')
   }
 
-  const response = await cmrPostRequest({
-    path: buildValidateCollectionPath({
-      providerId,
-      nativeId
-    }),
-    body: JSON.stringify(umm),
-    contentType: CMR_UMM_JSON_CONTENT_TYPE,
-    accept: 'application/json',
-    headers: {
-      'Cmr-Validate-Keywords': 'true'
-    }
-  })
-  const responseBody = await parseResponseBody(response)
+  const redisClient = await getRedisClient()
 
-  if (!response.ok && !VALIDATION_ERROR_STATUSES.has(response.status)) {
-    throw createValidationError({
-      response,
-      responseBody
-    })
+  if (!redisClient) {
+    throw new Error('Published keyword cache is unavailable for metadata correction validation')
   }
 
+  const keywordCandidates = extractKeywordCandidatesFromUmm(umm)
+  const validationErrors = (await Promise.all(
+    keywordCandidates.map(async (keywordCandidate) => validatePublishedKeywordCandidate({
+      ...keywordCandidate,
+      umm
+    }))
+  )).filter(Boolean)
+
   const validationResult = {
-    status: response.status,
-    errors: Array.isArray(responseBody?.errors) ? responseBody.errors : [],
-    warnings: Array.isArray(responseBody?.warnings) ? responseBody.warnings : [],
-    responseBody
+    status: validationErrors.length > 0 ? 400 : 200,
+    errors: validationErrors,
+    warnings: [],
+    responseBody: validationErrors.length > 0
+      ? {
+        errors: validationErrors,
+        warnings: []
+      }
+      : {
+        warnings: []
+      }
   }
 
   logger.info(
-    '[metadata-correction] Validated collection UMM through CMR '
+    '[metadata-correction] Validated collection UMM through published keyword cache '
     + `providerId=${providerId} `
     + `nativeId=${nativeId} `
     + `status=${validationResult.status} `

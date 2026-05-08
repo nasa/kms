@@ -75,14 +75,28 @@ export const createTreeResponseCacheKey = ({
 
 export const createConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) => {
   const normalizedFullPath = normalizeValue(fullPath)
-  const normalizedScheme = normalizeValue(scheme)
+  const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
 
   return `kms:${normalizedScheme}:historical_concept:full_path:${normalizedFullPath}`
 }
 
 export const createConceptResponseCacheKeyByShortName = ({ shortName, scheme }) => {
   const normalizedShortName = normalizeValue(shortName)
-  const normalizedScheme = normalizeValue(scheme)
+  const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
 
   return `kms:${normalizedScheme}:historical_concept:short_name:${normalizedShortName}`
+}
+
+export const createPublishedConceptResponseCacheKeyByFullPath = ({ fullPath, scheme }) => {
+  const normalizedFullPath = normalizeValue(fullPath)
+  const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
+
+  return `kms:${normalizedScheme}:published_concept:full_path:${normalizedFullPath}`
+}
+
+export const createPublishedConceptResponseCacheKeyByShortName = ({ shortName, scheme }) => {
+  const normalizedShortName = normalizeValue(shortName)
+  const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
+
+  return `kms:${normalizedScheme}:published_concept:short_name:${normalizedShortName}`
 }

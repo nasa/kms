@@ -30,6 +30,27 @@
       }
     }
   ],
+  "publishedConcepts": [
+    {
+      "lookupType": "fullPath",
+      "scheme": "sciencekeywords",
+      "fullPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
+      "responseBody": {
+        "uuid": "2e5a401b-1507-4f57-82b8-36557c13b154",
+        "fullPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS"
+      }
+    },
+    {
+      "lookupType": "shortName",
+      "scheme": "platforms",
+      "shortName": "Aqua",
+      "responseBody": {
+        "uuid": "ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8",
+        "fullPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua",
+        "longName": "Aqua"
+      }
+    }
+  ],
   "keywordEvents": [
     {
       "EventType": "UPDATED",

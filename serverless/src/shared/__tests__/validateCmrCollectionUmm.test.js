@@ -6,12 +6,17 @@ import {
   vi
 } from 'vitest'
 
-import { cmrPostRequest } from '../cmrPostRequest'
 import { logger } from '../logger'
+import {
+  createPublishedConceptResponseCacheKeyByFullPath,
+  createPublishedConceptResponseCacheKeyByShortName
+} from '../redisCacheKeys'
+import { getCachedJsonResponse, getRedisClient } from '../redisCacheStore'
 import { validateCmrCollectionUmm } from '../validateCmrCollectionUmm'
 
-vi.mock('../cmrPostRequest', () => ({
-  cmrPostRequest: vi.fn()
+vi.mock('../redisCacheStore', () => ({
+  getCachedJsonResponse: vi.fn(),
+  getRedisClient: vi.fn()
 }))
 
 vi.mock('../logger', () => ({
@@ -20,36 +25,98 @@ vi.mock('../logger', () => ({
   }
 }))
 
+const createCachedResponse = (body) => ({
+  statusCode: 200,
+  body: JSON.stringify(body)
+})
+
 describe('validateCmrCollectionUmm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getRedisClient).mockResolvedValue({
+      get: vi.fn()
+    })
   })
 
-  test('should validate a collection and return an empty error list on success', async () => {
-    vi.mocked(cmrPostRequest).mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => JSON.stringify({
-        warnings: []
-      })
+  test('should validate a collection and return an empty error list when all published lookups exist', async () => {
+    const scienceKeywordKey = createPublishedConceptResponseCacheKeyByFullPath({
+      fullPath: 'earth science > atmosphere > aerosols',
+      scheme: 'sciencekeywords'
+    })
+    const platformKey = createPublishedConceptResponseCacheKeyByShortName({
+      shortName: 'aqua',
+      scheme: 'platforms'
+    })
+    const instrumentKey = createPublishedConceptResponseCacheKeyByShortName({
+      shortName: 'modis',
+      scheme: 'instruments'
+    })
+    const granuleDataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
+      shortName: 'netcdf-4',
+      scheme: 'granuledataformat'
     })
 
-    const umm = {
-      ShortName: 'TEST'
-    }
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === scienceKeywordKey) {
+        return createCachedResponse({
+          uuid: 'science-keyword-uuid',
+          fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+        })
+      }
+
+      if (cacheKey === platformKey) {
+        return createCachedResponse({
+          uuid: 'platform-uuid',
+          fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+        })
+      }
+
+      if (cacheKey === instrumentKey) {
+        return createCachedResponse({
+          uuid: 'instrument-uuid',
+          fullPath: 'Instruments > Spectrometers/Radiometers > MODIS'
+        })
+      }
+
+      if (cacheKey === granuleDataFormatKey) {
+        return createCachedResponse({
+          uuid: 'data-format-uuid',
+          fullPath: 'Data Format > netCDF-4'
+        })
+      }
+
+      return null
+    })
+
     const result = await validateCmrCollectionUmm({
       providerId: 'LARC_ASDC',
       nativeId: 'ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
-      umm
-    })
-
-    expect(cmrPostRequest).toHaveBeenCalledWith({
-      path: '/ingest/providers/LARC_ASDC/validate/collection/ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
-      body: JSON.stringify(umm),
-      contentType: 'application/vnd.nasa.cmr.umm+json',
-      accept: 'application/json',
-      headers: {
-        'Cmr-Validate-Keywords': 'true'
+      umm: {
+        ShortName: 'TEST',
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS'
+          }
+        ],
+        Platforms: [
+          {
+            ShortName: 'Aqua',
+            Instruments: [
+              {
+                ShortName: 'MODIS'
+              }
+            ]
+          }
+        ],
+        RelatedUrls: [
+          {
+            GetData: {
+              Format: 'netCDF-4'
+            }
+          }
+        ]
       }
     })
 
@@ -62,75 +129,47 @@ describe('validateCmrCollectionUmm', () => {
       }
     })
 
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(4)
     expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining(
-        '[metadata-correction] Validated collection UMM through CMR '
-      )
-    )
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('providerId=LARC_ASDC')
-    )
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('nativeId=ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1')
+      expect.stringContaining('[metadata-correction] Validated collection UMM through published keyword cache ')
     )
 
     expect(logger.info).toHaveBeenCalledWith(
       expect.stringContaining('status=200')
     )
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('errorCount=0')
-    )
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('warningCount=0')
-    )
   })
 
-  test('should treat an empty successful response body as an empty validation payload', async () => {
-    vi.mocked(cmrPostRequest).mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () => ''
-    })
-
-    await expect(validateCmrCollectionUmm({
-      providerId: 'LARC_ASDC',
-      nativeId: 'ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
-      umm: {
-        ShortName: 'TEST'
-      }
-    })).resolves.toEqual({
-      status: 200,
-      errors: [],
-      warnings: [],
-      responseBody: {}
-    })
-  })
-
-  test('should return validation errors when CMR responds with status 400', async () => {
-    vi.mocked(cmrPostRequest).mockResolvedValue({
-      ok: false,
-      status: 400,
-      text: async () => JSON.stringify({
-        errors: [
-          {
-            path: ['ScienceKeywords', 0],
-            errors: [
-              'Science keyword Category [EARTH SCIENCE] was not a valid keyword combination.'
-            ]
-          }
-        ]
-      })
-    })
+  test('should return CMR-like validation errors when published keyword lookups are missing', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
 
     const result = await validateCmrCollectionUmm({
       providerId: 'LARC_ASDC',
       nativeId: 'ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
       umm: {
-        ShortName: 'TEST'
+        ShortName: 'TEST',
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS'
+          }
+        ],
+        Projects: [
+          {
+            ShortName: 'LEGACY_PROJECT',
+            LongName: 'Legacy Project'
+          }
+        ],
+        RelatedUrls: [
+          {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: 'DIRECT DOWNLOAD',
+            GetData: {
+              Format: 'xml'
+            }
+          }
+        ]
       }
     })
 
@@ -139,9 +178,19 @@ describe('validateCmrCollectionUmm', () => {
       errors: [
         {
           path: ['ScienceKeywords', 0],
-          errors: [
-            'Science keyword Category [EARTH SCIENCE] was not a valid keyword combination.'
-          ]
+          errors: ['Science keyword was not a valid keyword combination.']
+        },
+        {
+          path: ['Projects', 0],
+          errors: ['Project short name was not a valid keyword combination.']
+        },
+        {
+          path: ['RelatedUrls', 0],
+          errors: ['Related URL Content Type was not a valid set together.']
+        },
+        {
+          path: ['RelatedUrls', 0, 'GetData', 'Format'],
+          errors: ['Format was not a valid keyword.']
         }
       ],
       warnings: [],
@@ -149,70 +198,74 @@ describe('validateCmrCollectionUmm', () => {
         errors: [
           {
             path: ['ScienceKeywords', 0],
-            errors: [
-              'Science keyword Category [EARTH SCIENCE] was not a valid keyword combination.'
-            ]
-          }
-        ]
-      }
-    })
-  })
-
-  test('should return validation errors when CMR responds with status 422', async () => {
-    vi.mocked(cmrPostRequest).mockResolvedValue({
-      ok: false,
-      status: 422,
-      text: async () => JSON.stringify({
-        errors: [
+            errors: ['Science keyword was not a valid keyword combination.']
+          },
           {
             path: ['Projects', 0],
-            errors: [
-              'Project short name [NOT-A-REAL-PROJECT] and long name [NOT A REAL PROJECT] was not a valid keyword combination.'
-            ]
+            errors: ['Project short name was not a valid keyword combination.']
+          },
+          {
+            path: ['RelatedUrls', 0],
+            errors: ['Related URL Content Type was not a valid set together.']
+          },
+          {
+            path: ['RelatedUrls', 0, 'GetData', 'Format'],
+            errors: ['Format was not a valid keyword.']
           }
-        ]
-      })
+        ],
+        warnings: []
+      }
     })
 
-    const result = await validateCmrCollectionUmm({
-      providerId: 'LARC_ASDC',
-      nativeId: 'ACTIVATE_Aerosol_AircraftInSitu_Falcon_Data_1',
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('status=400')
+    )
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('errorCount=4')
+    )
+  })
+
+  test('should normalize granule data format lookups to the shared dataformat cache namespace', async () => {
+    const granuleDataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
+      shortName: 'hdf5',
+      scheme: 'granuledataformat'
+    })
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === granuleDataFormatKey) {
+        return createCachedResponse({
+          uuid: 'data-format-uuid',
+          fullPath: 'Data Format > HDF5'
+        })
+      }
+
+      return null
+    })
+
+    await validateCmrCollectionUmm({
+      providerId: 'PROV',
+      nativeId: 'native-id',
       umm: {
-        ShortName: 'TEST'
-      }
-    })
-
-    expect(result).toEqual({
-      status: 422,
-      errors: [
-        {
-          path: ['Projects', 0],
-          errors: [
-            'Project short name [NOT-A-REAL-PROJECT] and long name [NOT A REAL PROJECT] was not a valid keyword combination.'
-          ]
-        }
-      ],
-      warnings: [],
-      responseBody: {
-        errors: [
+        ShortName: 'TEST',
+        RelatedUrls: [
           {
-            path: ['Projects', 0],
-            errors: [
-              'Project short name [NOT-A-REAL-PROJECT] and long name [NOT A REAL PROJECT] was not a valid keyword combination.'
-            ]
+            GetData: {
+              Format: 'HDF5'
+            }
           }
         ]
       }
     })
+
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:dataformat:published_concept:short_name:hdf5',
+      entityLabel: 'Published Concept by shortName'
+    })
   })
 
-  test('should throw on unexpected non-validation errors', async () => {
-    vi.mocked(cmrPostRequest).mockResolvedValue({
-      ok: false,
-      status: 500,
-      url: 'https://cmr.example.com/ingest/providers/PROV/validate/collection/native-id',
-      text: async () => 'Internal Server Error'
-    })
+  test('should throw when the published keyword cache is unavailable', async () => {
+    vi.mocked(getRedisClient).mockResolvedValue(null)
 
     await expect(validateCmrCollectionUmm({
       providerId: 'PROV',
@@ -220,30 +273,7 @@ describe('validateCmrCollectionUmm', () => {
       umm: {
         ShortName: 'TEST'
       }
-    })).rejects.toMatchObject({
-      message: 'Internal Server Error',
-      status: 500
-    })
-  })
-
-  test('should fall back to the HTTP status for unexpected errors with an empty response body', async () => {
-    vi.mocked(cmrPostRequest).mockResolvedValue({
-      ok: false,
-      status: 500,
-      url: 'https://cmr.example.com/ingest/providers/PROV/validate/collection/native-id',
-      text: async () => ''
-    })
-
-    await expect(validateCmrCollectionUmm({
-      providerId: 'PROV',
-      nativeId: 'native-id',
-      umm: {
-        ShortName: 'TEST'
-      }
-    })).rejects.toMatchObject({
-      message: 'HTTP error! status: 500',
-      status: 500
-    })
+    })).rejects.toThrow('Published keyword cache is unavailable for metadata correction validation')
   })
 
   test('should throw when required inputs are missing', async () => {

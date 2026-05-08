@@ -12,6 +12,8 @@ import {
   createConceptResponseCacheKeyByFullPath,
   createConceptResponseCacheKeyByShortName,
   createConceptsResponseCacheKey,
+  createPublishedConceptResponseCacheKeyByFullPath,
+  createPublishedConceptResponseCacheKeyByShortName,
   createTreeResponseCacheKey,
   TREE_CACHE_KEY_PREFIX
 } from '@/shared/redisCacheKeys'
@@ -123,6 +125,60 @@ describe('when creating response cache keys', () => {
         })
 
         expect(key).toBe('kms:platforms:historical_concept:short_name:CESSNA%20188')
+      })
+
+      test('normalizes granuledataformat to dataformat', () => {
+        const key = createConceptResponseCacheKeyByShortName({
+          shortName: 'netCDF-4',
+          scheme: 'granuledataformat'
+        })
+
+        expect(key).toBe('kms:dataformat:historical_concept:short_name:netCDF-4')
+      })
+    })
+  })
+
+  describe('when creating published concept keys', () => {
+    describe('by full path', () => {
+      test('handles missing fullPath and scheme', () => {
+        const key = createPublishedConceptResponseCacheKeyByFullPath({})
+
+        expect(key).toBe('kms::published_concept:full_path:')
+      })
+
+      test('url-encodes fullPath and scheme values', () => {
+        const key = createPublishedConceptResponseCacheKeyByFullPath({
+          fullPath: 'A/B > C',
+          scheme: 'platforms'
+        })
+
+        expect(key).toBe('kms:platforms:published_concept:full_path:A%2FB%20%3E%20C')
+      })
+    })
+
+    describe('by short name', () => {
+      test('handles missing shortName and scheme', () => {
+        const key = createPublishedConceptResponseCacheKeyByShortName({})
+
+        expect(key).toBe('kms::published_concept:short_name:')
+      })
+
+      test('url-encodes shortName and scheme values', () => {
+        const key = createPublishedConceptResponseCacheKeyByShortName({
+          shortName: 'CESSNA 188',
+          scheme: 'platforms'
+        })
+
+        expect(key).toBe('kms:platforms:published_concept:short_name:CESSNA%20188')
+      })
+
+      test('normalizes granuledataformat to dataformat', () => {
+        const key = createPublishedConceptResponseCacheKeyByShortName({
+          shortName: 'netCDF-4',
+          scheme: 'granuledataformat'
+        })
+
+        expect(key).toBe('kms:dataformat:published_concept:short_name:netCDF-4')
       })
     })
   })

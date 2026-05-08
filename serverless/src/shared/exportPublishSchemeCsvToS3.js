@@ -6,6 +6,7 @@ import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
+import { primePublishedConceptCacheFromCsv } from '@/shared/primePublishedConceptCacheFromCsv'
 
 const s3 = getS3Client()
 
@@ -40,6 +41,7 @@ export const exportPublishSchemeCsvToS3 = async () => {
 
     const failedSchemes = []
     let uploadedCount = 0
+    let cachedCount = 0
 
     await schemes.reduce((previousPromise, scheme, index) => previousPromise.then(async () => {
       const { notation } = scheme
@@ -49,6 +51,13 @@ export const exportPublishSchemeCsvToS3 = async () => {
           format: 'csv',
           version: 'published'
         })
+
+        const publishedCachePrimeResult = await primePublishedConceptCacheFromCsv({
+          csvContent: csvData,
+          scheme: notation
+        })
+
+        cachedCount += publishedCachePrimeResult.cachedCount
 
         const s3Key = `${versionName}/${notation}.csv`
 
@@ -78,7 +87,7 @@ export const exportPublishSchemeCsvToS3 = async () => {
     }
 
     logger.info(
-      `[publisher] Completed published CSV export version=${versionName} bucket=${bucketName} schemes=${schemes.length} uploaded=${uploadedCount} failed=${failedSchemes.length}`
+      `[publisher] Completed published CSV export version=${versionName} bucket=${bucketName} schemes=${schemes.length} uploaded=${uploadedCount} cached=${cachedCount} failed=${failedSchemes.length}`
     )
   } catch (error) {
     logger.error(`Error in exportPublishSchemeCsvToS3: ${error.message}`)
