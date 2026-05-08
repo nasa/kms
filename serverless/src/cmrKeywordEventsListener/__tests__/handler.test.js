@@ -352,10 +352,9 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         error.cmrRequest = {
           method: 'POST',
-          baseUrlSource: 'CMR_LB_URL',
-          endpoint: 'http://internal-cmr.local',
+          endpoint: 'https://cmr.sit.earthdata.nasa.gov',
           path: '/search/collections?page_size=2000&page_num=1',
-          fullUrl: 'http://internal-cmr.local/search/collections?page_size=2000&page_num=1',
+          fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections?page_size=2000&page_num=1',
           bodyLength: 68
         }
 
@@ -397,10 +396,9 @@ describe('when the CMR keyword events processor is invoked', () => {
             message: 'fetch failed',
             cmrRequest: {
               method: 'POST',
-              baseUrlSource: 'CMR_LB_URL',
-              endpoint: 'http://internal-cmr.local',
+              endpoint: 'https://cmr.sit.earthdata.nasa.gov',
               path: '/search/collections?page_size=2000&page_num=1',
-              fullUrl: 'http://internal-cmr.local/search/collections?page_size=2000&page_num=1',
+              fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections?page_size=2000&page_num=1',
               bodyLength: 68
             },
             cmrCause: {

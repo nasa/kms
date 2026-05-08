@@ -13,7 +13,6 @@ import { VpcSetup } from './helper/VpcSetup'
  */
 export interface CmrEventProcessingStackProps extends cdk.StackProps {
   cmrBaseUrl: string
-  cmrLbUrl?: string
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
@@ -59,7 +58,6 @@ export class CmrEventProcessingStack extends cdk.Stack {
 
     const metadataCorrectionSetup = new MetadataCorrectionSetup(this, 'MetadataCorrection', {
       cmrBaseUrl: props.cmrBaseUrl,
-      cmrLbUrl: props.cmrLbUrl,
       prefix: props.prefix,
       redisEnabled: props.redisEnabled,
       redisHost: props.redisHost,
@@ -75,7 +73,6 @@ export class CmrEventProcessingStack extends cdk.Stack {
 
     const listenerSetup = new CmrKeywordEventsListenerSetup(this, 'CmrKeywordEventsListener', {
       cmrBaseUrl: props.cmrBaseUrl,
-      cmrLbUrl: props.cmrLbUrl,
       prefix: props.prefix,
       stage: props.stage,
       keywordEventsTopic: topic,

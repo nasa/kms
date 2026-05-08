@@ -27,7 +27,6 @@ interface LambdaFunctionsProps {
   useLocalstack: boolean;
   environment: {
     CMR_BASE_URL: string;
-    CMR_LB_URL?: string;
     EDL_PASSWORD: string;
     BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE?: string;
     REDIS_ENABLED?: string;

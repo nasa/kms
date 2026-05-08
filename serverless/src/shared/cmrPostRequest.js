@@ -1,11 +1,10 @@
 import { logger } from './logger'
 
 const getEndpointConfig = () => {
-  const baseUrl = process.env.CMR_LB_URL || process.env.CMR_BASE_URL
+  const baseUrl = process.env.CMR_BASE_URL
 
   return {
-    endpoint: `${baseUrl}`,
-    baseUrlSource: process.env.CMR_LB_URL ? 'CMR_LB_URL' : 'CMR_BASE_URL'
+    endpoint: `${baseUrl}`
   }
 }
 
@@ -53,10 +52,7 @@ export const cmrPostRequest = async ({
   accept = 'application/json',
   headers = {}
 }) => {
-  const {
-    endpoint,
-    baseUrlSource
-  } = getEndpointConfig()
+  const { endpoint } = getEndpointConfig()
   const fullUrl = `${endpoint}${path}`
 
   const fetchOptions = {
@@ -77,7 +73,6 @@ export const cmrPostRequest = async ({
 
   logger.info('[cmr-post] Sending CMR request', {
     method: 'POST',
-    baseUrlSource,
     endpoint,
     path,
     fullUrl,
@@ -89,7 +84,6 @@ export const cmrPostRequest = async ({
   } catch (error) {
     const requestContext = {
       method: 'POST',
-      baseUrlSource,
       endpoint,
       path,
       fullUrl,

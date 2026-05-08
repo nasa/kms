@@ -16,7 +16,6 @@ describe('cmrPostRequest', () => {
 
     // Mock process.env
     process.env.CMR_BASE_URL = 'https://cmr-test.earthdata.nasa.gov'
-    delete process.env.CMR_LB_URL
 
     // Mock the logger
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
@@ -25,7 +24,6 @@ describe('cmrPostRequest', () => {
   })
 
   afterEach(() => {
-    delete process.env.CMR_LB_URL
     vi.restoreAllMocks()
   })
 
@@ -171,39 +169,6 @@ describe('cmrPostRequest', () => {
     )
   })
 
-  test('should prefer CMR_LB_URL when it is configured', async () => {
-    process.env.CMR_LB_URL = 'http://internal-cmr.example.local'
-
-    global.fetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ data: 'test' })
-    })
-
-    await cmrPostRequest({
-      path: '/search/collections.json'
-    })
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://internal-cmr.example.local/search/collections.json',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-        }
-      }
-    )
-
-    expect(logger.info).toHaveBeenCalledWith('[cmr-post] Sending CMR request', {
-      method: 'POST',
-      baseUrlSource: 'CMR_LB_URL',
-      endpoint: 'http://internal-cmr.example.local',
-      path: '/search/collections.json',
-      fullUrl: 'http://internal-cmr.example.local/search/collections.json',
-      bodyLength: undefined
-    })
-  })
-
   test('should log request context when fetch fails', async () => {
     const error = new TypeError('fetch failed')
 
@@ -228,7 +193,6 @@ describe('cmrPostRequest', () => {
 
     expect(logger.error).toHaveBeenCalledWith('[cmr-post] CMR fetch failed', {
       method: 'POST',
-      baseUrlSource: 'CMR_BASE_URL',
       endpoint: 'https://cmr-test.earthdata.nasa.gov',
       path: '/search/collections.json',
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/search/collections.json',

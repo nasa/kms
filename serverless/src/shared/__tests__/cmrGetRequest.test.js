@@ -92,7 +92,6 @@ describe('cmrGetRequest', () => {
 
     expect(logger.error).toHaveBeenCalledWith('[cmr-get] CMR fetch failed', {
       method: 'GET',
-      baseUrlSource: 'CMR_BASE_URL',
       endpoint: 'https://cmr.example.com',
       path: '/test',
       fullUrl: 'https://cmr.example.com/test',
@@ -136,7 +135,6 @@ describe('cmrGetRequest', () => {
 
   test('should include custom accept and headers when provided', async () => {
     global.fetch.mockResolvedValueOnce({ ok: true })
-
     await cmrGetRequest({
       path: '/collections',
       accept: 'application/json',
@@ -155,30 +153,5 @@ describe('cmrGetRequest', () => {
         }
       }
     )
-  })
-
-  test('should prefer CMR_LB_URL when it is configured', async () => {
-    process.env.CMR_LB_URL = 'http://internal-cmr.example.local'
-
-    global.fetch.mockResolvedValueOnce({ ok: true })
-
-    await cmrGetRequest({
-      path: '/collections'
-    })
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://internal-cmr.example.local/collections',
-      {
-        method: 'GET'
-      }
-    )
-
-    expect(logger.info).toHaveBeenCalledWith('[cmr-get] Sending CMR request', {
-      method: 'GET',
-      baseUrlSource: 'CMR_LB_URL',
-      endpoint: 'http://internal-cmr.example.local',
-      path: '/collections',
-      fullUrl: 'http://internal-cmr.example.local/collections'
-    })
   })
 })

@@ -16,7 +16,6 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface CmrKeywordEventsListenerSetupProps {
   cmrBaseUrl: string
-  cmrLbUrl?: string
   prefix: string
   securityGroup: ec2.SecurityGroup
   stage: string
@@ -46,7 +45,6 @@ export class CmrKeywordEventsListenerSetup extends Construct {
 
     const {
       cmrBaseUrl,
-      cmrLbUrl,
       keywordEventsTopic,
       metadataCorrectionRequestsTopic,
       prefix,
@@ -74,7 +72,6 @@ export class CmrKeywordEventsListenerSetup extends Construct {
       memorySize: 1024,
       environment: {
         CMR_BASE_URL: cmrBaseUrl,
-        ...(cmrLbUrl ? { CMR_LB_URL: cmrLbUrl } : {}),
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopic.topicArn
       },
       depsLockFilePath: path.join(projectRoot, 'package-lock.json'),

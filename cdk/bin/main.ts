@@ -69,7 +69,6 @@ async function main() {
 
   const vpcId = useLocalstack ? 'dummy-vpc-id' : process.env.VPC_ID
   const cmrBaseUrl = process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov'
-  const cmrLbUrl = process.env.CMR_LB_URL
 
   if (!vpcId) {
     throw new Error('VPC_ID environment variable is not set')
@@ -181,7 +180,6 @@ async function main() {
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
-      CMR_LB_URL: cmrLbUrl,
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
       BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE: process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE,
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
@@ -207,7 +205,6 @@ async function main() {
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
-    cmrLbUrl,
     env,
     prefix,
     redisEnabled: redisEnabledValue,
