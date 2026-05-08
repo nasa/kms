@@ -14,6 +14,7 @@ import {
   createConceptsResponseCacheKey,
   createPublishedConceptResponseCacheKeyByFullPath,
   createPublishedConceptResponseCacheKeyByShortName,
+  createPublishedConceptResponseCacheKeyByUuid,
   createTreeResponseCacheKey,
   TREE_CACHE_KEY_PREFIX
 } from '@/shared/redisCacheKeys'
@@ -179,6 +180,32 @@ describe('when creating response cache keys', () => {
         })
 
         expect(key).toBe('kms:dataformat:published_concept:short_name:netCDF-4')
+      })
+    })
+
+    describe('by uuid', () => {
+      test('handles missing uuid and scheme', () => {
+        const key = createPublishedConceptResponseCacheKeyByUuid({})
+
+        expect(key).toBe('kms::published_concept:uuid:')
+      })
+
+      test('lower-cases and url-encodes uuid and scheme values', () => {
+        const key = createPublishedConceptResponseCacheKeyByUuid({
+          uuid: 'ABC-123',
+          scheme: 'Platforms'
+        })
+
+        expect(key).toBe('kms:platforms:published_concept:uuid:abc-123')
+      })
+
+      test('normalizes granuledataformat to dataformat', () => {
+        const key = createPublishedConceptResponseCacheKeyByUuid({
+          uuid: 'ABC-123',
+          scheme: 'granuledataformat'
+        })
+
+        expect(key).toBe('kms:dataformat:published_concept:uuid:abc-123')
       })
     })
   })

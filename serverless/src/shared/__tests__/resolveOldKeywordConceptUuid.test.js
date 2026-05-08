@@ -6,9 +6,9 @@ import {
   vi
 } from 'vitest'
 
-import { buildFullPath } from '../buildFullPath'
 import { getConceptUuidByFullPath } from '../getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from '../getConceptUuidByShortName'
+import { getPublishedConceptByUuid } from '../getPublishedConceptByUuid'
 import { resolveOldKeywordConceptUuid } from '../resolveOldKeywordConceptUuid'
 
 vi.mock('../getConceptUuidByFullPath', () => ({
@@ -19,8 +19,8 @@ vi.mock('../getConceptUuidByShortName', () => ({
   getConceptUuidByShortName: vi.fn()
 }))
 
-vi.mock('../buildFullPath', () => ({
-  buildFullPath: vi.fn()
+vi.mock('../getPublishedConceptByUuid', () => ({
+  getPublishedConceptByUuid: vi.fn()
 }))
 
 describe('resolveOldKeywordConceptUuid', () => {
@@ -34,7 +34,10 @@ describe('resolveOldKeywordConceptUuid', () => {
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
     })
 
-    vi.mocked(buildFullPath).mockResolvedValue('EARTH SCIENCE|ATMOSPHERE|AEROSOLS')
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+    })
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -51,7 +54,10 @@ describe('resolveOldKeywordConceptUuid', () => {
       scheme: 'sciencekeywords'
     })
 
-    expect(buildFullPath).toHaveBeenCalledWith('resolved-full-path', 'published')
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
+      uuid: 'resolved-full-path',
+      scheme: 'sciencekeywords'
+    })
   })
 
   test('routes short-name schemes to the short-name stub', async () => {
@@ -60,7 +66,10 @@ describe('resolveOldKeywordConceptUuid', () => {
       fullPath: 'AIR-BASED PLATFORMS > HU-25A'
     })
 
-    vi.mocked(buildFullPath).mockResolvedValue('AIR-BASED PLATFORMS|HU-25A')
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
+      uuid: 'resolved-short-name',
+      fullPath: 'AIR-BASED PLATFORMS > HU-25A'
+    })
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'platforms',
@@ -77,7 +86,10 @@ describe('resolveOldKeywordConceptUuid', () => {
       scheme: 'platforms'
     })
 
-    expect(buildFullPath).toHaveBeenCalledWith('resolved-short-name', 'published')
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
+      uuid: 'resolved-short-name',
+      scheme: 'platforms'
+    })
   })
 
   test('passes through raw lookup values that are already normalized', async () => {
@@ -86,7 +98,10 @@ describe('resolveOldKeywordConceptUuid', () => {
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
     })
 
-    vi.mocked(buildFullPath).mockResolvedValue('EARTH SCIENCE|ATMOSPHERE|AEROSOLS')
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+    })
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -119,14 +134,17 @@ describe('resolveOldKeywordConceptUuid', () => {
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
     })
 
-    vi.mocked(buildFullPath).mockResolvedValue(undefined)
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
       oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS'
     })).resolves.toBeUndefined()
 
-    expect(buildFullPath).toHaveBeenCalledWith('resolved-full-path', 'published')
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
+      uuid: 'resolved-full-path',
+      scheme: 'sciencekeywords'
+    })
   })
 
   test('returns a delete action when a delete event uuid matches the historical concept', async () => {
@@ -150,7 +168,7 @@ describe('resolveOldKeywordConceptUuid', () => {
       action: 'delete'
     })
 
-    expect(buildFullPath).not.toHaveBeenCalled()
+    expect(getPublishedConceptByUuid).not.toHaveBeenCalled()
   })
 
   test('returns undefined when inputs are missing', async () => {

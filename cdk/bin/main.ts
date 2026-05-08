@@ -213,6 +213,11 @@ async function main() {
     redisEnabled: redisEnabledValue,
     redisHost: useLocalstack ? localRedisHost : redisStack?.endpointAddress,
     redisPort: useLocalstack ? localRedisPort : redisStack?.endpointPort,
+    rdf4jPassword: process.env.RDF4J_PASSWORD || 'rdf4j',
+    rdf4jServiceUrl: useLocalstack
+      ? 'http://rdf4j-server:8080'
+      : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'),
+    rdf4jUserName: process.env.RDF4J_USER_NAME || 'rdf4j',
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
     topicArn: kmsStack.keywordEventsTopic.topicArn,

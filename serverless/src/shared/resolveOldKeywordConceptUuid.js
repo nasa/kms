@@ -1,6 +1,6 @@
-import { buildFullPath } from './buildFullPath'
 import { getConceptUuidByFullPath } from './getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from './getConceptUuidByShortName'
+import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
 
 const OLD_KEYWORD_PLACEHOLDER_PREFIX = '[resolve old keyword from UMM-C value: '
 const INTERNAL_PATH_SEPARATOR = '|'
@@ -58,10 +58,6 @@ const toHistoricalCacheFullPath = (keywordPath) => keywordPath
   .split(INTERNAL_PATH_SEPARATOR)
   .join(HISTORICAL_CACHE_PATH_SEPARATOR)
 
-const toDelegateKeywordPath = (keywordPath) => keywordPath
-  .split(INTERNAL_PATH_SEPARATOR)
-  .join(HISTORICAL_CACHE_PATH_SEPARATOR)
-
 const isDeleteMatchForKeyword = ({
   keywordEvent = {},
   normalizedScheme,
@@ -76,16 +72,20 @@ const isDeleteMatchForKeyword = ({
   )
 )
 
-const getCurrentKeywordPath = async (keywordConceptUuid) => {
+const getCurrentKeywordPath = async ({
+  keywordConceptUuid,
+  normalizedScheme
+}) => {
   if (!keywordConceptUuid) {
     return undefined
   }
 
-  const currentKeywordPath = await buildFullPath(keywordConceptUuid, 'published')
+  const currentPublishedConcept = await getPublishedConceptByUuid({
+    uuid: keywordConceptUuid,
+    scheme: normalizedScheme
+  })
 
-  return currentKeywordPath
-    ? toDelegateKeywordPath(currentKeywordPath)
-    : undefined
+  return currentPublishedConcept?.fullPath
 }
 
 const buildKeywordReference = ({
@@ -163,7 +163,10 @@ export const resolveOldKeywordConceptUuid = async ({
       })
     }
 
-    const newKeywordPath = await getCurrentKeywordPath(keywordConceptUuid)
+    const newKeywordPath = await getCurrentKeywordPath({
+      keywordConceptUuid,
+      normalizedScheme
+    })
 
     return buildKeywordReference({
       keywordConceptUuid,
@@ -194,7 +197,10 @@ export const resolveOldKeywordConceptUuid = async ({
       })
     }
 
-    const newKeywordPath = await getCurrentKeywordPath(keywordConceptUuid)
+    const newKeywordPath = await getCurrentKeywordPath({
+      keywordConceptUuid,
+      normalizedScheme
+    })
 
     return buildKeywordReference({
       keywordConceptUuid,

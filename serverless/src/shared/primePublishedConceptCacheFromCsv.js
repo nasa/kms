@@ -3,7 +3,8 @@ import { ConceptForShortNameCacheBuilder } from './conceptForShortNameCacheBuild
 import { logger } from './logger'
 import {
   createPublishedConceptResponseCacheKeyByFullPath,
-  createPublishedConceptResponseCacheKeyByShortName
+  createPublishedConceptResponseCacheKeyByShortName,
+  createPublishedConceptResponseCacheKeyByUuid
 } from './redisCacheKeys'
 import { getRedisClient } from './redisCacheStore'
 
@@ -37,10 +38,19 @@ const createResponse = (bodyData) => ({
   body: JSON.stringify(bodyData)
 })
 
+const createCacheEntry = ({
+  cacheKey,
+  responseBody
+}) => ({
+  key: cacheKey,
+  value: JSON.stringify(createResponse(responseBody))
+})
+
 const buildCacheEntries = ({
   records,
   createCacheKey,
-  createResponseBody
+  createResponseBody,
+  createUuidCacheKey
 }) => {
   const cacheEntries = []
 
@@ -49,10 +59,19 @@ const buildCacheEntries = ({
       return
     }
 
-    cacheEntries.push({
-      key: createCacheKey(key),
-      value: JSON.stringify(createResponse(createResponseBody(key, value)))
-    })
+    const responseBody = createResponseBody(key, value)
+
+    cacheEntries.push(createCacheEntry({
+      cacheKey: createCacheKey(key),
+      responseBody
+    }))
+
+    if (responseBody?.uuid && createUuidCacheKey) {
+      cacheEntries.push(createCacheEntry({
+        cacheKey: createUuidCacheKey(responseBody.uuid),
+        responseBody
+      }))
+    }
   })
 
   return cacheEntries
@@ -103,7 +122,11 @@ export const primePublishedConceptCacheFromCsv = async ({
         fullPath: fullPath.toLowerCase(),
         scheme
       }),
-      createResponseBody: (fullPath, uuid) => builder.createResponseBody(fullPath, uuid)
+      createResponseBody: (fullPath, uuid) => builder.createResponseBody(fullPath, uuid),
+      createUuidCacheKey: (uuid) => createPublishedConceptResponseCacheKeyByUuid({
+        uuid,
+        scheme
+      })
     })
   } else if (PUBLISHED_CONCEPT_SHORT_NAME_SCHEMES.has(normalizedScheme)) {
     const builder = new ConceptForShortNameCacheBuilder()
@@ -117,7 +140,11 @@ export const primePublishedConceptCacheFromCsv = async ({
         shortName: shortName.toLowerCase(),
         scheme
       }),
-      createResponseBody: (shortName, value) => builder.createResponseBody(shortName, value)
+      createResponseBody: (shortName, value) => builder.createResponseBody(shortName, value),
+      createUuidCacheKey: (uuid) => createPublishedConceptResponseCacheKeyByUuid({
+        uuid,
+        scheme
+      })
     })
   } else {
     return {

@@ -17,6 +17,9 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
+  rdf4jPassword: string
+  rdf4jServiceUrl: string
+  rdf4jUserName: string
   prefix: string
   stage: string
   topicArn: string
@@ -61,6 +64,9 @@ export class CmrEventProcessingStack extends cdk.Stack {
       redisEnabled: props.redisEnabled,
       redisHost: props.redisHost,
       redisPort: props.redisPort,
+      rdf4jPassword: props.rdf4jPassword,
+      rdf4jServiceUrl: props.rdf4jServiceUrl,
+      rdf4jUserName: props.rdf4jUserName,
       stage: props.stage,
       securityGroup: this.securityGroup,
       useLocalstack,

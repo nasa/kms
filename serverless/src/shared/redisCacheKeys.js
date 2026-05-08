@@ -100,3 +100,10 @@ export const createPublishedConceptResponseCacheKeyByShortName = ({ shortName, s
 
   return `kms:${normalizedScheme}:published_concept:short_name:${normalizedShortName}`
 }
+
+export const createPublishedConceptResponseCacheKeyByUuid = ({ uuid, scheme }) => {
+  const normalizedUuid = normalizeValue((uuid || '').toLowerCase())
+  const normalizedScheme = normalizeValue(normalizeConceptsScheme(scheme).toLowerCase())
+
+  return `kms:${normalizedScheme}:published_concept:uuid:${normalizedUuid}`
+}

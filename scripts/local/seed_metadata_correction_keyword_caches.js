@@ -27,7 +27,8 @@ const {
   createConceptResponseCacheKeyByFullPath,
   createConceptResponseCacheKeyByShortName,
   createPublishedConceptResponseCacheKeyByFullPath,
-  createPublishedConceptResponseCacheKeyByShortName
+  createPublishedConceptResponseCacheKeyByShortName,
+  createPublishedConceptResponseCacheKeyByUuid
 } = await import('../../serverless/src/shared/redisCacheKeys')
 const {
   getRedisClient
@@ -48,7 +49,8 @@ const seedConcepts = async ({
   concepts,
   cacheLabel,
   createFullPathCacheKey,
-  createShortNameCacheKey
+  createShortNameCacheKey,
+  createUuidCacheKey
 }) => Promise.all(concepts.map(async (concept) => {
   const {
     lookupType,
@@ -80,6 +82,19 @@ const seedConcepts = async ({
 
   await redisClient.set(cacheKey, JSON.stringify(buildCacheResponse(responseBody)))
 
+  if (createUuidCacheKey) {
+    const uuidCacheKey = createUuidCacheKey({
+      uuid: responseBody.uuid.toLowerCase(),
+      scheme: scheme.toLowerCase()
+    })
+
+    await redisClient.set(uuidCacheKey, JSON.stringify(buildCacheResponse(responseBody)))
+
+    console.log(
+      `[seed-metadata-correction-keyword-caches] Seeded ${cacheLabel} uuid entry scheme=${scheme} uuid=${responseBody.uuid} key=${uuidCacheKey}`
+    )
+  }
+
   console.log(
     `[seed-metadata-correction-keyword-caches] Seeded ${cacheLabel} ${lookupType} entry scheme=${scheme} uuid=${responseBody.uuid} key=${cacheKey}`
   )
@@ -100,7 +115,8 @@ try {
       concepts: publishedConcepts,
       cacheLabel: 'published',
       createFullPathCacheKey: createPublishedConceptResponseCacheKeyByFullPath,
-      createShortNameCacheKey: createPublishedConceptResponseCacheKeyByShortName
+      createShortNameCacheKey: createPublishedConceptResponseCacheKeyByShortName,
+      createUuidCacheKey: createPublishedConceptResponseCacheKeyByUuid
     })
   }
 } finally {

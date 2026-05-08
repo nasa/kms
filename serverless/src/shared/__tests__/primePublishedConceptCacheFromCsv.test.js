@@ -76,11 +76,22 @@ describe('primePublishedConceptCacheFromCsv', () => {
           uuid: 'uuid-1',
           fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
         })
+      }),
+      'kms:sciencekeywords:published_concept:uuid:uuid-1',
+      JSON.stringify({
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uuid: 'uuid-1',
+          fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+        })
       })
     ])
 
     expect(result).toEqual({
-      cachedCount: 1,
+      cachedCount: 2,
       skipped: false
     })
   })
@@ -126,11 +137,23 @@ describe('primePublishedConceptCacheFromCsv', () => {
           fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua',
           longName: 'Aqua satellite'
         })
+      }),
+      'kms:platforms:published_concept:uuid:uuid-2',
+      JSON.stringify({
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          uuid: 'uuid-2',
+          fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua',
+          longName: 'Aqua satellite'
+        })
       })
     ])
 
     expect(result).toEqual({
-      cachedCount: 1,
+      cachedCount: 2,
       skipped: false
     })
   })

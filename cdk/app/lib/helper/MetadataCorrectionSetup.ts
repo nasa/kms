@@ -21,6 +21,9 @@ interface MetadataCorrectionSetupProps {
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
+  rdf4jPassword: string
+  rdf4jServiceUrl: string
+  rdf4jUserName: string
   securityGroup: ec2.SecurityGroup
   stage: string
   useLocalstack: boolean
@@ -64,6 +67,9 @@ export class MetadataCorrectionSetup extends Construct {
       redisEnabled,
       redisHost,
       redisPort,
+      rdf4jPassword,
+      rdf4jServiceUrl,
+      rdf4jUserName,
       securityGroup,
       stage,
       useLocalstack,
@@ -124,7 +130,10 @@ export class MetadataCorrectionSetup extends Construct {
           ...(cmrLbUrl ? { CMR_LB_URL: cmrLbUrl } : {}),
           ...(redisEnabled ? { REDIS_ENABLED: redisEnabled } : {}),
           ...(redisHost ? { REDIS_HOST: redisHost } : {}),
-          ...(redisPort ? { REDIS_PORT: redisPort } : {})
+          ...(redisPort ? { REDIS_PORT: redisPort } : {}),
+          RDF4J_PASSWORD: rdf4jPassword,
+          RDF4J_SERVICE_URL: rdf4jServiceUrl,
+          RDF4J_USER_NAME: rdf4jUserName
         },
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
         projectRoot,
