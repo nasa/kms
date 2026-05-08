@@ -14,6 +14,9 @@ import { VpcSetup } from './helper/VpcSetup'
 export interface CmrEventProcessingStackProps extends cdk.StackProps {
   cmrBaseUrl: string
   cmrLbUrl?: string
+  redisEnabled?: string
+  redisHost?: string
+  redisPort?: string
   prefix: string
   stage: string
   topicArn: string
@@ -55,6 +58,9 @@ export class CmrEventProcessingStack extends cdk.Stack {
       cmrBaseUrl: props.cmrBaseUrl,
       cmrLbUrl: props.cmrLbUrl,
       prefix: props.prefix,
+      redisEnabled: props.redisEnabled,
+      redisHost: props.redisHost,
+      redisPort: props.redisPort,
       stage: props.stage,
       securityGroup: this.securityGroup,
       useLocalstack,

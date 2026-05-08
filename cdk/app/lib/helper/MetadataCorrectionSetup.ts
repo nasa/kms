@@ -18,6 +18,9 @@ interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
   cmrLbUrl?: string
   prefix: string
+  redisEnabled?: string
+  redisHost?: string
+  redisPort?: string
   securityGroup: ec2.SecurityGroup
   stage: string
   useLocalstack: boolean
@@ -58,6 +61,9 @@ export class MetadataCorrectionSetup extends Construct {
       cmrBaseUrl,
       cmrLbUrl,
       prefix,
+      redisEnabled,
+      redisHost,
+      redisPort,
       securityGroup,
       stage,
       useLocalstack,
@@ -115,7 +121,10 @@ export class MetadataCorrectionSetup extends Construct {
         memorySize: 1024,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
-          ...(cmrLbUrl ? { CMR_LB_URL: cmrLbUrl } : {})
+          ...(cmrLbUrl ? { CMR_LB_URL: cmrLbUrl } : {}),
+          ...(redisEnabled ? { REDIS_ENABLED: redisEnabled } : {}),
+          ...(redisHost ? { REDIS_HOST: redisHost } : {}),
+          ...(redisPort ? { REDIS_PORT: redisPort } : {})
         },
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
         projectRoot,
