@@ -75,6 +75,15 @@ export const cmrPostRequest = async ({
 
   logger.debug('URL:', fullUrl, 'with options:', fetchOptions)
 
+  logger.info('[cmr-post] Sending CMR request', {
+    method: 'POST',
+    baseUrlSource,
+    endpoint,
+    path,
+    fullUrl,
+    bodyLength: typeof body === 'string' ? body.length : undefined
+  })
+
   try {
     return await fetch(fullUrl, fetchOptions)
   } catch (error) {

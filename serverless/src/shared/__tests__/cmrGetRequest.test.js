@@ -23,6 +23,7 @@ describe('cmrGetRequest', () => {
 
     // Mock the logger
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
     vi.spyOn(logger, 'error').mockImplementation(() => {})
   })
 
@@ -171,5 +172,13 @@ describe('cmrGetRequest', () => {
         method: 'GET'
       }
     )
+
+    expect(logger.info).toHaveBeenCalledWith('[cmr-get] Sending CMR request', {
+      method: 'GET',
+      baseUrlSource: 'CMR_LB_URL',
+      endpoint: 'http://internal-cmr.example.local',
+      path: '/collections',
+      fullUrl: 'http://internal-cmr.example.local/collections'
+    })
   })
 })

@@ -20,6 +20,7 @@ describe('cmrPostRequest', () => {
 
     // Mock the logger
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
     vi.spyOn(logger, 'error').mockImplementation(() => {})
   })
 
@@ -192,6 +193,15 @@ describe('cmrPostRequest', () => {
         }
       }
     )
+
+    expect(logger.info).toHaveBeenCalledWith('[cmr-post] Sending CMR request', {
+      method: 'POST',
+      baseUrlSource: 'CMR_LB_URL',
+      endpoint: 'http://internal-cmr.example.local',
+      path: '/search/collections.json',
+      fullUrl: 'http://internal-cmr.example.local/search/collections.json',
+      bodyLength: undefined
+    })
   })
 
   test('should log request context when fetch fails', async () => {

@@ -70,6 +70,14 @@ export const cmrGetRequest = async ({
 
   logger.debug('URL:', fullUrl, 'with options:', fetchOptions)
 
+  logger.info('[cmr-get] Sending CMR request', {
+    method: 'GET',
+    baseUrlSource,
+    endpoint,
+    path,
+    fullUrl
+  })
+
   try {
     return await fetch(fullUrl, fetchOptions)
   } catch (error) {
