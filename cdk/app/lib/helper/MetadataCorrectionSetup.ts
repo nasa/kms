@@ -1,6 +1,7 @@
 import * as path from 'path'
 
 import * as cdk from 'aws-cdk-lib'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -17,7 +18,10 @@ interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
   cmrLbUrl?: string
   prefix: string
+  securityGroup: ec2.SecurityGroup
   stage: string
+  useLocalstack: boolean
+  vpc: ec2.IVpc
 }
 
 /**
@@ -54,7 +58,10 @@ export class MetadataCorrectionSetup extends Construct {
       cmrBaseUrl,
       cmrLbUrl,
       prefix,
-      stage
+      securityGroup,
+      stage,
+      useLocalstack,
+      vpc
     } = props
 
     const metadataCorrectionRequestsBaseName = `${prefix}-${stage}-metadata-correction-requests`
@@ -111,7 +118,14 @@ export class MetadataCorrectionSetup extends Construct {
           ...(cmrLbUrl ? { CMR_LB_URL: cmrLbUrl } : {})
         },
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
-        projectRoot
+        projectRoot,
+        ...(useLocalstack ? {} : {
+          vpc,
+          vpcSubnets: {
+            subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+          },
+          securityGroups: [securityGroup]
+        })
       }
     )
 

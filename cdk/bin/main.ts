@@ -213,7 +213,8 @@ async function main() {
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
     topicArn: kmsStack.keywordEventsTopic.topicArn,
-    logDestinationArn: logDestinationArn!
+    logDestinationArn: logDestinationArn!,
+    vpcId
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)

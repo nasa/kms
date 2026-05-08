@@ -1,6 +1,7 @@
 import * as path from 'path'
 
 import * as cdk from 'aws-cdk-lib'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -17,9 +18,12 @@ interface CmrKeywordEventsListenerSetupProps {
   cmrBaseUrl: string
   cmrLbUrl?: string
   prefix: string
+  securityGroup: ec2.SecurityGroup
   stage: string
   keywordEventsTopic: sns.ITopic
   metadataCorrectionRequestsTopic: sns.ITopic
+  useLocalstack: boolean
+  vpc: ec2.IVpc
 }
 
 /**
@@ -46,7 +50,10 @@ export class CmrKeywordEventsListenerSetup extends Construct {
       keywordEventsTopic,
       metadataCorrectionRequestsTopic,
       prefix,
-      stage
+      securityGroup,
+      stage,
+      useLocalstack,
+      vpc
     } = props
 
     const queueName = `${prefix}-${stage}-cmr-keyword-events`
@@ -71,7 +78,14 @@ export class CmrKeywordEventsListenerSetup extends Construct {
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopic.topicArn
       },
       depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
-      projectRoot
+      projectRoot,
+      ...(useLocalstack ? {} : {
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+        },
+        securityGroups: [securityGroup]
+      })
     })
 
     this.listenerLambda.addEventSource(new eventsources.SqsEventSource(this.queue, {
