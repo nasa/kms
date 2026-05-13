@@ -66,7 +66,8 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(getCmrCollectionConceptIds).toHaveBeenCalledWith({
           scheme: 'sciencekeywords',
-          uuid: '1234'
+          uuid: '1234',
+          keywordPath: 'New > Keyword'
         })
 
         expect(logger.info).toHaveBeenCalledWith(
@@ -89,6 +90,10 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(logger.info).toHaveBeenCalledWith(
           expect.stringContaining('uuid=1234')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=New > Keyword')
         )
 
         expect(logger.info).toHaveBeenCalledWith(
@@ -173,6 +178,10 @@ describe('when the CMR keyword events processor is invoked', () => {
           expect.stringContaining('uuid=1234')
         )
 
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=n/a')
+        )
+
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
         expect(result).toEqual({
           batchItemFailures: []
@@ -203,6 +212,10 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(logger.info).toHaveBeenCalledWith(
           expect.stringContaining('eventType=INSERTED')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=New > Keyword')
         )
 
         expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
@@ -262,6 +275,10 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(logger.info).toHaveBeenCalledWith(
           expect.stringContaining('uuid=n/a')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=n/a')
         )
 
         expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
@@ -351,11 +368,10 @@ describe('when the CMR keyword events processor is invoked', () => {
         const error = new TypeError('fetch failed')
 
         error.cmrRequest = {
-          method: 'POST',
+          method: 'GET',
           endpoint: 'https://cmr.sit.earthdata.nasa.gov',
-          path: '/search/collections?page_size=2000&page_num=1',
-          fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections?page_size=2000&page_num=1',
-          bodyLength: 68
+          path: '/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1',
+          fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1'
         }
 
         error.cmrCause = {
@@ -391,15 +407,15 @@ describe('when the CMR keyword events processor is invoked', () => {
           eventType: 'UPDATED',
           scheme: 'sciencekeywords',
           uuid: '1234',
+          keywordPath: 'n/a',
           error: expect.objectContaining({
             name: 'TypeError',
             message: 'fetch failed',
             cmrRequest: {
-              method: 'POST',
+              method: 'GET',
               endpoint: 'https://cmr.sit.earthdata.nasa.gov',
-              path: '/search/collections?page_size=2000&page_num=1',
-              fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections?page_size=2000&page_num=1',
-              bodyLength: 68
+              path: '/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1',
+              fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1'
             },
             cmrCause: {
               name: 'Error',

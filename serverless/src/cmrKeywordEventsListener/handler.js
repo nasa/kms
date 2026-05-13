@@ -56,6 +56,8 @@ const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
   'DELETED'
 ])
 
+const getLookupKeywordPath = (keywordEvent) => keywordEvent?.NewKeywordPath || keywordEvent?.OldKeywordPath
+
 const serializeError = (error) => {
   if (!error) {
     return undefined
@@ -91,6 +93,7 @@ export const cmrKeywordEventsListener = async (event) => {
     let eventType
     let scheme
     let uuid
+    let keywordPath
 
     try {
       // Unwrap the SNS envelope first, then parse the original KMS keyword event payload.
@@ -108,6 +111,7 @@ export const cmrKeywordEventsListener = async (event) => {
       eventType = keywordEvent?.EventType
       scheme = keywordEvent?.Scheme
       uuid = keywordEvent?.UUID
+      keywordPath = getLookupKeywordPath(keywordEvent)
 
       const keywordEventType = String(eventType || '').toUpperCase()
 
@@ -116,7 +120,8 @@ export const cmrKeywordEventsListener = async (event) => {
         + `messageId=${messageId || 'n/a'} `
         + `eventType=${eventType || 'n/a'} `
         + `scheme=${scheme || 'n/a'} `
-        + `uuid=${uuid || 'n/a'}`
+        + `uuid=${uuid || 'n/a'} `
+        + `keywordPath=${keywordPath || 'n/a'}`
       )
 
       if (keywordEvent && LOOKUP_ELIGIBLE_EVENT_TYPES.has(keywordEventType)) {
@@ -124,13 +129,15 @@ export const cmrKeywordEventsListener = async (event) => {
         // one metadata-correction request per affected collection.
         const collectionConceptIds = await getCmrCollectionConceptIds({
           scheme,
-          uuid
+          uuid,
+          keywordPath
         })
 
         logger.info(
           '[consumer] Found collection concept ids for metadata correction '
           + `scheme=${scheme} `
           + `uuid=${uuid} `
+          + `keywordPath=${keywordPath || 'n/a'} `
           + `count=${collectionConceptIds.length}`
         )
 
@@ -138,7 +145,8 @@ export const cmrKeywordEventsListener = async (event) => {
           logger.info(
             '[consumer] No affected collection concept ids found for keyword event '
             + `scheme=${scheme} `
-            + `uuid=${uuid}`
+            + `uuid=${uuid} `
+            + `keywordPath=${keywordPath || 'n/a'}`
           )
         }
 
@@ -163,7 +171,8 @@ export const cmrKeywordEventsListener = async (event) => {
           '[consumer] Skipping metadata correction concept-id lookup for event type '
           + `eventType=${eventType || 'n/a'} `
           + `scheme=${scheme || 'n/a'} `
-          + `uuid=${uuid || 'n/a'}`
+          + `uuid=${uuid || 'n/a'} `
+          + `keywordPath=${keywordPath || 'n/a'}`
         )
       }
     } catch (error) {
@@ -173,6 +182,7 @@ export const cmrKeywordEventsListener = async (event) => {
         eventType: eventType || 'n/a',
         scheme: scheme || 'n/a',
         uuid: uuid || 'n/a',
+        keywordPath: keywordPath || 'n/a',
         error: serializeError(error)
       })
 

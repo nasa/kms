@@ -1,4 +1,4 @@
-import { cmrPostRequest } from './cmrPostRequest'
+import { cmrGetRequest } from './cmrGetRequest'
 import { logger } from './logger'
 
 /**
@@ -9,23 +9,15 @@ import { logger } from './logger'
  *
  * The keyword-events listener uses this helper to turn one keyword change event into a list of
  * affected collection concept ids, which then become one metadata-correction request per
- * collection. The helper is intentionally limited to the CMR schemes that support UUID-based
- * collection search, and it handles paged CMR UMM results so callers get one deduplicated list
- * back regardless of how many result pages were required.
+ * collection. The lookup now goes directly through the public CMR keyword search parameter,
+ * and it handles paged UMM JSON results so callers get one deduplicated list back regardless
+ * of how many result pages were required.
  */
 
 const CMR_COLLECTION_PAGE_SIZE = 2000
 
 // Build the paged CMR collection search path for the requested result page.
-const CMR_COLLECTION_SEARCH_PATH = (pageNumber) => `/search/collections?page_size=${CMR_COLLECTION_PAGE_SIZE}&page_num=${pageNumber}`
-
-const UUID_QUERYABLE_CMR_SCHEMES = {
-  sciencekeywords: 'science_keywords',
-  platforms: 'platform',
-  instruments: 'instrument',
-  locations: 'location_keyword',
-  providers: 'data_center'
-}
+const CMR_COLLECTION_SEARCH_PATH = (uuid, pageNumber) => `/search/collections.umm_json?keyword=${encodeURIComponent(uuid)}&page_size=${CMR_COLLECTION_PAGE_SIZE}&page_num=${pageNumber}`
 
 // Pull concept ids from the modern CMR UMM results response shape.
 const extractConceptIdsFromItems = (items = []) => items
@@ -51,56 +43,43 @@ const createCmrLookupError = async (response) => {
 /**
  * Gets the CMR collection concept ids associated with a keyword UUID.
  *
- * The lookup works by mapping the KMS scheme name to the corresponding CMR search field,
- * issuing a paged UMM-results collection search, and then flattening/deduplicating the returned
- * concept ids across every page.
- *
- * This helper is intentionally limited to the CMR keyword schemes that support UUID-based
- * collection lookup. Schemes that do not support UUID lookup in CMR are rejected here so the
- * caller fails loudly instead of silently returning an incomplete collection set.
+ * The lookup works by issuing a paged CMR collection search keyed directly by the keyword UUID,
+ * then flattening/deduplicating the returned concept ids across every page.
  *
  * @param {object} params - The parameters object.
- * @param {string} params.scheme - Keyword scheme from the keyword event.
+ * @param {string} [params.scheme] - Keyword scheme from the keyword event. This is kept for
+ *   logging and caller compatibility, but the CMR lookup itself is now UUID-driven.
  * @param {string} params.uuid - Keyword UUID from the keyword event.
+ * @param {string} [params.keywordPath] - Human-readable keyword path from the event, logged to
+ *   make CloudWatch fanout lookups easier to trace.
  * @returns {Promise<string[]>} Unique CMR collection concept ids.
- * @throws {Error} If the scheme is unsupported, the UUID is missing, or CMR returns a failed response.
+ * @throws {Error} If the UUID is missing or CMR returns a failed response.
  */
 export const getCmrCollectionConceptIds = async ({
   scheme,
-  uuid
+  uuid,
+  keywordPath
 }) => {
   logger.debug('getCmrCollectionConceptIds called with params:', {
     scheme,
-    uuid
+    uuid,
+    keywordPath
   })
-
-  const cmrScheme = UUID_QUERYABLE_CMR_SCHEMES[String(scheme).toLowerCase()]
-
-  if (!cmrScheme) {
-    throw new Error(`Unsupported CMR concept-id lookup scheme: ${scheme}`)
-  }
 
   if (!uuid) {
     throw new Error('Missing keyword UUID for CMR concept-id lookup')
   }
 
-  const query = {
-    condition: {
-      [cmrScheme]: {
-        uuid
-      }
-    }
-  }
-
-  logger.debug('Using UUID-based query for CMR collection concept ids:', JSON.stringify(query))
+  logger.debug('Using keyword UUID GET lookup for CMR collection concept ids:', {
+    scheme,
+    uuid,
+    keywordPath
+  })
 
   // Request one page of concept ids and keep the raw response for pagination headers.
   const requestPage = async (pageNumber) => {
-    const response = await cmrPostRequest({
-      path: CMR_COLLECTION_SEARCH_PATH(pageNumber),
-      contentType: 'application/json',
-      accept: 'application/vnd.nasa.cmr.umm_results+json',
-      body: JSON.stringify(query)
+    const response = await cmrGetRequest({
+      path: CMR_COLLECTION_SEARCH_PATH(uuid, pageNumber)
     })
 
     if (!response.ok) {
@@ -111,12 +90,15 @@ export const getCmrCollectionConceptIds = async ({
 
     return {
       response,
+      responseBody,
       conceptIds: extractCollectionConceptIds(responseBody)
     }
   }
 
   const firstPage = await requestPage(1)
-  const totalHits = Number(firstPage.response.headers?.get?.('cmr-hits')) || firstPage.conceptIds.length
+  const totalHits = Number(firstPage.responseBody?.hits)
+    || Number(firstPage.response.headers?.get?.('cmr-hits'))
+    || firstPage.conceptIds.length
   const totalPages = Math.max(1, Math.ceil(totalHits / CMR_COLLECTION_PAGE_SIZE))
   const remainingPages = totalPages > 1
     ? await Promise.all(
@@ -132,6 +114,7 @@ export const getCmrCollectionConceptIds = async ({
     'Found CMR collection concept ids: '
     + `scheme=${scheme} `
     + `uuid=${uuid} `
+    + `keywordPath=${keywordPath || 'n/a'} `
     + `count=${conceptIds.length} `
     + `totalHits=${totalHits} `
     + `totalPages=${totalPages}`
