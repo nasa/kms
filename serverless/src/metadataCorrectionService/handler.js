@@ -96,7 +96,8 @@ export const metadataCorrectionService = async (event) => {
         umm,
         validationErrors: validationResult.errors
       })
-      // Resolve each extracted broken keyword into the semantic replacement reference that delegates need.
+      // Resolve each extracted broken keyword into the semantic replacement reference delegates
+      // need, including optional long-name metadata when the historical/published caches expose it.
       const resolvedKeywordValidationFailures = await Promise.all(
         keywordValidationFailures.map(async (keywordValidationFailure) => {
           const {
@@ -114,6 +115,8 @@ export const metadataCorrectionService = async (event) => {
             keywordConceptUuid: keywordReference?.keywordConceptUuid,
             oldKeywordPath: keywordReference?.oldKeywordPath,
             newKeywordPath: keywordReference?.newKeywordPath,
+            oldLongName: keywordReference?.oldLongName,
+            newLongName: keywordReference?.newLongName,
             keywordAction: keywordReference?.action
           }
         })
@@ -211,7 +214,9 @@ export const metadataCorrectionService = async (event) => {
           )
         })
 
-        // Hand only fully-resolved corrections to the format-specific delegate.
+        // Hand only fully-resolved corrections to the format-specific delegate. The delegate
+        // contract carries canonical path data plus optional old/new long names for short-name
+        // schemes that provide them in the caches.
         const delegateResult = await invokeMetadataCorrectionDelegate({
           nativeFormat,
           collectionConceptId,
@@ -224,7 +229,13 @@ export const metadataCorrectionService = async (event) => {
             ummPath: keywordValidationFailure.path,
             keywordConceptUuid: keywordValidationFailure.keywordConceptUuid,
             oldKeywordPath: keywordValidationFailure.oldKeywordPath,
-            newKeywordPath: keywordValidationFailure.newKeywordPath
+            newKeywordPath: keywordValidationFailure.newKeywordPath,
+            ...(keywordValidationFailure.oldLongName
+              ? { oldLongName: keywordValidationFailure.oldLongName }
+              : {}),
+            ...(keywordValidationFailure.newLongName
+              ? { newLongName: keywordValidationFailure.newLongName }
+              : {})
           }))
         })
 
@@ -268,7 +279,9 @@ export const metadataCorrectionService = async (event) => {
 
         try {
           // Persist one audit row per actionable correction so we can inspect what the service
-          // decided to do even if downstream writeback behavior changes later.
+          // decided to do even if downstream writeback behavior changes later. The audit log
+          // intentionally stores the canonical UUID/path fields only; optional delegate-only
+          // metadata such as long names is not written there yet.
           const auditResult = await persistMetadataCorrectionAuditLog({
             collectionConceptId,
             keywordEvent,

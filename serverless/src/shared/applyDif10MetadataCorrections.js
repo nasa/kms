@@ -2,6 +2,8 @@
  * Stub DIF10 delegate for KMS-675.
  *
  * Real DIF10 mutation is follow-on work. For now this delegate only records the handoff shape.
+ * The `corrections` array may include optional `oldLongName` / `newLongName` fields when the
+ * upstream resolver found them for short-name schemes.
  */
 export const applyDif10MetadataCorrections = async ({
   collectionConceptId,

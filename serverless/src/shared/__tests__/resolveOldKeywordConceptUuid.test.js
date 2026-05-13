@@ -63,12 +63,14 @@ describe('resolveOldKeywordConceptUuid', () => {
   test('routes short-name schemes to the short-name stub', async () => {
     vi.mocked(getConceptUuidByShortName).mockResolvedValue({
       uuid: 'resolved-short-name',
-      fullPath: 'AIR-BASED PLATFORMS > HU-25A'
+      fullPath: 'AIR-BASED PLATFORMS > HU-25A',
+      longName: 'Dassault HU-25A Guardian'
     })
 
     vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
       uuid: 'resolved-short-name',
-      fullPath: 'AIR-BASED PLATFORMS > HU-25A'
+      fullPath: 'AIR-BASED PLATFORMS > HU-25A',
+      longName: 'Dassault HU-25A Guardian'
     })
 
     await expect(resolveOldKeywordConceptUuid({
@@ -78,6 +80,8 @@ describe('resolveOldKeywordConceptUuid', () => {
       keywordConceptUuid: 'resolved-short-name',
       oldKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
       newKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+      oldLongName: 'Dassault HU-25A Guardian',
+      newLongName: 'Dassault HU-25A Guardian',
       action: 'replace'
     })
 
@@ -165,6 +169,32 @@ describe('resolveOldKeywordConceptUuid', () => {
       keywordConceptUuid: 'deleted-project-uuid',
       oldKeywordPath: 'Projects > Legacy Climate Study',
       newKeywordPath: '',
+      action: 'delete'
+    })
+
+    expect(getPublishedConceptByUuid).not.toHaveBeenCalled()
+  })
+
+  test('returns a delete action for full-path schemes when the delete event matches the historical concept', async () => {
+    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+      uuid: 'deleted-science-uuid',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
+      longName: 'Legacy Aerosols'
+    })
+
+    await expect(resolveOldKeywordConceptUuid({
+      scheme: 'sciencekeywords',
+      oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|AEROSOLS|LEGACY AEROSOLS]',
+      keywordEvent: {
+        eventType: 'DELETED',
+        scheme: 'sciencekeywords',
+        uuid: 'deleted-science-uuid'
+      }
+    })).resolves.toEqual({
+      keywordConceptUuid: 'deleted-science-uuid',
+      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
+      newKeywordPath: '',
+      oldLongName: 'Legacy Aerosols',
       action: 'delete'
     })
 

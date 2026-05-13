@@ -349,6 +349,172 @@ describe('when the metadata correction service is invoked', () => {
       })
     })
 
+    test('should pass optional long-name fields to the delegate when resolution provides them', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C0000000010-KMS',
+        providerId: 'KMS',
+        nativeId: 'native-id-platform',
+        format: 'application/vnd.nasa.cmr.umm+json',
+        umm: {
+          ShortName: 'TEST-LONG-NAME'
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['Platforms', 0],
+            errors: ['Platform short name was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {
+          errors: [
+            {
+              path: ['Platforms', 0],
+              errors: ['Platform short name was not a valid keyword combination.']
+            }
+          ]
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'platforms',
+          path: ['Platforms', 0],
+          errors: ['Platform short name was not a valid keyword combination.'],
+          oldKeyword: '[resolve old keyword from UMM-C value: HU-25A]',
+          keywordValue: {
+            ShortName: 'HU-25A'
+          }
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'platform-uuid-123',
+        oldKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+        newKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+        oldLongName: 'Dassault HU-25A Guardian',
+        newLongName: 'Dassault HU-25A Guardian',
+        action: 'replace'
+      })
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-platform-123',
+            body: JSON.stringify({
+              source: 'cmrKeywordEventsListener',
+              collectionConceptId: 'C0000000010-KMS',
+              keywordEvent: {
+                eventType: 'UPDATED',
+                uuid: 'platform-event-123'
+              }
+            })
+          }
+        ]
+      })
+
+      expect(invokeMetadataCorrectionDelegate).toHaveBeenCalledWith({
+        nativeFormat: 'UMM',
+        collectionConceptId: 'C0000000010-KMS',
+        providerId: 'KMS',
+        nativeId: 'native-id-platform',
+        metadataPayload: {
+          ShortName: 'TEST-LONG-NAME'
+        },
+        corrections: [
+          {
+            scheme: 'platforms',
+            action: 'replace',
+            ummPath: ['Platforms', 0],
+            keywordConceptUuid: 'platform-uuid-123',
+            oldKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+            newKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+            oldLongName: 'Dassault HU-25A Guardian',
+            newLongName: 'Dassault HU-25A Guardian'
+          }
+        ]
+      })
+    })
+
+    test('should default unresolved actions to replace for delegate logging and handoff', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C0000000011-KMS',
+        providerId: 'KMS',
+        nativeId: 'native-id-default-action',
+        format: 'application/vnd.nasa.cmr.umm+json',
+        umm: {
+          ShortName: 'TEST-DEFAULT-ACTION'
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['ScienceKeywords', 0],
+            errors: ['Science keyword was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {}
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'sciencekeywords',
+          path: ['ScienceKeywords', 0],
+          errors: ['Science keyword was not a valid keyword combination.'],
+          oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE]',
+          keywordValue: {
+            Category: 'EARTH SCIENCE'
+          }
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'science-uuid-default-action',
+        oldKeywordPath: 'EARTH SCIENCE',
+        newKeywordPath: 'EARTH SCIENCE'
+      })
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            body: JSON.stringify({
+              collectionConceptId: 'C0000000011-KMS'
+            })
+          }
+        ]
+      })
+
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('action=replace')
+      )
+
+      expect(invokeMetadataCorrectionDelegate).toHaveBeenCalledWith({
+        nativeFormat: 'UMM',
+        collectionConceptId: 'C0000000011-KMS',
+        providerId: 'KMS',
+        nativeId: 'native-id-default-action',
+        metadataPayload: {
+          ShortName: 'TEST-DEFAULT-ACTION'
+        },
+        corrections: [
+          {
+            scheme: 'sciencekeywords',
+            action: 'replace',
+            ummPath: ['ScienceKeywords', 0],
+            keywordConceptUuid: 'science-uuid-default-action',
+            oldKeywordPath: 'EARTH SCIENCE',
+            newKeywordPath: 'EARTH SCIENCE'
+          }
+        ]
+      })
+    })
+
     test('should persist applied audit status after successful mock metadata writeback', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C0000000006-KMS',
@@ -446,6 +612,89 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(logger.info).toHaveBeenCalledWith(
         expect.stringContaining('status=applied')
+      )
+    })
+
+    test('should log writeback and audit persistence failures without failing the batch', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C0000000012-KMS',
+        providerId: 'KMS',
+        nativeId: 'native-id-writeback-error',
+        format: 'application/vnd.nasa.cmr.umm+json',
+        umm: {
+          ShortName: 'TEST-WRITEBACK-ERROR'
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['ScienceKeywords', 0],
+            errors: ['Science keyword was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {}
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'sciencekeywords',
+          path: ['ScienceKeywords', 0],
+          errors: ['Science keyword was not a valid keyword combination.'],
+          oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE]',
+          keywordValue: {
+            Category: 'EARTH SCIENCE'
+          }
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'science-uuid-writeback-error',
+        oldKeywordPath: 'EARTH SCIENCE',
+        newKeywordPath: 'EARTH SCIENCE',
+        action: 'replace'
+      })
+
+      vi.mocked(ingestCorrectedMetadataStub).mockResolvedValue({
+        collectionConceptId: 'C0000000012-KMS',
+        providerId: 'KMS',
+        nativeId: 'native-id-writeback-error',
+        nativeFormat: 'UMM',
+        correctionCount: 1,
+        ingested: false,
+        updated: false,
+        writebackErrorMessage: 'writeback failed',
+        stubbed: true
+      })
+
+      vi.mocked(persistMetadataCorrectionAuditLog).mockRejectedValue(new Error('audit failed'))
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            body: JSON.stringify({
+              collectionConceptId: 'C0000000012-KMS'
+            })
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: []
+      })
+
+      expect(logger.error).toHaveBeenCalledWith(
+        '[metadata-correction] Failed to update collection metadata',
+        expect.any(Error)
+      )
+
+      expect(logger.error).toHaveBeenCalledWith(
+        '[metadata-correction] Failed to persist metadata correction audit log',
+        expect.any(Error)
+      )
+
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('[metadata-correction] Invoked metadata ingest stub ')
       )
     })
 

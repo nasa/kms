@@ -85,4 +85,78 @@ describe('getMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).toContain('FILTER(?status = "pending")')
     expect(sparqlCall.body).toContain('LIMIT 25')
   })
+
+  test('normalizes invalid limits, applies keyword and scheme filters, and leaves optional fields undefined when absent', async () => {
+    vi.mocked(sparqlRequest).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [
+            {
+              record: { value: 'https://gcmd.earthdata.nasa.gov/kms/metadata-correction-audit/audit-2' },
+              timestamp: { value: '2026-05-07T18:00:00.000Z' },
+              publishedVersionName: { value: '9.1.6' },
+              collectionConceptId: { value: 'C0000000002-LOCAL' },
+              keywordConceptUuid: { value: 'uuid-2' },
+              scheme: { value: 'platforms' },
+              action: { value: 'UPDATED' },
+              oldKeywordPath: { value: 'OLD PLATFORM' },
+              newKeywordPath: { value: 'NEW PLATFORM' },
+              nativeFormat: { value: 'DIF10' },
+              delegateName: { value: 'dif10' },
+              status: { value: 'applied' }
+            }
+          ]
+        }
+      })
+    })
+
+    const result = await getMetadataCorrectionAuditLog({
+      keywordConceptUuid: 'uuid-2',
+      scheme: 'platforms',
+      limit: 'not-a-number'
+    })
+
+    expect(result).toEqual([
+      {
+        recordUri: 'https://gcmd.earthdata.nasa.gov/kms/metadata-correction-audit/audit-2',
+        timestamp: '2026-05-07T18:00:00.000Z',
+        publishedVersionName: '9.1.6',
+        collectionConceptId: 'C0000000002-LOCAL',
+        keywordConceptUuid: 'uuid-2',
+        scheme: 'platforms',
+        action: 'UPDATED',
+        oldKeywordPath: 'OLD PLATFORM',
+        newKeywordPath: 'NEW PLATFORM',
+        nativeFormat: 'DIF10',
+        delegateName: 'dif10',
+        status: 'applied',
+        triggerScheme: undefined,
+        triggerKeywordUuid: undefined
+      }
+    ])
+
+    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
+    expect(sparqlCall.body).toContain('FILTER(?keywordConceptUuid = "uuid-2")')
+    expect(sparqlCall.body).toContain('FILTER(?scheme = "platforms")')
+    expect(sparqlCall.body).toContain('LIMIT 100')
+    expect(sparqlCall.body).not.toContain('FILTER(?collectionConceptId =')
+    expect(sparqlCall.body).not.toContain('FILTER(?action =')
+    expect(sparqlCall.body).not.toContain('FILTER(?status =')
+  })
+
+  test('uses default filters and returns an empty array when the query result has no bindings', async () => {
+    vi.mocked(sparqlRequest).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({})
+    })
+
+    await expect(getMetadataCorrectionAuditLog()).resolves.toEqual([])
+
+    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
+    expect(sparqlCall.body).toContain('LIMIT 100')
+    expect(sparqlCall.body).not.toContain('FILTER(?collectionConceptId =')
+    expect(sparqlCall.body).not.toContain('FILTER(?keywordConceptUuid =')
+    expect(sparqlCall.body).not.toContain('FILTER(?scheme =')
+  })
 })

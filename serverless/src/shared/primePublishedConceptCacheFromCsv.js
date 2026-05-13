@@ -6,7 +6,7 @@ import {
   createPublishedConceptResponseCacheKeyByShortName,
   createPublishedConceptResponseCacheKeyByUuid
 } from './redisCacheKeys'
-import { getRedisClient } from './redisCacheStore'
+import { clearCachedByPrefix, getRedisClient } from './redisCacheStore'
 
 /**
  * Publish-time Redis cache priming for the current published keyword set.
@@ -43,6 +43,12 @@ const PUBLISHED_CONCEPT_SHORT_NAME_SCHEMES = new Set([
   'dataformat',
   'granuledataformat'
 ])
+
+const normalizePublishedCacheScheme = (scheme) => (
+  String(scheme).toLowerCase() === 'granuledataformat'
+    ? 'dataformat'
+    : String(scheme).toLowerCase()
+)
 
 const createResponse = (bodyData) => ({
   statusCode: 200,
@@ -116,6 +122,7 @@ export const primePublishedConceptCacheFromCsv = async ({
   }
 
   const normalizedScheme = String(scheme).toLowerCase()
+  const normalizedCacheScheme = normalizePublishedCacheScheme(scheme)
   const redisClient = await getRedisClient()
 
   if (!redisClient) {
@@ -175,6 +182,13 @@ export const primePublishedConceptCacheFromCsv = async ({
       cacheReady: true
     }
   }
+
+  // The published concept cache should mirror only the current published graph. Clear the
+  // existing scheme namespace before writing the fresh per-scheme entries so changed/removed
+  // keywords do not leave behind stale full-path, short-name, or uuid lookups.
+  await clearCachedByPrefix({
+    keyPrefix: `kms:${normalizedCacheScheme}:published_concept`
+  })
 
   if (cacheEntries.length === 0) {
     return {

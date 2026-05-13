@@ -26,6 +26,9 @@ const normalizeLimit = (limit) => {
  * collection it targeted, the resolved keyword UUID/path information, the delegate/native format
  * used, and the triggering event metadata when present.
  *
+ * These audit rows intentionally expose only the canonical UUID/path audit fields. Optional
+ * delegate-only metadata such as historical/current long names is not currently stored here.
+ *
  * @param {object} [filters={}] - Optional query filters.
  * @param {string} [filters.collectionConceptId] - Filter by collection concept id.
  * @param {string} [filters.keywordConceptUuid] - Filter by resolved keyword UUID.

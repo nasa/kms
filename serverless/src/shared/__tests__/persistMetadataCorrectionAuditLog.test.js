@@ -89,8 +89,7 @@ describe('persistMetadataCorrectionAuditLog', () => {
     const result = await persistMetadataCorrectionAuditLog({
       collectionConceptId: 'C1234567890-LOCAL',
       nativeFormat: 'UMM',
-      delegateName: 'umm',
-      corrections: []
+      delegateName: 'umm'
     })
 
     expect(result).toEqual({
@@ -101,5 +100,58 @@ describe('persistMetadataCorrectionAuditLog', () => {
 
     expect(getVersionMetadata).not.toHaveBeenCalled()
     expect(sparqlRequest).not.toHaveBeenCalled()
+  })
+
+  test('throws when required audit fields are missing', async () => {
+    await expect(persistMetadataCorrectionAuditLog({
+      nativeFormat: 'UMM',
+      delegateName: 'umm',
+      corrections: [{}]
+    })).rejects.toThrow('Missing collectionConceptId for metadata correction audit persistence')
+
+    await expect(persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C1234567890-LOCAL',
+      delegateName: 'umm',
+      corrections: [{}]
+    })).rejects.toThrow('Missing nativeFormat for metadata correction audit persistence')
+
+    await expect(persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C1234567890-LOCAL',
+      nativeFormat: 'UMM',
+      corrections: [{}]
+    })).rejects.toThrow('Missing delegateName for metadata correction audit persistence')
+  })
+
+  test('defaults published version, timestamp, and action while omitting optional trigger triples', async () => {
+    vi.mocked(getVersionMetadata).mockResolvedValue({
+      version: 'published',
+      versionName: '',
+      versionType: 'published',
+      created: '2026-01-01T00:00:00Z',
+      lastSynced: null
+    })
+
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C2222222222-LOCAL',
+      nativeFormat: 'DIF10',
+      delegateName: 'dif10',
+      corrections: [
+        {
+          scheme: 'platforms',
+          keywordConceptUuid: 'uuid-optional',
+          oldKeywordPath: 'OLD PLATFORM',
+          newKeywordPath: 'NEW PLATFORM'
+        }
+      ]
+    })
+
+    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
+    expect(sparqlCall.body).toContain('gcmd:publishedVersionName "published"')
+    expect(sparqlCall.body).toContain('gcmd:action "UNKNOWN"')
+    expect(sparqlCall.body).toContain('gcmd:delegateName "dif10"')
+    expect(sparqlCall.body).toContain('gcmd:nativeFormat "DIF10"')
+    expect(sparqlCall.body).toContain('^^xsd:dateTime')
+    expect(sparqlCall.body).not.toContain('gcmd:triggerScheme')
+    expect(sparqlCall.body).not.toContain('gcmd:triggerKeywordUuid')
   })
 })

@@ -18,6 +18,9 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * The audit records are intentionally append-only and correction-centric. That means one keyword
  * event affecting one collection can produce multiple audit rows when several resolved corrections
  * are applied during the same run.
+ *
+ * The delegate correction contract can now carry optional long-name metadata for some short-name
+ * schemes, but the audit log intentionally persists only the canonical UUID/path fields for now.
  */
 
 const optionalLiteralTriple = (subject, predicate, value) => {
@@ -44,7 +47,8 @@ const optionalLiteralTriple = (subject, predicate, value) => {
  *   keywordConceptUuid: string,
  *   oldKeywordPath: string,
  *   newKeywordPath: string
- * }>} params.corrections - Fully resolved corrections to persist.
+ * }>} params.corrections - Fully resolved corrections to persist. This audit shape is narrower
+ * than the delegate handoff shape and intentionally excludes optional long-name fields.
  * @param {string} [params.status='pending'] - Audit lifecycle status.
  * @param {string} [params.timestamp] - ISO timestamp override for tests.
  * @returns {Promise<{ insertedCount: number, publishedVersionName: string, status: string }>}

@@ -17,7 +17,8 @@ import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
  *   replacement path
  *
  * In other words, this is the point where a broken metadata value becomes a concrete correction
- * plan: `{ keywordConceptUuid, oldKeywordPath, newKeywordPath, action }`.
+ * plan: `{ keywordConceptUuid, oldKeywordPath, newKeywordPath, action }`, with optional long-name
+ * metadata when the historical/published caches provide it.
  */
 
 const OLD_KEYWORD_PLACEHOLDER_PREFIX = '[resolve old keyword from UMM-C value: '
@@ -81,7 +82,7 @@ const toHistoricalCacheFullPath = (keywordPath) => keywordPath
  * @returns {boolean} `true` when the event proves this keyword should be deleted.
  */
 const isDeleteMatchForKeyword = ({
-  keywordEvent = {},
+  keywordEvent,
   normalizedScheme,
   keywordConceptUuid
 }) => (
@@ -95,14 +96,15 @@ const isDeleteMatchForKeyword = ({
 )
 
 /**
- * Resolves the current published keyword path for a known concept UUID.
+ * Resolves the current published keyword concept for a known UUID.
  *
  * @param {object} params - Published lookup parameters.
  * @param {string|undefined} params.keywordConceptUuid - Resolved concept UUID.
  * @param {string} params.normalizedScheme - Normalized KMS scheme namespace.
- * @returns {Promise<string|undefined>} Current published full path when found.
+ * @returns {Promise<{uuid: string, fullPath: string, longName?: string}|undefined>}
+ * Current published concept payload when found.
  */
-const getCurrentKeywordPath = async ({
+const getCurrentPublishedKeywordConcept = async ({
   keywordConceptUuid,
   normalizedScheme
 }) => {
@@ -110,12 +112,10 @@ const getCurrentKeywordPath = async ({
     return undefined
   }
 
-  const currentPublishedConcept = await getPublishedConceptByUuid({
+  return getPublishedConceptByUuid({
     uuid: keywordConceptUuid,
     scheme: normalizedScheme
   })
-
-  return currentPublishedConcept?.fullPath
 }
 
 /**
@@ -125,14 +125,25 @@ const getCurrentKeywordPath = async ({
  * @param {string|undefined} params.keywordConceptUuid - Resolved concept UUID.
  * @param {string|undefined} params.oldKeywordPath - Historical keyword path.
  * @param {string|undefined} params.newKeywordPath - Current published keyword path.
+ * @param {string|undefined} [params.oldLongName] - Historical long name when available.
+ * @param {string|undefined} [params.newLongName] - Current published long name when available.
  * @param {'replace'|'delete'|string|undefined} params.action - Correction action.
- * @returns {{keywordConceptUuid: string, oldKeywordPath: string, newKeywordPath: string|undefined, action: string}|undefined}
+ * @returns {{
+ *   keywordConceptUuid: string,
+ *   oldKeywordPath: string,
+ *   newKeywordPath: string|undefined,
+ *   action: string,
+ *   oldLongName?: string,
+ *   newLongName?: string
+ * }|undefined}
  * Normalized correction descriptor, or `undefined` if required fields are missing.
  */
 const buildKeywordReference = ({
   keywordConceptUuid,
   oldKeywordPath,
   newKeywordPath,
+  oldLongName,
+  newLongName,
   action
 }) => {
   if (!keywordConceptUuid || !oldKeywordPath || !action) {
@@ -143,12 +154,22 @@ const buildKeywordReference = ({
     return undefined
   }
 
-  return {
+  const keywordReference = {
     keywordConceptUuid,
     oldKeywordPath,
     newKeywordPath,
     action
   }
+
+  if (oldLongName) {
+    keywordReference.oldLongName = oldLongName
+  }
+
+  if (newLongName) {
+    keywordReference.newLongName = newLongName
+  }
+
+  return keywordReference
 }
 
 /**
@@ -170,7 +191,9 @@ const buildKeywordReference = ({
  *   keywordConceptUuid: string,
  *   oldKeywordPath: string,
  *   newKeywordPath: string,
- *   action: string
+ *   action: string,
+ *   oldLongName?: string,
+ *   newLongName?: string
  * }|undefined>} Concrete correction descriptor for later delegate application.
  */
 export const resolveOldKeywordConceptUuid = async ({
@@ -210,12 +233,13 @@ export const resolveOldKeywordConceptUuid = async ({
         keywordConceptUuid,
         oldKeywordPath: historicalConcept?.fullPath,
         newKeywordPath: '',
+        oldLongName: historicalConcept?.longName,
         action: 'delete'
       })
     }
 
     // Replacement-style updates reuse the same UUID to find the current published path.
-    const newKeywordPath = await getCurrentKeywordPath({
+    const currentPublishedConcept = await getCurrentPublishedKeywordConcept({
       keywordConceptUuid,
       normalizedScheme
     })
@@ -223,7 +247,9 @@ export const resolveOldKeywordConceptUuid = async ({
     return buildKeywordReference({
       keywordConceptUuid,
       oldKeywordPath: historicalConcept?.fullPath,
-      newKeywordPath,
+      newKeywordPath: currentPublishedConcept?.fullPath,
+      oldLongName: historicalConcept?.longName,
+      newLongName: currentPublishedConcept?.longName,
       action: 'replace'
     })
   }
@@ -247,12 +273,13 @@ export const resolveOldKeywordConceptUuid = async ({
         keywordConceptUuid,
         oldKeywordPath: historicalConcept?.fullPath,
         newKeywordPath: '',
+        oldLongName: historicalConcept?.longName,
         action: 'delete'
       })
     }
 
     // Otherwise, resolve the current published concept path for a replace-style correction.
-    const newKeywordPath = await getCurrentKeywordPath({
+    const currentPublishedConcept = await getCurrentPublishedKeywordConcept({
       keywordConceptUuid,
       normalizedScheme
     })
@@ -260,7 +287,9 @@ export const resolveOldKeywordConceptUuid = async ({
     return buildKeywordReference({
       keywordConceptUuid,
       oldKeywordPath: historicalConcept?.fullPath,
-      newKeywordPath,
+      newKeywordPath: currentPublishedConcept?.fullPath,
+      oldLongName: historicalConcept?.longName,
+      newLongName: currentPublishedConcept?.longName,
       action: 'replace'
     })
   }
