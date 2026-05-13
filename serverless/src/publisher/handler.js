@@ -197,7 +197,6 @@ export const getKeywordChanges = async () => {
   // Initialize CSV comparator
   const csvComparator = new CsvComparator()
   const failedSchemes = []
-
   // Process each scheme sequentially to avoid overwhelming local RDF4J with many
   // concurrent CSV/SPARQL requests at once.
   const results = await Array.from(allNotations).reduce(async (resultsPromise, notation) => {
@@ -218,12 +217,14 @@ export const getKeywordChanges = async () => {
               downloadConcepts({
                 conceptScheme: notation,
                 format: 'csv',
-                version: 'published'
+                version: 'published',
+                bypassCache: true
               }),
               downloadConcepts({
                 conceptScheme: notation,
                 format: 'csv',
-                version: 'draft'
+                version: 'draft',
+                bypassCache: true
               })
             ])
 
@@ -233,7 +234,8 @@ export const getKeywordChanges = async () => {
             const publishedCsv = await downloadConcepts({
               conceptScheme: notation,
               format: 'csv',
-              version: 'published'
+              version: 'published',
+              bypassCache: true
             })
 
             // Compare with empty string to mark all as deleted
@@ -244,7 +246,8 @@ export const getKeywordChanges = async () => {
             const draftCsv = await downloadConcepts({
               conceptScheme: notation,
               format: 'csv',
-              version: 'draft'
+              version: 'draft',
+              bypassCache: true
             })
 
             // Compare empty string with draft to mark all as added

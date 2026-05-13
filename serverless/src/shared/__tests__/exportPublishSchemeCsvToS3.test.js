@@ -76,13 +76,15 @@ describe('exportPublishSchemeCsvToS3', () => {
     expect(downloadConcepts).toHaveBeenCalledWith({
       conceptScheme: 'SCHEME1',
       format: 'csv',
-      version: 'published'
+      version: 'published',
+      bypassCache: true
     })
 
     expect(downloadConcepts).toHaveBeenCalledWith({
       conceptScheme: 'SCHEME2',
       format: 'csv',
-      version: 'published'
+      version: 'published',
+      bypassCache: true
     })
 
     expect(primePublishedConceptCacheFromCsv).toHaveBeenCalledTimes(2)

@@ -297,12 +297,14 @@ describe('publisher handler', () => {
       })
 
       expect(downloadConcepts).toHaveBeenNthCalledWith(1, {
+        bypassCache: true,
         conceptScheme: 'sciencekeywords',
         format: 'csv',
         version: 'published'
       })
 
       expect(downloadConcepts).toHaveBeenNthCalledWith(2, {
+        bypassCache: true,
         conceptScheme: 'sciencekeywords',
         format: 'csv',
         version: 'draft'
@@ -315,12 +317,14 @@ describe('publisher handler', () => {
       })
 
       expect(downloadConcepts).toHaveBeenNthCalledWith(3, {
+        bypassCache: true,
         conceptScheme: 'platforms',
         format: 'csv',
         version: 'published'
       })
 
       expect(downloadConcepts).toHaveBeenNthCalledWith(4, {
+        bypassCache: true,
         conceptScheme: 'platforms',
         format: 'csv',
         version: 'draft'
@@ -960,6 +964,7 @@ describe('publisher handler', () => {
       expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
       expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
       expect(exportPublishSchemeCsvToS3).toHaveBeenCalled()
+
       expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
       expect(publishKeywordEvent).toHaveBeenCalledWith(expect.objectContaining({
         EventType: 'INSERTED',

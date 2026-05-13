@@ -49,7 +49,6 @@ const delay = (ms) => new Promise((resolve) => { setTimeout(resolve, ms) })
  *
  * The returned summary is used by the publisher to confirm the current published Redis lookup
  * cache is actually ready before keyword events are emitted to downstream consumers.
- *
  * @returns {Promise<{
  *   versionName: string,
  *   schemeCount: number,
@@ -98,7 +97,8 @@ export const exportPublishSchemeCsvToS3 = async () => {
         const csvData = await downloadConcepts({
           conceptScheme: notation,
           format: 'csv',
-          version: 'published'
+          version: 'published',
+          bypassCache: true
         })
 
         const publishedCachePrimeResult = await primePublishedConceptCacheFromCsv({
