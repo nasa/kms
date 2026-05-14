@@ -126,6 +126,79 @@ The script re-synthesizes `cdk/cdk.out/KmsStack.template.json` each run so local
 npm run prime-cache:invoke-local
 ```
 
+### Redis cache namespaces and lifecycle
+
+KMS uses Redis for two different jobs:
+
+- published API response caching
+- metadata-correction keyword lookups
+
+Most Redis values are stored as serialized Lambda-style HTTP responses, not raw objects. A typical
+cached value looks like:
+
+```json
+{
+  "statusCode": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"uuid\":\"...\",\"fullPath\":\"...\"}"
+}
+```
+
+For API response caches, `body` may instead be RDF/XML, JSON, XML, or CSV depending on the route.
+
+#### Key families
+
+##### Published API response caching
+
+| Key family | Example key | Purpose | Typical body shape | Written by | Cleared when |
+| --- | --- | --- | --- | --- | --- |
+| `kms:concept:<version>:...` | `kms:concept:published:/concept/id/{conceptid}:/concept/id/123:rdf:123::::` | Published `/concept` response cache | Full Lambda response for one concept | `getConcept` | Cleared by `primeConceptsCache` when the published version marker changes |
+| `kms:concepts:<version>:...` | `kms:concepts:published:/concepts:/concepts:::1:2000:json` | Published `/concepts` list/search response cache | Full Lambda response for one concepts/list request | `getConcepts` | Cleared by `primeConceptsCache` when the published version marker changes |
+| `kms:tree:<version>:...` | `kms:tree:published:instruments:` | Published `/tree` response cache | Full Lambda response for one tree request | `getKeywordsTree` | Cleared by `primeConceptsCache` when the published version marker changes |
+| `kms:concepts:published:version` | `kms:concepts:published:version` | Version marker used to decide whether published response caches need rewarming | Plain string: `<versionName>|<publishDate>` | `primeConceptsCache` | Rewritten on each successful cache-prime run; also falls under the `kms:concepts:*` clear sweep |
+
+##### Metadata correction
+
+| Key family | Example key | Purpose | Typical body shape | Written by | Cleared when |
+| --- | --- | --- | --- | --- | --- |
+| `kms:<scheme>:historical_concept:full_path:<encoded>` | `kms:sciencekeywords:historical_concept:full_path:earth%20science%20%3E%20atmosphere%20%3E%20aerosols` | Historical lookup for path-based schemes during metadata correction | `{"uuid","fullPath"}` wrapped in a cached HTTP response | `buildHistoricalConceptCache` | Not cleared during normal publish; updated only when a new historical version is processed |
+| `kms:<scheme>:historical_concept:short_name:<encoded>` | `kms:platforms:historical_concept:short_name:aqua` | Historical lookup for short-name schemes during metadata correction | `{"uuid","fullPath","longName?"}` wrapped in a cached HTTP response | `buildHistoricalConceptCache` | Not cleared during normal publish; updated only when a new historical version is processed |
+| `kms:historical_concept:versions:built:v1` | `kms:historical_concept:versions:built:v1` | Redis set of immutable historical version directories already processed from S3 | Redis set members like `3.19.22` | `buildHistoricalConceptCache` | Not cleared during normal publish; clear manually or bump the marker version in code to force a rebuild |
+| `kms:<scheme>:published_concept:full_path:<encoded>` | `kms:sciencekeywords:published_concept:full_path:earth%20science%20%3E%20atmosphere%20%3E%20aerosols` | Current published validity lookup for path-based schemes | `{"uuid","fullPath"}` wrapped in a cached HTTP response | `primePublishedConceptCacheFromCsv` | Cleared per scheme immediately before that scheme is rewritten |
+| `kms:<scheme>:published_concept:short_name:<encoded>` | `kms:platforms:published_concept:short_name:aqua` | Current published validity lookup for short-name schemes | `{"uuid","fullPath","longName?"}` wrapped in a cached HTTP response | `primePublishedConceptCacheFromCsv` | Cleared per scheme immediately before that scheme is rewritten |
+| `kms:<scheme>:published_concept:uuid:<uuid>` | `kms:platforms:published_concept:uuid:ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8` | Current published UUID-to-path lookup for metadata correction replacement resolution | Same body as the matching published full-path/short-name lookup | `primePublishedConceptCacheFromCsv` | Cleared per scheme immediately before that scheme is rewritten |
+
+#### Important behavior
+
+- Draft API response cache keys are intentionally skipped.
+  Reads and writes through `getCachedJsonResponse` / `setCachedJsonResponse` do not populate the
+  shared Redis response cache for `version=draft`.
+
+- `primeConceptsCache` only manages published API response caches.
+  When the published version marker changes, it clears:
+  - `kms:concepts:*`
+  - `kms:concept:*`
+  - `kms:tree:*`
+
+- `primePublishedConceptCacheFromCsv` manages the current published metadata-correction lookups.
+  Before writing one scheme, it clears only:
+  - `kms:<normalized-scheme>:published_concept:*`
+
+- `buildHistoricalConceptCache` is intentionally incremental.
+  Historical S3 version directories are treated as immutable. Once a version is fully written to
+  Redis, its version name is added to `kms:historical_concept:versions:built:v1` and future runs
+  skip it.
+
+- Scheme names are normalized in Redis key namespaces.
+  In particular, `granuledataformat` uses the `dataformat` namespace so both names resolve to the
+  same lookup keys.
+
+- Some callers intentionally bypass the published response cache.
+  For example, publisher-owned reads can pass `bypassCache=true` so publish-time CSV export reads
+  come from the source of truth instead of a stale published `/concepts` cache entry.
+
 ## Local Testing
 
 To run the test suite, run:
