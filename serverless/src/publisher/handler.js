@@ -14,6 +14,32 @@ import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpd
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
+/**
+ * Publish orchestration for promoting the draft keyword graph to published.
+ *
+ * This module is the write-side coordinator for KMS publish events. A publish run does more than
+ * execute one SPARQL update: it also computes keyword diffs, prepares the Redis caches that
+ * downstream metadata-correction flows depend on, emits SNS keyword events, writes archival RDF
+ * snapshots, and reports publish telemetry.
+ *
+ * The high-level flow is:
+ * 1. compare the current `draft` and `published` keyword CSVs to determine added, removed, and
+ *    updated keywords for every scheme
+ * 2. convert those per-scheme diffs into normalized keyword-event payloads
+ * 3. execute the SPARQL publish update that promotes the requested draft version
+ * 4. export fresh published CSVs and prime the published Redis lookup cache used for immediate
+ *    keyword validation and UUID-to-current-path resolution
+ * 5. rebuild the historical Redis cache from versioned S3 CSV snapshots so old keyword values can
+ *    still be resolved during metadata correction
+ * 6. only after both cache families are ready, publish SNS keyword events so downstream consumers
+ *    never observe a cold or stale Redis state
+ * 7. export published and draft RDF snapshots for archival use
+ * 8. emit metrics and a cache-prime completion event for operational follow-on work
+ *
+ * That ordering matters: once publish succeeds, metadata-correction consumers may react to the
+ * emitted keyword events immediately, so the Redis-backed published and historical lookups must be
+ * ready before those events leave this handler.
+ */
 const PUBLISHER_EVENT_SOURCE = 'kms.publisher'
 const PUBLISHER_EVENT_DETAIL_TYPE = 'kms.publisher.analysis.completed'
 const KEYWORD_EVENT_PUBLISH_RETRIES = 3
