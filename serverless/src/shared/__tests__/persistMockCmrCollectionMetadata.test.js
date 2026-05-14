@@ -92,4 +92,60 @@ describe('persistMockCmrCollectionMetadata', () => {
       }
     })
   })
+
+  test('throws when writeback is enabled but no base URL is configured', async () => {
+    process.env.USE_LOCALSTACK = 'true'
+    process.env.MOCK_CMR_WRITEBACK_ENABLED = 'true'
+
+    await expect(persistMockCmrCollectionMetadata({
+      collectionConceptId: 'C1',
+      correctedMetadata: {
+        ShortName: 'TEST'
+      }
+    })).rejects.toThrow('Missing MOCK_CMR_BASE_URL/CMR_BASE_URL for mock metadata writeback')
+  })
+
+  test('throws when writeback is enabled but collectionConceptId is missing', async () => {
+    process.env.USE_LOCALSTACK = 'true'
+    process.env.MOCK_CMR_WRITEBACK_ENABLED = 'true'
+    process.env.CMR_BASE_URL = 'http://127.0.0.1:3020'
+
+    await expect(persistMockCmrCollectionMetadata({
+      correctedMetadata: {
+        ShortName: 'TEST'
+      }
+    })).rejects.toThrow('Missing collectionConceptId for mock metadata writeback')
+  })
+
+  test('returns enabled=true without updating when correctedMetadata is missing', async () => {
+    process.env.USE_LOCALSTACK = 'true'
+    process.env.MOCK_CMR_WRITEBACK_ENABLED = 'true'
+    process.env.CMR_BASE_URL = 'http://127.0.0.1:3020'
+
+    await expect(persistMockCmrCollectionMetadata({
+      collectionConceptId: 'C1'
+    })).resolves.toEqual({
+      updated: false,
+      enabled: true
+    })
+  })
+
+  test('throws when the mock CMR writeback response is not ok', async () => {
+    process.env.USE_LOCALSTACK = 'true'
+    process.env.MOCK_CMR_WRITEBACK_ENABLED = 'true'
+    process.env.MOCK_CMR_BASE_URL = 'http://127.0.0.1:3020'
+
+    vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: vi.fn().mockResolvedValue('boom')
+    })
+
+    await expect(persistMockCmrCollectionMetadata({
+      collectionConceptId: 'C1',
+      correctedMetadata: {
+        ShortName: 'TEST'
+      }
+    })).rejects.toThrow('Mock metadata writeback failed: 500 boom')
+  })
 })

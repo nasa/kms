@@ -155,6 +155,31 @@ describe('getConcept', () => {
   })
 
   describe('when redis cache errors occur', () => {
+    test('passes bypassCache through to the shared cache helper when requested', async () => {
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+
+      const result = await getConcept({
+        pathParameters: { conceptId: '123' },
+        queryStringParameters: {
+          format: 'rdf',
+          version: 'published',
+          bypassCache: 'true'
+        }
+      })
+
+      expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bypassCache: true
+        })
+      )
+    })
+
     test('continues normally when redis concept cache read throws', async () => {
       getCachedJsonResponse.mockRejectedValue(new Error('cache read failed'))
       const mockSkosConcept = {

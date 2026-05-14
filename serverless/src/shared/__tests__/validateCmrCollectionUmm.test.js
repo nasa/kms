@@ -272,4 +272,178 @@ describe('validateCmrCollectionUmm', () => {
     await expect(validateCmrCollectionUmm({
     })).rejects.toThrow('Missing UMM-C payload for published keyword cache validation')
   })
+
+  test('should extract and validate the broader supported keyword families', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        Platforms: [
+          null
+        ],
+        LocationKeywords: [
+          {
+            Category: 'OCEAN'
+          }
+        ],
+        PaleoTemporalCoverages: [
+          {
+            ChronostratigraphicUnits: [
+              {
+                Eon: 'PHANEROZOIC',
+                Era: 'CENOZOIC',
+                Period: 'QUATERNARY',
+                Epoch: 'HOLOCENE',
+                Stage: 'MEGHALAYAN',
+                DetailedClassification: 'LATE'
+              }
+            ]
+          }
+        ],
+        DataCenters: [
+          {
+            ShortName: 'GCMD'
+          }
+        ],
+        DirectoryNames: [
+          {
+            ShortName: 'DIRECTORY'
+          }
+        ],
+        ISOTopicCategories: ['BOUNDARIES'],
+        TemporalExtents: [
+          {
+            TemporalResolution: 'P1D'
+          }
+        ],
+        SpatialInformation: {
+          ResolutionAndCoordinateSystem: {
+            HorizontalDataResolution: {
+              Unit: 'Meters'
+            }
+          }
+        },
+        SpatialExtent: {
+          VerticalSpatialDomains: [
+            {
+              Type: 'Altitude'
+            }
+          ]
+        },
+        ProcessingLevel: {
+          Id: 'L1'
+        },
+        ArchiveAndDistributionInformation: {
+          FileArchiveInformation: [
+            {
+              Format: 'HDF5'
+            }
+          ],
+          FileDistributionInformation: [
+            {
+              Format: 'NetCDF'
+            }
+          ]
+        },
+        RelatedUrls: [
+          null
+        ]
+      }
+    })
+
+    expect(result.status).toBe(400)
+    expect(result.errors).toEqual(expect.arrayContaining([
+      {
+        path: ['LocationKeywords', 0],
+        errors: ['Location keyword was not a valid keyword combination.']
+      },
+      {
+        path: ['PaleoTemporalCoverages', 0, 'ChronostratigraphicUnits', 0],
+        errors: ['Chronostratigraphic unit was not a valid keyword combination.']
+      },
+      {
+        path: ['DataCenters', 0],
+        errors: ['Data center short name was not a valid keyword.']
+      },
+      {
+        path: ['DirectoryNames', 0],
+        errors: ['Directory name short name was not a valid keyword.']
+      },
+      {
+        path: ['IsoTopicCategories', 0],
+        errors: ['ISO Topic Category was not a valid keyword.']
+      },
+      {
+        path: ['TemporalExtents', 0, 'TemporalResolution'],
+        errors: ['Temporal resolution was not a valid keyword.']
+      },
+      {
+        path: ['SpatialInformation', 'ResolutionAndCoordinateSystem', 'HorizontalDataResolution'],
+        errors: ['Horizontal resolution was not a valid keyword range.']
+      },
+      {
+        path: ['SpatialExtent', 'VerticalSpatialDomains', 0],
+        errors: ['Vertical resolution was not a valid keyword range.']
+      },
+      {
+        path: ['ProcessingLevel', 'Id'],
+        errors: ['ProcessingLevel Id was not a valid keyword.']
+      },
+      {
+        path: ['ArchiveAndDistributionInformation', 'FileArchiveInformation', 0],
+        errors: ['Format was not a valid keyword.']
+      },
+      {
+        path: ['ArchiveAndDistributionInformation', 'FileDistributionInformation', 0],
+        errors: ['Format was not a valid keyword.']
+      }
+    ]))
+  })
+
+  test('should treat malformed keyword shapes as validation failures without crashing', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        ScienceKeywords: [
+          ['EARTH SCIENCE', 'ATMOSPHERE']
+        ],
+        Platforms: [
+          {
+            ShortName: null
+          }
+        ]
+      }
+    })
+
+    expect(result).toEqual({
+      status: 400,
+      errors: [
+        {
+          path: ['ScienceKeywords', 0],
+          errors: ['Science keyword was not a valid keyword combination.']
+        },
+        {
+          path: ['Platforms', 0],
+          errors: ['Platform short name was not a valid keyword combination.']
+        }
+      ],
+      warnings: [],
+      responseBody: {
+        errors: [
+          {
+            path: ['ScienceKeywords', 0],
+            errors: ['Science keyword was not a valid keyword combination.']
+          },
+          {
+            path: ['Platforms', 0],
+            errors: ['Platform short name was not a valid keyword combination.']
+          }
+        ],
+        warnings: []
+      }
+    })
+  })
 })

@@ -3,7 +3,7 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
+  test,
   vi
 } from 'vitest'
 
@@ -84,7 +84,7 @@ describe('BaseConceptCacheBuilder', () => {
   })
 
   describe('parseCSV', () => {
-    it('should parse CSV content with correct configuration', () => {
+    test('should parse CSV content with correct configuration', () => {
       const csvContent = '"header1","header2"\n"value1","value2"'
       const result = builder.parseCSV(csvContent)
 
@@ -95,7 +95,7 @@ describe('BaseConceptCacheBuilder', () => {
   })
 
   describe('createResponse', () => {
-    it('should create a standardized response object', () => {
+    test('should create a standardized response object', () => {
       const bodyData = {
         uuid: '123',
         fullPath: 'A > B'
@@ -118,7 +118,7 @@ describe('BaseConceptCacheBuilder', () => {
       mockMSet.mockResolvedValue(undefined)
     })
 
-    it('should process all records and cache them using Redis mSet', async () => {
+    test('should process all records and cache them using Redis mSet', async () => {
       await builder.processToCache('csv content', { scheme: 'test-scheme' })
 
       expect(mockMSet).toHaveBeenCalled()
@@ -151,7 +151,7 @@ describe('BaseConceptCacheBuilder', () => {
       expect(calls).toContain(expectedResponse2)
     })
 
-    it('should skip records that fail shouldCache validation', async () => {
+    test('should skip records that fail shouldCache validation', async () => {
       // Override shouldCache to reject key2
       builder.shouldCache = (key) => key !== 'key2'
 
@@ -166,7 +166,7 @@ describe('BaseConceptCacheBuilder', () => {
       expect(calls).not.toContain('test:test-scheme:key2')
     })
 
-    it('should handle Redis client not being configured', async () => {
+    test('should handle Redis client not being configured', async () => {
       const { getRedisClient } = await import('../redisCacheStore')
       vi.mocked(getRedisClient).mockResolvedValueOnce(null)
 
@@ -181,7 +181,7 @@ describe('BaseConceptCacheBuilder', () => {
       })
     })
 
-    it('should handle empty cache entries when all records fail validation', async () => {
+    test('should handle empty cache entries when all records fail validation', async () => {
       const { logger } = await import('../logger')
 
       // Override shouldCache to reject all records
@@ -200,7 +200,7 @@ describe('BaseConceptCacheBuilder', () => {
       })
     })
 
-    it('should throw error when mSet fails', async () => {
+    test('should throw error when mSet fails', async () => {
       const error = new Error('mSet failed')
       mockMSet.mockRejectedValueOnce(error)
 
@@ -211,7 +211,7 @@ describe('BaseConceptCacheBuilder', () => {
       )
     })
 
-    it('should include batch details in error when mSet fails', async () => {
+    test('should include batch details in error when mSet fails', async () => {
       const error = new Error('Redis connection timeout')
       mockMSet.mockRejectedValueOnce(error)
 
@@ -222,7 +222,7 @@ describe('BaseConceptCacheBuilder', () => {
       )
     })
 
-    it('should process all batches even when some fail', async () => {
+    test('should process all batches even when some fail', async () => {
       const largeBuilder = new LargeCacheBuilder()
 
       // Make the second batch fail
@@ -241,7 +241,7 @@ describe('BaseConceptCacheBuilder', () => {
       expect(mockMSet).toHaveBeenCalledTimes(3)
     })
 
-    it('should aggregate multiple batch failures in error message', async () => {
+    test('should aggregate multiple batch failures in error message', async () => {
       const largeBuilder = new LargeCacheBuilder()
 
       // Make multiple batches fail
@@ -259,7 +259,7 @@ describe('BaseConceptCacheBuilder', () => {
       expect(mockMSet).toHaveBeenCalledTimes(3)
     })
 
-    it('should process large datasets in batches', async () => {
+    test('should process large datasets in batches', async () => {
       const largeBuilder = new LargeCacheBuilder()
       await largeBuilder.processToCache('csv content', { scheme: 'test-scheme' })
 
@@ -275,43 +275,43 @@ describe('BaseConceptCacheBuilder', () => {
   })
 
   describe('shouldCache', () => {
-    it('should return true for valid key and value', () => {
+    test('should return true for valid key and value', () => {
       expect(builder.shouldCache('key', 'value')).toBe(true)
     })
 
-    it('should return false for falsy key', () => {
+    test('should return false for falsy key', () => {
       expect(builder.shouldCache('', 'value')).toBe(false)
       expect(builder.shouldCache(null, 'value')).toBe(false)
     })
 
-    it('should return false for falsy value', () => {
+    test('should return false for falsy value', () => {
       expect(builder.shouldCache('key', '')).toBe(false)
       expect(builder.shouldCache('key', null)).toBe(false)
     })
   })
 
   describe('getIdentifier', () => {
-    it('should return the key as identifier', () => {
+    test('should return the key as identifier', () => {
       expect(builder.getIdentifier('test-key')).toBe('test-key')
     })
   })
 
   describe('abstract methods', () => {
-    it('should throw error if parseCsvContent is not implemented', () => {
+    test('should throw error if parseCsvContent is not implemented', () => {
       const baseBuilder = new BaseConceptCacheBuilder()
       expect(() => baseBuilder.parseCsvContent('content')).toThrow(
         'parseCsvContent must be implemented by subclass'
       )
     })
 
-    it('should throw error if createCacheKey is not implemented', () => {
+    test('should throw error if createCacheKey is not implemented', () => {
       const baseBuilder = new BaseConceptCacheBuilder()
       expect(() => baseBuilder.createCacheKey('key', 'scheme')).toThrow(
         'createCacheKey must be implemented by subclass'
       )
     })
 
-    it('should throw error if createResponseBody is not implemented', () => {
+    test('should throw error if createResponseBody is not implemented', () => {
       const baseBuilder = new BaseConceptCacheBuilder()
       expect(() => baseBuilder.createResponseBody('key', 'value')).toThrow(
         'createResponseBody must be implemented by subclass'

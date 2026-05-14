@@ -2,7 +2,7 @@ import {
   beforeEach,
   describe,
   expect,
-  it,
+  test,
   vi
 } from 'vitest'
 
@@ -46,7 +46,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
   })
 
   describe('parseCsvContent', () => {
-    it('should correctly parse CSV content for instruments', () => {
+    test('should correctly parse CSV content for instruments', () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
@@ -69,7 +69,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
       expect(result).toEqual(expectedMap)
     })
 
-    it('should correctly parse CSV content for providers', () => {
+    test('should correctly parse CSV content for providers', () => {
       const csvContent = `"Keyword Version: 1.0.0"
 "Bucket_Level0","Bucket_Level1","Bucket_Level2","Bucket_Level3","Short_Name","Long_Name","Data_Center_URL","UUID"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
@@ -86,7 +86,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
       expect(result).toEqual(expectedMap)
     })
 
-    it('should handle rows where short name is missing', () => {
+    test('should handle rows where short name is missing', () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
@@ -106,7 +106,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
   })
 
   describe('processToCache', () => {
-    it('should process instrument CSV and cache the results using Redis mSet', async () => {
+    test('should process instrument CSV and cache the results using Redis mSet', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
 "Category","Class","Subclass","Short_Name","Long_Name","UUID"
 "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"
@@ -143,7 +143,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
       expect(calls[1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should process provider CSV and cache the results using Redis mSet', async () => {
+    test('should process provider CSV and cache the results using Redis mSet', async () => {
       const csvContent = `"Keyword Version: 1.0.0"
 "Bucket_Level0","Bucket_Level1","Bucket_Level2","Bucket_Level3","Short_Name","Long_Name","Data_Center_URL","UUID"
 "ACADEMIC","","","","ANU/ICAM","Integrated Catchment Assessment and Management Centre, Australian National University","http://icam.anu.edu.au/","268174c2-14f0-4bfc-9fe7-4ef148a26345"
@@ -180,7 +180,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
       expect(calls[1]).toBe(JSON.stringify(expectedResponse))
     })
 
-    it('should throw error when mSet fails', async () => {
+    test('should throw error when mSet fails', async () => {
       const csvContent = `"Instrument_Keywords_v1.0.0"
         "Category","Class","Subclass","Short_Name","Long_Name","UUID"
         "Air-based Platforms","Propeller","","AC-690A","Aerocommander aircraft","6fa682b9-c6b5-46ca-971f-b7ecd4bf304d"`

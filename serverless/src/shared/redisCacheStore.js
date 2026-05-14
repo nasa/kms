@@ -143,12 +143,15 @@ const buildCacheLogContext = ({
  * @param {string} params.cacheKey - Redis key.
  * @param {string} params.entityLabel - Human-readable cache label for logs.
  * @param {string} [params.format] - Response format for cache logs.
+ * @param {boolean} [params.bypassCache=false] - When `true`, skips the Redis read intentionally
+ *   and returns `null` so the caller can force a fresh source-of-truth read.
  * @returns {Promise<Object|null>} Parsed cached response, or `null` when absent, skipped, or invalid.
  */
 export const getCachedJsonResponse = async ({
   cacheKey,
   entityLabel,
-  format
+  format,
+  bypassCache = false
 }) => {
   const { namespace, cacheType, version } = parseCacheKey(cacheKey)
   const endpoint = namespace && cacheType ? `${namespace}:${cacheType}` : null
@@ -157,6 +160,12 @@ export const getCachedJsonResponse = async ({
     endpoint,
     format
   })
+
+  if (bypassCache) {
+    logger.debug(`[cache] bypass-read ${logContext}`)
+
+    return null
+  }
 
   if (version === 'draft') {
     logger.debug(`[cache] skip-read version=draft ${logContext}`)

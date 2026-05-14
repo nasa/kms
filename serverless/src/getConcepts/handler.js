@@ -169,21 +169,18 @@ export const getConcepts = async (event, context) => {
       format
     })
 
-    if (!bypassCache) {
-      try {
-        const cachedResponse = await getCachedJsonResponse({
-          cacheKey,
-          entityLabel: 'response',
-          format
-        })
-        if (cachedResponse) {
-          return cachedResponse
-        }
-      } catch (cacheReadError) {
-        logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
+    try {
+      const cachedResponse = await getCachedJsonResponse({
+        cacheKey,
+        entityLabel: 'response',
+        format,
+        bypassCache
+      })
+      if (cachedResponse) {
+        return cachedResponse
       }
-    } else {
-      logger.debug(`[cache] bypass-read key=${cacheKey} format=${String(format).toLowerCase()}`)
+    } catch (cacheReadError) {
+      logger.error(`Redis cache read error key=${cacheKey}, error=${cacheReadError}`)
     }
 
     // Check existence of version only after cache miss.

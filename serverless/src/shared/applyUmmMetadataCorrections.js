@@ -44,6 +44,7 @@ const getTargetAtPath = (source, path = []) => path.reduce(
 // Same as getTargetAtPath, but stops one segment early so delete operations can mutate
 // the containing array/object rather than the leaf value itself.
 const getParentAtPath = (source, path = []) => {
+  /* istanbul ignore next -- callers validate delete paths before this helper is reached */
   if (!Array.isArray(path) || path.length === 0) {
     return undefined
   }

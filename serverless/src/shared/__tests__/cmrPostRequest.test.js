@@ -217,4 +217,44 @@ describe('cmrPostRequest', () => {
       }
     })
   })
+
+  test('should log an undefined cause when fetch fails without one', async () => {
+    const error = new Error('Network error')
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrPostRequest({
+      path: '/search/collections.json',
+      body: JSON.stringify({
+        query: 'some query'
+      })
+    })).rejects.toThrow('Network error')
+
+    expect(logger.error).toHaveBeenCalledWith('[cmr-post] CMR fetch failed', {
+      method: 'POST',
+      endpoint: 'https://cmr-test.earthdata.nasa.gov',
+      path: '/search/collections.json',
+      fullUrl: 'https://cmr-test.earthdata.nasa.gov/search/collections.json',
+      bodyLength: 22,
+      error: {
+        name: 'Error',
+        message: 'Network error',
+        code: undefined,
+        errno: undefined,
+        syscall: undefined,
+        address: undefined,
+        port: undefined
+      },
+      cause: undefined
+    })
+  })
+
+  test('should throw when CMR_BASE_URL is not configured', async () => {
+    delete process.env.CMR_BASE_URL
+
+    await expect(cmrPostRequest({
+      path: '/search/collections.json'
+    })).rejects.toThrow('CMR_BASE_URL environment variable is not set')
+
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
 })

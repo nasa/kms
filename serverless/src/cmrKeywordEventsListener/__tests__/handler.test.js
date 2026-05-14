@@ -253,6 +253,36 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
       })
 
+      test('should serialize an undefined error payload without failing in the logger path', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockRejectedValueOnce(undefined)
+
+        await expect(cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234',
+                  NewKeywordPath: 'New > Keyword'
+                })
+              })
+            }
+          ]
+        })).rejects.toBeUndefined()
+
+        expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
+          messageId: 'message-123',
+          eventType: 'UPDATED',
+          scheme: 'sciencekeywords',
+          uuid: '1234',
+          keywordPath: 'New > Keyword',
+          error: undefined
+        })
+      })
+
       test('should log n/a event details when a keyword event body is present but empty', async () => {
         const result = await cmrKeywordEventsListener({
           Records: [

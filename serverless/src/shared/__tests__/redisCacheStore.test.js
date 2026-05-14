@@ -141,6 +141,36 @@ describe('when using redis cache store', () => {
   })
 
   describe('when reading cached json responses', () => {
+    test('returns null and bypasses redis when bypassCache is requested', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        get: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const result = await store.getCachedJsonResponse({
+        cacheKey: 'kms:concepts:published:test',
+        entityLabel: 'response',
+        format: 'json',
+        bypassCache: true
+      })
+
+      expect(result).toBeNull()
+      expect(createClient).not.toHaveBeenCalled()
+      expect(redisClient.get).not.toHaveBeenCalled()
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[cache] bypass-read endpoint=kms:concepts format=json key=kms:concepts:published:test'
+      )
+    })
+
     test('returns null and bypasses redis when the cache key is for draft', async () => {
       process.env.REDIS_ENABLED = 'true'
       process.env.REDIS_HOST = 'localhost'

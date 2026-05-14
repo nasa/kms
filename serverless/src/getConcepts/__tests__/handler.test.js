@@ -180,6 +180,36 @@ describe('getConcepts', () => {
         })
       )
     })
+
+    test('passes bypassCache through to the shared cache helper when requested', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {
+        path: '/concepts',
+        queryStringParameters: {
+          version: 'published',
+          format: 'json',
+          bypassCache: 'true'
+        }
+      }
+
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bypassCache: true
+        })
+      )
+    })
   })
 
   describe('when redis cache misses for /concepts/concept_scheme/{conceptScheme}', () => {

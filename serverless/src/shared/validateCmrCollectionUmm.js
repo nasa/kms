@@ -106,6 +106,7 @@ const getKeywordLookupValue = ({
       : undefined
   }
 
+  /* istanbul ignore next -- unsupported schemes are filtered before this helper is used */
   return undefined
 }
 
@@ -405,6 +406,7 @@ const validatePublishedKeywordCandidate = async ({
       })
   }
 
+  /* istanbul ignore next -- unsupported schemes are filtered before validation reaches this branch */
   return undefined
 }
 
