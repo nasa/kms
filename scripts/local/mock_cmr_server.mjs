@@ -171,6 +171,47 @@ const handleCollectionsSearchRequest = async (request, response) => {
 }
 
 /**
+ * Handles keyword-driven collection UMM JSON search requests using fixture-backed mappings.
+ *
+ * This mirrors the current listener lookup contract:
+ * `GET /search/collections.umm_json?keyword=<uuid>&page_size=<n>&page_num=<n>`.
+ *
+ * @param {URL} url - Parsed request URL containing the keyword UUID and paging params.
+ * @param {http.ServerResponse} response - The HTTP response to write to.
+ * @returns {void}
+ */
+const handleCollectionsUmmJsonKeywordSearchRequest = (url, response) => {
+  const keywordUuid = url.searchParams.get('keyword')
+  const pageSize = Math.max(1, Number(url.searchParams.get('page_size') || 2000))
+  const pageNumber = Math.max(1, Number(url.searchParams.get('page_num') || 1))
+
+  if (!keywordUuid) {
+    sendJson(response, 400, {
+      error: 'Missing keyword query parameter.'
+    })
+
+    return
+  }
+
+  const conceptIds = (fixture.cmr?.collectionConceptIdsByKeyword || [])
+    .filter((entry) => entry.uuid === keywordUuid)
+    .flatMap((entry) => entry.conceptIds || [])
+  const uniqueConceptIds = [...new Set(conceptIds)]
+  const startIndex = (pageNumber - 1) * pageSize
+  const pageConceptIds = uniqueConceptIds.slice(startIndex, startIndex + pageSize)
+
+  sendJson(response, 200, {
+    hits: uniqueConceptIds.length,
+    items: pageConceptIds
+      .map((conceptId) => collectionsByConceptId.get(conceptId))
+      .filter(Boolean)
+      .map(toUmmResultsItem)
+  }, {
+    'cmr-hits': String(uniqueConceptIds.length)
+  })
+}
+
+/**
  * Handles collection lookups by concept id and returns a mock UMM search result.
  *
  * @param {URL} url - The parsed request URL containing the concept id query parameter.
@@ -246,6 +287,12 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'POST' && url.pathname === '/search/collections') {
       await handleCollectionsSearchRequest(request, response)
+
+      return
+    }
+
+    if (request.method === 'GET' && url.pathname === '/search/collections.umm_json') {
+      handleCollectionsUmmJsonKeywordSearchRequest(url, response)
 
       return
     }
