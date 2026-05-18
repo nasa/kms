@@ -33,7 +33,7 @@ import { parse } from 'csv/sync'
  * // Map(1) {
  * //   '3472f70b-874f-6dc5-87db-4b3ebc4b9a73' => {
  * //     oldPath: undefined,
- * //     newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES'
+ * //     newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES >  > '
  * //   }
  * // }
  *
@@ -52,7 +52,7 @@ import { parse } from 'csv/sync'
  * //   "addedKeywords": {
  * //     "3472f70b-874f-6dc5-87db-4b3ebc4b9a73": {
  * //       "oldPath": null,
- * //       "newPath": "EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES"
+ * //       "newPath": "EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES >  > "
  * //     }
  * //   },
  * //   "removedKeywords": {},
@@ -67,8 +67,8 @@ import { parse } from 'csv/sync'
  * // result.changedKeywords will contain:
  * // Map(1) {
  * //   '7863ce31-0e06-42a5-bcf8-25981c44dec8' => {
- * //     oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS',
- * //     newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED'
+ * //     oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS >  >  > ',
+ * //     newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED >  >  > '
  * //   }
  * // }
  *
@@ -80,7 +80,7 @@ import { parse } from 'csv/sync'
  * // result.removedKeywords will contain:
  * // Map(1) {
  * //   '4bfed15d-b8b4-4fb1-940b-ef342c4c2225' => {
- * //     oldPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS',
+ * //     oldPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS >  >  > ',
  * //     newPath: undefined
  * //   }
  * // }
@@ -116,11 +116,10 @@ export class CsvComparator {
       // Last column is UUID, everything before is the fullpath
       const uuid = row[row.length - 1].trim()
 
-      // Join all columns before UUID with the separator, filtering out empty strings
+      // Join all columns before UUID with the separator
       const pathElements = row
         .slice(0, -1)
         .map((col) => col.trim())
-        .filter((col) => col.length > 0)
 
       const path = pathElements.join(this.pathSeparator)
 

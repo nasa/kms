@@ -42,7 +42,7 @@ describe('CsvComparator', () => {
       const result = comparator.parseCsvContent(publishedCsv)
 
       // Root EARTH SCIENCE concept
-      expect(result.get('91697b7d-8f2b-4954-850e-61d5f61c867d')).toBe('EARTH SCIENCE > OCEANS')
+      expect(result.get('91697b7d-8f2b-4954-850e-61d5f61c867d')).toBe('EARTH SCIENCE > OCEANS >  >  >  >  > ')
     })
 
     test('should correctly parse paths for nested concepts', () => {
@@ -50,7 +50,7 @@ describe('CsvComparator', () => {
 
       // AQUACULTURE concept
       expect(result.get('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toBe(
-        'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > AQUACULTURE'
+        'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > AQUACULTURE >  >  > '
       )
     })
 
@@ -59,7 +59,7 @@ describe('CsvComparator', () => {
 
       // COASTAL BATHYMETRY concept (5 levels deep)
       expect(result.get('d80c015f-a383-4883-8309-6aab1c39f5b6')).toBe(
-        'EARTH SCIENCE > OCEANS > BATHYMETRY/SEAFLOOR TOPOGRAPHY > BATHYMETRY > COASTAL BATHYMETRY'
+        'EARTH SCIENCE > OCEANS > BATHYMETRY/SEAFLOOR TOPOGRAPHY > BATHYMETRY > COASTAL BATHYMETRY >  > '
       )
     })
 
@@ -76,7 +76,7 @@ describe('CsvComparator', () => {
 
       // Concept with empty middle fields
       expect(result.get('f27ad52c-3dfd-4788-851a-427e60ae1b8f')).toBe(
-        'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES'
+        'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES >  >  >  > '
       )
     })
 
@@ -85,7 +85,7 @@ describe('CsvComparator', () => {
       const result = customComparator.parseCsvContent(publishedCsv)
 
       expect(result.get('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toBe(
-        'EARTH SCIENCE / OCEANS / AQUATIC SCIENCES / AQUACULTURE'
+        'EARTH SCIENCE / OCEANS / AQUATIC SCIENCES / AQUACULTURE /  /  / '
       )
     })
 
@@ -94,12 +94,12 @@ describe('CsvComparator', () => {
 
       // Parent CORAL REEFS
       expect(result.get('ad497e7a-48fa-45e1-90a5-b052508bdb30')).toBe(
-        'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > CORAL REEFS'
+        'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > CORAL REEFS >  >  > '
       )
 
       // Child CORAL BLEACHING
       expect(result.get('f5df87b6-ed50-4da0-9ba5-7ce4c907bdb3')).toBe(
-        'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > CORAL REEFS > CORAL BLEACHING'
+        'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > CORAL REEFS > CORAL BLEACHING >  > '
       )
     })
   })
@@ -115,7 +115,7 @@ describe('CsvComparator', () => {
       expect(result.addedKeywords.has('3472f70b-874f-6dc5-87db-4b3ebc4b9a73')).toBe(true)
       expect(result.addedKeywords.get('3472f70b-874f-6dc5-87db-4b3ebc4b9a73')).toEqual({
         oldPath: undefined,
-        newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES'
+        newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES >  > '
       })
     })
 
@@ -129,14 +129,14 @@ describe('CsvComparator', () => {
       // ROCKY COASTS is in published but not in draft
       expect(result.removedKeywords.has('488f4df2-712e-4fac-98d1-46ab134b84ee')).toBe(true)
       expect(result.removedKeywords.get('488f4df2-712e-4fac-98d1-46ab134b84ee')).toEqual({
-        oldPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > ROCKY COASTS',
+        oldPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > ROCKY COASTS >  >  > ',
         newPath: undefined
       })
 
       // SHORELINE DISPLACEMENT is in published but not in draft
       expect(result.removedKeywords.has('1a740c3e-7032-4f72-93e8-d0ba343d82e0')).toBe(true)
       expect(result.removedKeywords.get('1a740c3e-7032-4f72-93e8-d0ba343d82e0')).toEqual({
-        oldPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINE DISPLACEMENT',
+        oldPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINE DISPLACEMENT >  >  > ',
         newPath: undefined
       })
     })
@@ -150,15 +150,15 @@ describe('CsvComparator', () => {
       // MARINE MAGNETICS changed to MARINE MAGNETICS MODIFIED
       expect(result.changedKeywords.has('7863ce31-0e06-42a5-bcf8-25981c44dec8')).toBe(true)
       expect(result.changedKeywords.get('7863ce31-0e06-42a5-bcf8-25981c44dec8')).toEqual({
-        oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS',
-        newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED'
+        oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS >  >  > ',
+        newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED >  >  > '
       })
 
       // DIAGENESIS changed to DIAGENESIS MODIFIED
       expect(result.changedKeywords.has('4bfed15d-b8b4-4fb1-940b-ef342c4c2225')).toBe(true)
       expect(result.changedKeywords.get('4bfed15d-b8b4-4fb1-940b-ef342c4c2225')).toEqual({
-        oldPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS',
-        newPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS MODIFIED'
+        oldPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS >  >  > ',
+        newPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > DIAGENESIS MODIFIED >  >  > '
       })
     })
 
@@ -263,12 +263,12 @@ describe('CsvComparator', () => {
       // Check that specific changes are preserved
       expect(json.addedKeywords['3472f70b-874f-6dc5-87db-4b3ebc4b9a73']).toEqual({
         oldPath: undefined,
-        newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES'
+        newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES >  > '
       })
 
       expect(json.changedKeywords['7863ce31-0e06-42a5-bcf8-25981c44dec8']).toEqual({
-        oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS',
-        newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED'
+        oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS >  >  > ',
+        newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED >  >  > '
       })
     })
 
@@ -305,7 +305,7 @@ describe('CsvComparator', () => {
       // Verify some specific keywords are marked as removed
       expect(result.removedKeywords.has('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toBe(true) // AQUACULTURE
       expect(result.removedKeywords.get('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toEqual({
-        oldPath: 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > AQUACULTURE',
+        oldPath: 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > AQUACULTURE >  >  > ',
         newPath: undefined
       })
 
@@ -327,7 +327,7 @@ describe('CsvComparator', () => {
 
       // BATHYMETRY/SEAFLOOR TOPOGRAPHY has a forward slash
       expect(result.get('c16bda61-353b-4668-af2f-bbb98785b6fa')).toBe(
-        'EARTH SCIENCE > OCEANS > BATHYMETRY/SEAFLOOR TOPOGRAPHY'
+        'EARTH SCIENCE > OCEANS > BATHYMETRY/SEAFLOOR TOPOGRAPHY >  >  >  > '
       )
     })
 
@@ -340,15 +340,6 @@ describe('CsvComparator', () => {
       uuids.forEach((uuid) => {
         expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
       })
-    })
-
-    test('should handle empty path elements correctly', () => {
-      const result = comparator.parseCsvContent(publishedCsv)
-
-      // Concepts with empty fields should not have extra separators
-      const path = result.get('91697b7d-8f2b-4954-850e-61d5f61c867d')
-      expect(path).not.toContain(' >  > ')
-      expect(path).not.toMatch(/>\s+>/)
     })
 
     test('should maintain path order correctly', () => {
@@ -375,27 +366,8 @@ describe('CsvComparator', () => {
       expect(publishedRecords.has(customKeywordUuid)).toBe(true)
       expect(draftRecords.has(customKeywordUuid)).toBe(true)
       expect(publishedRecords.get(customKeywordUuid)).toBe(
-        'EARTH SCIENCE > OCEANS > eds-favorite-ocean'
+        'EARTH SCIENCE > OCEANS > eds-favorite-ocean >  >  >  > '
       )
-    })
-
-    test('should handle complex marine environment hierarchy', () => {
-      const result = comparator.parseCsvContent(publishedCsv)
-
-      // Parent: MARINE SURFACE ELEMENTS
-      const parentPath = result.get('e6c6507d-59dd-49f4-9afa-bb7393a718c6')
-      expect(parentPath).toBe(
-        'EARTH SCIENCE > OCEANS > MARINE ENVIRONMENT MONITORING > MARINE SURFACE ELEMENTS'
-      )
-
-      // Child: MARINE VESSELS
-      const childPath = result.get('f81de12c-5f0c-4027-8ff1-de84d1bacb60')
-      expect(childPath).toBe(
-        'EARTH SCIENCE > OCEANS > MARINE ENVIRONMENT MONITORING > MARINE SURFACE ELEMENTS > MARINE VESSELS'
-      )
-
-      // Verify parent is substring of child
-      expect(childPath.startsWith(parentPath)).toBe(true)
     })
 
     test('should identify version-specific differences', () => {

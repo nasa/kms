@@ -59,7 +59,7 @@ describe('ConceptForFullPathCacheBuilder', () => {
       const csvContent = '"Keyword Version: 23.4","Revision: 2026-03-17T17:34:00.294Z"\n"Category","Topic","Term","UUID"\n"EARTH SCIENCE","ATMOSPHERE","AEROSOLS","a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4"\n"EARTH SCIENCE","BIOSPHERE","","9f4f9641-8692-411a-8c34-315cf118c7c3"'
       const expectedMap = new Map([
         ['EARTH SCIENCE > ATMOSPHERE > AEROSOLS', 'a73f94f7-fa3c-4a2c-871e-7927e0b2a7c4'],
-        ['EARTH SCIENCE > BIOSPHERE', '9f4f9641-8692-411a-8c34-315cf118c7c3']
+        ['EARTH SCIENCE > BIOSPHERE > ', '9f4f9641-8692-411a-8c34-315cf118c7c3']
       ])
       const result = builder.parseCsvContent(csvContent)
       expect(result).toEqual(expectedMap)
@@ -83,7 +83,7 @@ describe('ConceptForFullPathCacheBuilder', () => {
       expect(calls.length).toBe(4) // 2 entries * 2 (key + value)
 
       // Verify one of the entries
-      const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES'
+      const fullPath = 'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > FISHERIES >  >  > '
       const uuid = 'fa57b0a0-9723-4195-bdd1-4f26aefa0e07'
       const cacheKey = createConceptResponseCacheKeyByFullPath({
         fullPath: fullPath.toLowerCase(),

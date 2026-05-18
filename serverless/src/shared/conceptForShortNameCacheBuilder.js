@@ -76,7 +76,6 @@ export class ConceptForShortNameCacheBuilder extends BaseConceptCacheBuilder {
         const pathElements = row
           .slice(0, pathEndIndex)
           .map((col) => col.trim())
-          .filter((col) => col.length > 0)
         const fullPath = pathElements.join(this.pathSeparator)
 
         return [shortName, {

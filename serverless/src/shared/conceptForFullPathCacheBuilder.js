@@ -54,7 +54,6 @@ export class ConceptForFullPathCacheBuilder extends BaseConceptCacheBuilder {
       const pathElements = row
         .slice(0, -1)
         .map((col) => col.trim())
-        .filter((col) => col.length > 0)
       const fullPath = pathElements.join(this.pathSeparator)
 
       return [fullPath, uuid]

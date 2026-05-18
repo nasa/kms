@@ -55,12 +55,12 @@ describe('ConceptForShortNameCacheBuilder', () => {
       const expectedMap = new Map([
         ['AC-690A', {
           uuid: '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d',
-          fullPath: 'Air-based Platforms > Propeller > AC-690A',
+          fullPath: 'Air-based Platforms > Propeller >  > AC-690A',
           longName: 'Aerocommander aircraft'
         }],
         ['A-10', {
           uuid: '2b839618-639c-44d4-9ad9-9064d12b322a',
-          fullPath: 'Air-based Platforms > Jet > A-10',
+          fullPath: 'Air-based Platforms > Jet >  > A-10',
           longName: 'Thunderbolt II'
         }]
       ])
@@ -77,7 +77,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
       const expectedMap = new Map([
         ['ANU/ICAM', {
           uuid: '268174c2-14f0-4bfc-9fe7-4ef148a26345',
-          fullPath: 'ACADEMIC > ANU/ICAM',
+          fullPath: 'ACADEMIC >  >  >  > ANU/ICAM',
           longName: 'Integrated Catchment Assessment and Management Centre, Australian National University'
         }]
       ])
@@ -95,7 +95,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
       const expectedMap = new Map([
         ['A-10', {
           uuid: '2b839618-639c-44d4-9ad9-9064d12b322a',
-          fullPath: 'Air-based Platforms > Jet > A-10',
+          fullPath: 'Air-based Platforms > Jet >  > A-10',
           longName: 'Thunderbolt II'
         }]
       ])
@@ -121,7 +121,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
 
       const shortName = 'AC-690A'
       const uuid = '6fa682b9-c6b5-46ca-971f-b7ecd4bf304d'
-      const fullPath = 'Air-based Platforms > Propeller > AC-690A'
+      const fullPath = 'Air-based Platforms > Propeller >  > AC-690A'
       const longName = 'Aerocommander aircraft'
       const cacheKey = createConceptResponseCacheKeyByShortName({
         shortName: shortName.toLowerCase(),
@@ -158,7 +158,7 @@ describe('ConceptForShortNameCacheBuilder', () => {
 
       const shortName = 'ANU/ICAM'
       const uuid = '268174c2-14f0-4bfc-9fe7-4ef148a26345'
-      const fullPath = 'ACADEMIC > ANU/ICAM'
+      const fullPath = 'ACADEMIC >  >  >  > ANU/ICAM'
       const longName = 'Integrated Catchment Assessment and Management Centre, Australian National University'
       const cacheKey = createConceptResponseCacheKeyByShortName({
         shortName: shortName.toLowerCase(),
