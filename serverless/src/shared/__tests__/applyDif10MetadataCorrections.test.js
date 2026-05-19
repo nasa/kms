@@ -138,7 +138,7 @@ describe('Correct a DIF10', () => {
         ummPath: ['Platform', 1],
         oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-5',
         newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-7-New',
-        newLongName: 'Systeme Observation de la Terre-5 Updated'
+        newLongName: 'Systeme Observation de the Terre-5 Updated'
       },
       {
         scheme: 'instruments',
@@ -165,7 +165,7 @@ describe('Correct a DIF10', () => {
       {
         scheme: 'providers',
         action: 'replace',
-        ummPath: ['Organization_Name', 0],
+        ummPath: ['Organization', 0],
         oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
         newKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
         newLongName: 'Department of Geological Sciences, Brown University East'
@@ -173,7 +173,7 @@ describe('Correct a DIF10', () => {
       {
         scheme: 'rucontenttype',
         action: 'replace',
-        ummPath: ['Related_URL', 1, 'URL_Content_Type'],
+        ummPath: ['Related_URL', 0, 'URL_Content_Type', 0],
         oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
         newKeywordPath: 'DistributionURL > GET CAPABILITIES > OGC WMS'
       },
@@ -183,6 +183,13 @@ describe('Correct a DIF10', () => {
         ummPath: ['Science_Keywords', 1],
         oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
         newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > ELEVATION DATA > DIGITAL ELEVATION DATA >  > '
+      },
+      {
+        scheme: 'ProductLevelId',
+        action: 'replace',
+        ummPath: ['Product_Level_Id'],
+        oldKeywordPath: 'NA',
+        newKeywordPath: '1A'
       }
     ]
 
@@ -194,6 +201,61 @@ describe('Correct a DIF10', () => {
       corrections
     })
 
-    console.log('result:', result)
+    // 1. Assert expected overall modification telemetry
+    expect(result.correctionCount).toBe(9)
+    expect(result.stubbed).toBe(false)
+
+    // 2. Assert exact extraction sequence of applied schemes
+    const appliedSchemes = result.correctionsApplied.map((c) => c.scheme)
+    expect(appliedSchemes).toEqual([
+      'chronounits',
+      'platforms',
+      'instruments',
+      'locations',
+      'projects',
+      'providers',
+      'rucontenttype',
+      'sciencekeywords',
+      'ProductLevelId'
+    ])
+
+    // 3. Concrete XML assertions for each structural modification family
+    const xml = result.correctedMetadata
+
+    // ChronoUnits verification
+    expect(xml).toContain('<Epoch>PLEISTOCENE</Epoch>')
+    expect(xml).not.toContain('<Epoch>HOLOCENE</Epoch>')
+
+    // Platforms verification
+    expect(xml).toContain('<Short_Name>SPOT-7-New</Short_Name>')
+    expect(xml).toContain('<Long_Name>Systeme Observation de the Terre-5 Updated</Long_Name>')
+
+    // Instruments verification
+    expect(xml).toContain('<Short_Name>IRMSS</Short_Name>')
+    expect(xml).toContain('<Long_Name>Updated Infrared Multispectral Scanner</Long_Name>')
+
+    // Locations verification
+    expect(xml).toContain('<Location_Subregion1>CANADA</Location_Subregion1>')
+
+    // Projects verification
+    expect(xml).toContain('<Short_Name>ESIP</Short_Name>')
+    expect(xml).toContain('<Long_Name>Updated Earth Science Information Partners Program</Long_Name>')
+
+    // Providers verification
+    expect(xml).toContain('<Short_Name>BROWN/GEO</Short_Name>')
+    expect(xml).toContain('<Long_Name>Department of Geological Sciences, Brown University East</Long_Name>')
+
+    // RUContentType verification
+    expect(xml).toContain('<Subtype>OGC WMS</Subtype>')
+    expect(xml).not.toContain('<Subtype>OpenSearch</Subtype>')
+
+    // ScienceKeywords verification
+    expect(xml).toContain('<Variable_Level_1>ELEVATION DATA</Variable_Level_1>')
+    expect(xml).toContain('<Variable_Level_2>DIGITAL ELEVATION DATA</Variable_Level_2>')
+    expect(xml).not.toContain('TERRAIN ELEVATION')
+
+    // ProductLevelId verification
+    expect(xml).toContain('<Product_Level_Id>1A</Product_Level_Id>')
+    expect(xml).not.toContain('<Product_Level_Id>NA</Product_Level_Id>')
   })
 })
