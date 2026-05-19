@@ -11,6 +11,9 @@ import {
 } from './Dif10FieldsCorrection/applyIsoTopicCategoryCorrection'
 import { applyLocationCorrection } from './Dif10FieldsCorrection/applyLocationCorrection'
 import { applyPlatformCorrection } from './Dif10FieldsCorrection/applyPlatformCorrection'
+import {
+  applyProductLevelIdCorrection
+} from './Dif10FieldsCorrection/applyProductLevelIdCorrection'
 import { applyProjectCorrection } from './Dif10FieldsCorrection/applyProjectCorrection'
 import { applyProviderCorrection } from './Dif10FieldsCorrection/applyProviderCorrection'
 import { applyRuContentTypeCorrection } from './Dif10FieldsCorrection/applyRuContentTypeCorrection'
@@ -67,7 +70,8 @@ const SCHEME_DELEGATES = {
   temporalresolutionrange: applyTemporalResolutionRangeCorrection,
   verticalresolutionrange: applyVerticalResolutionRangeCorrection,
   horizontalresolutionrange: applyHorizontalResolutionRangeCorrection,
-  idnnode: applyIdnnodeCorrection
+  idnnode: applyIdnnodeCorrection,
+  productlevelid: applyProductLevelIdCorrection
 }
 
 /**
@@ -105,6 +109,8 @@ export const applyDif10MetadataCorrections = async (params) => {
     const acc = await accPromise
     const scheme = String(correction.scheme || '').toLowerCase()
     const delegate = SCHEME_DELEGATES[scheme]
+
+    console.log('delegate:', delegate)
 
     if (delegate) {
       /**
