@@ -3,8 +3,6 @@
 # Bail on unset variables, errors and trace execution
 set -eux
 
-: "${bamboo_CMR_BASE_URL:?bamboo_CMR_BASE_URL is required}"
-
 # Deployment configuration/variables
 ####################################
 
