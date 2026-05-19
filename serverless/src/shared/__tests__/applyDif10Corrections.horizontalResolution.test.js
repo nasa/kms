@@ -22,6 +22,7 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
           scheme: 'horizontalresolutionrange',
           action: 'replace',
           ummPath: ['HorizontalResolutionRanges', 1],
+          oldKeywordPath: '1 - 10 meters',
           newKeywordPath: 'Updated Range'
         }]
       })
@@ -39,6 +40,7 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
           scheme: 'horizontalresolutionrange',
           action: 'replace',
           ummPath: ['HorizontalResolutionRanges', 0],
+          oldKeywordPath: 'Old',
           newKeywordPath: 'New'
         }]
       })
@@ -55,7 +57,8 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
         corrections: [{
           scheme: 'horizontalresolutionrange',
           action: 'delete',
-          ummPath: ['HorizontalResolutionRanges', 0]
+          ummPath: ['HorizontalResolutionRanges', 0],
+          oldKeywordPath: '0 - 1 meter'
         }]
       })
 
@@ -64,20 +67,28 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
       expect(result.correctedMetadata).toContain('<Data_Resolution>')
     })
 
-    test('deletes parent Data_Resolution when the last range is removed (cleanup)', async () => {
-      const singleXml = '<DIF><Data_Resolution><Horizontal_Resolution_Range>Only One</Horizontal_Resolution_Range></Data_Resolution></DIF>'
+    test('removes only the field when the last range is removed (preserving parent)', async () => {
+      const xmlWithSiblings = `<DIF>
+        <Data_Resolution>
+            <Horizontal_Resolution_Range>1 - 10 meters</Horizontal_Resolution_Range>
+            <Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>
+        </Data_Resolution>
+    </DIF>`
+
       const result = await applyDif10MetadataCorrections({
-        metadataPayload: singleXml,
+        metadataPayload: xmlWithSiblings,
         corrections: [{
           scheme: 'horizontalresolutionrange',
           action: 'delete',
-          ummPath: ['HorizontalResolutionRanges', 0]
+          oldKeywordPath: '1 - 10 meters',
+          newKeywordPath: ''
         }]
       })
 
-      expect(result.correctionCount).toBe(1)
       expect(result.correctedMetadata).not.toContain('<Horizontal_Resolution_Range>')
-      expect(result.correctedMetadata).not.toContain('<Data_Resolution>')
+      // Verify the parent and siblings still exist
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('<Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>')
     })
 
     test('deletes the target field when the last element of an array is removed', async () => {
@@ -96,12 +107,14 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
           {
             scheme: 'horizontalresolutionrange',
             action: 'delete',
-            ummPath: ['HorizontalResolutionRanges', 0]
+            ummPath: ['HorizontalResolutionRanges', 0],
+            oldKeywordPath: 'Range 1'
           },
           {
             scheme: 'horizontalresolutionrange',
             action: 'delete',
-            ummPath: ['HorizontalResolutionRanges', 0] // Index 0 again because array shifted
+            ummPath: ['HorizontalResolutionRanges', 0],
+            oldKeywordPath: 'Range 2'
           }
         ]
       })
@@ -116,17 +129,6 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
   })
 
   describe('Guard Clause Coverage (Return False)', () => {
-    test('returns false if ummPath is missing a numeric index', async () => {
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: mockDif10WithResolution,
-        corrections: [{
-          scheme: 'horizontalresolutionrange',
-          ummPath: ['HorizontalResolutionRanges'] // Missing index
-        }]
-      })
-      expect(result.correctionCount).toBe(0)
-    })
-
     test('returns false if Data_Resolution is missing from metadata', async () => {
       const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
       const result = await applyDif10MetadataCorrections({
@@ -139,16 +141,20 @@ describe('applyDif10HorizontalResolutionRangeCorrection', () => {
       expect(result.correctionCount).toBe(0)
     })
 
-    test('returns false for unsupported action', async () => {
+    test('returns false when an unsupported action is provided', async () => {
       const result = await applyDif10MetadataCorrections({
         metadataPayload: mockDif10WithResolution,
         corrections: [{
           scheme: 'horizontalresolutionrange',
-          action: 'invalid_action',
-          ummPath: ['HorizontalResolutionRanges', 0]
+          action: 'invalid_action_name', // This bypasses both 'delete' and 'replace' blocks
+          oldKeywordPath: '0 - 1 meter',
+          newKeywordPath: 'New Value'
         }]
       })
+
+      // The function reaches the final 'return false', resulting in 0 corrections
       expect(result.correctionCount).toBe(0)
+      expect(result.correctionsApplied).toHaveLength(0)
     })
   })
 })

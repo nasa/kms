@@ -45,8 +45,7 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 0, 'URLContentType'],
-          oldKeywordPath: 'DistributionURL > GET DATA > ',
+          oldKeywordPath: 'DistributionURL > GET DATA > ', // Last 2 segments: 'GET DATA' and ''
           newKeywordPath: 'DistributionURL > GET SERVICE > '
         }
       ]
@@ -74,8 +73,7 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 1, 'URLContentType'],
-          oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
+          oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch', // Last 2 segments: 'GET CAPABILITIES' and 'OpenSearch'
           newKeywordPath: 'DistributionURL > GET CAPABILITIES > OGC WMS'
         }
       ]
@@ -101,7 +99,6 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 0, 'URLContentType'],
           oldKeywordPath: 'DistributionURL > GET DATA > ',
           newKeywordPath: 'DistributionURL > GET DATA > DIRECT DOWNLOAD'
         }
@@ -124,7 +121,6 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 2, 'URLContentType'],
           oldKeywordPath: 'DistributionURL > USE SERVICE API > REST',
           newKeywordPath: 'DistributionURL > GET DATA > '
         }
@@ -151,7 +147,6 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'delete',
-          ummPath: ['RelatedUrls', 1, 'URLContentType'],
           oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
           newKeywordPath: ''
         }
@@ -193,7 +188,6 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 0, 'URLContentType'],
           oldKeywordPath: 'DistributionURL > VIEW PROJECT HOME PAGE > ',
           newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > '
         }
@@ -221,7 +215,6 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 0, 'URLContentType'],
           oldKeywordPath: 'DistributionURL > GET DATA > ',
           newKeywordPath: 'DistributionURL > GET SERVICE > '
         }
@@ -232,42 +225,14 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
     expect(result.correctionsApplied).toHaveLength(0)
   })
 
-  test('initializes the URL_Content_Type object if it is missing during a replace action', async () => {
-    // Related_URL block without the URL_Content_Type child
-    const missingContentTypeXml = `<DIF>
-        <Related_URL>
-            <URL>https://example.com/missing</URL>
-        </Related_URL>
-      </DIF>`
-
-    const result = await applyDif10MetadataCorrections({
-      metadataPayload: missingContentTypeXml,
-      corrections: [{
-        scheme: 'rucontenttype',
-        action: 'replace',
-        ummPath: ['RelatedUrls', 0],
-        // Last two segments: Type = "GET DATA", Subtype = "DIRECT DOWNLOAD"
-        newKeywordPath: 'DATA SET LANDING PAGE > GET DATA > DIRECT DOWNLOAD'
-      }]
-    })
-
-    expect(result.correctionCount).toBe(1)
-    // Triggers initialization of the missing container
-    expect(result.correctedMetadata).toContain('<URL_Content_Type>')
-    expect(result.correctedMetadata).toContain('<Type>GET DATA</Type>')
-    expect(result.correctedMetadata).toContain('<Subtype>DIRECT DOWNLOAD</Subtype>')
-  })
-
   test('removes a specific content type field when the replacement value is empty or undefined', async () => {
-    // Start with a URL that has both Type and Subtype
     const result = await applyDif10MetadataCorrections({
       metadataPayload: mockDif10WithRelatedURLs,
       corrections: [{
         scheme: 'rucontenttype',
         action: 'replace',
-        ummPath: ['RelatedUrls', 1], // Index 1 has Type "GET CAPABILITIES" and Subtype "OpenSearch"
-        // Providing only one segment makes normalizedSegments[1] (Subtype) undefined
-        newKeywordPath: ' > JUST_A_TYPE > '
+        oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
+        newKeywordPath: ' > JUST_A_TYPE > ' // Last 2 segments: 'JUST_A_TYPE' and ''
       }]
     })
 
@@ -276,11 +241,10 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
     // 1. Verify the specific target was updated
     expect(result.correctedMetadata).toContain('<Type>JUST_A_TYPE</Type>')
 
-    // 2. Verify the specific OLD Subtype is gone (triggers: delete target[field])
+    // 2. Verify the specific OLD Subtype is gone
     expect(result.correctedMetadata).not.toContain('OpenSearch')
 
     // 3. Verify that other Subtypes in different blocks are UNTOUCHED
-    // This proves we didn't delete the tag globally
     expect(result.correctedMetadata).toContain('<Subtype>REST</Subtype>')
   })
 
@@ -290,25 +254,21 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
       corrections: [{
         scheme: 'rucontenttype',
         action: 'unsupported_action',
-        ummPath: ['RelatedUrls', 0]
+        oldKeywordPath: 'DistributionURL > GET DATA > '
       }]
     })
 
-    // Triggers the final fall-through: return false
     expect(result.correctionCount).toBe(0)
   })
 
   test('removes the URL_Content_Type container entirely if all its fields are deleted', async () => {
-    // Start with a Related_URL that has a Content Type
     const result = await applyDif10MetadataCorrections({
       metadataPayload: mockDif10WithRelatedURLs,
       corrections: [{
         scheme: 'rucontenttype',
         action: 'replace',
-        ummPath: ['RelatedUrls', 0], // Index 0 has <Type>GET DATA</Type>
-        // Providing empty segments or segments that are just whitespace
-        // causes the loop to delete both 'Type' and 'Subtype'
-        newKeywordPath: ' > '
+        oldKeywordPath: 'DistributionURL > GET DATA > ',
+        newKeywordPath: ' > ' // Last 2 segments: '' and ''
       }]
     })
 
@@ -317,9 +277,7 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
     // 1. Verify the specific value is gone
     expect(result.correctedMetadata).not.toContain('GET DATA')
 
-    // 2. This specifically triggers: if (Object.keys(target).length === 0) { delete targetUrlBlock.URL_Content_Type }
-    // Because we modified index 0, and index 0's URL_Content_Type should be completely removed.
-    // We check for the absence of the specific block structure for that URL.
+    // 2. Verify the structure has dropped URL_Content_Type for index 0 completely
     expect(result.correctedMetadata).toContain(
       '<Related_URL>\n        <URL>https://example.com/data</URL>\n    </Related_URL>'
     )
@@ -328,7 +286,7 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
     expect(result.correctedMetadata).toContain('<Type>USE SERVICE API</Type>')
   })
 
-  test('handles out of bounds index', async () => {
+  test('returns false when oldKeywordPath does not match any current elements', async () => {
     const result = await applyDif10MetadataCorrections({
       collectionConceptId: 'C1',
       providerId: 'PROV',
@@ -338,8 +296,7 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          ummPath: ['RelatedUrls', 10, 'URLContentType'],
-          oldKeywordPath: 'DistributionURL > GET DATA > ',
+          oldKeywordPath: 'DistributionURL > NOT_REAL_TYPE > ', // Will not find a value match
           newKeywordPath: 'DistributionURL > GET SERVICE > '
         }
       ]
@@ -347,5 +304,32 @@ describe('applyDif10MetadataCorrections - rucontenttype scheme', () => {
 
     expect(result.correctionCount).toBe(0)
     expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('handles fast-xml-parser object leaves with attributes (Covers Line 16)', async () => {
+    const xmlWithAttributes = `<DIF>
+        <Related_URL>
+            <URL_Content_Type>
+                <Type secure="true">GET DATA</Type>
+            </URL_Content_Type>
+            <URL>https://example.com/data</URL>
+        </Related_URL>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: xmlWithAttributes,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'GET DATA > ',
+          newKeywordPath: 'GET SERVICE > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>GET SERVICE</Type>')
+    expect(result.correctedMetadata).not.toContain('GET DATA')
   })
 })

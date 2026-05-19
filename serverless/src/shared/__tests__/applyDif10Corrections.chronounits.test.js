@@ -162,12 +162,14 @@ describe('applyDif10MetadataCorrections - chronounits scheme', () => {
         {
           scheme: 'chronounits',
           action: 'delete',
-          ummPath: ['Chronostratigraphic_Unit', 0]
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'EON1 >  >  >  >  > '
         },
         {
           scheme: 'chronounits',
           action: 'delete',
-          ummPath: ['Chronostratigraphic_Unit', 0] // Target the remaining item
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'EON2 >  >  >  >  > '
         }
       ]
     })
@@ -298,5 +300,60 @@ describe('applyDif10ChronounitsCorrection - return false coverage', () => {
     })
 
     expect(result.correctionCount).toBe(0)
+  })
+
+  test('handles chronounits where leaves are parsed as objects with a #text property', async () => {
+    // Injecting an attribute into <Eon> to force fast-xml-parser to create an object instead of a string
+    const complexChronoXml = `<DIF>
+      <Temporal_Coverage>
+          <Paleo_DateTime>
+              <Chronostratigraphic_Unit>
+                  <Eon xml:lang="en">PHANEROZOIC</Eon>
+                  <Era>CENOZOIC</Era>
+                  <Period>QUATERNARY</Period>
+              </Chronostratigraphic_Unit>
+          </Paleo_DateTime>
+      </Temporal_Coverage>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: complexChronoXml,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY >  >  > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > NEOGENE >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify line 23 fallback cleanly extracted values and updated successfully
+    expect(result.correctedMetadata).toContain('<Period>NEOGENE</Period>')
+    expect(result.correctedMetadata).not.toContain('QUATERNARY')
+  })
+
+  test('returns false for unsupported action type using value-based lookup (final fall-through)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'unsupported_action_type', // Neither 'replace' nor 'delete'
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > '
+        }
+      ]
+    })
+
+    // Line 113 triggers: correctionCount does not increment because the delegate returns false
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
   })
 })

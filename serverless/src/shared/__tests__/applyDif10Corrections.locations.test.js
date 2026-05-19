@@ -171,12 +171,14 @@ describe('applyDif10LocationCorrection', () => {
         {
           scheme: 'locations',
           action: 'delete',
-          ummPath: ['Locations', 0]
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'A >  >  >  >  > '
         },
         {
           scheme: 'locations',
           action: 'delete',
-          ummPath: ['Locations', 0]
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'B >  >  >  >  > '
         }
       ]
     })
@@ -286,5 +288,87 @@ describe('applyDif10LocationCorrections - guard clauses', () => {
     })
 
     expect(result.correctionCount).toBe(0)
+  })
+
+  test('handles locations where leaves are parsed as objects with a #text property', async () => {
+    const complexLocationXml = `<DIF>
+      <Location>
+          <Location_Category xml:lang="en">GEOGRAPHIC REGION</Location_Category>
+          <Location_Type>GLOBAL</Location_Type>
+      </Location>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: complexLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > ',
+          newKeywordPath: 'GEOGRAPHIC REGION > CONTINENT >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Location_Type>CONTINENT</Location_Type>')
+  })
+
+  test('returns false for unsupported action type using value-based lookup (final fall-through)', async () => {
+    const mockLocationXml = `<DIF>
+      <Location>
+          <Location_Category>GEOGRAPHIC REGION</Location_Category>
+          <Location_Type>GLOBAL</Location_Type>
+      </Location>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'unsupported_action_type',
+          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('deletes parent property when a single location (non-array) element is removed', async () => {
+    // A single Location block (not inside an array layout)
+    const singleLocationXml = `<DIF>
+      <Entry_ID>
+          <Short_Name>SINGLE_LOC_DELETE</Short_Name>
+      </Entry_ID>
+      <Location>
+          <Location_Category>GEOGRAPHIC REGION</Location_Category>
+          <Location_Type>GLOBAL</Location_Type>
+      </Location>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'delete',
+          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > '
+        }
+      ]
+    })
+
+    // Verify the correction was registered successfully
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify that the entire Location property was purged from the XML structure
+    expect(result.correctedMetadata).not.toContain('<Location>')
+    expect(result.correctedMetadata).not.toContain('</Location>')
+    expect(result.correctedMetadata).not.toContain('GEOGRAPHIC REGION')
   })
 })

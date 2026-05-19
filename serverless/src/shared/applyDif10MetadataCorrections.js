@@ -110,8 +110,6 @@ export const applyDif10MetadataCorrections = async (params) => {
     const scheme = String(correction.scheme || '').toLowerCase()
     const delegate = SCHEME_DELEGATES[scheme]
 
-    console.log('delegate:', delegate)
-
     if (delegate) {
       /**
        * Execute the specialized delegate for the given scheme.

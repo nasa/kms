@@ -242,19 +242,21 @@ describe('applyDif10MetadataCorrections - science keywords scheme', () => {
       </Science_Keywords>
   </DIF>`
 
-    // Applying two deletions to empty the array and trigger the length === 0 check
+    // Since lookups are by path format value string, we specify the exact old keyword path values
     const result = await applyDif10MetadataCorrections({
       metadataPayload: multiKeywordXml,
       corrections: [
         {
           scheme: 'sciencekeywords',
           action: 'delete',
-          ummPath: ['ScienceKeywords', 0]
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
         },
         {
           scheme: 'sciencekeywords',
           action: 'delete',
-          ummPath: ['ScienceKeywords', 0] // Target the new first element
+          ummPath: ['ScienceKeywords', 1],
+          oldKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS >  >  >  > '
         }
       ]
     })
@@ -281,6 +283,7 @@ describe('applyDif10MetadataCorrections - science keywords scheme', () => {
           scheme: 'sciencekeywords',
           action: 'invalid_action_type', // Neither 'replace' nor 'delete'
           ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
           newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
         }
       ]
@@ -482,7 +485,7 @@ describe('applyDif10MetadataCorrections - science keywords scheme', () => {
     expect(result.correctedMetadata).not.toContain('DIGITAL TERRAIN MODEL')
   })
 
-  test('skips correction when keyword index is out of bounds', async () => {
+  test('skips correction when keyword path does not match any items in document', async () => {
     const result = await applyDif10MetadataCorrections({
       collectionConceptId: 'C1',
       providerId: 'PROV',
@@ -492,8 +495,9 @@ describe('applyDif10MetadataCorrections - science keywords scheme', () => {
         {
           scheme: 'sciencekeywords',
           action: 'replace',
-          ummPath: ['Science_Keywords', 5],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
+          ummPath: ['Science_Keywords', 0],
+          // This path does not exist in mockSimpleDif10Xml, so lookup fails
+          oldKeywordPath: 'EARTH SCIENCE > NON_EXISTENT_TOPIC > AEROSOLS >  >  >  > ',
           newKeywordPath: 'EARTH SCIENCE > AIR QUALITY > AEROSOLS >  >  >  > '
         }
       ]
@@ -531,5 +535,44 @@ describe('applyDif10MetadataCorrections - science keywords scheme', () => {
 
     expect(result.correctionCount).toBe(0)
     expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('handles science keywords where leaves are parsed as objects with a #text property', async () => {
+    // Simulating an XML snippet where an attribute or formatting causes
+    // fast-xml-parser to turn a node into an object structure rather than a raw string
+    const xmlWithComplexNodes = `<DIF>
+      <Entry_ID>
+          <Short_Name>COMPLEX_LEAF_TEST</Short_Name>
+      </Entry_ID>
+      <Science_Keywords>
+          <Category xml:lang="en">EARTH SCIENCE</Category>
+          <Topic>ATMOSPHERE</Topic>
+          <Term>CLOUDS</Term>
+      </Science_Keywords>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithComplexNodes,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          // This should match despite <Category> being parsed as an object internally
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUDS >  >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUD PROPERTIES >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify the substitution took place seamlessly
+    expect(result.correctedMetadata).toContain('<Term>CLOUD PROPERTIES</Term>')
+    expect(result.correctedMetadata).not.toContain('<Term>CLOUDS</Term>')
   })
 })

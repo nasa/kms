@@ -9,58 +9,98 @@ const LOCATION_FIELDS = [
 ]
 
 /**
- * Applies Location corrections directly to the parsedMetadata object.
+ * Normalizes an XML Location object into an array of clean string segments.
+ * Handles potential fast-xml-parser object leaves and clears trailing empty tags.
+ */
+const getNormalizedLocationSegments = (locationObj) => {
+  if (!locationObj) return []
+
+  return LOCATION_FIELDS
+    .map((field) => {
+      const val = locationObj[field]
+      if (typeof val === 'object' && val !== null) {
+        return val['#text'] || ''
+      }
+
+      return val
+    })
+    .map((val) => ((val && typeof val === 'string') ? val.trim() : ''))
+    .filter((val) => val.length > 0)
+}
+
+/**
+ * Applies Location corrections directly to the parsedMetadata object via value-based lookup.
  * Path: DIF.Location
- * Returns true if updated, false otherwise.
  */
 export const applyLocationCorrection = async (parsedMetadata, correction) => {
   const action = String(correction.action || 'replace').toLowerCase()
-  const ummPath = correction.ummPath || []
 
-  // Find the numeric index (e.g., ['Location', 0])
-  const index = ummPath.find((part) => typeof part === 'number')
-
-  if (typeof index !== 'number') return false
-
+  // Navigate the nested DIF structure
   const locations = parsedMetadata?.DIF?.Location
   if (!locations) return false
 
-  // Determine target without nested ternaries
-  let target = null
-  if (Array.isArray(locations)) {
-    if (index >= 0 && index < locations.length) {
-      target = locations[index]
-    }
-  } else if (index === 0) {
-    target = locations
+  // Coerce structure to an array to cleanly manage single-item vs multi-item nodes uniformly
+  const isArray = Array.isArray(locations)
+  const locationList = isArray ? locations : [locations]
+
+  let foundIndex = -1
+
+  // 1. Normalize the lookup path string safely
+  const lookupPath = typeof correction.oldKeywordPath === 'string' ? correction.oldKeywordPath : ''
+  const parsedOldSegments = splitKeywordPath(lookupPath)
+  const oldSegments = parsedOldSegments
+    .map((segment) => ((segment && typeof segment === 'string') ? segment.trim() : ''))
+    .filter((segment) => segment.length > 0)
+
+  if (oldSegments.length > 0) {
+    const oldPathJoined = oldSegments.join(' > ')
+
+    // Scan the metadata list for an exact structural path match
+    foundIndex = locationList.findIndex((loc) => {
+      const currentSegments = getNormalizedLocationSegments(loc)
+      if (currentSegments.length === 0) return false
+
+      const currentPathJoined = currentSegments.join(' > ')
+
+      return currentPathJoined === oldPathJoined
+    })
   }
 
-  if (!target) return false
+  // Target element not found matching lookup specifications
+  if (foundIndex === -1) return false
 
+  // --- HANDLE DELETE ACTION ---
   if (action === 'delete') {
-    const parent = parsedMetadata.DIF
-    if (Array.isArray(parent.Location)) {
-      parent.Location.splice(index, 1)
-      // Cleanup: if array is empty, remove key; if one item remains, keep as array
-      if (parent.Location.length === 0) {
-        delete parent.Location
+    if (isArray) {
+      parsedMetadata.DIF.Location.splice(foundIndex, 1)
+      if (parsedMetadata.DIF.Location.length === 0) {
+        // eslint-disable-next-line no-param-reassign
+        delete parsedMetadata.DIF.Location
       }
     } else {
-      delete parent.Location
+      // eslint-disable-next-line no-param-reassign
+      delete parsedMetadata.DIF.Location
     }
 
     return true
   }
 
+  // --- HANDLE REPLACE ACTION ---
   if (action === 'replace') {
-    const segments = splitKeywordPath(correction.newKeywordPath)
+    const target = isArray ? parsedMetadata.DIF.Location[foundIndex] : parsedMetadata.DIF.Location
 
+    // Parse out new structural path specifications safely
+    const targetNewPath = typeof correction.newKeywordPath === 'string' ? correction.newKeywordPath : ''
+    const parsedNewSegments = splitKeywordPath(targetNewPath)
+    const newSegments = parsedNewSegments.map((segment) => ((segment && typeof segment === 'string') ? segment.trim() : ''))
+
+    // Overwrite fields sequentially matching hierarchy positions
     LOCATION_FIELDS.forEach((field, i) => {
-      const val = segments[i]
-      if (val && val.trim().length > 0) {
+      const val = newSegments[i]
+      if (val && val.length > 0) {
         target[field] = val
       } else {
-        // Remove trailing levels to keep XML clean
+        // Drop any leftover older properties not required by the new path
         delete target[field]
       }
     })

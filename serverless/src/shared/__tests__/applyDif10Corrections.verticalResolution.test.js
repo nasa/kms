@@ -22,7 +22,8 @@ describe('applyDif10VerticalResolutionRangeCorrection', () => {
           scheme: 'verticalresolutionrange',
           action: 'replace',
           ummPath: ['VerticalResolutionRanges', 1],
-          newKeywordPath: 'Updated Range'
+          newKeywordPath: 'Updated Range',
+          oldKeywordPath: '10 - 50 meters'
         }]
       })
 
@@ -39,7 +40,8 @@ describe('applyDif10VerticalResolutionRangeCorrection', () => {
           scheme: 'verticalresolutionrange',
           action: 'replace',
           ummPath: ['VerticalResolutionRanges', 0],
-          newKeywordPath: 'New Range'
+          newKeywordPath: 'New Range',
+          oldKeywordPath: 'Old Range'
         }]
       })
 
@@ -55,7 +57,8 @@ describe('applyDif10VerticalResolutionRangeCorrection', () => {
         corrections: [{
           scheme: 'verticalresolutionrange',
           action: 'delete',
-          ummPath: ['VerticalResolutionRanges', 0]
+          ummPath: ['VerticalResolutionRanges', 0],
+          oldKeywordPath: '1 - 10 meters'
         }]
       })
 
@@ -71,7 +74,8 @@ describe('applyDif10VerticalResolutionRangeCorrection', () => {
         corrections: [{
           scheme: 'verticalresolutionrange',
           action: 'delete',
-          ummPath: ['VerticalResolutionRanges', 0]
+          ummPath: ['VerticalResolutionRanges', 0],
+          oldKeywordPath: 'Final Range'
         }]
       })
 
@@ -97,12 +101,14 @@ describe('applyDif10VerticalResolutionRangeCorrection', () => {
           {
             scheme: 'verticalresolutionrange',
             action: 'delete',
-            ummPath: ['VerticalResolutionRanges', 0]
+            ummPath: ['VerticalResolutionRanges', 0],
+            oldKeywordPath: 'Range 1'
           },
           {
             scheme: 'verticalresolutionrange',
             action: 'delete',
-            ummPath: ['VerticalResolutionRanges', 0] // Array shifts, so index 0 is the second element
+            ummPath: ['VerticalResolutionRanges', 0],
+            oldKeywordPath: 'Range 2'
           }
         ]
       })
@@ -159,7 +165,8 @@ describe('applyDif10VerticalResolutionRangeCorrection', () => {
         corrections: [{
           scheme: 'verticalresolutionrange',
           action: 'unsupported_action',
-          ummPath: ['VerticalResolutionRanges', 0]
+          ummPath: ['VerticalResolutionRanges', 0],
+          oldKeywordPath: '1 - 10 meters'
         }]
       })
       expect(result.correctionCount).toBe(0)

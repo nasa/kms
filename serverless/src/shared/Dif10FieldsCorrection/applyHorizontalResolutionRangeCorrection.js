@@ -1,17 +1,6 @@
-/**
- * Applies Horizontal Resolution Range corrections directly to the parsedMetadata object.
- * Path: DIF.Data_Resolution.Horizontal_Resolution_Range
- */
 export const applyHorizontalResolutionRangeCorrection = async (parsedMetadata, correction) => {
   const action = String(correction.action || 'replace').toLowerCase()
-  const ummPath = correction.ummPath || []
 
-  // Find the numeric index (e.g., ['HorizontalResolutionRanges', 0])
-  const index = ummPath.find((part) => typeof part === 'number')
-
-  if (typeof index !== 'number') return false
-
-  // Navigate to parent container
   const resolution = parsedMetadata?.DIF?.Data_Resolution
   if (!resolution) return false
 
@@ -19,39 +8,47 @@ export const applyHorizontalResolutionRangeCorrection = async (parsedMetadata, c
   const ranges = resolution[targetField]
   if (!ranges) return false
 
+  const isArray = Array.isArray(ranges)
+  const rangeList = isArray ? ranges : [ranges]
+
+  const lookupPath = typeof correction.oldKeywordPath === 'string' ? correction.oldKeywordPath.trim() : ''
+  if (!lookupPath) return false
+
+  const foundIndex = rangeList.findIndex((item) => {
+    const itemStr = typeof item === 'string' ? item.trim() : ''
+
+    return itemStr === lookupPath
+  })
+
+  if (foundIndex === -1) return false
+
   if (action === 'delete') {
-    if (Array.isArray(ranges)) {
-      ranges.splice(index, 1)
+    if (isArray) {
+      ranges.splice(foundIndex, 1)
+      // Only delete the field if no ranges are left, NOT the parent object
       if (ranges.length === 0) {
         delete resolution[targetField]
       }
-    } else if (index === 0) {
+    } else {
       delete resolution[targetField]
     }
 
-    // Cleanup: If Data_Resolution is now empty, remove it to keep XML valid
-    if (Object.keys(resolution).length === 0) {
-      // eslint-disable-next-line no-param-reassign
-      delete parsedMetadata.DIF.Data_Resolution
-    }
+    // REMOVED: The block that deleted the parent 'Data_Resolution' container.
+    // This preserves siblings like Vertical_Resolution_Range.
 
     return true
   }
 
   if (action === 'replace') {
-    const newVal = correction.newKeywordPath
+    const newVal = typeof correction.newKeywordPath === 'string' ? correction.newKeywordPath.trim() : ''
 
-    if (Array.isArray(ranges)) {
-      if (index >= 0 && index < ranges.length) {
-        ranges[index] = newVal
-
-        return true
-      }
-    } else if (index === 0) {
+    if (isArray) {
+      ranges[foundIndex] = newVal
+    } else {
       resolution[targetField] = newVal
-
-      return true
     }
+
+    return true
   }
 
   return false

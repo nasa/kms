@@ -10,37 +10,71 @@ const CHRONO_FIELDS = [
 ]
 
 /**
- * Applies Chrono Unit corrections directly to the parsedMetadata object.
+ * Normalizes an XML Chronostratigraphic Unit object into an array of clean, populated string segments.
+ * Handles potential fast-xml-parser object leaves and clears trailing empty tags.
+ */
+const getNormalizedChronoSegments = (chronoObj) => {
+  if (!chronoObj) return []
+
+  return CHRONO_FIELDS
+    .map((field) => {
+      const val = chronoObj[field]
+      if (typeof val === 'object' && val !== null) {
+        return val['#text'] || ''
+      }
+
+      return val
+    })
+    .map((val) => ((val && typeof val === 'string') ? val.trim() : ''))
+    .filter((val) => val.length > 0)
+}
+
+/**
+ * Applies Chrono Unit corrections directly to the parsedMetadata object via value-based lookup.
  * Path: DIF.Temporal_Coverage.Paleo_DateTime.Chronostratigraphic_Unit
  */
 export const applyChronoUnitCorrection = async (parsedMetadata, correction) => {
   const action = String(correction.action || 'replace').toLowerCase()
-  const ummPath = correction.ummPath || []
-  const index = ummPath.find((part) => typeof part === 'number')
-
-  if (typeof index !== 'number') return false
 
   // Navigate the nested DIF structure
   const paleo = parsedMetadata?.DIF?.Temporal_Coverage?.Paleo_DateTime
   const units = paleo?.Chronostratigraphic_Unit
   if (!units) return false
 
-  // Identify target
-  let target = null
-  if (Array.isArray(units)) {
-    if (index >= 0 && index < units.length) {
-      target = units[index]
-    }
-  } else if (index === 0) {
-    target = units
+  // Coerce structure to an array to cleanly manage single-item vs multi-item nodes uniformly
+  const isArray = Array.isArray(units)
+  const unitList = isArray ? units : [units]
+
+  let foundIndex = -1
+
+  // Normalize the lookup path string safely
+  const lookupPath = typeof correction.oldKeywordPath === 'string' ? correction.oldKeywordPath : ''
+  const parsedOldSegments = splitKeywordPath(lookupPath)
+  const oldSegments = parsedOldSegments
+    .map((segment) => ((segment && typeof segment === 'string') ? segment.trim() : ''))
+    .filter((segment) => segment.length > 0)
+
+  if (oldSegments.length > 0) {
+    const oldPathJoined = oldSegments.join(' > ')
+
+    // Scan the metadata list for an exact structural path match
+    foundIndex = unitList.findIndex((unit) => {
+      const currentSegments = getNormalizedChronoSegments(unit)
+      if (currentSegments.length === 0) return false
+
+      const currentPathJoined = currentSegments.join(' > ')
+
+      return currentPathJoined === oldPathJoined
+    })
   }
 
-  if (!target) return false
+  // Target element not found matching lookup specifications
+  if (foundIndex === -1) return false
 
+  // --- HANDLE DELETE ACTION ---
   if (action === 'delete') {
-    if (Array.isArray(paleo.Chronostratigraphic_Unit)) {
-      paleo.Chronostratigraphic_Unit.splice(index, 1)
-      // Cleanup: if array is empty, remove key; if one item remains, keep as array
+    if (isArray) {
+      paleo.Chronostratigraphic_Unit.splice(foundIndex, 1)
       if (paleo.Chronostratigraphic_Unit.length === 0) {
         delete paleo.Chronostratigraphic_Unit
       }
@@ -51,14 +85,24 @@ export const applyChronoUnitCorrection = async (parsedMetadata, correction) => {
     return true
   }
 
+  // --- HANDLE REPLACE ACTION ---
   if (action === 'replace') {
-    const segments = splitKeywordPath(correction.newKeywordPath)
+    const target = isArray
+      ? paleo.Chronostratigraphic_Unit[foundIndex]
+      : paleo.Chronostratigraphic_Unit
 
+    // Parse out new structural path specifications safely
+    const targetNewPath = typeof correction.newKeywordPath === 'string' ? correction.newKeywordPath : ''
+    const parsedNewSegments = splitKeywordPath(targetNewPath)
+    const newSegments = parsedNewSegments.map((segment) => ((segment && typeof segment === 'string') ? segment.trim() : ''))
+
+    // Overwrite fields sequentially matching hierarchy positions
     CHRONO_FIELDS.forEach((field, i) => {
-      const val = segments[i]
-      if (val && val.trim().length > 0) {
+      const val = newSegments[i]
+      if (val && val.length > 0) {
         target[field] = val
       } else {
+        // Drop any leftover older properties not required by the new path
         delete target[field]
       }
     })
