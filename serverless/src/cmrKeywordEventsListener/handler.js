@@ -51,12 +51,31 @@ const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
   }
 }
 
+const publishCollectionCorrectionRequests = async (collectionConceptIds, keywordEvent) => {
+  await Promise.all(collectionConceptIds.map(async (collectionConceptId) => {
+    const metadataCorrectionRequest = buildMetadataCorrectionRequest(
+      collectionConceptId,
+      keywordEvent
+    )
+    const publishResult = await publishMetadataCorrectionRequest(metadataCorrectionRequest)
+
+    logger.info(
+      '[consumer] Published metadata correction request '
+      + `collectionConceptId=${metadataCorrectionRequest.collectionConceptId} `
+      + `messageId=${publishResult.messageId || 'n/a'} `
+      + `topicArn=${publishResult.topicArn || 'n/a'}`
+    )
+  }))
+}
+
 const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
   'UPDATED',
   'DELETED'
 ])
 
-const getLookupKeywordPath = (keywordEvent) => keywordEvent?.NewKeywordPath || keywordEvent?.OldKeywordPath
+const getLookupKeywordPath = (keywordEvent) => (
+  keywordEvent?.NewKeywordPath || keywordEvent?.OldKeywordPath
+)
 
 const serializeError = (error) => {
   if (!error) {
@@ -89,7 +108,7 @@ export const cmrKeywordEventsListener = async (event) => {
 
   // Process the SQS batch in parallel; each record contains one SNS-delivered keyword event.
   await Promise.all(records.map(async (record) => {
-    let messageId = record?.messageId
+    const messageId = record?.messageId
     let eventType
     let scheme
     let uuid
@@ -97,11 +116,7 @@ export const cmrKeywordEventsListener = async (event) => {
 
     try {
       // Unwrap the SNS envelope first, then parse the original KMS keyword event payload.
-      const {
-        body,
-        messageId: recordMessageId
-      } = record
-      messageId = recordMessageId
+      const { body } = record
 
       const snsEnvelope = JSON.parse(body || '{}')
       const keywordEvent = snsEnvelope.Message
@@ -151,20 +166,7 @@ export const cmrKeywordEventsListener = async (event) => {
         }
 
         // Publish a collection-scoped correction request for each affected concept id.
-        await Promise.all(collectionConceptIds.map(async (collectionConceptId) => {
-          const metadataCorrectionRequest = buildMetadataCorrectionRequest(
-            collectionConceptId,
-            keywordEvent
-          )
-          const publishResult = await publishMetadataCorrectionRequest(metadataCorrectionRequest)
-
-          logger.info(
-            '[consumer] Published metadata correction request '
-            + `collectionConceptId=${metadataCorrectionRequest.collectionConceptId} `
-            + `messageId=${publishResult.messageId || 'n/a'} `
-            + `topicArn=${publishResult.topicArn || 'n/a'}`
-          )
-        }))
+        await publishCollectionCorrectionRequests(collectionConceptIds, keywordEvent)
       } else if (keywordEvent) {
         // Only UPDATED and DELETED keyword events trigger collection lookup fanout.
         logger.info(

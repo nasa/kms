@@ -225,7 +225,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
       })
 
-      test('should log n/a publish metadata when the publish helper omits optional fields', async () => {
+      test('should keep publish logging safe when the publish helper returns a partial result object', async () => {
         vi.mocked(getCmrCollectionConceptIds).mockResolvedValue(['C1000000000-PROV'])
         vi.mocked(publishMetadataCorrectionRequest).mockResolvedValue({})
 
