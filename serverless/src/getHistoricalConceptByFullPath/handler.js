@@ -49,8 +49,12 @@ export const getHistoricalConceptByFullPath = async (event, context) => {
 
   const { pathParameters, queryStringParameters } = event
   const { fullPath } = pathParameters || {}
-  const { scheme: rawScheme } = queryStringParameters || {}
+  const {
+    scheme: rawScheme,
+    bypassCache: bypassCacheFlag
+  } = queryStringParameters || {}
   const scheme = rawScheme?.toLowerCase()
+  const bypassCache = bypassCacheFlag === 'true'
 
   if (!fullPath) {
     return {
@@ -96,7 +100,8 @@ export const getHistoricalConceptByFullPath = async (event, context) => {
 
     const cachedResponse = await getCachedJsonResponse({
       cacheKey,
-      entityLabel: 'Historical Concept by fullPath'
+      entityLabel: 'Historical Concept by fullPath',
+      bypassCache
     })
 
     if (cachedResponse) {

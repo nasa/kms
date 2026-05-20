@@ -18,7 +18,9 @@ describe('cmrPostRequest', () => {
     process.env.CMR_BASE_URL = 'https://cmr-test.earthdata.nasa.gov'
 
     // Mock the logger
+    vi.spyOn(logger, 'debug').mockImplementation(() => {})
     vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -133,11 +135,126 @@ describe('cmrPostRequest', () => {
       body
     }
 
-    expect(logger.info).toHaveBeenCalledWith(
+    expect(logger.debug).toHaveBeenCalledWith(
       'URL:',
       expectedUrl,
       'with options:',
       expectedOptions
     )
+  })
+
+  test('should merge custom headers when provided', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: 'test' })
+    })
+
+    await cmrPostRequest({
+      path: '/search/collections.json',
+      headers: {
+        'Cmr-Validate-Keywords': 'true'
+      }
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cmr-test.earthdata.nasa.gov/search/collections.json',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'Cmr-Validate-Keywords': 'true'
+        }
+      }
+    )
+  })
+
+  test('should log request context when fetch fails', async () => {
+    const error = new TypeError('fetch failed')
+
+    error.cause = {
+      code: 'ENOTFOUND',
+      errno: -3008,
+      syscall: 'getaddrinfo',
+      address: undefined,
+      port: undefined,
+      message: 'getaddrinfo ENOTFOUND internal-cmr',
+      name: 'Error'
+    }
+
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrPostRequest({
+      path: '/search/collections.json',
+      body: JSON.stringify({
+        query: 'some query'
+      })
+    })).rejects.toThrow('fetch failed')
+
+    expect(logger.error).toHaveBeenCalledWith('[cmr-post] CMR fetch failed', {
+      method: 'POST',
+      endpoint: 'https://cmr-test.earthdata.nasa.gov',
+      path: '/search/collections.json',
+      fullUrl: 'https://cmr-test.earthdata.nasa.gov/search/collections.json',
+      bodyLength: 22,
+      error: {
+        name: 'TypeError',
+        message: 'fetch failed',
+        code: undefined,
+        errno: undefined,
+        syscall: undefined,
+        address: undefined,
+        port: undefined
+      },
+      cause: {
+        name: 'Error',
+        message: 'getaddrinfo ENOTFOUND internal-cmr',
+        code: 'ENOTFOUND',
+        errno: -3008,
+        syscall: 'getaddrinfo',
+        address: undefined,
+        port: undefined
+      }
+    })
+  })
+
+  test('should log an undefined cause when fetch fails without one', async () => {
+    const error = new Error('Network error')
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrPostRequest({
+      path: '/search/collections.json',
+      body: JSON.stringify({
+        query: 'some query'
+      })
+    })).rejects.toThrow('Network error')
+
+    expect(logger.error).toHaveBeenCalledWith('[cmr-post] CMR fetch failed', {
+      method: 'POST',
+      endpoint: 'https://cmr-test.earthdata.nasa.gov',
+      path: '/search/collections.json',
+      fullUrl: 'https://cmr-test.earthdata.nasa.gov/search/collections.json',
+      bodyLength: 22,
+      error: {
+        name: 'Error',
+        message: 'Network error',
+        code: undefined,
+        errno: undefined,
+        syscall: undefined,
+        address: undefined,
+        port: undefined
+      },
+      cause: undefined
+    })
+  })
+
+  test('should throw when CMR_BASE_URL is not configured', async () => {
+    delete process.env.CMR_BASE_URL
+
+    await expect(cmrPostRequest({
+      path: '/search/collections.json'
+    })).rejects.toThrow('CMR_BASE_URL environment variable is not set')
+
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })

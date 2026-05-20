@@ -1,19 +1,29 @@
 import * as cdk from 'aws-cdk-lib'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 
 import { CmrKeywordEventsListenerSetup } from './helper/CmrKeywordEventsListenerSetup'
 import { LogForwardingSetup } from './helper/LogForwardingSetup'
 import { MetadataCorrectionSetup } from './helper/MetadataCorrectionSetup'
+import { VpcSetup } from './helper/VpcSetup'
 
 /**
  * Properties for the CMR event processing stack.
  */
 export interface CmrEventProcessingStackProps extends cdk.StackProps {
+  cmrBaseUrl: string
+  redisEnabled?: string
+  redisHost?: string
+  redisPort?: string
+  rdf4jPassword: string
+  rdf4jServiceUrl: string
+  rdf4jUserName: string
   prefix: string
   stage: string
   topicArn: string
   logDestinationArn: string
+  vpcId: string
 }
 
 /**
@@ -24,6 +34,10 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
  */
 export class CmrEventProcessingStack extends cdk.Stack {
   private readonly logForwardingSetup?: LogForwardingSetup
+
+  private readonly vpc: ec2.IVpc
+
+  private readonly securityGroup: ec2.SecurityGroup
 
   /**
    * Creates the CMR listener resources and metadata correction messaging resources.
@@ -37,17 +51,35 @@ export class CmrEventProcessingStack extends cdk.Stack {
 
     const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true'
     const topic = sns.Topic.fromTopicArn(this, 'KeywordEventsTopic', props.topicArn)
+    const vpcSetup = new VpcSetup(this, props.prefix, props.vpcId, useLocalstack)
+
+    this.vpc = vpcSetup.vpc
+    this.securityGroup = vpcSetup.securityGroup
 
     const metadataCorrectionSetup = new MetadataCorrectionSetup(this, 'MetadataCorrection', {
+      cmrBaseUrl: props.cmrBaseUrl,
       prefix: props.prefix,
-      stage: props.stage
+      redisEnabled: props.redisEnabled,
+      redisHost: props.redisHost,
+      redisPort: props.redisPort,
+      rdf4jPassword: props.rdf4jPassword,
+      rdf4jServiceUrl: props.rdf4jServiceUrl,
+      rdf4jUserName: props.rdf4jUserName,
+      stage: props.stage,
+      securityGroup: this.securityGroup,
+      useLocalstack,
+      vpc: this.vpc
     })
 
     const listenerSetup = new CmrKeywordEventsListenerSetup(this, 'CmrKeywordEventsListener', {
+      cmrBaseUrl: props.cmrBaseUrl,
       prefix: props.prefix,
       stage: props.stage,
       keywordEventsTopic: topic,
-      metadataCorrectionRequestsTopic: metadataCorrectionSetup.metadataCorrectionRequestsTopic
+      metadataCorrectionRequestsTopic: metadataCorrectionSetup.metadataCorrectionRequestsTopic,
+      securityGroup: this.securityGroup,
+      useLocalstack,
+      vpc: this.vpc
     })
 
     // Set up CloudWatch Logs forwarding to Splunk via NGAP SecLog account

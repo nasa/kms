@@ -1,7 +1,7 @@
 import {
   describe,
   expect,
-  it
+  test
 } from 'vitest'
 
 import { getSchemeInfo } from '../getSchemeInfo'
@@ -16,7 +16,7 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should return correct schemeId, schemePrefLabel, and null csvHeaders', () => {
+    test('should return correct schemeId, schemePrefLabel, and null csvHeaders', () => {
       const result = getSchemeInfo(validRdfXml)
       expect(result).toEqual({
         schemeId: 'testscheme',
@@ -35,7 +35,7 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should throw an error', () => {
+    test('should throw an error', () => {
       expect(() => getSchemeInfo(invalidRdfXml)).toThrow('Invalid XML: skos:ConceptScheme element not found')
     })
   })
@@ -52,7 +52,7 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should throw an error', () => {
+    test('should throw an error', () => {
       expect(() => getSchemeInfo(multipleSchemeRdfXml)).toThrow('Multiple skos:ConceptScheme elements found. Only one ConceptScheme is allowed.')
     })
   })
@@ -66,7 +66,7 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should throw an error', () => {
+    test('should throw an error', () => {
       expect(() => getSchemeInfo(noAboutRdfXml)).toThrow('rdf:about attribute not found in skos:ConceptScheme element')
     })
   })
@@ -79,7 +79,7 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should return schemeId and null for schemePrefLabel and csvHeaders', () => {
+    test('should return schemeId and null for schemePrefLabel and csvHeaders', () => {
       const result = getSchemeInfo(noPrefLabelRdfXml)
       expect(result).toEqual({
         schemeId: 'nolabel',
@@ -99,7 +99,7 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should return correct schemeId, schemePrefLabel, and csvHeaders', () => {
+    test('should return correct schemeId, schemePrefLabel, and csvHeaders', () => {
       const result = getSchemeInfo(validRdfXml)
       expect(result).toEqual({
         schemeId: 'testscheme',
@@ -119,7 +119,7 @@ describe('getSchemeInfo', () => {
     </rdf:RDF>
   `
 
-    it('should return schemeId, schemePrefLabel, and null for csvHeaders', () => {
+    test('should return schemeId, schemePrefLabel, and null for csvHeaders', () => {
       const result = getSchemeInfo(emptyHeadersRdfXml)
       expect(result).toEqual({
         schemeId: 'emptyheaders',
@@ -138,19 +138,19 @@ describe('getSchemeInfo', () => {
       </rdf:RDF>
     `
 
-    it('should throw an error', () => {
+    test('should throw an error', () => {
       expect(() => getSchemeInfo(invalidXml)).toThrow('Error extracting scheme information:')
     })
   })
 
   describe('When given empty string', () => {
-    it('should throw an error', () => {
+    test('should throw an error', () => {
       expect(() => getSchemeInfo('')).toThrow('Error extracting scheme information:')
     })
   })
 
   describe('When given non-string input', () => {
-    it('should throw an error', () => {
+    test('should throw an error', () => {
       expect(() => getSchemeInfo(null)).toThrow('Error extracting scheme information:')
       expect(() => getSchemeInfo(undefined)).toThrow('Error extracting scheme information:')
       expect(() => getSchemeInfo(123)).toThrow('Error extracting scheme information:')

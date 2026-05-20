@@ -1,4 +1,33 @@
 import { logger } from './logger'
+
+const getEndpointConfig = () => {
+  const baseUrl = process.env.CMR_BASE_URL
+
+  if (!baseUrl) {
+    throw new Error('CMR_BASE_URL environment variable is not set')
+  }
+
+  return {
+    endpoint: `${baseUrl}`
+  }
+}
+
+const extractErrorDetails = (error) => {
+  if (!error) {
+    return undefined
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+    code: error.code,
+    errno: error.errno,
+    syscall: error.syscall,
+    address: error.address,
+    port: error.port
+  }
+}
+
 /**
  * Makes a POST request to the CMR (Common Metadata Repository) API.
  *
@@ -24,21 +53,18 @@ export const cmrPostRequest = async ({
   path,
   body,
   contentType = 'application/json',
-  accept = 'application/json'
+  accept = 'application/json',
+  headers = {}
 }) => {
-  const getCmrEndpoint = () => {
-    const baseUrl = process.env.CMR_BASE_URL
-
-    return `${baseUrl}`
-  }
-
-  const endpoint = getCmrEndpoint()
+  const { endpoint } = getEndpointConfig()
+  const fullUrl = `${endpoint}${path}`
 
   const fetchOptions = {
     method: 'POST',
     headers: {
       'Content-Type': contentType,
-      Accept: accept
+      Accept: accept,
+      ...headers
     }
   }
 
@@ -47,7 +73,38 @@ export const cmrPostRequest = async ({
     fetchOptions.body = body
   }
 
-  logger.info('URL:', `${endpoint}${path}`, 'with options:', fetchOptions)
+  logger.debug('URL:', fullUrl, 'with options:', fetchOptions)
 
-  return fetch(`${endpoint}${path}`, fetchOptions)
+  logger.info('[cmr-post] Sending CMR request', {
+    method: 'POST',
+    endpoint,
+    path,
+    fullUrl,
+    bodyLength: typeof body === 'string' ? body.length : undefined
+  })
+
+  try {
+    return await fetch(fullUrl, fetchOptions)
+  } catch (error) {
+    const requestContext = {
+      method: 'POST',
+      endpoint,
+      path,
+      fullUrl,
+      bodyLength: typeof body === 'string' ? body.length : undefined
+    }
+
+    logger.error('[cmr-post] CMR fetch failed', {
+      ...requestContext,
+      error: extractErrorDetails(error),
+      cause: extractErrorDetails(error?.cause)
+    })
+
+    if (error && typeof error === 'object') {
+      error.cmrRequest = requestContext
+      error.cmrCause = extractErrorDetails(error?.cause)
+    }
+
+    throw error
+  }
 }

@@ -213,6 +213,33 @@ describe('downloadConcepts', () => {
 
       expect(result).toBe(mockContent)
     })
+
+    test('should pass bypassCache through to getConcepts when requested', async () => {
+      const mockContent = '"Category","Series_Entity","Short_Name","UUID"\n"EARTH OBSERVATION SATELLITES","AQUA","AQUA","b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e"'
+      getConcepts.mockResolvedValue({
+        statusCode: 200,
+        body: mockContent
+      })
+
+      const result = await downloadConcepts({
+        conceptScheme: 'platforms',
+        format: 'csv',
+        version: 'published',
+        bypassCache: true
+      })
+
+      expect(getConcepts).toHaveBeenCalledWith({
+        pathParameters: { conceptScheme: 'platforms' },
+        queryStringParameters: {
+          format: 'csv',
+          version: 'published',
+          bypassCache: 'true'
+        },
+        resource: '/concepts/concept_scheme/{conceptScheme}'
+      })
+
+      expect(result).toBe(mockContent)
+    })
   })
 
   describe('when unsuccessful', () => {

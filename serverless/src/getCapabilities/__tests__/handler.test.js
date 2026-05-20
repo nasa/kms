@@ -52,6 +52,7 @@ describe('getCapabilities', () => {
       expect(result.body).toContain('<a name="get_concept_fullpaths"')
       expect(result.body).toContain('<a name="get_concept"')
       expect(result.body).toContain('<a name="get_concepts_all"')
+      expect(result.body).toContain('<a name="get_metadata_correction_audit"')
       expect(result.body).toContain('<a name="get_historical_concept_by_full_path"')
       expect(result.body).toContain('<a name="get_historical_concept_by_short_name"')
     })

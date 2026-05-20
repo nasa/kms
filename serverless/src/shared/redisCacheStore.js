@@ -2,6 +2,20 @@ import { createClient } from 'redis'
 
 import { logger } from '@/shared/logger'
 
+/**
+ * Shared Redis connection and cache I/O helpers for KMS.
+ *
+ * This module owns the process-level Redis client lifecycle plus the small helper functions KMS
+ * uses to read, write, and clear cached JSON responses. It is intentionally shared so the API
+ * cache, published keyword cache, historical keyword cache, and metadata-correction helpers all
+ * use the same Redis configuration and logging behavior.
+ *
+ * The runtime behavior is:
+ * - if Redis is not configured, callers get a safe `null` client / no-op cache behavior
+ * - if Redis is configured, one lazily created shared client is reused within the process
+ * - cache helpers serialize and parse JSON response payloads consistently across features
+ */
+
 let redisClientPromise
 let hasLoggedRedisConfig = false
 
@@ -10,13 +24,23 @@ const { REDIS_HOST } = process.env
 const REDIS_PORT = Number(process.env.REDIS_PORT || 6379)
 const REDIS_FAIL_FAST = process.env.REDIS_FAIL_FAST === 'true'
 
+/**
+ * Reports whether Redis caching is configured for the current process.
+ *
+ * @returns {boolean} `true` when Redis is enabled and has a usable host/port configuration.
+ */
 export const isRedisConfigured = () => (
   REDIS_ENABLED === 'true' && Boolean(REDIS_HOST) && Number.isInteger(REDIS_PORT)
 )
 
 /**
- * Get or create a Redis client connection.
- * @returns {Promise<RedisClient|null>} Redis client or null if not configured
+ * Gets or creates the shared Redis client connection for the current process.
+ *
+ * The client is created lazily on first use and cached as a promise so concurrent callers share
+ * the same connection attempt. When Redis is unavailable or not configured, this resolves to
+ * `null` so higher-level cache helpers can safely fall back to no-op behavior.
+ *
+ * @returns {Promise<import('redis').RedisClientType|null>} Connected Redis client or `null`.
  */
 export const getRedisClient = async () => {
   if (!isRedisConfigured()) {
@@ -68,6 +92,14 @@ export const getRedisClient = async () => {
   return redisClientPromise
 }
 
+/**
+ * Resets module-level Redis client state for tests.
+ *
+ * This is only intended for test isolation so each test can control connection/logging state
+ * without reusing a previous test's cached client promise.
+ *
+ * @returns {void}
+ */
 export const resetRedisClientStateForTests = () => {
   redisClientPromise = null
   hasLoggedRedisConfig = false
@@ -104,16 +136,22 @@ const buildCacheLogContext = ({
 /**
  * Reads and parses a cached JSON response by key.
  *
+ * Draft-version keys are intentionally skipped because draft reads should not participate in the
+ * shared published cache namespace.
+ *
  * @param {Object} params - Read parameters.
  * @param {string} params.cacheKey - Redis key.
  * @param {string} params.entityLabel - Human-readable cache label for logs.
  * @param {string} [params.format] - Response format for cache logs.
- * @returns {Promise<Object|null>} Parsed response or null when unavailable/invalid.
+ * @param {boolean} [params.bypassCache=false] - When `true`, skips the Redis read intentionally
+ *   and returns `null` so the caller can force a fresh source-of-truth read.
+ * @returns {Promise<Object|null>} Parsed cached response, or `null` when absent, skipped, or invalid.
  */
 export const getCachedJsonResponse = async ({
   cacheKey,
   entityLabel,
-  format
+  format,
+  bypassCache = false
 }) => {
   const { namespace, cacheType, version } = parseCacheKey(cacheKey)
   const endpoint = namespace && cacheType ? `${namespace}:${cacheType}` : null
@@ -122,6 +160,12 @@ export const getCachedJsonResponse = async ({
     endpoint,
     format
   })
+
+  if (bypassCache) {
+    logger.debug(`[cache] bypass-read ${logContext}`)
+
+    return null
+  }
 
   if (version === 'draft') {
     logger.debug(`[cache] skip-read version=draft ${logContext}`)
@@ -134,7 +178,7 @@ export const getCachedJsonResponse = async ({
 
   const cachedString = await redisClient.get(cacheKey)
   if (!cachedString) {
-    logger.info(`[cache] miss ${logContext}`)
+    logger.debug(`[cache] miss ${logContext}`)
 
     return null
   }
@@ -142,7 +186,7 @@ export const getCachedJsonResponse = async ({
   try {
     const parsedResponse = JSON.parse(cachedString)
 
-    logger.info(`[cache] hit ${logContext}`)
+    logger.debug(`[cache] hit ${logContext}`)
 
     return parsedResponse
   } catch (error) {
@@ -154,6 +198,9 @@ export const getCachedJsonResponse = async ({
 
 /**
  * Writes a response payload to Redis as JSON.
+ *
+ * Draft-version keys are intentionally skipped because draft responses should not populate the
+ * shared published cache namespace.
  *
  * @param {Object} params - Write parameters.
  * @param {string} params.cacheKey - Redis key.
@@ -189,6 +236,10 @@ export const setCachedJsonResponse = async ({
 
 /**
  * Clears cache keys by prefix using SCAN + DEL.
+ *
+ * This is used by cache-prime flows that need to clear a namespace without blocking on a single
+ * giant `KEYS` call. The helper scans in batches and tracks cursors defensively to avoid an
+ * accidental infinite scan loop.
  *
  * @param {Object} params - Clear parameters.
  * @param {string} params.keyPrefix - Prefix pattern without trailing wildcard.

@@ -133,10 +133,32 @@ describe('getHistoricalConceptByShortName', () => {
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
       cacheKey: 'kms:platforms:historical_concept:short_name:terra',
-      entityLabel: 'Historical Concept by shortName'
+      entityLabel: 'Historical Concept by shortName',
+      bypassCache: false
     })
 
     expect(result).toEqual(mockResponse)
+  })
+
+  test('should pass bypassCache through to the shared cache helper when requested', async () => {
+    getCachedJsonResponse.mockResolvedValue(null)
+
+    const event = {
+      pathParameters: { shortName: 'TERRA' },
+      queryStringParameters: {
+        scheme: 'platforms',
+        bypassCache: 'true'
+      }
+    }
+
+    const result = await getHistoricalConceptByShortName(event)
+
+    expect(result.statusCode).toBe(404)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:platforms:historical_concept:short_name:terra',
+      entityLabel: 'Historical Concept by shortName',
+      bypassCache: true
+    })
   })
 
   test('should return 404 if the UUID is not found in the cache', async () => {

@@ -39,6 +39,16 @@ import { SnapshotStack } from '../rdfdb/lib/SnapshotStack'
  * ```
  */
 async function main() {
+  const requireEnv = (name: string) => {
+    const value = process.env[name]
+
+    if (!value) {
+      throw new Error(`${name} environment variable is not set`)
+    }
+
+    return value
+  }
+
   const prefix = process.env.STACK_PREFIX || 'kms'
   const stage = process.env.STAGE_NAME || 'dev'
   const existingApiId = process.env.EXISTING_API_ID
@@ -68,6 +78,7 @@ async function main() {
     }
 
   const vpcId = useLocalstack ? 'dummy-vpc-id' : process.env.VPC_ID
+  const cmrBaseUrl = requireEnv('CMR_BASE_URL')
 
   if (!vpcId) {
     throw new Error('VPC_ID environment variable is not set')
@@ -178,7 +189,7 @@ async function main() {
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
-      CMR_BASE_URL: process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov',
+      CMR_BASE_URL: cmrBaseUrl,
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
       BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE: process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE,
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
@@ -203,12 +214,22 @@ async function main() {
   }
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
+    cmrBaseUrl,
     env,
     prefix,
+    redisEnabled: redisEnabledValue,
+    redisHost: useLocalstack ? localRedisHost : redisStack?.endpointAddress,
+    redisPort: useLocalstack ? localRedisPort : redisStack?.endpointPort,
+    rdf4jPassword: process.env.RDF4J_PASSWORD || 'rdf4j',
+    rdf4jServiceUrl: useLocalstack
+      ? 'http://rdf4j-server:8080'
+      : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'),
+    rdf4jUserName: process.env.RDF4J_USER_NAME || 'rdf4j',
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
     topicArn: kmsStack.keywordEventsTopic.topicArn,
-    logDestinationArn: logDestinationArn!
+    logDestinationArn: logDestinationArn!,
+    vpcId
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)
