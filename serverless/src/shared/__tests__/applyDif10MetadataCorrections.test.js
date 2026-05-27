@@ -1,11 +1,13 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
+import { DOMParser } from '@xmldom/xmldom'
 import {
   describe,
   expect,
   test
 } from 'vitest'
+import xpath from 'xpath'
 
 import { applyDif10MetadataCorrections } from '../applyDif10MetadataCorrections'
 
@@ -30,25 +32,165 @@ const mockDif10 = `
     </Location>
 </DIF>`
 
-describe('applyDif10MetadataCorrections', () => {
-  test('returns early if metadataPayload is missing', async () => {
+const mockDif10ForMetadataPreservation = `<DIF>
+    <Entry_ID>
+        <Short_Name>PRESERVATION_TEST</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Preservation Regression Test</Entry_Title>
+    <Personnel>
+        <Role>INVESTIGATOR</Role>
+        <Contact_Person>
+            <First_Name>RAY</First_Name>
+            <Last_Name>DIBBLE</Last_Name>
+            <Email>r.dibble@example.org</Email>
+        </Contact_Person>
+    </Personnel>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>ATMOSPHERE</Topic>
+        <Term>AEROSOLS</Term>
+    </Science_Keywords>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>SOLID EARTH</Topic>
+        <Term>TECTONICS</Term>
+        <Variable_Level_1>EARTHQUAKES</Variable_Level_1>
+    </Science_Keywords>
+    <ISO_Topic_Category>GEOSCIENTIFIC INFORMATION</ISO_Topic_Category>
+    <Platform>
+        <Type>Earth Observation Satellites</Type>
+        <Short_Name>SPOT-4</Short_Name>
+        <Long_Name>Systeme Observation de la Terre-4</Long_Name>
+        <Instrument>
+            <Short_Name>SEISMIC REFLECTION PROFILERS</Short_Name>
+        </Instrument>
+        <Instrument>
+            <Short_Name>GEOPHONES</Short_Name>
+            <Long_Name>Geophone Array</Long_Name>
+        </Instrument>
+    </Platform>
+    <Platform>
+        <Type>Aircraft</Type>
+        <Short_Name>NASA S-3B VIKING</Short_Name>
+        <Instrument>
+            <Short_Name>TSX-1</Short_Name>
+            <Long_Name>Synthetic Aperture Radar</Long_Name>
+        </Instrument>
+    </Platform>
+    <Temporal_Coverage>
+        <Paleo_DateTime>
+            <Chronostratigraphic_Unit>
+                <Eon>PHANEROZOIC</Eon>
+                <Era>CENOZOIC</Era>
+                <Period>QUATERNARY</Period>
+                <Epoch>HOLOCENE</Epoch>
+            </Chronostratigraphic_Unit>
+        </Paleo_DateTime>
+        <Temporal_Info>Regression Temporal Info</Temporal_Info>
+    </Temporal_Coverage>
+    <Data_Resolution>
+        <Horizontal_Resolution_Range>10 meters</Horizontal_Resolution_Range>
+        <Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>
+        <Temporal_Resolution_Range>Hourly</Temporal_Resolution_Range>
+    </Data_Resolution>
+    <Location>
+        <Location_Category>CONTINENT</Location_Category>
+        <Location_Type>ANTARCTICA</Location_Type>
+        <Detailed_Location>MCMURDO SOUND</Detailed_Location>
+    </Location>
+    <Location>
+        <Location_Category>GEOGRAPHIC REGION</Location_Category>
+        <Location_Type>POLAR</Location_Type>
+    </Location>
+    <Project>
+        <Short_Name>ALIENS</Short_Name>
+        <Long_Name>Aliens in Antarctica</Long_Name>
+    </Project>
+    <Project>
+        <Short_Name>ICEBRIDGE</Short_Name>
+        <Long_Name>IceBridge Mission</Long_Name>
+    </Project>
+    <Quality>
+        Regression quality narrative that should remain untouched.
+    </Quality>
+    <Dataset_Language>English</Dataset_Language>
+    <Organization>
+        <Organization_Type>ARCHIVER</Organization_Type>
+        <Organization_Name>
+            <Short_Name>NZ/NZAI/ANZ</Short_Name>
+            <Long_Name>Antarctica New Zealand</Long_Name>
+        </Organization_Name>
+        <Organization_URL>http://example.org/archive</Organization_URL>
+        <Personnel>
+            <Role>DATA CENTER CONTACT</Role>
+            <Contact_Person>
+                <First_Name>SHULAMIT</First_Name>
+                <Last_Name>GORDON</Last_Name>
+                <Email>s.gordon@example.org</Email>
+            </Contact_Person>
+        </Personnel>
+    </Organization>
+    <Summary>
+        <Abstract>Preservation abstract text that should survive all corrections.</Abstract>
+    </Summary>
+    <Related_URL>
+        <URL_Content_Type>
+            <Type>VIEW RELATED INFORMATION</Type>
+            <Subtype>OpenSearch</Subtype>
+        </URL_Content_Type>
+        <URL>https://example.org/opensearch</URL>
+        <Description>OpenSearch endpoint</Description>
+    </Related_URL>
+    <IDN_Node>
+        <Short_Name>AMD/NZ</Short_Name>
+    </IDN_Node>
+    <IDN_Node>
+        <Short_Name>CEOS</Short_Name>
+    </IDN_Node>
+    <Metadata_Dates>
+        <Metadata_Creation>2009-03-03</Metadata_Creation>
+        <Metadata_Last_Revision>2017-04-20</Metadata_Last_Revision>
+    </Metadata_Dates>
+    <Additional_Attributes>
+        <Name>metadata.keyword_version</Name>
+        <DataType>FLOAT</DataType>
+        <Description>Not provided</Description>
+        <Value>8.1</Value>
+    </Additional_Attributes>
+    <Product_Level_Id>NA</Product_Level_Id>
+</DIF>`
+
+const parseXml = (xml) => new DOMParser().parseFromString(xml, 'text/xml')
+const normalizeXmlText = (value) => String(value || '').replace(/\s+/g, ' ').trim()
+const selectText = (document, expression) => {
+  const node = xpath.select1(expression, document)
+
+  return normalizeXmlText(node?.textContent)
+}
+
+const selectTexts = (document, expression) => xpath.select(expression, document)
+  .map((node) => normalizeXmlText(node.textContent))
+
+describe('when applying DIF10 metadata corrections', () => {
+  test('should return early if metadataPayload is missing', async () => {
     const result = await applyDif10MetadataCorrections({ metadataPayload: null })
     expect(result.correctionCount).toBe(0)
     expect(result.stubbed).toBe(true)
   })
 
-  test('applies multiple corrections from different schemes sequentially', async () => {
+  test('should apply multiple corrections from different schemes sequentially', async () => {
     const corrections = [
       {
         scheme: 'sciencekeywords',
         action: 'replace',
-        ummPath: ['ScienceKeywords', 0],
+        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
         newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
       },
       {
         scheme: 'platforms',
         action: 'replace',
-        ummPath: ['Platforms', 0],
+        oldKeywordPath: 'In Situ Land-based Platforms >  >  > GROUND STATIONS',
         newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > C-130'
       }
     ]
@@ -67,12 +209,11 @@ describe('applyDif10MetadataCorrections', () => {
     expect(result.correctedMetadata).not.toContain('<Topic>ATMOSPHERE</Topic>')
   })
 
-  test('handles unknown schemes gracefully by ignoring them', async () => {
+  test('should handle unknown schemes gracefully by ignoring them', async () => {
     const corrections = [
       {
         scheme: 'invalid_scheme',
         action: 'replace',
-        ummPath: [0],
         newKeywordPath: 'Should Not Apply'
       }
     ]
@@ -88,12 +229,30 @@ describe('applyDif10MetadataCorrections', () => {
     expect(result.correctedMetadata).toContain('<Term>AEROSOLS</Term>')
   })
 
-  test('handles delete action for Locations', async () => {
+  test('should ignore corrections when the scheme is missing', async () => {
+    const corrections = [
+      {
+        action: 'replace',
+        newKeywordPath: 'Should Not Apply'
+      }
+    ]
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10,
+      corrections
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+    expect(result.correctedMetadata).toContain('<Term>AEROSOLS</Term>')
+  })
+
+  test('should handle delete actions for locations', async () => {
     const corrections = [
       {
         scheme: 'locations',
         action: 'delete',
-        ummPath: ['SpatialKeywords', 0]
+        oldKeywordPath: 'GEOGRAPHIC REGION > ARCTIC'
       }
     ]
 
@@ -107,7 +266,7 @@ describe('applyDif10MetadataCorrections', () => {
     expect(result.correctedMetadata).not.toContain('<Location>')
   })
 
-  test('verifies XML declaration and formatting', async () => {
+  test('should verify XML declaration and formatting', async () => {
     const result = await applyDif10MetadataCorrections({
       metadataPayload: mockDif10,
       corrections: []
@@ -118,8 +277,8 @@ describe('applyDif10MetadataCorrections', () => {
   })
 })
 
-describe('Correct a DIF10', () => {
-  test('returns a corrected DIF10', async () => {
+describe('when correcting a DIF10 record', () => {
+  test('should return a corrected DIF10', async () => {
     const mockDIF10Xml = readFileSync(
       join(__dirname, '../__mocks__/dif10.xml'),
       'utf-8'
@@ -128,66 +287,57 @@ describe('Correct a DIF10', () => {
     const corrections = [
       {
         scheme: 'chronounits',
-        ummPath: ['Chronostratigraphic_Unit', 0],
         oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
         newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > '
       },
       {
         scheme: 'platforms',
         action: 'replace',
-        ummPath: ['Platform', 1],
-        oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-5',
-        newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-7-New',
-        newLongName: 'Systeme Observation de the Terre-5 Updated'
+        oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
+        newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED',
+        newLongName: 'Systeme Observation de la Terre-4 Updated'
       },
       {
         scheme: 'instruments',
         action: 'replace',
-        ummPath: ['Platform', 0, 'Instrument', 1],
-        oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
-        newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
-        newLongName: 'Updated Infrared Multispectral Scanner'
+        oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES',
+        newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES-UPDATED',
+        newLongName: 'Updated Geophone Array'
       },
       {
         scheme: 'locations',
         action: 'replace',
-        ummPath: ['Locations', 2],
-        oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA >  >  > ',
-        newKeywordPath: 'CONTINENT > NORTH AMERICA > CANADA >  >  > '
+        oldKeywordPath: 'CONTINENT > ANTARCTICA >  >  >  > ',
+        newKeywordPath: 'CONTINENT > SOUTH AMERICA >  >  >  > '
       },
       {
         scheme: 'projects',
-        ummPath: ['Project', 0],
-        oldKeywordPath: 'D - F > ESIP',
-        newKeywordPath: 'D - F > ESIP',
-        newLongName: 'Updated Earth Science Information Partners Program'
+        oldKeywordPath: 'A - C > ALIENS',
+        newKeywordPath: 'A - C > ALIENS-UPDATED',
+        newLongName: 'Aliens in Antarctica Updated'
       },
       {
         scheme: 'providers',
         action: 'replace',
-        ummPath: ['Organization', 0],
-        oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
-        newKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
-        newLongName: 'Department of Geological Sciences, Brown University East'
+        oldKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ',
+        newKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ-UPDATED',
+        newLongName: 'Antarctica New Zealand Updated'
       },
       {
         scheme: 'rucontenttype',
         action: 'replace',
-        ummPath: ['Related_URL', 0, 'URL_Content_Type', 0],
-        oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
-        newKeywordPath: 'DistributionURL > GET CAPABILITIES > OGC WMS'
+        oldKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
+        newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OGC WMS'
       },
       {
         scheme: 'sciencekeywords',
         action: 'replace',
-        ummPath: ['Science_Keywords', 1],
-        oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
-        newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > ELEVATION DATA > DIGITAL ELEVATION DATA >  > '
+        oldKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > SEDIMENTARY STRUCTURES',
+        newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > SEDIMENT TRANSPORT'
       },
       {
         scheme: 'ProductLevelId',
         action: 'replace',
-        ummPath: ['Product_Level_Id'],
         oldKeywordPath: 'NA',
         newKeywordPath: '1A'
       }
@@ -227,35 +377,3949 @@ describe('Correct a DIF10', () => {
     expect(xml).not.toContain('<Epoch>HOLOCENE</Epoch>')
 
     // Platforms verification
-    expect(xml).toContain('<Short_Name>SPOT-7-New</Short_Name>')
-    expect(xml).toContain('<Long_Name>Systeme Observation de the Terre-5 Updated</Long_Name>')
+    expect(xml).toContain('<Short_Name>SPOT-4-UPDATED</Short_Name>')
+    expect(xml).toContain('<Long_Name>Systeme Observation de la Terre-4 Updated</Long_Name>')
 
     // Instruments verification
-    expect(xml).toContain('<Short_Name>IRMSS</Short_Name>')
-    expect(xml).toContain('<Long_Name>Updated Infrared Multispectral Scanner</Long_Name>')
+    expect(xml).toContain('<Short_Name>GEOPHONES-UPDATED</Short_Name>')
+    expect(xml).toContain('<Long_Name>Updated Geophone Array</Long_Name>')
 
     // Locations verification
-    expect(xml).toContain('<Location_Subregion1>CANADA</Location_Subregion1>')
+    expect(xml).toContain('<Location_Type>SOUTH AMERICA</Location_Type>')
+    const antarcticaMatches = xml.match(/<Location_Type>ANTARCTICA<\/Location_Type>/g) || []
+    expect(antarcticaMatches).toHaveLength(2)
 
     // Projects verification
-    expect(xml).toContain('<Short_Name>ESIP</Short_Name>')
-    expect(xml).toContain('<Long_Name>Updated Earth Science Information Partners Program</Long_Name>')
+    expect(xml).toContain('<Short_Name>ALIENS-UPDATED</Short_Name>')
+    expect(xml).toContain('<Long_Name>Aliens in Antarctica Updated</Long_Name>')
 
     // Providers verification
-    expect(xml).toContain('<Short_Name>BROWN/GEO</Short_Name>')
-    expect(xml).toContain('<Long_Name>Department of Geological Sciences, Brown University East</Long_Name>')
+    expect(xml).toContain('<Short_Name>NZ/NZAI/ANZ-UPDATED</Short_Name>')
+    expect(xml).toContain('<Long_Name>Antarctica New Zealand Updated</Long_Name>')
 
     // RUContentType verification
     expect(xml).toContain('<Subtype>OGC WMS</Subtype>')
     expect(xml).not.toContain('<Subtype>OpenSearch</Subtype>')
 
     // ScienceKeywords verification
-    expect(xml).toContain('<Variable_Level_1>ELEVATION DATA</Variable_Level_1>')
-    expect(xml).toContain('<Variable_Level_2>DIGITAL ELEVATION DATA</Variable_Level_2>')
-    expect(xml).not.toContain('TERRAIN ELEVATION')
+    expect(xml).toContain('<Variable_Level_1>SEDIMENT TRANSPORT</Variable_Level_1>')
+    expect(xml).not.toContain('SEDIMENTARY STRUCTURES')
 
     // ProductLevelId verification
     expect(xml).toContain('<Product_Level_Id>1A</Product_Level_Id>')
     expect(xml).not.toContain('<Product_Level_Id>NA</Product_Level_Id>')
+  })
+})
+
+describe('when verifying DIF10 corrections do not remove unrelated metadata', () => {
+  test('should preserve unrelated metadata while applying broad updates and deletes across supported fields', async () => {
+    const originalDocument = parseXml(mockDif10ForMetadataPreservation)
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10ForMetadataPreservation,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+          newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+        },
+        {
+          scheme: 'locations',
+          action: 'delete',
+          oldKeywordPath: 'CONTINENT > ANTARCTICA >  >  >  > MCMURDO SOUND'
+        },
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > '
+        },
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
+          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED',
+          newLongName: 'Systeme Observation de la Terre-4 Updated'
+        },
+        {
+          scheme: 'instruments',
+          action: 'delete',
+          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES'
+        },
+        {
+          scheme: 'projects',
+          action: 'replace',
+          oldKeywordPath: 'A - C > ALIENS',
+          newKeywordPath: 'A - C > ALIENS-UPDATED',
+          newLongName: 'Aliens in Antarctica Updated'
+        },
+        {
+          scheme: 'providers',
+          action: 'replace',
+          oldKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ',
+          newKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ-UPDATED',
+          newLongName: 'Antarctica New Zealand Updated'
+        },
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
+          newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OGC WMS'
+        },
+        {
+          scheme: 'idnnode',
+          action: 'delete',
+          oldKeywordPath: 'CEOS'
+        },
+        {
+          scheme: 'isotopiccategory',
+          action: 'replace',
+          oldKeywordPath: 'GEOSCIENTIFIC INFORMATION',
+          newKeywordPath: 'OCEANS'
+        },
+        {
+          scheme: 'temporalresolutionrange',
+          action: 'delete',
+          oldKeywordPath: 'Hourly'
+        },
+        {
+          scheme: 'verticalresolutionrange',
+          action: 'replace',
+          oldKeywordPath: '5 meters',
+          newKeywordPath: '50 meters'
+        },
+        {
+          scheme: 'horizontalresolutionrange',
+          action: 'replace',
+          oldKeywordPath: '10 meters',
+          newKeywordPath: '100 meters'
+        },
+        {
+          scheme: 'productlevelid',
+          action: 'replace',
+          oldKeywordPath: 'NA',
+          newKeywordPath: '1A'
+        }
+      ]
+    })
+
+    const updatedDocument = parseXml(result.correctedMetadata)
+
+    expect(result.correctionCount).toBe(14)
+
+    expect(selectTexts(updatedDocument, '//Science_Keywords/Topic')).toContain('OCEANS')
+    expect(selectTexts(updatedDocument, '//Science_Keywords/Term')).toContain('MARINE SEDIMENTS')
+    expect(selectTexts(updatedDocument, '//Location/Detailed_Location')).not.toContain('MCMURDO SOUND')
+    expect(selectTexts(updatedDocument, '//Location/Location_Type')).toContain('POLAR')
+    expect(selectText(updatedDocument, '//Chronostratigraphic_Unit/Epoch')).toBe('PLEISTOCENE')
+    expect(selectTexts(updatedDocument, '//Platform/Short_Name')).toContain('SPOT-4-UPDATED')
+    expect(selectText(updatedDocument, '//Platform[Short_Name="SPOT-4-UPDATED"]/Long_Name')).toBe('Systeme Observation de la Terre-4 Updated')
+    expect(selectTexts(updatedDocument, '//Platform[Short_Name="SPOT-4-UPDATED"]/Instrument/Short_Name')).not.toContain('GEOPHONES')
+    expect(selectTexts(updatedDocument, '//Platform[Short_Name="SPOT-4-UPDATED"]/Instrument/Short_Name')).toContain('SEISMIC REFLECTION PROFILERS')
+    expect(selectTexts(updatedDocument, '//Project/Short_Name')).toContain('ALIENS-UPDATED')
+    expect(selectTexts(updatedDocument, '//Project/Short_Name')).toContain('ICEBRIDGE')
+    expect(selectText(updatedDocument, '//Organization/Organization_Name/Short_Name')).toBe('NZ/NZAI/ANZ-UPDATED')
+    expect(selectText(updatedDocument, '//Organization/Organization_Name/Long_Name')).toBe('Antarctica New Zealand Updated')
+    expect(selectText(updatedDocument, '//Related_URL/URL_Content_Type/Subtype')).toBe('OGC WMS')
+    expect(selectTexts(updatedDocument, '//IDN_Node/Short_Name')).toContain('AMD/NZ')
+    expect(selectTexts(updatedDocument, '//IDN_Node/Short_Name')).not.toContain('CEOS')
+    expect(selectText(updatedDocument, '//ISO_Topic_Category')).toBe('OCEANS')
+    expect(selectTexts(updatedDocument, '//Data_Resolution/Temporal_Resolution_Range')).toEqual([])
+    expect(selectText(updatedDocument, '//Data_Resolution/Vertical_Resolution_Range')).toBe('50 meters')
+    expect(selectText(updatedDocument, '//Data_Resolution/Horizontal_Resolution_Range')).toBe('100 meters')
+    expect(selectText(updatedDocument, '//Product_Level_Id')).toBe('1A')
+
+    const preservedTextExpressions = [
+      '//Entry_Title',
+      '//Personnel[Role="INVESTIGATOR"]/Contact_Person/Email',
+      '//Temporal_Coverage/Temporal_Info',
+      '//Summary/Abstract',
+      '//Quality',
+      '//Dataset_Language',
+      '//Organization/Organization_URL',
+      '//Organization/Personnel/Contact_Person/Email',
+      '//Related_URL/URL',
+      '//Related_URL/Description',
+      '//Metadata_Dates/Metadata_Last_Revision',
+      '//Additional_Attributes[Name="metadata.keyword_version"]/Value'
+    ]
+
+    preservedTextExpressions.forEach((expression) => {
+      expect(selectText(updatedDocument, expression)).toBe(selectText(originalDocument, expression))
+    })
+
+    expect(selectTexts(updatedDocument, '//Platform/Short_Name')).toContain('NASA S-3B VIKING')
+    expect(selectText(updatedDocument, '//Platform[Short_Name="NASA S-3B VIKING"]/Instrument/Short_Name')).toBe('TSX-1')
+    expect(selectTexts(updatedDocument, '//Science_Keywords/Topic')).toContain('SOLID EARTH')
+    expect(selectTexts(updatedDocument, '//Science_Keywords/Variable_Level_1')).toContain('EARTHQUAKES')
+  })
+})
+
+const mockDif10WithChronounits = `<DIF>
+    <Entry_ID>
+        <Short_Name>CHRONO_TEST</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Chronostratigraphic Units</Entry_Title>
+    <Temporal_Coverage>
+        <Paleo_DateTime>
+            <Paleo_Start_Date>1970-01-01</Paleo_Start_Date>
+            <Paleo_Stop_Date>2000-01-01</Paleo_Stop_Date>
+            <Chronostratigraphic_Unit>
+                <Eon>PHANEROZOIC</Eon>
+                <Era>CENOZOIC</Era>
+                <Period>QUATERNARY</Period>
+                <Epoch>HOLOCENE</Epoch>
+            </Chronostratigraphic_Unit>
+            <Chronostratigraphic_Unit>
+                <Eon>PHANEROZOIC</Eon>
+                <Era>MESOZOIC</Era>
+                <Period>CRETACEOUS</Period>
+            </Chronostratigraphic_Unit>
+        </Paleo_DateTime>
+    </Temporal_Coverage>
+</DIF>`
+
+describe('when applying chronounits DIF10 corrections', () => {
+  test('should apply chronostratigraphic unit correction', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify the epoch was updated
+    expect(result.correctedMetadata).toContain('<Epoch>PLEISTOCENE</Epoch>')
+    expect(result.correctedMetadata).not.toContain('<Epoch>HOLOCENE</Epoch>')
+
+    // Other fields should remain
+    expect(result.correctedMetadata).toContain('<Eon>PHANEROZOIC</Eon>')
+    expect(result.correctedMetadata).toContain('<Era>CENOZOIC</Era>')
+    expect(result.correctedMetadata).toContain('<Period>QUATERNARY</Period>')
+  })
+
+  test('should update entire chronostratigraphic hierarchy', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          ummPath: ['Chronostratigraphic_Unit', 1],
+          oldKeywordPath: 'PHANEROZOIC > MESOZOIC > CRETACEOUS >  >  > ',
+          newKeywordPath: 'PHANEROZOIC > PALEOZOIC > PERMIAN > LOPINGIAN >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify the second unit was completely updated
+    expect(result.correctedMetadata).toContain('<Era>PALEOZOIC</Era>')
+    expect(result.correctedMetadata).toContain('<Period>PERMIAN</Period>')
+    expect(result.correctedMetadata).toContain('<Epoch>LOPINGIAN</Epoch>')
+
+    // Old values should be gone
+    expect(result.correctedMetadata).not.toContain('MESOZOIC')
+    expect(result.correctedMetadata).not.toContain('CRETACEOUS')
+  })
+
+  test('should add stage and detailed classification levels', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > GREENLANDIAN > EARLY HOLOCENE'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    expect(result.correctedMetadata).toContain('<Epoch>HOLOCENE</Epoch>')
+    expect(result.correctedMetadata).toContain('<Stage>GREENLANDIAN</Stage>')
+    expect(result.correctedMetadata).toContain('<Detailed_Classification>EARLY HOLOCENE</Detailed_Classification>')
+  })
+
+  test('should delete chronostratigraphic unit at index', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'delete',
+          ummPath: ['Chronostratigraphic_Unit', 1],
+          oldKeywordPath: 'PHANEROZOIC > MESOZOIC > CRETACEOUS >  >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Second unit should be removed
+    expect(result.correctedMetadata).not.toContain('MESOZOIC')
+    expect(result.correctedMetadata).not.toContain('CRETACEOUS')
+
+    // First unit should remain
+    expect(result.correctedMetadata).toContain('HOLOCENE')
+  })
+
+  test('should delete parent property when the last unit in an array is removed', async () => {
+    const multiChronoXml = `<DIF>
+    <Temporal_Coverage>
+        <Paleo_DateTime>
+            <Chronostratigraphic_Unit>
+                <Eon>EON1</Eon>
+            </Chronostratigraphic_Unit>
+            <Chronostratigraphic_Unit>
+                <Eon>EON2</Eon>
+            </Chronostratigraphic_Unit>
+        </Paleo_DateTime>
+    </Temporal_Coverage>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: multiChronoXml,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'delete',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'EON1 >  >  >  >  > '
+        },
+        {
+          scheme: 'chronounits',
+          action: 'delete',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'EON2 >  >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // The entire Chronostratigraphic_Unit tag should be removed from the XML
+    expect(result.correctedMetadata).not.toContain('<Chronostratigraphic_Unit>')
+    expect(result.correctedMetadata).not.toContain('</Chronostratigraphic_Unit>')
+  })
+
+  test('should handle missing Chronostratigraphic_Unit element', async () => {
+    const xmlWithoutChronoUnits = `<DIF>
+    <Entry_ID>
+        <Short_Name>NO_CHRONO</Short_Name>
+    </Entry_ID>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutChronoUnits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC >  >  >  > ',
+          newKeywordPath: 'PHANEROZOIC > MESOZOIC >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should delete single chronostratigraphic unit', async () => {
+    const singleChronoUnitXml = `<DIF>
+    <Entry_ID>
+        <Short_Name>SINGLE_CHRONO</Short_Name>
+    </Entry_ID>
+    <Temporal_Coverage>
+        <Paleo_DateTime>
+            <Chronostratigraphic_Unit>
+                <Eon>PHANEROZOIC</Eon>
+            </Chronostratigraphic_Unit>
+        </Paleo_DateTime>
+    </Temporal_Coverage>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleChronoUnitXml,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'delete',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'PHANEROZOIC >  >  >  >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    // The Chronostratigraphic_Unit element should be completely removed
+    expect(result.correctedMetadata).not.toContain('Chronostratigraphic_Unit')
+  })
+})
+
+describe('when chronounits guard clauses prevent a correction', () => {
+  test('should return false when ummPath does not contain a numeric index', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [{
+        scheme: 'chronounits',
+        action: 'replace',
+        ummPath: ['Chronostratigraphic_Unit'], // Missing numeric index
+        newKeywordPath: 'EON > ERA > PERIOD > EPOCH >  > '
+      }]
+    })
+
+    // The delegate returns false, so the orchestrator does not increment the count
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false when Chronostratigraphic_Unit element is missing', async () => {
+    const xmlNoChrono = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: xmlNoChrono,
+      corrections: [{
+        scheme: 'chronounits',
+        action: 'replace',
+        ummPath: ['Chronostratigraphic_Unit', 0],
+        newKeywordPath: 'EON > ERA > PERIOD > EPOCH >  > '
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false when index is out of bounds for an array', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [{
+        scheme: 'chronounits',
+        action: 'replace',
+        ummPath: ['Chronostratigraphic_Unit', 99], // Index out of range
+        newKeywordPath: 'EON > ERA > PERIOD > EPOCH >  > '
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false for unsupported action (final fall-through)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [{
+        scheme: 'chronounits',
+        action: 'unsupported_action', // Triggers the final return false in the delegate logic
+        ummPath: ['Chronostratigraphic_Unit', 0]
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should handle chronounits where leaves are parsed as objects with a #text property', async () => {
+    // Injecting an attribute into <Eon> to force fast-xml-parser to create an object instead of a string
+    const complexChronoXml = `<DIF>
+      <Temporal_Coverage>
+          <Paleo_DateTime>
+              <Chronostratigraphic_Unit>
+                  <Eon xml:lang="en">PHANEROZOIC</Eon>
+                  <Era>CENOZOIC</Era>
+                  <Period>QUATERNARY</Period>
+              </Chronostratigraphic_Unit>
+          </Paleo_DateTime>
+      </Temporal_Coverage>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: complexChronoXml,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'replace',
+          ummPath: ['Chronostratigraphic_Unit', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY >  >  > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > NEOGENE >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify line 23 fallback cleanly extracted values and updated successfully
+    expect(result.correctedMetadata).toContain('<Period>NEOGENE</Period>')
+    expect(result.correctedMetadata).not.toContain('QUATERNARY')
+  })
+
+  test('should return false for unsupported action type using value-based lookup (final fall-through)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithChronounits,
+      corrections: [
+        {
+          scheme: 'chronounits',
+          action: 'unsupported_action_type', // Neither 'replace' nor 'delete'
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > '
+        }
+      ]
+    })
+
+    // Line 113 triggers: correctionCount does not increment because the delegate returns false
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+})
+
+const mockDif10WithResolution = `<DIF>
+    <Data_Resolution>
+        <Horizontal_Resolution_Range>0 - 1 meter</Horizontal_Resolution_Range>
+        <Horizontal_Resolution_Range>1 - 10 meters</Horizontal_Resolution_Range>
+    </Data_Resolution>
+</DIF>`
+
+describe('when applying horizontal resolution DIF10 corrections', () => {
+  describe('when replacing values', () => {
+    test('should replace a specific range in an array', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithResolution,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          action: 'replace',
+          ummPath: ['HorizontalResolutionRanges', 1],
+          oldKeywordPath: '1 - 10 meters',
+          newKeywordPath: 'Updated Range'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Horizontal_Resolution_Range>Updated Range</Horizontal_Resolution_Range>')
+      expect(result.correctedMetadata).toContain('<Horizontal_Resolution_Range>0 - 1 meter</Horizontal_Resolution_Range>')
+    })
+
+    test('should replace a single range value when it is not in an array', async () => {
+      const singleXml = '<DIF><Data_Resolution><Horizontal_Resolution_Range>Old</Horizontal_Resolution_Range></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          action: 'replace',
+          ummPath: ['HorizontalResolutionRanges', 0],
+          oldKeywordPath: 'Old',
+          newKeywordPath: 'New'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Horizontal_Resolution_Range>New</Horizontal_Resolution_Range>')
+    })
+  })
+
+  describe('when deleting values and cleaning up empty containers', () => {
+    test('should delete a range from an array and keep the parent when it is not empty', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithResolution,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          action: 'delete',
+          ummPath: ['HorizontalResolutionRanges', 0],
+          oldKeywordPath: '0 - 1 meter'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('0 - 1 meter')
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+    })
+
+    test('should remove only the field when the last range is removed (preserving parent)', async () => {
+      const xmlWithSiblings = `<DIF>
+        <Data_Resolution>
+            <Horizontal_Resolution_Range>1 - 10 meters</Horizontal_Resolution_Range>
+            <Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>
+        </Data_Resolution>
+    </DIF>`
+
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: xmlWithSiblings,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          action: 'delete',
+          oldKeywordPath: '1 - 10 meters',
+          newKeywordPath: ''
+        }]
+      })
+
+      expect(result.correctedMetadata).not.toContain('<Horizontal_Resolution_Range>')
+      // Verify the parent and siblings still exist
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('<Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>')
+    })
+
+    test('should delete the target field when the last element of an array is removed', async () => {
+      // Starting with two elements
+      const twoElementsXml = `<DIF>
+        <Data_Resolution>
+            <Horizontal_Resolution_Range>Range 1</Horizontal_Resolution_Range>
+            <Horizontal_Resolution_Range>Range 2</Horizontal_Resolution_Range>
+            <Temporal_Resolution_Range>Other Field</Temporal_Resolution_Range>
+        </Data_Resolution>
+      </DIF>`
+
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: twoElementsXml,
+        corrections: [
+          {
+            scheme: 'horizontalresolutionrange',
+            action: 'delete',
+            ummPath: ['HorizontalResolutionRanges', 0],
+            oldKeywordPath: 'Range 1'
+          },
+          {
+            scheme: 'horizontalresolutionrange',
+            action: 'delete',
+            ummPath: ['HorizontalResolutionRanges', 0],
+            oldKeywordPath: 'Range 2'
+          }
+        ]
+      })
+
+      expect(result.correctionCount).toBe(2)
+      // Horizontal_Resolution_Range should be gone
+      expect(result.correctedMetadata).not.toContain('<Horizontal_Resolution_Range>')
+      // Data_Resolution should still exist because Temporal_Resolution_Range remains
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Other Field</Temporal_Resolution_Range>')
+    })
+  })
+
+  describe('when guard clauses prevent a correction', () => {
+    test('should return false if Data_Resolution is missing from metadata', async () => {
+      const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: emptyXml,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          ummPath: ['HorizontalResolutionRanges', 0]
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false when an unsupported action is provided', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithResolution,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          action: 'invalid_action_name', // This bypasses both 'delete' and 'replace' blocks
+          oldKeywordPath: '0 - 1 meter',
+          newKeywordPath: 'New Value'
+        }]
+      })
+
+      // The function reaches the final 'return false', resulting in 0 corrections
+      expect(result.correctionCount).toBe(0)
+      expect(result.correctionsApplied).toHaveLength(0)
+    })
+  })
+})
+
+const mockDif10WithIdnNodes = `<DIF>
+    <Entry_ID>
+        <Short_Name>IDN_NODE_TEST</Short_Name>
+    </Entry_ID>
+    <IDN_Node>
+      <Short_Name>ARCTIC</Short_Name>
+      <Long_Name>Arctic Council</Long_Name>
+    </IDN_Node>
+    <IDN_Node>
+      <Short_Name>USA/NASA</Short_Name>
+      <Long_Name>National Aeronautics and Space Administration</Long_Name>
+    </IDN_Node>
+</DIF>`
+
+describe('when applying idnnode DIF10 corrections', () => {
+  test('should apply a replace correction using a single path segment as Short_Name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithIdnNodes,
+      corrections: [
+        {
+          scheme: 'idnnode',
+          action: 'replace',
+          oldKeywordPath: 'ARCTIC',
+          newKeywordPath: 'NEW-ARCTIC', // The Short_Name
+          newLongName: 'Updated Arctic Council' // The Long_Name
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>NEW-ARCTIC</Short_Name>')
+    expect(result.correctedMetadata).toContain('<Long_Name>Updated Arctic Council</Long_Name>')
+    // Verify second node remains untouched so we know only the matched node changed
+    expect(result.correctedMetadata).toContain('<Short_Name>USA/NASA</Short_Name>')
+  })
+
+  test('should cover field pruning by deleting Long_Name if newLongName is empty', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithIdnNodes,
+      corrections: [
+        {
+          scheme: 'idnnode',
+          action: 'replace',
+          oldKeywordPath: 'USA/NASA',
+          newKeywordPath: 'NASA-UPDATED',
+          newLongName: '' // Triggers the delete branch for Long_Name
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>NASA-UPDATED</Short_Name>')
+    // Long_Name tag should be removed for the second node
+    expect(result.correctedMetadata).not.toContain('National Aeronautics and Space Administration')
+    // First node Long_Name remains
+    expect(result.correctedMetadata).toContain('<Long_Name>Arctic Council</Long_Name>')
+  })
+
+  test('should delete a specific IDN_Node from an array', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithIdnNodes,
+      corrections: [
+        {
+          scheme: 'idnnode',
+          action: 'delete',
+          oldKeywordPath: 'ARCTIC'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('<Short_Name>ARCTIC</Short_Name>')
+    expect(result.correctedMetadata).toContain('<Short_Name>USA/NASA</Short_Name>')
+  })
+
+  test('should delete parent IDN_Node property when the last node is removed', async () => {
+    const singleNodeXml = '<DIF><IDN_Node><Short_Name>ONLY-ONE</Short_Name></IDN_Node></DIF>'
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singleNodeXml,
+      corrections: [
+        {
+          scheme: 'idnnode',
+          action: 'delete',
+          oldKeywordPath: 'ONLY-ONE'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    // The entire IDN_Node element should be gone
+    expect(result.correctedMetadata).not.toContain('<IDN_Node>')
+  })
+
+  test('should delete the IDN_Node key when the last element of an array is removed', async () => {
+    // Starting with an array of two nodes
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithIdnNodes,
+      corrections: [
+        {
+          scheme: 'idnnode',
+          action: 'delete',
+          oldKeywordPath: 'ARCTIC'
+        },
+        {
+          scheme: 'idnnode',
+          action: 'delete',
+          oldKeywordPath: 'USA/NASA'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // This triggers: if (parent.IDN_Node.length === 0) { delete parent.IDN_Node }
+    expect(result.correctedMetadata).not.toContain('<IDN_Node>')
+  })
+
+  describe('when guard clauses prevent a correction', () => {
+    test('should return false when oldKeywordPath is missing', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithIdnNodes,
+        corrections: [{
+          scheme: 'idnnode',
+          action: 'replace',
+          newKeywordPath: 'A > B'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false when IDN_Node element is missing from metadata', async () => {
+      const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: emptyXml,
+        corrections: [{
+          scheme: 'idnnode',
+          action: 'replace',
+          newKeywordPath: 'A > B'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false for unrecognized action (fall-through)', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithIdnNodes,
+        corrections: [{
+          scheme: 'idnnode',
+          action: 'invalid_action'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should handle idnnode delete single object vs array', async () => {
+    // Test the "else" branch of the delete logic (single object)
+      const singleNodeXml = '<DIF><IDN_Node><Short_Name>ONLY</Short_Name></IDN_Node></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleNodeXml,
+        corrections: [{
+          scheme: 'idnnode',
+          action: 'delete',
+          oldKeywordPath: 'ONLY'
+        }]
+      })
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('<IDN_Node>')
+    })
+  })
+})
+
+const mockDif10WithInstruments = `<DIF>
+    <Entry_ID>
+        <Short_Name>Instruments_Test</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Instruments</Entry_Title>
+    <Platform>
+      <Type>Air-based Platforms</Type>
+      <Short_Name>UC-12B</Short_Name>
+      <Long_Name>NASA Langley Beechcraft UC-12B Huron</Long_Name>
+      <Instrument>
+        <Short_Name>IRMSS</Short_Name>
+        <Long_Name>Infrared Multispectral Scanner</Long_Name>
+      </Instrument>
+    </Platform>
+    <Platform>
+      <Type>Land-based Platforms</Type>
+      <Short_Name>MINTS</Short_Name>
+      <Long_Name>Multi-Scale Integrated Intelligent Interactive Sensing Consortium</Long_Name>
+      <Instrument>
+        <Short_Name>LISS-II</Short_Name>
+        <Long_Name>Linear Imaging Self Scanning Sensor II</Long_Name>
+      </Instrument>
+    </Platform>
+</DIF>`
+
+describe('when applying instrument DIF10 corrections', () => {
+  test('should apply long name correction to first Instrument', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'replace',
+          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
+          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
+          newLongName: 'Updated Infrared Multispectral Scanner'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify first long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Updated Infrared Multispectral Scanner</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Infrared Multispectral Scanner</Long_Name>')
+
+    // Other long name should remain unchanged
+    expect(result.correctedMetadata).toContain('<Long_Name>Linear Imaging Self Scanning Sensor II</Long_Name>')
+
+    // Platform stays untouched
+    expect(result.correctedMetadata).toContain('<Short_Name>UC-12B</Short_Name>')
+  })
+
+  test('should update both short name and long name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [
+        {
+          scheme: 'instruments',
+          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > LISS-II',
+          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > LISSUPDATE-II',
+          newLongName: 'Linear Imaging Self Scanning Sensor II Updated'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify short name was updated
+    expect(result.correctedMetadata).toContain('<Short_Name>LISSUPDATE-II</Short_Name>')
+    expect(result.correctedMetadata).not.toContain('<Short_Name>LISS-II</Short_Name>')
+
+    // Verify long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Linear Imaging Self Scanning Sensor II Updated</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Linear Imaging Self Scanning Sensor II</Long_Name>')
+  })
+
+  test('should delete Instrument', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'delete',
+          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Instrument should be removed
+    expect(result.correctedMetadata).not.toContain('<Short_Name>IRMSS</Short_Name>')
+
+    // Other Instrument should be unchanged
+    expect(result.correctedMetadata).toContain('<Short_Name>LISS-II</Short_Name>')
+  })
+
+  test('should delete parent Instrument property when the last instrument in an array is removed', async () => {
+    const multiInstrumentXml = `<DIF>
+      <Platform>
+        <Short_Name>P1</Short_Name>
+        <Instrument><Short_Name>I1</Short_Name></Instrument>
+        <Instrument><Short_Name>I2</Short_Name></Instrument>
+      </Platform>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: multiInstrumentXml,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'delete',
+          oldKeywordPath: 'Instrument >  >  >  > I1'
+        },
+        {
+          scheme: 'instruments',
+          action: 'delete',
+          oldKeywordPath: 'Instrument >  >  >  > I2'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // The Instrument tag should be entirely removed from the XML
+    expect(result.correctedMetadata).not.toContain('<Instrument>')
+  })
+
+  test('should cover the else branch by deleting a single instrument object', async () => {
+    const singleInstrumentXml = `<DIF>
+      <Platform>
+        <Short_Name>P1</Short_Name>
+        <Instrument><Short_Name>I1</Short_Name></Instrument>
+      </Platform>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singleInstrumentXml,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'delete',
+          oldKeywordPath: 'Instrument >  >  >  > I1'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('<Instrument>')
+  })
+
+  test('should cover the field pruning else branch by providing an empty long name', async () => {
+    const instrumentXml = `<DIF>
+      <Platform>
+        <Short_Name>P1</Short_Name>
+        <Instrument>
+          <Short_Name>OLD-SHORT</Short_Name>
+          <Long_Name>Old Long Name to delete</Long_Name>
+        </Instrument>
+      </Platform>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: instrumentXml,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'replace',
+          oldKeywordPath: 'Instrument >  >  >  > OLD-SHORT',
+          newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT',
+          newLongName: '' // Triggers delete target['Long_Name']
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>NEW-SHORT</Short_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>')
+  })
+
+  test('should handle missing Instrument element', async () => {
+    const xmlWithoutPlatform = `<DIF>
+        <Entry_ID>
+            <Short_Name>No_instrument</Short_Name>
+        </Entry_ID>
+        <Platform>
+          <Type>Air-based Platforms</Type>
+          <Short_Name>UC-12B</Short_Name>
+          <Long_Name>NASA Langley Beechcraft UC-12B Huron</Long_Name>
+        </Platform>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutPlatform,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'replace',
+          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
+          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS1'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should match by old keyword path even when a stale ummPath is present', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [
+        {
+          scheme: 'instruments',
+          action: 'replace',
+          ummPath: ['Platform', 10, 'Instrument', 0],
+          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
+          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS1',
+          newLongName: 'Infrared Multispectral Scanner Updated'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>IRMSS1</Short_Name>')
+  })
+})
+
+describe('when instrument guard clauses prevent a correction', () => {
+  test('should return false when oldKeywordPath is missing', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [{
+        scheme: 'instruments',
+        action: 'replace',
+        newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT'
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false when Platform or Instrument element is missing from metadata', async () => {
+    const xmlNoInstruments = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: xmlNoInstruments,
+      corrections: [{
+        scheme: 'instruments',
+        action: 'replace',
+        newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT'
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false when the current instrument path cannot be matched', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [{
+        scheme: 'instruments',
+        action: 'replace',
+        oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > NOT-REAL',
+        newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT'
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false for unsupported action (final fall-through)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithInstruments,
+      corrections: [{
+        scheme: 'instruments',
+        action: 'invalid_action_type'
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+})
+
+const mockDif10WithCategories = `<DIF>
+    <ISO_Topic_Category>BIOTA</ISO_Topic_Category>
+    <ISO_Topic_Category>CLIMATOLOGY/METEOROLOGY/ATMOSPHERE</ISO_Topic_Category>
+</DIF>`
+
+describe('when applying ISO topic category DIF10 corrections', () => {
+  describe('when replacing values', () => {
+    test('should replace a specific category in an array', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithCategories,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'replace',
+          oldKeywordPath: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE',
+          newKeywordPath: 'FARMING'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<ISO_Topic_Category>FARMING</ISO_Topic_Category>')
+      expect(result.correctedMetadata).toContain('<ISO_Topic_Category>BIOTA</ISO_Topic_Category>')
+      expect(result.correctedMetadata).not.toContain('CLIMATOLOGY/METEOROLOGY/ATMOSPHERE')
+    })
+
+    test('should replace a single category value when it is not in an array', async () => {
+      const singleXml = '<DIF><ISO_Topic_Category>OLD_CAT</ISO_Topic_Category></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'replace',
+          oldKeywordPath: 'OLD_CAT',
+          newKeywordPath: 'NEW_CAT'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<ISO_Topic_Category>NEW_CAT</ISO_Topic_Category>')
+    })
+  })
+
+  describe('when deleting values', () => {
+    test('should delete a specific category from an array', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithCategories,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'delete',
+          oldKeywordPath: 'BIOTA'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('<ISO_Topic_Category>BIOTA</ISO_Topic_Category>')
+      expect(result.correctedMetadata).toContain('<ISO_Topic_Category>CLIMATOLOGY/METEOROLOGY/ATMOSPHERE</ISO_Topic_Category>')
+    })
+
+    test('should delete the property entirely when the last item in an array is removed', async () => {
+      const singleXml = '<DIF><ISO_Topic_Category>LAST_ONE</ISO_Topic_Category></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'delete',
+          oldKeywordPath: 'LAST_ONE'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('<ISO_Topic_Category>')
+    })
+
+    test('should handle deletion of a single non-array property (else if branch)', async () => {
+      const singleXml = '<DIF><ISO_Topic_Category>SINGLE_STRING</ISO_Topic_Category></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'delete',
+          oldKeywordPath: 'SINGLE_STRING'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('<ISO_Topic_Category>')
+    })
+
+    test('should delete the ISO_Topic_Category key when an array becomes empty', async () => {
+      // Starting with an array of two categories
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithCategories,
+        corrections: [
+          {
+            scheme: 'isotopiccategory',
+            action: 'delete',
+            oldKeywordPath: 'BIOTA'
+          },
+          {
+            scheme: 'isotopiccategory',
+            action: 'delete',
+            oldKeywordPath: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+          }
+        ]
+      })
+
+      expect(result.correctionCount).toBe(2)
+      // This specifically triggers: if (parent.ISO_Topic_Category.length === 0) { delete parent.ISO_Topic_Category }
+      expect(result.correctedMetadata).not.toContain('<ISO_Topic_Category>')
+    })
+  })
+
+  describe('when guard clauses prevent a correction', () => {
+    test('should return false if oldKeywordPath is missing', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithCategories,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'replace'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if ISO_Topic_Category is missing from metadata', async () => {
+      const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: emptyXml,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'replace'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false for unrecognized action', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithCategories,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'invalid_action'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false when the current category value cannot be matched', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithCategories,
+        corrections: [{
+          scheme: 'isotopiccategory',
+          action: 'replace',
+          oldKeywordPath: 'NOT_REAL',
+          newKeywordPath: 'FAIL'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+  })
+})
+
+const mockDif10WithLocations = `<DIF>
+    <Entry_ID>
+        <Short_Name>LOCATION_TEST</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Locations</Entry_Title>
+    <Location>
+        <Location_Category>CONTINENT</Location_Category>
+        <Location_Type>NORTH AMERICA</Location_Type>
+    </Location>
+    <Location>
+        <Location_Category>OCEAN</Location_Category>
+        <Location_Type>PACIFIC OCEAN</Location_Type>
+    </Location>
+    <Location>
+        <Location_Category>CONTINENT</Location_Category>
+        <Location_Type>NORTH AMERICA</Location_Type>
+        <Location_Subregion1>UNITED STATES OF AMERICA</Location_Subregion1>
+    </Location>
+</DIF>`
+
+describe('when applying location DIF10 corrections', () => {
+  test('should apply location correction to first location', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'CONTINENT > NORTH AMERICA >  >  >  > ',
+          newKeywordPath: 'CONTINENT > SOUTH AMERICA >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify the first location was updated
+    expect(result.correctedMetadata).toContain('<Location_Type>SOUTH AMERICA</Location_Type>')
+
+    // Second location should remain unchanged (PACIFIC OCEAN)
+    expect(result.correctedMetadata).toContain('<Location_Type>PACIFIC OCEAN</Location_Type>')
+
+    // Third location should still have NORTH AMERICA
+    const northAmericaMatches = result.correctedMetadata.match(/<Location_Type>NORTH AMERICA<\/Location_Type>/g)
+    expect(northAmericaMatches).toHaveLength(1) // Only in third location now
+  })
+
+  test('should apply location correction with subregion', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          ummPath: ['Locations', 2],
+          oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA >  >  > ',
+          newKeywordPath: 'CONTINENT > NORTH AMERICA > CANADA >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify subregion was updated
+    expect(result.correctedMetadata).toContain('<Location_Subregion1>CANADA</Location_Subregion1>')
+    expect(result.correctedMetadata).not.toContain('UNITED STATES OF AMERICA')
+  })
+
+  test('should add multiple subregion levels', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          ummPath: ['Locations', 2],
+          oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA >  >  > ',
+          newKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA > CALIFORNIA > LOS ANGELES > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    expect(result.correctedMetadata).toContain('<Location_Subregion1>UNITED STATES OF AMERICA</Location_Subregion1>')
+    expect(result.correctedMetadata).toContain('<Location_Subregion2>CALIFORNIA</Location_Subregion2>')
+    expect(result.correctedMetadata).toContain('<Location_Subregion3>LOS ANGELES</Location_Subregion3>')
+  })
+
+  test('should remove subregion levels when moving to higher level', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          ummPath: ['Locations', 2],
+          oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA  >  >  > ',
+          newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    expect(result.correctedMetadata).toContain('<Location_Type>EUROPE</Location_Type>')
+    expect(result.correctedMetadata).not.toContain('UNITED STATES OF AMERICA')
+  })
+
+  test('should delete location at index', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'delete',
+          ummPath: ['Locations', 1],
+          oldKeywordPath: 'OCEAN > PACIFIC OCEAN >  >  >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // PACIFIC OCEAN should be removed
+    expect(result.correctedMetadata).not.toContain('PACIFIC OCEAN')
+
+    // Other locations should remain
+    expect(result.correctedMetadata).toContain('NORTH AMERICA')
+    expect(result.correctedMetadata).toContain('UNITED STATES OF AMERICA')
+  })
+
+  test('should trigger array pruning when the last element of an array is spliced', async () => {
+    const multiLocationXml = `<DIF>
+      <Location><Location_Category>A</Location_Category></Location>
+      <Location><Location_Category>B</Location_Category></Location>
+  </DIF>`
+
+    // To reach the 'length === 0' line, we must delete both or
+    // ensure the logic splices the last remaining item in an array.
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: multiLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'delete',
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'A >  >  >  >  > '
+        },
+        {
+          scheme: 'locations',
+          action: 'delete',
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'B >  >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    expect(result.correctedMetadata).not.toContain('<Location>')
+  })
+
+  test('should handle single location (not array)', async () => {
+    const singleLocationXml = `<DIF>
+    <Entry_ID>
+        <Short_Name>SINGLE_LOCATION</Short_Name>
+    </Entry_ID>
+    <Location>
+        <Location_Category>OCEAN</Location_Category>
+        <Location_Type>ATLANTIC OCEAN</Location_Type>
+    </Location>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'OCEAN > ATLANTIC OCEAN >  >  >  > ',
+          newKeywordPath: 'OCEAN > INDIAN OCEAN >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Location_Type>INDIAN OCEAN</Location_Type>')
+    expect(result.correctedMetadata).not.toContain('ATLANTIC OCEAN')
+  })
+
+  test('should handle missing Location element', async () => {
+    const xmlWithoutLocation = `<DIF>
+    <Entry_ID>
+        <Short_Name>NO_LOCATION</Short_Name>
+    </Entry_ID>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutLocation,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          ummPath: ['Locations', 0],
+          oldKeywordPath: 'OCEAN > ATLANTIC OCEAN >  >  >  > ',
+          newKeywordPath: 'OCEAN > PACIFIC OCEAN >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+})
+
+describe('when location guard clauses prevent a correction', () => {
+  test('should return false when ummPath does not contain a numeric index', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        ummPath: ['Locations', 'first'], // String instead of Number
+        newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false when index is out of bounds', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        ummPath: ['Locations', 99], // Index does not exist
+        newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should return false when action is unsupported', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'invalid_action', // Not replace or delete
+        ummPath: ['Locations', 0],
+        newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should handle locations where leaves are parsed as objects with a #text property', async () => {
+    const complexLocationXml = `<DIF>
+      <Location>
+          <Location_Category xml:lang="en">GEOGRAPHIC REGION</Location_Category>
+          <Location_Type>GLOBAL</Location_Type>
+      </Location>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: complexLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'replace',
+          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > ',
+          newKeywordPath: 'GEOGRAPHIC REGION > CONTINENT >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Location_Type>CONTINENT</Location_Type>')
+  })
+
+  test('should return false for unsupported action type using value-based lookup (final fall-through)', async () => {
+    const mockLocationXml = `<DIF>
+      <Location>
+          <Location_Category>GEOGRAPHIC REGION</Location_Category>
+          <Location_Type>GLOBAL</Location_Type>
+      </Location>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'unsupported_action_type',
+          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should delete parent property when a single location (non-array) element is removed', async () => {
+    // A single Location block (not inside an array layout)
+    const singleLocationXml = `<DIF>
+      <Entry_ID>
+          <Short_Name>SINGLE_LOC_DELETE</Short_Name>
+      </Entry_ID>
+      <Location>
+          <Location_Category>GEOGRAPHIC REGION</Location_Category>
+          <Location_Type>GLOBAL</Location_Type>
+      </Location>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleLocationXml,
+      corrections: [
+        {
+          scheme: 'locations',
+          action: 'delete',
+          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > '
+        }
+      ]
+    })
+
+    // Verify the correction was registered successfully
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify that the entire Location property was purged from the XML structure
+    expect(result.correctedMetadata).not.toContain('<Location>')
+    expect(result.correctedMetadata).not.toContain('</Location>')
+    expect(result.correctedMetadata).not.toContain('GEOGRAPHIC REGION')
+  })
+})
+
+const mockDif10WithPlatforms = `<DIF>
+    <Entry_ID>
+        <Short_Name>Platforms_Test</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Platforms</Entry_Title>
+    <Platform>
+      <Type>Earth Observation Satellites</Type>
+      <Short_Name>SPOT-4</Short_Name>
+      <Long_Name>Systeme Observation de la Terre-4</Long_Name>
+      <Instrument>
+        <Short_Name>VEGETATION-1</Short_Name>
+        <Long_Name>VEGETATION INSTRUMENT 1 (SPOT 4)</Long_Name>
+      </Instrument>
+    </Platform>
+    <Platform>
+      <Type>Earth Observation planes</Type>
+      <Short_Name>SPOT-5</Short_Name>
+      <Long_Name>Systeme Observation de la Terre-5</Long_Name>
+      <Instrument>
+        <Short_Name>VEGETATION-2</Short_Name>
+        <Long_Name>VEGETATION INSTRUMENT 2 (SPOT 5)</Long_Name>
+      </Instrument>
+    </Platform>
+</DIF>`
+
+describe('when applying platform DIF10 corrections', () => {
+  test('should apply long name correction to first Platform', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithPlatforms,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
+          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
+          newLongName: 'Systeme Observation de la Terre-4 Updated'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify first long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Systeme Observation de la Terre-4 Updated</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Systeme Observation de la Terre-4</Long_Name>')
+
+    // Other Type should remain unchanged
+    expect(result.correctedMetadata).toContain('<Long_Name>Systeme Observation de la Terre-5</Long_Name>')
+
+    // Instrument stays untouched
+    expect(result.correctedMetadata).toContain('<Short_Name>VEGETATION-1</Short_Name>')
+
+    // Platform type untouched
+    expect(result.correctedMetadata).toContain('<Type>Earth Observation Satellites</Type>')
+  })
+
+  test('should update both short name and long name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithPlatforms,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-5',
+          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-7-New',
+          newLongName: 'Systeme Observation de la Terre-5 Updated'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify short name was updated
+    expect(result.correctedMetadata).toContain('<Short_Name>SPOT-7-New</Short_Name>')
+    expect(result.correctedMetadata).not.toContain('<Short_Name>SPOT-7</Short_Name>')
+
+    // Verify long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Systeme Observation de la Terre-5 Updated</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Systeme Observation de la Terre-5</Long_Name>')
+
+    expect(result.correctedMetadata).toContain('<Type>Earth Observation Satellites</Type>')
+    expect(result.correctedMetadata).not.toContain('<Type>Earth Observation planes</Type>')
+  })
+
+  test('should apply platform correction when there is only a single platform (object branch)', async () => {
+    const singlePlatformXml = `<DIF>
+      <Entry_ID>
+          <Short_Name>SINGLE_PLAT_TEST</Short_Name>
+          <Version>001</Version>
+      </Entry_ID>
+      <Platform>
+          <Type>In Situ Land-based Platforms</Type>
+          <Short_Name>GROUND STATIONS</Short_Name>
+          <Long_Name>Long Name to be replaced</Long_Name>
+      </Platform>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singlePlatformXml,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'In Situ Land-based Platforms >  >  > GROUND STATIONS',
+          newKeywordPath: 'In Situ Land-based Platforms > Aircraft >  > C-130',
+          newLongName: 'Lockheed C-130 Hercules'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify the object branch was taken and updated the fields correctly
+    expect(result.correctedMetadata).toContain('<Type>Aircraft</Type>')
+    expect(result.correctedMetadata).toContain('<Short_Name>C-130</Short_Name>')
+    expect(result.correctedMetadata).toContain('<Long_Name>Lockheed C-130 Hercules</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('GROUND STATIONS')
+  })
+
+  test('should delete parent Platform property when the last platform in an array is removed', async () => {
+    const multiPlatformXml = `<DIF>
+      <Platform>
+          <Type>Aircraft</Type>
+          <Short_Name>A1</Short_Name>
+      </Platform>
+      <Platform>
+          <Type>Aircraft</Type>
+          <Short_Name>A2</Short_Name>
+      </Platform>
+  </DIF>`
+
+    // Applying two deletions to empty the array and trigger the length === 0 check
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: multiPlatformXml,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'delete',
+          oldKeywordPath: 'Aircraft >  >  > A1'
+        },
+        {
+          scheme: 'platforms',
+          action: 'delete',
+          oldKeywordPath: 'Aircraft >  >  > A2'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // The Platform key should be entirely removed from the resulting XML
+    expect(result.correctedMetadata).not.toContain('<Platform>')
+    expect(result.correctedMetadata).not.toContain('</Platform>')
+  })
+
+  test('should delete Platform', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithPlatforms,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'delete',
+          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Platform should be removed
+    expect(result.correctedMetadata).not.toContain('<Type>Earth Observation Satellites</Type>')
+
+    // Other Platform should be unchanged
+    expect(result.correctedMetadata).toContain('<Type>Earth Observation planes</Type>')
+  })
+
+  test('should return false when an unrecognized action is passed to platforms', async () => {
+    const platformOnlyXml = '<DIF><Platform><Short_Name>TEST</Short_Name></Platform></DIF>'
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: platformOnlyXml,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'not_an_action', // Triggers the final return false
+          newKeywordPath: 'A > B > C > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should cover the else branch by deleting a single platform object', async () => {
+    const singlePlatformXml = `<DIF>
+      <Entry_ID>
+          <Short_Name>SINGLE_DELETE_TEST</Short_Name>
+      </Entry_ID>
+      <Platform>
+          <Type>Aircraft</Type>
+          <Short_Name>A1</Short_Name>
+      </Platform>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singlePlatformXml,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'delete',
+          oldKeywordPath: 'Aircraft >  >  > A1'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    // Verify the Platform tag is completely removed from the XML
+    expect(result.correctedMetadata).not.toContain('<Platform>')
+    expect(result.correctedMetadata).not.toContain('</Platform>')
+  })
+
+  test('should cover the field pruning else branch by providing a shorter keyword path', async () => {
+    const platformXml = `<DIF>
+      <Platform>
+          <Type>Aircraft</Type>
+          <Short_Name>OLD-SHORT</Short_Name>
+          <Long_Name>Old Long Name that should be deleted</Long_Name>
+      </Platform>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: platformXml,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Aircraft >  >  > OLD-SHORT',
+          // Providing only one segment forces the Long_Name field to hit the 'else { delete }' branch
+          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > NEW-SHORT',
+          newLongName: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify Short_Name was updated
+    expect(result.correctedMetadata).toContain('<Short_Name>NEW-SHORT</Short_Name>')
+
+    // Verify Long_Name was deleted (this is the branch we are covering)
+    expect(result.correctedMetadata).not.toContain('<Long_Name>')
+    expect(result.correctedMetadata).not.toContain('Old Long Name that should be deleted')
+  })
+
+  test('should handle missing Platform element', async () => {
+    const xmlWithoutPlatform = `<DIF>
+        <Entry_ID>
+            <Short_Name>NO_URL</Short_Name>
+        </Entry_ID>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutPlatform,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Earth Observation planes > SPOT-5 >  > ',
+          newKeywordPath: 'Earth Observation rockets > SPOT-7 >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should match by old keyword path even when a stale ummPath is present', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithPlatforms,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          ummPath: ['Platform', 10],
+          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-5',
+          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-7'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>SPOT-7</Short_Name>')
+  })
+})
+
+describe('when applying Product_Level_Id DIF10 corrections', () => {
+  const mockDif10WithProductLevel = `<DIF>
+    <Product_Level_Id>Level 1B</Product_Level_Id>
+</DIF>`
+
+  describe('when replacing Product_Level_Id', () => {
+    test('should successfully update the Product_Level_Id with a new string', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProductLevel,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'replace',
+          newKeywordPath: 'Level 2'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Product_Level_Id>Level 2</Product_Level_Id>')
+      expect(result.correctedMetadata).not.toContain('Level 1B')
+    })
+
+    test('should default to replace action if no action is provided', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProductLevel,
+        corrections: [{
+          scheme: 'productlevelid',
+          newKeywordPath: 'Level 3'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Product_Level_Id>Level 3</Product_Level_Id>')
+    })
+
+    test('should return false and not modify the field if newKeywordPath is empty or invalid', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProductLevel,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'replace',
+          newKeywordPath: '   ' // Empty spaces
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+      expect(result.correctedMetadata).toContain('<Product_Level_Id>Level 1B</Product_Level_Id>')
+    })
+  })
+
+  describe('when deleting Product_Level_Id', () => {
+    test('should successfully delete the Product_Level_Id key from the object', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProductLevel,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'delete'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('<Product_Level_Id>')
+    })
+
+    test('should return false if trying to delete a Product_Level_Id that does not exist', async () => {
+      const missingFieldXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: missingFieldXml,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'delete'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+    })
+  })
+
+  describe('when handling Product_Level_Id edge cases', () => {
+    test('should return empty count if metadataPayload is null or undefined', async () => {
+      const resultNull = await applyDif10MetadataCorrections({
+        metadataPayload: null,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'replace',
+          newKeywordPath: 'Level 4'
+        }]
+      })
+
+      expect(resultNull.correctionCount).toBe(0)
+      expect(resultNull.stubbed).toBe(true)
+    })
+
+    test('should return false if parsedMetadata does not contain a DIF object', async () => {
+      const malformedXml = '<NOT_DIF><Product_Level_Id>Level 1B</Product_Level_Id></NOT_DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: malformedXml,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'replace',
+          newKeywordPath: 'Level 4'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if an unknown action type is provided', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProductLevel,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'invalid_action_type',
+          newKeywordPath: 'Level 2'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+      expect(result.correctedMetadata).toContain('<Product_Level_Id>Level 1B</Product_Level_Id>')
+    })
+  })
+})
+
+const mockDif10WithProjects = `<DIF>
+    <Entry_ID>
+        <Short_Name>Projects_Test</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Projects</Entry_Title>
+    <Project>
+        <Short_Name>ESIP</Short_Name>
+        <Long_Name>Earth Science Information Partners Program</Long_Name>
+    </Project>
+    <Project>
+        <Short_Name>ALIENS</Short_Name>
+        <Long_Name>Aliens in Antarctica</Long_Name>
+    </Project>
+</DIF>`
+
+describe('when applying project DIF10 corrections', () => {
+  test('should apply long name correction to first Project', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProjects,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'replace',
+          oldKeywordPath: 'D - F > ESIP',
+          newKeywordPath: 'D - F > ESIP',
+          newLongName: 'Updated Earth Science Information Partners Program'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify first long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Updated Earth Science Information Partners Program</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Earth Science Information Partners Program</Long_Name>')
+
+    // Second long name stays untouched
+    expect(result.correctedMetadata).toContain('<Long_Name>Aliens in Antarctica</Long_Name>')
+  })
+
+  test('should update both short name and long name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProjects,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'replace',
+          oldKeywordPath: 'A - C > ALIENS',
+          newKeywordPath: 'A - C > ALIENS UP',
+          newLongName: 'Aliens research in Antarctica'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify short name was updated
+    expect(result.correctedMetadata).toContain('<Short_Name>ALIENS UP</Short_Name>')
+    expect(result.correctedMetadata).not.toContain('<Short_Name>ALIENS</Short_Name>')
+
+    // Verify long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Aliens research in Antarctica</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Aliens in Antarctica</Long_Name>')
+  })
+
+  test('should delete Project', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProjects,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          oldKeywordPath: 'D - F > ESIP',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Project should be removed
+    expect(result.correctedMetadata).not.toContain('<Short_Name>ESIP</Short_Name>')
+
+    // Other Project should be unchanged
+    expect(result.correctedMetadata).toContain('<Short_Name>ALIENS</Short_Name>')
+  })
+
+  test('should delete the Project key when the last element of an array is removed', async () => {
+    // Starting with an array of two projects (from mockDif10WithProjects)
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithProjects,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          oldKeywordPath: 'D - F > ESIP'
+        },
+        {
+          scheme: 'projects',
+          action: 'delete',
+          oldKeywordPath: 'A - C > ALIENS'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // This specifically triggers:
+    // if (parent.Project.length === 0) { delete parent.Project }
+    expect(result.correctedMetadata).not.toContain('<Project>')
+  })
+
+  test('should delete the Project key when it is a single object (non-array)', async () => {
+    // XML with only one Project tag, which is parsed as a single object
+    const singleProjectXml = `<DIF>
+        <Project>
+            <Short_Name>SINGLE-PROJ</Short_Name>
+            <Long_Name>Single Project Test</Long_Name>
+        </Project>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singleProjectXml,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          oldKeywordPath: 'S - U > SINGLE-PROJ'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    // This specifically triggers:
+    // } else { delete parent.Project }
+    expect(result.correctedMetadata).not.toContain('<Project>')
+    expect(result.correctedMetadata).not.toContain('SINGLE-PROJ')
+  })
+
+  test('should delete the Project key when it is a single object (non-array branch)', async () => {
+    // XML with only one Project tag, which is parsed as a single object
+    const singleProjectXml = `<DIF>
+        <Project>
+            <Short_Name>SINGLE-PROJ</Short_Name>
+            <Long_Name>Single Project Test</Long_Name>
+        </Project>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singleProjectXml,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          oldKeywordPath: 'S - U > SINGLE-PROJ'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    // This specifically triggers:
+    // } else { delete parent.Project }
+    expect(result.correctedMetadata).not.toContain('<Project>')
+    expect(result.correctedMetadata).not.toContain('SINGLE-PROJ')
+  })
+
+  test('should handle missing Project element', async () => {
+    const xmlWithoutProject = `<DIF>
+        <Entry_ID>
+            <Short_Name>No_project</Short_Name>
+        </Entry_ID>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutProject,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'replace',
+          oldKeywordPath: 'D - F > ESIP',
+          newKeywordPath: 'D - F > ESIP-7'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should delete a specific field (Long_Name) within a Project when the new value is undefined', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithProjects,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'replace',
+          oldKeywordPath: 'D - F > ESIP',
+          // Providing a single segment and NO newLongName
+          // results in normalizedSegments[1] (Long_Name) being undefined
+          newKeywordPath: 'M - O > ONLY_SHORT'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // 1. Verify Short_Name was updated
+    expect(result.correctedMetadata).toContain('<Short_Name>ONLY_SHORT</Short_Name>')
+
+    // 2. Verify the OLD Long_Name for Project 0 is gone
+    expect(result.correctedMetadata).not.toContain('Earth Science Information Partners Program')
+
+    // 3. Verify that Project 1 still HAS its Long_Name (proving we didn't delete everything)
+    expect(result.correctedMetadata).toContain('<Long_Name>Aliens in Antarctica</Long_Name>')
+  })
+
+  test('should match by old keyword path even when a stale ummPath is present', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProjects,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'replace',
+          ummPath: ['Project', 10],
+          oldKeywordPath: 'D - F > ESIP',
+          newKeywordPath: 'D - F > ESIP-7',
+          newLongName: 'Updated Earth Science Information Partners Program'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>ESIP-7</Short_Name>')
+  })
+
+  describe('when guard clauses prevent a correction', () => {
+    test('should return false if oldKeywordPath is missing', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProjects,
+        corrections: [{
+          scheme: 'projects'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if Project tag is missing from metadata', async () => {
+      const xmlWithoutProject = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: xmlWithoutProject,
+        corrections: [{
+          scheme: 'projects'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if the current project path cannot be matched', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProjects,
+        corrections: [{
+          scheme: 'projects',
+          oldKeywordPath: 'S - U > NOT-REAL'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false for unsupported action', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithProjects,
+        corrections: [{
+          scheme: 'projects',
+          action: 'invalid_action'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+    })
+  })
+})
+
+const mockDif10WithProviders = `<DIF>
+    <Entry_ID>
+        <Short_Name>Providers_Test</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Providers</Entry_Title>
+    <Organization>
+        <Organization_Type>ARCHIVER</Organization_Type>
+        <Organization_Name>
+            <Short_Name>BROWN/GEO</Short_Name>
+            <Long_Name>Department of Geological Sciences, Brown University</Long_Name>
+        </Organization_Name>
+        <Hours_Of_Service>0800-1600</Hours_Of_Service>
+        <Instructions>In addition to the address below there are other ESIC offices throught the country. Afull list of these offices is at:&lt;URL: http://www-nmd.usgs.gov/esic/esic_index.html&gt;</Instructions>
+        <Personnel>
+            <Role>DATA CENTER CONTACT</Role>
+            <Contact_Person>
+                <First_Name>Customer</First_Name>
+                <Middle_Name>Services</Middle_Name>
+                <Last_Name>Representative</Last_Name>
+            </Contact_Person>
+        </Personnel>
+    </Organization>
+    <Organization>
+        <Organization_Type>DISTRIBUTOR</Organization_Type>
+        <Organization_Name>
+            <Short_Name>ESRI-CANADA</Short_Name>
+            <Long_Name>Environmental Systems Research Institute, Inc. - Canada</Long_Name>
+        </Organization_Name>
+        <Hours_Of_Service>0800-1630</Hours_Of_Service>
+        <Instructions>In addition to the address below there are other ESIC offices throught the country. Afull list of these offices is at:&lt;URL: http://www-nmd.usgs.gov/esic/esic_index.html&gt;</Instructions>
+        <Personnel>
+            <Role>DATA CENTER CONTACT</Role>
+            <Contact_Person>
+                <Last_Name>Not provided</Last_Name>
+            </Contact_Person>
+        </Personnel>
+    </Organization>
+</DIF>`
+
+describe('when applying provider DIF10 corrections', () => {
+  test('should apply long name correction to first provider', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProviders,
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'replace',
+          oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
+          newKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
+          newLongName: 'Department of Geological Sciences, Brown University East'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify first long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Department of Geological Sciences, Brown University East</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Department of Geological Sciences, Brown University</Long_Name>')
+
+    // Other long name should remain unchanged
+    expect(result.correctedMetadata).toContain('<Long_Name>Environmental Systems Research Institute, Inc. - Canada</Long_Name>')
+
+    // Hours of service stays untouched
+    expect(result.correctedMetadata).toContain('<Hours_Of_Service>0800-1600</Hours_Of_Service>')
+  })
+
+  test('should update both short name and long name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProviders,
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'replace',
+          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
+          newKeywordPath: 'COMMERCIAL >  >  >  > ESRI2-CANADA',
+          newLongName: 'Environmental Systems Research Institute 2, Inc. - Canada'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify short name was updated
+    expect(result.correctedMetadata).toContain('<Short_Name>ESRI2-CANADA</Short_Name>')
+    expect(result.correctedMetadata).not.toContain('<Short_Name>ESRI-CANADA</Short_Name>')
+
+    // Verify long name was updated
+    expect(result.correctedMetadata).toContain('<Long_Name>Environmental Systems Research Institute 2, Inc. - Canada</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Environmental Systems Research Institute, Inc. - Canada</Long_Name>')
+  })
+
+  test('should delete Provider', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProviders,
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'delete',
+          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Provider should be removed
+    expect(result.correctedMetadata).not.toContain('ESRI-CANADA')
+
+    // Other Provider should be unchanged
+    expect(result.correctedMetadata).toContain('<Short_Name>BROWN/GEO</Short_Name>')
+  })
+
+  test('should handle missing Provider element', async () => {
+    const xmlWithoutProvider = `<DIF>
+        <Entry_ID>
+            <Short_Name>No_instrument</Short_Name>
+        </Entry_ID>
+        <Platform>
+          <Type>Air-based Platforms</Type>
+          <Short_Name>UC-12B</Short_Name>
+          <Long_Name>NASA Langley Beechcraft UC-12B Huron</Long_Name>
+        </Platform>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutProvider,
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'replace',
+          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
+          newKeywordPath: 'COMMERCIAL >  >  >  > ESRI2-CANADA'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should match by old keyword path even when a stale ummPath is present', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithProviders,
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'replace',
+          ummPath: ['Organization_Name', 10],
+          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
+          newKeywordPath: 'COMMERCIAL >  >  >  > ESRI2-CANADA',
+          newLongName: 'Environmental Systems Research Institute 2, Inc. - Canada'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Short_Name>ESRI2-CANADA</Short_Name>')
+  })
+
+  test('should return false when the current provider path cannot be matched', async () => {
+    // Organization block without the Organization_Name child
+    const missingNameXml = `<DIF>
+        <Organization>
+            <Organization_Type>ARCHIVER</Organization_Type>
+        </Organization>
+      </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: missingNameXml,
+      corrections: [{
+        scheme: 'providers',
+        action: 'replace',
+        oldKeywordPath: 'ARCHIVER >  >  >  > MISSING',
+        newKeywordPath: ' >  >  >  >  > SHORT',
+        newLongName: 'LONG'
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).not.toContain('<Short_Name>SHORT</Short_Name>')
+  })
+
+  test('should remove the Organization key entirely when the last provider in an array is deleted', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithProviders,
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'delete',
+          oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO'
+        },
+        {
+          scheme: 'providers',
+          action: 'delete',
+          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // This triggers: if (parent.Organization.length === 0) { delete parent.Organization }
+    expect(result.correctedMetadata).not.toContain('<Organization>')
+  })
+
+  test('should delete the Organization key when it contains a single object instead of an array', async () => {
+    const singleOrgXml = '<DIF><Organization><Organization_Name><Short_Name>O</Short_Name></Organization_Name></Organization></DIF>'
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singleOrgXml,
+      corrections: [{
+        scheme: 'providers',
+        action: 'delete',
+        oldKeywordPath: 'ORG >  >  >  > O'
+      }]
+    })
+
+    // This triggers the 'else' branch: delete parent.Organization
+    expect(result.correctedMetadata).not.toContain('<Organization>')
+  })
+
+  test('should remove a specific provider field when the replacement value is empty or undefined', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithProviders,
+      corrections: [{
+        scheme: 'providers',
+        action: 'replace',
+        oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
+        // Providing only one segment and no newLongName should prune the existing Long_Name field.
+        newKeywordPath: ' >  >  >  >  > ONLY_SHORT'
+      }]
+    })
+
+    // This triggers: } else { delete target[field] }
+    expect(result.correctedMetadata).toContain('<Short_Name>ONLY_SHORT</Short_Name>')
+    // Check that the specific Long_Name of the first provider was deleted
+    expect(result.correctedMetadata).not.toContain('Department of Geological Sciences, Brown University')
+  })
+
+  test('should return false and make no changes when an unsupported action is provided', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithProviders,
+      corrections: [{
+        scheme: 'providers',
+        action: 'invalid_action'
+      }]
+    })
+
+    // This triggers the final: return false
+    expect(result.correctionCount).toBe(0)
+  })
+})
+
+const mockDif10WithRelatedURLs = `<DIF>
+    <Entry_ID>
+        <Short_Name>RELATED_URL_TEST</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Test Collection with Related URLs</Entry_Title>
+    <Related_URL>
+        <URL_Content_Type>
+            <Type>GET DATA</Type>
+        </URL_Content_Type>
+        <URL>https://example.com/data</URL>
+    </Related_URL>
+    <Related_URL>
+        <URL_Content_Type>
+            <Type>GET CAPABILITIES</Type>
+            <Subtype>OpenSearch</Subtype>
+        </URL_Content_Type>
+        <URL>https://example.com/opensearch</URL>
+    </Related_URL>
+    <Related_URL>
+        <URL_Content_Type>
+            <Type>USE SERVICE API</Type>
+            <Subtype>REST</Subtype>
+        </URL_Content_Type>
+        <URL>https://example.com/api</URL>
+    </Related_URL>
+</DIF>`
+
+describe('when applying related URL content type DIF10 corrections', () => {
+  test('should apply URL content type correction to first Related_URL', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > GET DATA > ', // Last 2 segments: 'GET DATA' and ''
+          newKeywordPath: 'DistributionURL > GET SERVICE > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify first URL's type was updated
+    expect(result.correctedMetadata).toContain('<Type>GET SERVICE</Type>')
+    expect(result.correctedMetadata).not.toContain('<Type>GET DATA</Type>')
+
+    // Other URLs should remain unchanged
+    expect(result.correctedMetadata).toContain('<Type>GET CAPABILITIES</Type>')
+    expect(result.correctedMetadata).toContain('<Type>USE SERVICE API</Type>')
+  })
+
+  test('should update both type and subtype', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch', // Last 2 segments: 'GET CAPABILITIES' and 'OpenSearch'
+          newKeywordPath: 'DistributionURL > GET CAPABILITIES > OGC WMS'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify subtype was updated
+    expect(result.correctedMetadata).toContain('<Subtype>OGC WMS</Subtype>')
+    expect(result.correctedMetadata).not.toContain('<Subtype>OpenSearch</Subtype>')
+
+    // Type should remain the same
+    expect(result.correctedMetadata).toContain('<Type>GET CAPABILITIES</Type>')
+  })
+
+  test('should add subtype to URL that only had type', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > GET DATA > ',
+          newKeywordPath: 'DistributionURL > GET DATA > DIRECT DOWNLOAD'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    expect(result.correctedMetadata).toContain('<Type>GET DATA</Type>')
+    expect(result.correctedMetadata).toContain('<Subtype>DIRECT DOWNLOAD</Subtype>')
+  })
+
+  test('should remove subtype when moving to type-only', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > USE SERVICE API > REST',
+          newKeywordPath: 'DistributionURL > GET DATA > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Type should be updated
+    const getDataMatches = result.correctedMetadata.match(/<Type>GET DATA<\/Type>/g)
+    expect(getDataMatches.length).toBeGreaterThan(0)
+
+    // REST subtype should be removed from third URL
+    expect(result.correctedMetadata).not.toContain('<Subtype>REST</Subtype>')
+  })
+
+  test('should delete URL_Content_Type from Related_URL', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'delete',
+          oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // URL_Content_Type should be removed from second Related_URL
+    expect(result.correctedMetadata).not.toContain('OpenSearch')
+
+    // But the Related_URL itself should remain
+    expect(result.correctedMetadata).toContain('https://example.com/opensearch')
+
+    // Other Related_URLs should be unchanged
+    expect(result.correctedMetadata).toContain('<Type>GET DATA</Type>')
+    expect(result.correctedMetadata).toContain('<Type>USE SERVICE API</Type>')
+  })
+
+  test('should handle single Related_URL (not array)', async () => {
+    const singleUrlXml = `<DIF>
+    <Entry_ID>
+        <Short_Name>SINGLE_URL</Short_Name>
+    </Entry_ID>
+    <Related_URL>
+        <URL_Content_Type>
+            <Type>VIEW PROJECT HOME PAGE</Type>
+        </URL_Content_Type>
+        <URL>https://example.com</URL>
+    </Related_URL>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleUrlXml,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > VIEW PROJECT HOME PAGE > ',
+          newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION</Type>')
+    expect(result.correctedMetadata).not.toContain('VIEW PROJECT HOME PAGE')
+  })
+
+  test('should handle missing Related_URL element', async () => {
+    const xmlWithoutRelatedURL = `<DIF>
+    <Entry_ID>
+        <Short_Name>NO_URL</Short_Name>
+    </Entry_ID>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutRelatedURL,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > GET DATA > ',
+          newKeywordPath: 'DistributionURL > GET SERVICE > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should remove a specific content type field when the replacement value is empty or undefined', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
+        newKeywordPath: ' > JUST_A_TYPE > ' // Last 2 segments: 'JUST_A_TYPE' and ''
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // 1. Verify the specific target was updated
+    expect(result.correctedMetadata).toContain('<Type>JUST_A_TYPE</Type>')
+
+    // 2. Verify the specific OLD Subtype is gone
+    expect(result.correctedMetadata).not.toContain('OpenSearch')
+
+    // 3. Verify that other Subtypes in different blocks are UNTOUCHED
+    expect(result.correctedMetadata).toContain('<Subtype>REST</Subtype>')
+  })
+
+  test('should return false and make no changes when an unsupported action is provided', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'unsupported_action',
+        oldKeywordPath: 'DistributionURL > GET DATA > '
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should remove the URL_Content_Type container entirely if all its fields are deleted', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordPath: 'DistributionURL > GET DATA > ',
+        newKeywordPath: ' > ' // Last 2 segments: '' and ''
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // 1. Verify the specific value is gone
+    expect(result.correctedMetadata).not.toContain('GET DATA')
+
+    // 2. Verify the structure has dropped URL_Content_Type for index 0 completely
+    expect(result.correctedMetadata).toMatch(
+      /<Related_URL>\s*<URL>https:\/\/example\.com\/data<\/URL>\s*<\/Related_URL>/
+    )
+
+    // 3. Verify we didn't accidentally delete URL_Content_Type from other blocks
+    expect(result.correctedMetadata).toContain('<Type>USE SERVICE API</Type>')
+  })
+
+  test('should return false when oldKeywordPath does not match any current elements', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithRelatedURLs,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'DistributionURL > NOT_REAL_TYPE > ', // Will not find a value match
+          newKeywordPath: 'DistributionURL > GET SERVICE > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should preserve existing element attributes when replacing the text content', async () => {
+    const xmlWithAttributes = `<DIF>
+        <Related_URL>
+            <URL_Content_Type>
+                <Type secure="true">GET DATA</Type>
+            </URL_Content_Type>
+            <URL>https://example.com/data</URL>
+        </Related_URL>
+    </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: xmlWithAttributes,
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          oldKeywordPath: 'GET DATA > ',
+          newKeywordPath: 'GET SERVICE > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('>GET SERVICE</Type>')
+    expect(result.correctedMetadata).not.toContain('GET DATA')
+  })
+})
+
+const mockDif10Xml = `<DIF
+    xmlns:dif="http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/ http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/dif_v10.2.xsd">
+            <Entry_ID>
+                <Short_Name>DEM_100M</Short_Name>
+                <Version>001</Version>
+            </Entry_ID>
+            <Entry_Title>100m Digital Elevation Model Data V001</Entry_Title>
+            <Science_Keywords>
+                <Category>EARTH SCIENCE</Category>
+                <Topic>LAND SURFACE</Topic>
+                <Term>TOPOGRAPHY</Term>
+                <Variable_Level_1>LANDFORMS</Variable_Level_1>
+                <Variable_Level_2>DEM</Variable_Level_2>
+            </Science_Keywords>
+            <Science_Keywords>
+                <Category>EARTH SCIENCE</Category>
+                <Topic>LAND SURFACE</Topic>
+                <Term>TOPOGRAPHY</Term>
+                <Variable_Level_1>TERRAIN ELEVATION</Variable_Level_1>
+                <Variable_Level_2>DIGITAL TERRAIN MODEL</Variable_Level_2>
+            </Science_Keywords>
+            <Platform>
+                <Type>Not provided</Type>
+                <Short_Name>Not provided</Short_Name>
+            </Platform>
+</DIF>`
+
+const mockSimpleDif10Xml = `<DIF>
+    <Entry_ID>
+        <Short_Name>TEST_COLLECTION</Short_Name>
+    </Entry_ID>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>ATMOSPHERE</Topic>
+        <Term>AEROSOLS</Term>
+        <Variable_Level_1>LEGACY AEROSOLS</Variable_Level_1>
+    </Science_Keywords>
+</DIF>`
+
+describe('when applying science keyword DIF10 corrections', () => {
+  test('should apply science keyword renaming correction (same hierarchy, different name)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockSimpleDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > AEROSOLS RENAMED >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+    expect(result.stubbed).toBe(false)
+
+    // Verify the corrected XML contains the renamed keyword
+    expect(result.correctedMetadata).toContain('<Category>EARTH SCIENCE</Category>')
+    expect(result.correctedMetadata).toContain('<Topic>ATMOSPHERE</Topic>')
+    expect(result.correctedMetadata).toContain('<Term>AEROSOLS</Term>')
+    expect(result.correctedMetadata).toContain('<Variable_Level_1>AEROSOLS RENAMED</Variable_Level_1>')
+    // Old name should be gone
+    expect(result.correctedMetadata).not.toContain('LEGACY AEROSOLS')
+  })
+
+  test('should apply science keyword hierarchy move (same name, different topic)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockSimpleDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > AIR QUALITY > AEROSOLS > LEGACY AEROSOLS >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify the keyword moved to the new topic
+    expect(result.correctedMetadata).toContain('<Category>EARTH SCIENCE</Category>')
+    expect(result.correctedMetadata).toContain('<Topic>AIR QUALITY</Topic>')
+    expect(result.correctedMetadata).toContain('<Term>AEROSOLS</Term>')
+    expect(result.correctedMetadata).toContain('<Variable_Level_1>LEGACY AEROSOLS</Variable_Level_1>')
+    // Old topic should be gone
+    expect(result.correctedMetadata).not.toContain('ATMOSPHERE')
+  })
+
+  test('should apply hierarchy move with renaming at same level', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
+          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > ELEVATION > TERRAIN FEATURES > DIGITAL ELEVATION MODEL >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify new hierarchy
+    expect(result.correctedMetadata).toContain('<Category>EARTH SCIENCE</Category>')
+    expect(result.correctedMetadata).toContain('<Topic>LAND SURFACE</Topic>')
+    expect(result.correctedMetadata).toContain('<Term>ELEVATION</Term>')
+    expect(result.correctedMetadata).toContain('<Variable_Level_1>TERRAIN FEATURES</Variable_Level_1>')
+    expect(result.correctedMetadata).toContain('<Variable_Level_2>DIGITAL ELEVATION MODEL</Variable_Level_2>')
+
+    // Old values should be gone from first keyword (second keyword still has TOPOGRAPHY)
+    const topographyMatches = result.correctedMetadata.match(/<Term>TOPOGRAPHY<\/Term>/g)
+    expect(topographyMatches).toHaveLength(1) // Only in second keyword
+    expect(result.correctedMetadata).not.toContain('LANDFORMS')
+  })
+
+  test('should apply correction to second keyword in array', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 1],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
+          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > ELEVATION DATA > DIGITAL ELEVATION DATA >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // First keyword should remain unchanged
+    expect(result.correctedMetadata).toContain('LANDFORMS')
+    expect(result.correctedMetadata).toContain('<Variable_Level_2>DEM</Variable_Level_2>')
+
+    // Second keyword should be updated with new names
+    expect(result.correctedMetadata).toContain('<Variable_Level_1>ELEVATION DATA</Variable_Level_1>')
+    expect(result.correctedMetadata).toContain('<Variable_Level_2>DIGITAL ELEVATION DATA</Variable_Level_2>')
+    // Old values should be gone
+    expect(result.correctedMetadata).not.toContain('TERRAIN ELEVATION')
+    expect(result.correctedMetadata).not.toContain('DIGITAL TERRAIN MODEL')
+  })
+
+  test('should remove science keyword when delete action is applied', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // First keyword should be removed
+    expect(result.correctedMetadata).not.toContain('LANDFORMS')
+    expect(result.correctedMetadata).not.toContain('<Detailed_Variable>DEM</Detailed_Variable>')
+
+    // Second keyword should remain
+    expect(result.correctedMetadata).toContain('TERRAIN ELEVATION')
+    expect(result.correctedMetadata).toContain('DIGITAL TERRAIN MODEL')
+  })
+
+  test('should remove second science keyword when delete action is applied', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: ['Science_Keywords', 1],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // First keyword should remain
+    expect(result.correctedMetadata).toContain('LANDFORMS')
+    expect(result.correctedMetadata).toContain('DEM')
+
+    // Second keyword should be removed
+    expect(result.correctedMetadata).not.toContain('TERRAIN ELEVATION')
+    expect(result.correctedMetadata).not.toContain('DIGITAL TERRAIN MODEL')
+  })
+
+  test('should delete parent Science_Keywords property when the last keyword in an array is removed', async () => {
+    const multiKeywordXml = `<DIF>
+      <Science_Keywords>
+          <Category>EARTH SCIENCE</Category>
+          <Topic>ATMOSPHERE</Topic>
+          <Term>AEROSOLS</Term>
+      </Science_Keywords>
+      <Science_Keywords>
+          <Category>EARTH SCIENCE</Category>
+          <Topic>OCEANS</Topic>
+          <Term>MARINE SEDIMENTS</Term>
+      </Science_Keywords>
+  </DIF>`
+
+    // Since lookups are by path format value string, we specify the exact old keyword path values
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: multiKeywordXml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
+        },
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: ['ScienceKeywords', 1],
+          oldKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    // Verify the entire container is gone from the XML
+    expect(result.correctedMetadata).not.toContain('<Science_Keywords>')
+    expect(result.correctedMetadata).not.toContain('</Science_Keywords>')
+  })
+
+  test('should return false when an unsupported action is provided', async () => {
+    const singleScienceKeywordXml = `<DIF>
+      <Science_Keywords>
+          <Category>EARTH SCIENCE</Category>
+          <Topic>ATMOSPHERE</Topic>
+          <Term>AEROSOLS</Term>
+      </Science_Keywords>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: singleScienceKeywordXml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'invalid_action_type', // Neither 'replace' nor 'delete'
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+        }
+      ]
+    })
+
+    // The delegate returns false, so the orchestrator does not increment the count
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should apply multiple science keyword corrections (mix of rename and move)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
+          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DIGITAL ELEVATION MODEL >  > '
+        },
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 1],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
+          newKeywordPath: 'EARTH SCIENCE > TERRESTRIAL HYDROSPHERE > SURFACE WATER > ELEVATION > DTM >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(2)
+    expect(result.correctionsApplied).toHaveLength(2)
+
+    // First keyword: renamed DEM to DIGITAL ELEVATION MODEL
+    expect(result.correctedMetadata).toContain('LANDFORMS')
+    expect(result.correctedMetadata).toContain('<Variable_Level_2>DIGITAL ELEVATION MODEL</Variable_Level_2>')
+
+    // Second keyword: moved to completely different hierarchy
+    expect(result.correctedMetadata).toContain('TERRESTRIAL HYDROSPHERE')
+    expect(result.correctedMetadata).toContain('SURFACE WATER')
+    expect(result.correctedMetadata).toContain('<Variable_Level_2>DTM</Variable_Level_2>')
+    expect(result.correctedMetadata).not.toContain('DIGITAL TERRAIN MODEL')
+  })
+
+  test('should apply term-level rename within same category and topic', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
+          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > SURFACE TOPOGRAPHY > LANDFORMS > DEM >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify term changed from TOPOGRAPHY to SURFACE TOPOGRAPHY
+    expect(result.correctedMetadata).toContain('<Term>SURFACE TOPOGRAPHY</Term>')
+    expect(result.correctedMetadata).toContain('LANDFORMS')
+    expect(result.correctedMetadata).toContain('DEM')
+
+    // Old term should still exist in second keyword
+    const topographyMatches = result.correctedMetadata.match(/<Term>TOPOGRAPHY<\/Term>/g)
+    expect(topographyMatches).toHaveLength(1) // Only in second keyword
+  })
+
+  test('should apply category-level change (moving keyword to different category)', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockSimpleDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE SERVICES > DATA ANALYSIS AND VISUALIZATION > AEROSOL ANALYSIS > LEGACY AEROSOLS >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // Verify category changed completely
+    expect(result.correctedMetadata).toContain('<Category>EARTH SCIENCE SERVICES</Category>')
+    expect(result.correctedMetadata).toContain('<Topic>DATA ANALYSIS AND VISUALIZATION</Topic>')
+    expect(result.correctedMetadata).toContain('<Term>AEROSOL ANALYSIS</Term>')
+    expect(result.correctedMetadata).toContain('<Variable_Level_1>LEGACY AEROSOLS</Variable_Level_1>')
+
+    // Old category should be gone
+    expect(result.correctedMetadata).not.toContain('<Category>EARTH SCIENCE</Category>')
+    expect(result.correctedMetadata).not.toContain('ATMOSPHERE')
+  })
+
+  test('should handle single science keyword (not array) with replacement', async () => {
+    const singleKeywordXml = `<DIF>
+    <Entry_ID>
+        <Short_Name>SINGLE_KEYWORD</Short_Name>
+    </Entry_ID>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>ATMOSPHERE</Topic>
+        <Term>CLOUDS</Term>
+    </Science_Keywords>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleKeywordXml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUDS >  >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUD PROPERTIES >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('CLOUD PROPERTIES')
+    expect(result.correctedMetadata).not.toContain('<Term>CLOUDS</Term>')
+  })
+
+  test('should delete only science keyword and removes Science_Keywords element', async () => {
+    const singleKeywordXml = `<DIF>
+    <Entry_ID>
+        <Short_Name>DELETE_ONLY_KEYWORD</Short_Name>
+    </Entry_ID>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>ATMOSPHERE</Topic>
+    </Science_Keywords>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: singleKeywordXml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE >  >  >  >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    // Science_Keywords element should be completely removed
+    expect(result.correctedMetadata).not.toContain('Science_Keywords')
+    expect(result.correctedMetadata).not.toContain('ATMOSPHERE')
+  })
+
+  test('should handle multiple deletes reducing array to single element', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: ['Science_Keywords', 1],
+          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
+          newKeywordPath: ''
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+
+    // First keyword remains
+    expect(result.correctedMetadata).toContain('LANDFORMS')
+    expect(result.correctedMetadata).toContain('DEM')
+
+    // Second keyword deleted
+    expect(result.correctedMetadata).not.toContain('TERRAIN ELEVATION')
+    expect(result.correctedMetadata).not.toContain('DIGITAL TERRAIN MODEL')
+  })
+
+  test('should skip correction when keyword path does not match any items in document', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockSimpleDif10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          // This path does not exist in mockSimpleDif10Xml, so lookup fails
+          oldKeywordPath: 'EARTH SCIENCE > NON_EXISTENT_TOPIC > AEROSOLS >  >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > AIR QUALITY > AEROSOLS >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+
+    // Original XML should be unchanged
+    expect(result.correctedMetadata).toContain('LEGACY AEROSOLS')
+  })
+
+  test('should handle missing Science_Keywords element', async () => {
+    const xmlWithoutKeywords = `<DIF>
+    <Entry_ID>
+        <Short_Name>NO_KEYWORDS</Short_Name>
+    </Entry_ID>
+</DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithoutKeywords,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE >  >  >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > AIR QUALITY >  >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+  })
+
+  test('should handle science keywords where leaves are parsed as objects with a #text property', async () => {
+    // Simulating an XML snippet where an attribute or formatting causes
+    // fast-xml-parser to turn a node into an object structure rather than a raw string
+    const xmlWithComplexNodes = `<DIF>
+      <Entry_ID>
+          <Short_Name>COMPLEX_LEAF_TEST</Short_Name>
+      </Entry_ID>
+      <Science_Keywords>
+          <Category xml:lang="en">EARTH SCIENCE</Category>
+          <Topic>ATMOSPHERE</Topic>
+          <Term>CLOUDS</Term>
+      </Science_Keywords>
+  </DIF>`
+
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: xmlWithComplexNodes,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          ummPath: ['Science_Keywords', 0],
+          // This should match despite <Category> being parsed as an object internally
+          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUDS >  >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUD PROPERTIES >  >  >  > '
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    // Verify the substitution took place seamlessly
+    expect(result.correctedMetadata).toContain('<Term>CLOUD PROPERTIES</Term>')
+    expect(result.correctedMetadata).not.toContain('<Term>CLOUDS</Term>')
+  })
+})
+
+const mockDif10WithTemporalResolution = `<DIF>
+    <Data_Resolution>
+        <Temporal_Resolution_Range>Monthly</Temporal_Resolution_Range>
+        <Temporal_Resolution_Range>Daily</Temporal_Resolution_Range>
+    </Data_Resolution>
+</DIF>`
+
+describe('when applying temporal resolution DIF10 corrections', () => {
+  describe('when replacing values', () => {
+    test('should replace a specific temporal range in an array', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithTemporalResolution,
+        corrections: [{
+          scheme: 'temporalresolutionrange',
+          action: 'replace',
+          oldKeywordPath: 'Daily',
+          newKeywordPath: 'Hourly'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Hourly</Temporal_Resolution_Range>')
+      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Monthly</Temporal_Resolution_Range>')
+      expect(result.correctedMetadata).not.toContain('<Temporal_Resolution_Range>Daily</Temporal_Resolution_Range>')
+    })
+
+    test('should replace a single temporal range value when it is not in an array', async () => {
+      const singleXml = '<DIF><Data_Resolution><Temporal_Resolution_Range>Weekly</Temporal_Resolution_Range></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'temporalresolutionrange',
+          action: 'replace',
+          oldKeywordPath: 'Weekly',
+          newKeywordPath: 'Yearly'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Yearly</Temporal_Resolution_Range>')
+    })
+  })
+
+  describe('when deleting values and cleaning up empty containers', () => {
+    test('should delete a range from an array and keep the parent when other fields exist', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithTemporalResolution,
+        corrections: [{
+          scheme: 'temporalresolutionrange',
+          action: 'delete',
+          oldKeywordPath: 'Monthly'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('Monthly')
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('Daily')
+    })
+
+    test('should delete the Data_Resolution parent when the last range is removed', async () => {
+      const singleXml = '<DIF><Data_Resolution><Temporal_Resolution_Range>One-Off</Temporal_Resolution_Range></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'temporalresolutionrange',
+          action: 'delete',
+          oldKeywordPath: 'One-Off'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      // The parent element should be pruned if it has no more children
+      expect(result.correctedMetadata).not.toContain('<Temporal_Resolution_Range>')
+      expect(result.correctedMetadata).not.toContain('<Data_Resolution>')
+    })
+
+    test('should delete the target field when an array becomes empty but keeps Data_Resolution if other fields exist', async () => {
+      // XML with multiple ranges and an unrelated field in Data_Resolution
+      const multiFieldXml = `<DIF>
+          <Data_Resolution>
+              <Vertical_Resolution_Range>Range 1</Vertical_Resolution_Range>
+              <Vertical_Resolution_Range>Range 2</Vertical_Resolution_Range>
+              <Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>
+          </Data_Resolution>
+      </DIF>`
+
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: multiFieldXml,
+        corrections: [
+          {
+            scheme: 'verticalresolutionrange',
+            action: 'delete',
+            oldKeywordPath: 'Range 1'
+          },
+          {
+            scheme: 'verticalresolutionrange',
+            action: 'delete',
+            oldKeywordPath: 'Range 2'
+          }
+        ]
+      })
+
+      expect(result.correctionCount).toBe(2)
+      // This specifically covers: if (ranges.length === 0) { delete resolution[targetField] }
+      expect(result.correctedMetadata).not.toContain('<Vertical_Resolution_Range>')
+
+      // Ensure the parent Data_Resolution was NOT cleaned up because Horizontal_Resolution_Range remains
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('<Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>')
+    })
+
+    test('should delete a single temporal range value (non-array branch)', async () => {
+      // XML with only one range tag, parsed as a single object/string
+      const singleXml = `<DIF>
+      <Data_Resolution>
+          <Temporal_Resolution_Range>Weekly</Temporal_Resolution_Range>
+          <Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>
+      </Data_Resolution>
+  </DIF>`
+
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'temporalresolutionrange',
+          action: 'delete',
+          oldKeywordPath: 'Weekly'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+
+      // The specific matched temporal range should be removed while sibling fields remain intact.
+      expect(result.correctedMetadata).not.toContain('<Temporal_Resolution_Range>')
+
+      // Ensure the parent Data_Resolution is preserved because Horizontal_Resolution_Range exists
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('Keep Me')
+    })
+  })
+
+  describe('when guard clauses prevent a correction', () => {
+    test('should return false if oldKeywordPath is missing', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithTemporalResolution,
+        corrections: [{
+          scheme: 'temporalresolutionrange'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if Data_Resolution tag is missing', async () => {
+      const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: emptyXml,
+        corrections: [{
+          scheme: 'temporalresolutionrange'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if Temporal_Resolution_Range is missing', async () => {
+      const xmlNoRange = '<DIF><Data_Resolution><Some_Other_Field>Value</Some_Other_Field></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: xmlNoRange,
+        corrections: [{
+          scheme: 'temporalresolutionrange'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false for unrecognized action', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithTemporalResolution,
+        corrections: [{
+          scheme: 'temporalresolutionrange',
+          action: 'unsupported'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+  })
+})
+
+const mockDif10WithVerticalResolution = `<DIF>
+    <Data_Resolution>
+        <Vertical_Resolution_Range>1 - 10 meters</Vertical_Resolution_Range>
+        <Vertical_Resolution_Range>10 - 50 meters</Vertical_Resolution_Range>
+    </Data_Resolution>
+</DIF>`
+
+describe('when applying vertical resolution DIF10 corrections', () => {
+  describe('when replacing values', () => {
+    test('should replace a specific vertical range in an array', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithVerticalResolution,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          action: 'replace',
+          ummPath: ['VerticalResolutionRanges', 1],
+          newKeywordPath: 'Updated Range',
+          oldKeywordPath: '10 - 50 meters'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Vertical_Resolution_Range>Updated Range</Vertical_Resolution_Range>')
+      expect(result.correctedMetadata).toContain('<Vertical_Resolution_Range>1 - 10 meters</Vertical_Resolution_Range>')
+    })
+
+    test('should replace a single vertical range value when it is not in an array', async () => {
+      const singleXml = '<DIF><Data_Resolution><Vertical_Resolution_Range>Old Range</Vertical_Resolution_Range></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          action: 'replace',
+          ummPath: ['VerticalResolutionRanges', 0],
+          newKeywordPath: 'New Range',
+          oldKeywordPath: 'Old Range'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).toContain('<Vertical_Resolution_Range>New Range</Vertical_Resolution_Range>')
+    })
+  })
+
+  describe('when deleting values and cleaning up empty containers', () => {
+    test('should delete a range from an array and keep the parent when it is not empty', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithVerticalResolution,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          action: 'delete',
+          ummPath: ['VerticalResolutionRanges', 0],
+          oldKeywordPath: '1 - 10 meters'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('1 - 10 meters')
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+    })
+
+    test('should delete the Data_Resolution parent when the last range is removed', async () => {
+      const singleXml = '<DIF><Data_Resolution><Vertical_Resolution_Range>Final Range</Vertical_Resolution_Range></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          action: 'delete',
+          ummPath: ['VerticalResolutionRanges', 0],
+          oldKeywordPath: 'Final Range'
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      // Both the field and parent container should be pruned
+      expect(result.correctedMetadata).not.toContain('<Vertical_Resolution_Range>')
+      expect(result.correctedMetadata).not.toContain('<Data_Resolution>')
+    })
+
+    test('should delete the target field when an array becomes empty but keeps Data_Resolution if other fields exist', async () => {
+      // Setup XML with multiple vertical ranges and another unrelated field
+      const multiFieldXml = `<DIF>
+          <Data_Resolution>
+              <Vertical_Resolution_Range>Range 1</Vertical_Resolution_Range>
+              <Vertical_Resolution_Range>Range 2</Vertical_Resolution_Range>
+              <Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>
+          </Data_Resolution>
+      </DIF>`
+
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: multiFieldXml,
+        corrections: [
+          {
+            scheme: 'verticalresolutionrange',
+            action: 'delete',
+            ummPath: ['VerticalResolutionRanges', 0],
+            oldKeywordPath: 'Range 1'
+          },
+          {
+            scheme: 'verticalresolutionrange',
+            action: 'delete',
+            ummPath: ['VerticalResolutionRanges', 0],
+            oldKeywordPath: 'Range 2'
+          }
+        ]
+      })
+
+      expect(result.correctionCount).toBe(2)
+      // This explicitly triggers: if (ranges.length === 0) { delete resolution[targetField] }
+      expect(result.correctedMetadata).not.toContain('<Vertical_Resolution_Range>')
+
+      // Data_Resolution should still exist because Horizontal_Resolution_Range is present
+      expect(result.correctedMetadata).toContain('<Data_Resolution>')
+      expect(result.correctedMetadata).toContain('<Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>')
+    })
+  })
+
+  describe('when guard clauses prevent a correction', () => {
+    test('should return false if ummPath is missing a numeric index', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithVerticalResolution,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          ummPath: ['VerticalResolutionRanges'] // Missing numeric index
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if Data_Resolution tag is missing', async () => {
+      const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: emptyXml,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          ummPath: ['VerticalResolutionRanges', 0]
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false if Vertical_Resolution_Range is missing', async () => {
+      const xmlNoRange = '<DIF><Data_Resolution><Other_Field>Value</Other_Field></Data_Resolution></DIF>'
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: xmlNoRange,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          ummPath: ['VerticalResolutionRanges', 0]
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return false for unrecognized action', async () => {
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: mockDif10WithVerticalResolution,
+        corrections: [{
+          scheme: 'verticalresolutionrange',
+          action: 'unsupported_action',
+          ummPath: ['VerticalResolutionRanges', 0],
+          oldKeywordPath: '1 - 10 meters'
+        }]
+      })
+      expect(result.correctionCount).toBe(0)
+    })
   })
 })

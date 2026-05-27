@@ -133,6 +133,111 @@ To run the test suite, run:
 ```
 npm run test
 ```
+
+## XML Metadata Path Editor
+
+`serverless/src/shared/XmlMetadataPathEditor.js` is the shared XML mutation engine used by XML-native metadata delegates. It exists so we can make targeted keyword updates against a DOM instead of converting the whole XML document into a generic JavaScript object and rebuilding it from scratch. The first consumer is DIF10 through `serverless/src/shared/dif10DomEditor.js`, but the editor is intentionally format-agnostic so later XML formats can reuse the same matching and mutation primitives.
+
+At a high level, the flow is:
+
+1. A delegate creates an editor from the raw XML payload.
+2. A format-specific config chooses the right update mode for a scheme.
+3. The editor uses XPath to find candidate XML nodes.
+4. It matches the current XML content against the incoming KMS `oldKeywordPath`.
+5. It applies a targeted `replace` or `delete`.
+6. The delegate serializes the DOM back to XML once at the end.
+
+### Reading An Existing Config
+
+If you are trying to understand a config file like `serverless/src/shared/dif10DomEditor.js`, the easiest way to read it is from the outside in:
+
+1. Start with the wrapper:
+   - `blockScheme(...)`: repeated XML blocks such as `Science_Keywords`, `Location`, `Platform`, or `Organization`
+   - `leafScheme(...)`: simple text nodes where the whole node value is the keyword
+   - `scalarScheme(...)`: one-off root fields such as `Product_Level_Id`
+2. Look at `nodeXPath`:
+   - this tells you which XML nodes are candidates for the correction
+3. Look at `find`:
+   - `fieldPaths` says which XML fields are read from the candidate node
+   - those fields are read in order and compared to the incoming KMS `oldKeywordPath`
+   - the editor preserves empty `>` slots by default and pads missing trailing slots when `fieldPaths` describes a full hierarchy
+   - `takeLastSegments` and `segmentPositions` control which portion of that normalized KMS path is compared
+4. Look at `replace`:
+   - each entry says which XML field gets written
+   - `source.type: 'path'` plus `source.pathIndex` means “take this segment from the new KMS path”
+   - `source.type: 'param'` means “take this value from another correction property such as `newLongName`”
+5. Look for cleanup hooks:
+   - `afterReplace` and `afterDelete` are only for small format-specific cleanup steps after the main write/remove operation
+
+Example, simplified from the DIF10 `platforms` config:
+
+```js
+platforms: blockScheme({
+  nodeXPath: '//DIF/Platform',
+  find: {
+    fieldPaths: ['Short_Name'],
+    takeLastSegments: 1
+  },
+  replace: [
+    {
+      fieldPath: 'Type',
+      source: { type: 'path', pathIndex: 1 }
+    },
+    {
+      fieldPath: 'Short_Name',
+      source: { type: 'path', pathIndex: 3 }
+    },
+    {
+      fieldPath: 'Long_Name',
+      source: { type: 'param', key: 'newLongName' }
+    }
+  ]
+})
+```
+
+That reads as:
+
+- search all `<Platform>` nodes
+- match the one whose current `Short_Name` matches the last segment of `oldKeywordPath`
+- on replace, write:
+  - KMS segment `1` into `<Type>`
+  - KMS segment `3` into `<Short_Name>`
+  - `newLongName` into `<Long_Name>`
+
+### Writing A New Config For Another XML Format
+
+If you are creating a new format-specific config, treat `XmlMetadataPathEditor` as the reusable engine and keep the new file as a thin mapping layer.
+
+Recommended approach:
+
+1. Create a small format adapter file, similar to `dif10DomEditor.js`.
+2. Keep matching path-based:
+   - prefer matching by the current XML value derived from `oldKeywordPath`
+   - do not rely on mutable positional indices inside the source XML
+3. Choose the simplest update mode that fits:
+   - repeated block: `blockScheme`
+   - single text node: `leafScheme`
+   - root scalar field: `scalarScheme`
+4. Define `find.fieldPaths` in the same order as the KMS `>`-delimited path you expect to match.
+5. Define `replace` so each XML field clearly states where its new value comes from:
+   - a path segment
+   - or a named correction parameter such as `newLongName`
+6. Keep delete behavior conservative:
+   - remove only the XML node that truly represents the controlled keyword value
+   - avoid broader container deletes unless the format requires it
+7. Add strong tests with the new config:
+   - successful replace
+   - successful delete
+   - missing target is a no-op
+   - optional field behavior
+   - no-op preservation where unrelated XML content remains intact
+
+Good rule of thumb:
+
+- put reusable DOM/XPath behavior in `XmlMetadataPathEditor`
+- put format-specific field mappings in the format adapter
+- keep delegates thin, so adding the next XML format mostly means writing config and tests rather than building another XML engine
+
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.
 ### Prerequisites
