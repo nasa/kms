@@ -1,28 +1,62 @@
+import { applyDif10MetadataCorrections } from '@/shared/applyDif10MetadataCorrections'
 import { logger } from '@/shared/logger'
+import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
+
+const SUPPORTED_NATIVE_FORMATS = ['DIF10']
+
+// Normalize request formats so the service can compare them consistently.
+const normalizeNativeFormat = (nativeFormat) => String(nativeFormat).trim().toUpperCase()
+
+// This service only accepts fully prepared correction requests. Earlier pipeline stages are
+// responsible for fetching native metadata and building the concrete corrections array.
+const validateMetadataCorrectionRequest = (metadataCorrectionRequest) => {
+  const missingFields = []
+
+  if (typeof metadataCorrectionRequest.collectionConceptId !== 'string'
+    || metadataCorrectionRequest.collectionConceptId.trim().length === 0) {
+    missingFields.push('collectionConceptId')
+  }
+
+  if (typeof metadataCorrectionRequest.nativeFormat !== 'string'
+    || metadataCorrectionRequest.nativeFormat.trim().length === 0) {
+    missingFields.push('nativeFormat')
+  }
+
+  if (typeof metadataCorrectionRequest.metadataPayload !== 'string'
+    || metadataCorrectionRequest.metadataPayload.length === 0) {
+    missingFields.push('metadataPayload')
+  }
+
+  if (!Array.isArray(metadataCorrectionRequest.corrections)) {
+    missingFields.push('corrections')
+  }
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Incomplete metadata correction request: missing ${missingFields.join(', ')}`
+    )
+  }
+
+  const nativeFormat = normalizeNativeFormat(metadataCorrectionRequest.nativeFormat)
+
+  if (!SUPPORTED_NATIVE_FORMATS.includes(nativeFormat)) {
+    throw new Error(`Unsupported native format: ${nativeFormat}`)
+  }
+
+  return nativeFormat
+}
 
 /**
- * Metadata correction service placeholder that consumes metadata correction requests from SQS.
+ * Metadata correction service that consumes metadata correction requests from SQS.
  *
- * This proves the SNS/SQS/Lambda plumbing for KMS-676. Follow-on ticket will replace the stubbed
- * logging behavior with real metadata fetch, keyword resolution, and native metadata updates.
+ * This service expects a fully prepared correction request and ends at a clean handoff boundary:
+ * 1. parse the request
+ * 2. validate that the request is complete and supported
+ * 3. apply the supported DIF10 metadata corrections
+ * 4. pass the corrected payload to the downstream CMR write stub
  *
- * TODO: Create a follow-up ticket for targeted correction requests. When a request includes
- * the affected keyword event, fetch the collection's native metadata from CMR, detect the
- * metadata format, and delegate the specific keyword replacement to the appropriate updater
- * for ISO, ECHO10, DIF10, or UMM. Each updater should modify only the affected keyword fields
- * for its metadata format.
- *
- * TODO: Create a follow-up ticket for untargeted correction requests. If the request does not
- * include a targeted keyword event, fetch the collection's UMM metadata and identify invalid
- * keyword paths by validating against current KMS, or by asking CMR to validate and return the
- * invalid keyword report. Use historical KMS lookup to map stale keyword paths to current KMS
- * values, then call the native metadata updater with historical -> current keyword
- * replacements.
- *
- * TODO: Consider making the correction service collection-level by default. Even when a
- * keyword event is present, treat it as context and validate all keywords in the collection so
- * the service can fix every stale keyword in one metadata update instead of issuing multiple
- * targeted updates for the same collection.
+ * A follow-on external ticket will replace the write stub with the component that writes
+ * corrected metadata back to CMR.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
  * @returns {Promise<{batchItemFailures: Array}>} Empty batch failures for acknowledged messages.
@@ -30,7 +64,7 @@ import { logger } from '@/shared/logger'
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
 
-  records.forEach((record) => {
+  await Promise.all(records.map(async (record) => {
     try {
       const metadataCorrectionRequest = JSON.parse(record.body || '{}')
 
@@ -39,11 +73,42 @@ export const metadataCorrectionService = async (event) => {
         messageId: record.messageId,
         metadataCorrectionRequest
       })
+
+      const nativeFormat = validateMetadataCorrectionRequest(metadataCorrectionRequest)
+
+      const correctionResult = await applyDif10MetadataCorrections({
+        ...metadataCorrectionRequest,
+        nativeFormat
+      })
+
+      logger.info('[metadata-correction] Produced corrected metadata payload', {
+        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        messageId: record.messageId,
+        nativeFormat,
+        correctionCount: correctionResult.correctionCount
+      })
+
+      const writeResult = await writeCorrectedMetadataToCmr({
+        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        nativeFormat,
+        correctedMetadata: correctionResult.correctedMetadata || '',
+        correctionCount: correctionResult.correctionCount || 0,
+        correctionsApplied: correctionResult.correctionsApplied || [],
+        source: metadataCorrectionRequest.source || 'metadataCorrectionService'
+      })
+
+      logger.info('[metadata-correction] Stubbed corrected metadata write to CMR', {
+        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        messageId: record.messageId,
+        nativeFormat,
+        correctionCount: correctionResult.correctionCount,
+        writeResult
+      })
     } catch (error) {
-      logger.error('[metadata-correction] Failed to parse metadata correction request', error)
+      logger.error('[metadata-correction] Failed to process metadata correction request', error)
       throw error
     }
-  })
+  }))
 
   return {
     batchItemFailures: []
