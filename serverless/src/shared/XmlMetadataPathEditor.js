@@ -73,7 +73,7 @@ export const sequentialReplace = (fieldPaths) => fieldPaths.map((fieldPath, path
  *   nodeXPath: '//DIF/Platform',
  *   find: {
  *     fieldPaths: ['Short_Name'],
- *     takeLastSegments: 1
+ *     pathIndexes: [-1]
  *   },
  *   replace: [
  *     {
@@ -140,21 +140,21 @@ export class XmlMetadataPathEditor {
    * @param {string} keywordPath Raw KMS keyword path.
    * @param {Object} [findConfig={}] Find selection rules.
    * @param {string[]} [findConfig.fieldPaths] Ordered XML fields that define a full hierarchy.
-   * @param {number[]} [findConfig.segmentPositions] Specific segment positions to compare.
-   * @param {number} [findConfig.takeLastSegments] Number of trailing segments to compare.
+   * @param {number[]} [findConfig.pathIndexes] Specific path slot indexes to compare. Negative
+   * values count backward from the end of the KMS path.
    * @returns {string[]|null} Selected path segments or `null` when no usable value exists.
    *
    * @example
    * XmlMetadataPathEditor.getPathSegmentsForFind(
    *   'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-   *   { takeLastSegments: 1 }
+   *   { pathIndexes: [-1] }
    * )
    * // ['SPOT-4']
    *
    * @example
    * XmlMetadataPathEditor.getPathSegmentsForFind(
    *   'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
-   *   { takeLastSegments: 2 }
+   *   { pathIndexes: [-2, -1] }
    * )
    * // ['VIEW RELATED INFORMATION', 'OpenSearch']
    */
@@ -163,23 +163,29 @@ export class XmlMetadataPathEditor {
 
     const {
       fieldPaths,
-      segmentPositions,
-      takeLastSegments
+      pathIndexes
     } = findConfig
 
     let segments = XmlMetadataPathEditor.normalizePathSegments(keywordPath)
 
-    if (Array.isArray(segmentPositions)) {
-      segments = padSegments(segments, Math.max(...segmentPositions) + 1)
-      segments = segmentPositions.map((segmentPosition) => segments[segmentPosition] || '')
-    } else if (
-      Array.isArray(fieldPaths)
-      && fieldPaths.length > 0
-      && typeof takeLastSegments !== 'number'
-    ) {
+    if (Array.isArray(pathIndexes)) {
+      const nonNegativeIndexes = pathIndexes.filter((pathIndex) => (
+        Number.isInteger(pathIndex) && pathIndex >= 0
+      ))
+
+      if (nonNegativeIndexes.length > 0) {
+        segments = padSegments(segments, Math.max(...nonNegativeIndexes) + 1)
+      }
+
+      segments = pathIndexes.map((pathIndex) => {
+        if (Number.isInteger(pathIndex) && pathIndex < 0) {
+          return segments[segments.length + pathIndex] || ''
+        }
+
+        return segments[pathIndex] || ''
+      })
+    } else if (Array.isArray(fieldPaths) && fieldPaths.length > 0) {
       segments = padSegments(segments, fieldPaths.length)
-    } else if (typeof takeLastSegments === 'number') {
-      segments = segments.slice(-takeLastSegments)
     }
 
     return hasAnyValue(segments) ? segments : null
@@ -420,6 +426,20 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * editor.getReplacementValue(
+   *   { newKeywordPath: 'A > B > C' },
+   *   { type: 'path', pathIndex: -1 }
+   * )
+   * // 'C'
+   *
+   * @example
+   * editor.getReplacementValue(
+   *   { newKeywordPath: 'A > B > C' },
+   *   { type: 'path', pathIndex: -2 }
+   * )
+   * // 'B'
+   *
+   * @example
+   * editor.getReplacementValue(
    *   {
    *     scheme: 'platforms',
    *     action: 'replace',
@@ -436,17 +456,13 @@ export class XmlMetadataPathEditor {
       return trimString(correction[sourceConfig.key])
     }
 
-    let segments = XmlMetadataPathEditor.normalizePathSegments(correction.newKeywordPath)
-
-    if (typeof sourceConfig.takeLastSegments === 'number') {
-      segments = segments.slice(-sourceConfig.takeLastSegments)
-    }
-
-    if (sourceConfig.pathIndex === 'last') {
-      return trimString(segments[segments.length - 1] || '')
-    }
+    const segments = XmlMetadataPathEditor.normalizePathSegments(correction.newKeywordPath)
 
     if (typeof sourceConfig.pathIndex === 'number') {
+      if (sourceConfig.pathIndex < 0) {
+        return trimString(segments[segments.length + sourceConfig.pathIndex] || '')
+      }
+
       return trimString(segments[sourceConfig.pathIndex] || '')
     }
 
@@ -467,7 +483,7 @@ export class XmlMetadataPathEditor {
    *   nodeXPath: '//DIF/Related_URL/URL_Content_Type',
    *   find: {
    *     fieldPaths: ['Type', 'Subtype'],
-   *     takeLastSegments: 2
+   *     pathIndexes: [-2, -1]
    *   }
    * })
    */

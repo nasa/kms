@@ -161,12 +161,16 @@ If you are trying to understand a config file like `serverless/src/shared/dif10D
    - `fieldPaths` says which XML fields are read from the candidate node
    - those fields are read in order and compared to the incoming KMS `oldKeywordPath`
    - the editor preserves empty `>` slots by default and pads missing trailing slots when `fieldPaths` describes a full hierarchy
-   - `takeLastSegments` and `segmentPositions` control which portion of that normalized KMS path is compared
+   - `pathIndexes` controls which slot(s) from the normalized KMS path are compared
+   - negative `pathIndexes` count from the end of the path, which is useful when the XML only stores the tail of a larger KMS path
 4. Look at `replace`:
    - each entry says which XML field gets written
    - `source.type: 'path'` plus `source.pathIndex` means “take this segment from the new KMS path”
+   - negative `source.pathIndex` values count from the end of `newKeywordPath`, which is useful when the XML stores only the tail of a larger KMS path
    - `source.type: 'param'` means “take this value from another correction property such as `newLongName`”
 5. Look for cleanup hooks:
+   - `removeNodeIfEmptyAfterReplace` removes the matched block if a replace clears all of its child fields
+   - `removeEmptyParent` prunes an otherwise-empty parent container after a leaf delete
    - `afterReplace` and `afterDelete` are only for small format-specific cleanup steps after the main write/remove operation
 
 Example, simplified from the DIF10 `platforms` config:
@@ -176,7 +180,7 @@ platforms: blockScheme({
   nodeXPath: '//DIF/Platform',
   find: {
     fieldPaths: ['Short_Name'],
-    takeLastSegments: 1
+    pathIndexes: [-1]
   },
   replace: [
     {
@@ -237,6 +241,19 @@ Good rule of thumb:
 - put reusable DOM/XPath behavior in `XmlMetadataPathEditor`
 - put format-specific field mappings in the format adapter
 - keep delegates thin, so adding the next XML format mostly means writing config and tests rather than building another XML engine
+
+## Metadata Correction Service Contract
+
+`serverless/src/metadataCorrectionService/handler.js` now expects a fully prepared correction request. That means this service is not the place for a raw `keywordEvent` by itself. Earlier pipeline stages are responsible for determining the affected collection, fetching the native metadata payload, and building the concrete correction list.
+
+The current request contract is:
+
+- `collectionConceptId`
+- `nativeFormat`
+- `metadataPayload`
+- `corrections`
+
+If any of those fields are missing, the service rejects the message as incomplete. If the format is supported, the service applies the native-format correction and then calls `serverless/src/shared/writeCorrectedMetadataToCmr.js`, which is currently a stubbed write seam for the later external CMR persistence ticket.
 
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.

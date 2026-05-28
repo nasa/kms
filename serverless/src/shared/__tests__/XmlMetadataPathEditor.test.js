@@ -47,15 +47,21 @@ describe('when using XmlMetadataPathEditor path helpers', () => {
     expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B', null)).toBeNull()
   })
 
-  test('should select find segments by position and keep empty fallbacks', () => {
+  test('should select find segments by path index and keep empty fallbacks', () => {
     expect(XmlMetadataPathEditor.getPathSegmentsForFind('A >  > C', {
-      segmentPositions: [0, 2, 4]
+      pathIndexes: [0, 2, 4]
     })).toEqual(['A', 'C', ''])
   })
 
-  test('should select trailing find segments when requested', () => {
+  test('should select multiple explicit path indexes when requested', () => {
     expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B > C', {
-      takeLastSegments: 2
+      pathIndexes: [1, 2]
+    })).toEqual(['B', 'C'])
+  })
+
+  test('should select trailing path indexes using negative positions', () => {
+    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B > C', {
+      pathIndexes: [-2, -1]
     })).toEqual(['B', 'C'])
   })
 
@@ -110,14 +116,6 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     )).toBe('Long Name')
 
     expect(editor.getReplacementValue(
-      { newKeywordPath: '' },
-      {
-        type: 'path',
-        pathIndex: 'last'
-      }
-    )).toBe('')
-
-    expect(editor.getReplacementValue(
       { newKeywordPath: 'A > B > C' },
       {
         type: 'path',
@@ -132,6 +130,30 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
         pathIndex: 1
       }
     )).toBe('')
+
+    expect(editor.getReplacementValue(
+      { newKeywordPath: 'A > B > C' },
+      {
+        type: 'path',
+        pathIndex: -1
+      }
+    )).toBe('C')
+
+    expect(editor.getReplacementValue(
+      { newKeywordPath: '' },
+      {
+        type: 'path',
+        pathIndex: -2
+      }
+    )).toBe('')
+
+    expect(editor.getReplacementValue(
+      { newKeywordPath: 'A > B > C' },
+      {
+        type: 'path',
+        pathIndex: -2
+      }
+    )).toBe('B')
 
     expect(editor.getReplacementValue(
       { newKeywordPath: 'A > B > C' }

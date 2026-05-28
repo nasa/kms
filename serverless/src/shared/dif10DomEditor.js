@@ -113,7 +113,7 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Platform',
     find: {
       fieldPaths: ['Short_Name'],
-      takeLastSegments: 1
+      pathIndexes: [-1]
     },
     replace: [
       {
@@ -154,14 +154,14 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Platform/Instrument',
     find: {
       fieldPaths: ['Short_Name'],
-      takeLastSegments: 1
+      pathIndexes: [-1]
     },
     replace: [
       {
         fieldPath: 'Short_Name',
         source: {
           type: 'path',
-          pathIndex: 'last'
+          pathIndex: -1
         }
       },
       {
@@ -177,14 +177,14 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Project',
     find: {
       fieldPaths: ['Short_Name'],
-      takeLastSegments: 1
+      pathIndexes: [-1]
     },
     replace: [
       {
         fieldPath: 'Short_Name',
         source: {
           type: 'path',
-          pathIndex: 'last'
+          pathIndex: -1
         }
       },
       {
@@ -200,14 +200,14 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Organization',
     find: {
       fieldPaths: ['Organization_Name/Short_Name'],
-      takeLastSegments: 1
+      pathIndexes: [-1]
     },
     replace: [
       {
         fieldPath: 'Organization_Name/Short_Name',
         source: {
           type: 'path',
-          pathIndex: 'last'
+          pathIndex: -1
         }
       },
       {
@@ -223,7 +223,7 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Related_URL/URL_Content_Type',
     find: {
       fieldPaths: ['Type', 'Subtype'],
-      takeLastSegments: 2
+      pathIndexes: [-2, -1]
     },
     replace: [
       {
@@ -237,20 +237,17 @@ export const DIF10_SCHEME_EDITORS = {
           //   newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OGC WMS'
           // }
           //
-          // takeLastSegments: 2 narrows the newKeywordPath to:
-          // ['VIEW RELATED INFORMATION', 'OGC WMS']
-          // so pathIndex: 0 writes the DIF10 <Type> value.
+          // Negative path indexes read from the end of newKeywordPath, so
+          // pathIndex: -2 writes the DIF10 <Type> value.
           type: 'path',
-          pathIndex: 0,
-          takeLastSegments: 2
+          pathIndex: -2
         }
       },
       {
         fieldPath: 'Subtype',
         source: {
           type: 'path',
-          pathIndex: 1,
-          takeLastSegments: 2
+          pathIndex: -1
         }
       }
     ],
@@ -260,7 +257,7 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/IDN_Node',
     find: {
       fieldPaths: ['Short_Name'],
-      takeLastSegments: 1
+      pathIndexes: [-1]
     },
     replace: [
       {
