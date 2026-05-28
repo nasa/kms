@@ -53,8 +53,12 @@ export const getHistoricalConceptByShortName = async (event, context) => {
 
   const { pathParameters, queryStringParameters } = event
   const { shortName } = pathParameters || {}
-  const { scheme: rawScheme } = queryStringParameters || {}
+  const {
+    scheme: rawScheme,
+    bypassCache: bypassCacheFlag
+  } = queryStringParameters || {}
   const scheme = rawScheme?.toLowerCase()
+  const bypassCache = bypassCacheFlag === 'true'
 
   if (!shortName) {
     return {
@@ -100,7 +104,8 @@ export const getHistoricalConceptByShortName = async (event, context) => {
 
     const cachedResponse = await getCachedJsonResponse({
       cacheKey,
-      entityLabel: 'Historical Concept by shortName'
+      entityLabel: 'Historical Concept by shortName',
+      bypassCache
     })
 
     if (cachedResponse) {

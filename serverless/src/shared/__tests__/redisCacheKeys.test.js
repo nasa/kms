@@ -12,6 +12,9 @@ import {
   createConceptResponseCacheKeyByFullPath,
   createConceptResponseCacheKeyByShortName,
   createConceptsResponseCacheKey,
+  createPublishedConceptResponseCacheKeyByFullPath,
+  createPublishedConceptResponseCacheKeyByShortName,
+  createPublishedConceptResponseCacheKeyByUuid,
   createTreeResponseCacheKey,
   TREE_CACHE_KEY_PREFIX
 } from '@/shared/redisCacheKeys'
@@ -123,6 +126,86 @@ describe('when creating response cache keys', () => {
         })
 
         expect(key).toBe('kms:platforms:historical_concept:short_name:CESSNA%20188')
+      })
+
+      test('normalizes granuledataformat to dataformat', () => {
+        const key = createConceptResponseCacheKeyByShortName({
+          shortName: 'netCDF-4',
+          scheme: 'granuledataformat'
+        })
+
+        expect(key).toBe('kms:dataformat:historical_concept:short_name:netCDF-4')
+      })
+    })
+  })
+
+  describe('when creating published concept keys', () => {
+    describe('by full path', () => {
+      test('handles missing fullPath and scheme', () => {
+        const key = createPublishedConceptResponseCacheKeyByFullPath({})
+
+        expect(key).toBe('kms::published_concept:full_path:')
+      })
+
+      test('url-encodes fullPath and scheme values', () => {
+        const key = createPublishedConceptResponseCacheKeyByFullPath({
+          fullPath: 'A/B > C',
+          scheme: 'platforms'
+        })
+
+        expect(key).toBe('kms:platforms:published_concept:full_path:A%2FB%20%3E%20C')
+      })
+    })
+
+    describe('by short name', () => {
+      test('handles missing shortName and scheme', () => {
+        const key = createPublishedConceptResponseCacheKeyByShortName({})
+
+        expect(key).toBe('kms::published_concept:short_name:')
+      })
+
+      test('url-encodes shortName and scheme values', () => {
+        const key = createPublishedConceptResponseCacheKeyByShortName({
+          shortName: 'CESSNA 188',
+          scheme: 'platforms'
+        })
+
+        expect(key).toBe('kms:platforms:published_concept:short_name:CESSNA%20188')
+      })
+
+      test('normalizes granuledataformat to dataformat', () => {
+        const key = createPublishedConceptResponseCacheKeyByShortName({
+          shortName: 'netCDF-4',
+          scheme: 'granuledataformat'
+        })
+
+        expect(key).toBe('kms:dataformat:published_concept:short_name:netCDF-4')
+      })
+    })
+
+    describe('by uuid', () => {
+      test('handles missing uuid and scheme', () => {
+        const key = createPublishedConceptResponseCacheKeyByUuid({})
+
+        expect(key).toBe('kms::published_concept:uuid:')
+      })
+
+      test('lower-cases and url-encodes uuid and scheme values', () => {
+        const key = createPublishedConceptResponseCacheKeyByUuid({
+          uuid: 'ABC-123',
+          scheme: 'Platforms'
+        })
+
+        expect(key).toBe('kms:platforms:published_concept:uuid:abc-123')
+      })
+
+      test('normalizes granuledataformat to dataformat', () => {
+        const key = createPublishedConceptResponseCacheKeyByUuid({
+          uuid: 'ABC-123',
+          scheme: 'granuledataformat'
+        })
+
+        expect(key).toBe('kms:dataformat:published_concept:uuid:abc-123')
       })
     })
   })

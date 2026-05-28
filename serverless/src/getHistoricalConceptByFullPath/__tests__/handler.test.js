@@ -118,10 +118,32 @@ describe('getHistoricalConceptByFullPath', () => {
 
     expect(getCachedJsonResponse).toHaveBeenCalledWith({
       cacheKey: 'kms:sciencekeywords:historical_concept:full_path:earth science > oceans',
-      entityLabel: 'Historical Concept by fullPath'
+      entityLabel: 'Historical Concept by fullPath',
+      bypassCache: false
     })
 
     expect(result).toEqual(mockResponse)
+  })
+
+  test('should pass bypassCache through to the shared cache helper when requested', async () => {
+    getCachedJsonResponse.mockResolvedValue(null)
+
+    const event = {
+      pathParameters: { fullPath: 'EARTH SCIENCE > OCEANS' },
+      queryStringParameters: {
+        scheme: 'sciencekeywords',
+        bypassCache: 'true'
+      }
+    }
+
+    const result = await getHistoricalConceptByFullPath(event)
+
+    expect(result.statusCode).toBe(404)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:sciencekeywords:historical_concept:full_path:earth science > oceans',
+      entityLabel: 'Historical Concept by fullPath',
+      bypassCache: true
+    })
   })
 
   test('should return 404 if the UUID is not found in the cache', async () => {

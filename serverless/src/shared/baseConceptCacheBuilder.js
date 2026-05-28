@@ -52,8 +52,23 @@ export class BaseConceptCacheBuilder {
    * Processes CSV content and caches all records in Redis using pipelined batch writes.
    * This is significantly faster than individual SET operations.
    *
+   * The return value is a small status summary rather than just `void` because callers need to
+   * distinguish between:
+   * - a true no-op with no cacheable entries
+   * - a skipped write because Redis is unavailable or disabled
+   * - a successful write with one or more cached entries
+   *
+   * That distinction matters when higher-level workflows decide whether a version can be marked
+   * as fully cached or should remain pending for a later retry.
+   *
    * @param {string} csvContent - The CSV content as a string.
    * @param {Object} options - Options for processing (e.g., scheme).
+   * @returns {Promise<{
+   *   attemptedCount: number,
+   *   writtenCount: number,
+   *   failedCount: number,
+   *   skipped: boolean
+   * }>} Summary of what happened during cache processing.
    */
   async processToCache(csvContent, options) {
     const records = this.parseCsvContent(csvContent, options)
@@ -63,7 +78,12 @@ export class BaseConceptCacheBuilder {
     if (!redisClient) {
       logger.warn('Redis not configured, skipping cache write')
 
-      return
+      return {
+        attemptedCount: 0,
+        writtenCount: 0,
+        failedCount: 0,
+        skipped: true
+      }
     }
 
     // Collect all cache operations
@@ -84,7 +104,12 @@ export class BaseConceptCacheBuilder {
     if (cacheEntries.length === 0) {
       logger.debug('No entries to cache')
 
-      return
+      return {
+        attemptedCount: 0,
+        writtenCount: 0,
+        failedCount: 0,
+        skipped: false
+      }
     }
 
     // Use Redis mSet for batch writes (more efficient than MULTI/EXEC for non-transactional writes)
@@ -135,6 +160,13 @@ export class BaseConceptCacheBuilder {
       `[cache-builder] Finished caching scheme=${options.scheme} `
       + `totalRecords=${cacheEntries.length} written=${totalWritten}`
     )
+
+    return {
+      attemptedCount: cacheEntries.length,
+      writtenCount: totalWritten,
+      failedCount: cacheEntries.length - totalWritten,
+      skipped: false
+    }
   }
 
   /**
