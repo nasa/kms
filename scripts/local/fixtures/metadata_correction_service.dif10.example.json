@@ -1,0 +1,25 @@
+{
+  "collectionConceptId": "C1234567890-LOCAL",
+  "nativeFormat": "DIF10",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordPath": "EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > SEDIMENTARY STRUCTURES",
+      "newKeywordPath": "EARTH SCIENCE > OCEANS > OCEAN TEMPERATURE > WATER TEMPERATURE"
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "oldKeywordPath": "Space-based Platforms > Earth Observation Satellites >  > SPOT-4",
+      "newKeywordPath": "Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED",
+      "newLongName": "Systeme Observation de la Terre-4 Updated"
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "newKeywordPath": "1A"
+    }
+  ]
+}
