@@ -13,6 +13,8 @@ import { logger } from '@/shared/logger'
  * @param {string} params.conceptScheme - The identifier of the concept scheme to download
  * @param {string} [params.format='csv'] - The desired output format ('csv', 'json', 'rdf', or 'xml')
  * @param {string} [params.version='published'] - The version of concepts to retrieve
+ * @param {boolean} [params.bypassCache=false] - When `true`, bypasses the normal published
+ *   response cache so callers can force a fresh read from RDF4J.
  * @returns {Promise<string|Object>} The concept data (string for CSV/RDF/XML, object for JSON)
  * @throws {Error} Throws an error if the download fails, with additional properties:
  *   - statusCode: HTTP status code from the handler
@@ -39,7 +41,12 @@ import { logger } from '@/shared/logger'
  *   format: 'rdf'
  * });
  */
-export const downloadConcepts = async ({ conceptScheme, format = 'csv', version = 'published' }) => {
+export const downloadConcepts = async ({
+  conceptScheme,
+  format = 'csv',
+  version = 'published',
+  bypassCache = false
+}) => {
   logger.debug(`Downloading ${format.toUpperCase()} for concept scheme: ${conceptScheme}, version: ${version}`)
 
   try {
@@ -48,7 +55,8 @@ export const downloadConcepts = async ({ conceptScheme, format = 'csv', version 
       pathParameters: { conceptScheme },
       queryStringParameters: {
         format,
-        version
+        version,
+        ...(bypassCache ? { bypassCache: 'true' } : {})
       },
       resource: '/concepts/concept_scheme/{conceptScheme}'
     }

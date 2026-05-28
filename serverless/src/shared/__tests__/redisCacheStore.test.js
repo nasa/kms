@@ -33,9 +33,144 @@ describe('when using redis cache store', () => {
     delete process.env.REDIS_ENABLED
     delete process.env.REDIS_HOST
     delete process.env.REDIS_PORT
+    delete process.env.REDIS_FAIL_FAST
+  })
+
+  describe('when creating a redis client', () => {
+    test('logs disabled redis configuration only once across repeated calls', async () => {
+      process.env.REDIS_ENABLED = 'false'
+
+      const { logger } = await import('@/shared/logger')
+      const store = await loadStore()
+
+      await expect(store.getRedisClient()).resolves.toBeNull()
+      await expect(store.getRedisClient()).resolves.toBeNull()
+
+      expect(logger.info).toHaveBeenCalledTimes(1)
+      expect(logger.info).toHaveBeenCalledWith(
+        'Redis disabled or not configured: REDIS_ENABLED=false, REDIS_HOST=undefined, REDIS_PORT=6379'
+      )
+    })
+
+    test('configures fail-fast socket options and logs redis client errors', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+      process.env.REDIS_FAIL_FAST = 'true'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const client = await store.getRedisClient()
+
+      expect(client).toBe(redisClient)
+      expect(createClient).toHaveBeenCalledWith({
+        socket: expect.objectContaining({
+          host: 'localhost',
+          port: 6379,
+          connectTimeout: 5000,
+          reconnectStrategy: expect.any(Function)
+        })
+      })
+
+      const [{ socket }] = createClient.mock.calls[0]
+      expect(socket.reconnectStrategy()).toBe(false)
+
+      const errorHandler = redisClient.on.mock.calls.find(([eventName]) => eventName === 'error')[1]
+      errorHandler('boom')
+
+      expect(logger.error).toHaveBeenCalledWith('Redis client error: boom')
+    })
+
+    test('returns null and resets the cached promise when connect fails', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const failingClient = {
+        connect: vi.fn().mockRejectedValue(new Error('connect failed')),
+        on: vi.fn()
+      }
+      const workingClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient
+        .mockReturnValueOnce(failingClient)
+        .mockReturnValueOnce(workingClient)
+
+      const store = await loadStore()
+
+      await expect(store.getRedisClient()).resolves.toBeNull()
+      await expect(store.getRedisClient()).resolves.toBe(workingClient)
+
+      expect(createClient).toHaveBeenCalledTimes(2)
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Redis connect failed: Error: connect failed')
+      )
+    })
+
+    test('reuses the same redis client promise after a successful connection', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const firstClient = await store.getRedisClient()
+      const secondClient = await store.getRedisClient()
+
+      expect(firstClient).toBe(redisClient)
+      expect(secondClient).toBe(redisClient)
+      expect(createClient).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('when reading cached json responses', () => {
+    test('returns null and bypasses redis when bypassCache is requested', async () => {
+      process.env.REDIS_ENABLED = 'true'
+      process.env.REDIS_HOST = 'localhost'
+      process.env.REDIS_PORT = '6379'
+
+      const redisClient = {
+        connect: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        get: vi.fn()
+      }
+      const { createClient } = await import('redis')
+      const { logger } = await import('@/shared/logger')
+      createClient.mockReturnValue(redisClient)
+      const store = await loadStore()
+
+      const result = await store.getCachedJsonResponse({
+        cacheKey: 'kms:concepts:published:test',
+        entityLabel: 'response',
+        format: 'json',
+        bypassCache: true
+      })
+
+      expect(result).toBeNull()
+      expect(createClient).not.toHaveBeenCalled()
+      expect(redisClient.get).not.toHaveBeenCalled()
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[cache] bypass-read endpoint=kms:concepts format=json key=kms:concepts:published:test'
+      )
+    })
+
     test('returns null and bypasses redis when the cache key is for draft', async () => {
       process.env.REDIS_ENABLED = 'true'
       process.env.REDIS_HOST = 'localhost'
@@ -99,7 +234,7 @@ describe('when using redis cache store', () => {
 
       expect(redisClient.get).toHaveBeenCalledWith('kms:concepts:published:test')
       expect(result).toBeNull()
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[cache] miss endpoint=kms:concepts format=json key=kms:concepts:published:test'
       )
     })
@@ -125,7 +260,7 @@ describe('when using redis cache store', () => {
       })
 
       expect(result).toBeNull()
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[cache] miss key='
       )
     })
@@ -151,7 +286,7 @@ describe('when using redis cache store', () => {
       })
 
       expect(result).toBeNull()
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[cache] miss format=json key='
       )
     })
@@ -178,7 +313,7 @@ describe('when using redis cache store', () => {
       })
 
       expect(result).toEqual({ statusCode: 200 })
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[cache] hit endpoint=kms:concepts format=json key=kms:concepts:published:test'
       )
     })
@@ -204,7 +339,7 @@ describe('when using redis cache store', () => {
       })
 
       expect(result).toBeNull()
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[cache] miss endpoint=kms:tree key=kms:tree:published:instruments:'
       )
     })

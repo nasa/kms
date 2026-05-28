@@ -155,6 +155,48 @@ describe('getKeywordsTree', () => {
       expect(result.headers['X-Custom-Header']).toBe('value')
     })
 
+    test('should pass bypassCache through to the shared cache helper when requested', async () => {
+      vi.mocked(getApplicationConfig).mockReturnValue({
+        defaultResponseHeaders: { 'X-Custom-Header': 'value' }
+      })
+
+      vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
+      vi.mocked(getNarrowersMap).mockResolvedValue({})
+      vi.mocked(getRootConceptForScheme).mockResolvedValue([
+        {
+          prefLabel: { value: 'Instruments' },
+          subject: { value: 'uri1' }
+        }
+      ])
+
+      vi.mocked(buildKeywordsTree).mockResolvedValue({
+        title: 'Instruments',
+        children: []
+      })
+
+      vi.mocked(getConceptSchemeDetails).mockResolvedValue([
+        {
+          notation: 'instruments',
+          prefLabel: 'Instruments'
+        }
+      ])
+
+      const result = await getKeywordsTree({
+        pathParameters: { conceptScheme: 'instruments' },
+        queryStringParameters: {
+          version: 'published',
+          bypassCache: 'true'
+        }
+      })
+
+      expect(result.statusCode).toBe(200)
+      expect(getCachedJsonResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bypassCache: true
+        })
+      )
+    })
+
     test('should return cached tree response when cached headers are missing', async () => {
       vi.mocked(getApplicationConfig).mockReturnValue({
         defaultResponseHeaders: { 'X-Custom-Header': 'value' }

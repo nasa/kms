@@ -121,10 +121,14 @@ export const getKeywordsTree = async (event, context) => {
   }
 
   const queryStringParameters = event.queryStringParameters || {}
-  const { filter } = queryStringParameters
+  const {
+    filter,
+    bypassCache: bypassCacheFlag
+  } = queryStringParameters
   const encodedConceptScheme = event.pathParameters.conceptScheme
   const conceptScheme = decodeURIComponent(encodedConceptScheme)
   const version = queryStringParameters?.version || 'published'
+  const bypassCache = bypassCacheFlag === 'true'
   const shouldUseTreeCache = version === 'published'
   const treeCacheKey = createTreeResponseCacheKey({
     version,
@@ -154,7 +158,8 @@ export const getKeywordsTree = async (event, context) => {
     if (shouldUseTreeCache) {
       const cachedResponse = await getCachedJsonResponse({
         cacheKey: treeCacheKey,
-        entityLabel: 'tree response'
+        entityLabel: 'tree response',
+        bypassCache
       })
       if (cachedResponse) {
         return {

@@ -22,7 +22,9 @@ describe('cmrGetRequest', () => {
     global.fetch = vi.fn()
 
     // Mock the logger
+    vi.spyOn(logger, 'debug').mockImplementation(() => {})
     vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
@@ -71,6 +73,49 @@ describe('cmrGetRequest', () => {
     await expect(cmrGetRequest({ path: '/test' })).rejects.toThrow('Network error')
   })
 
+  test('should log request context when fetch fails', async () => {
+    const error = new TypeError('fetch failed')
+
+    error.cause = {
+      code: 'ECONNREFUSED',
+      errno: -61,
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 8080,
+      message: 'connect ECONNREFUSED 127.0.0.1:8080',
+      name: 'Error'
+    }
+
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrGetRequest({ path: '/test' })).rejects.toThrow('fetch failed')
+
+    expect(logger.error).toHaveBeenCalledWith('[cmr-get] CMR fetch failed', {
+      method: 'GET',
+      endpoint: 'https://cmr.example.com',
+      path: '/test',
+      fullUrl: 'https://cmr.example.com/test',
+      error: {
+        name: 'TypeError',
+        message: 'fetch failed',
+        code: undefined,
+        errno: undefined,
+        syscall: undefined,
+        address: undefined,
+        port: undefined
+      },
+      cause: {
+        name: 'Error',
+        message: 'connect ECONNREFUSED 127.0.0.1:8080',
+        code: 'ECONNREFUSED',
+        errno: -61,
+        syscall: 'connect',
+        address: '127.0.0.1',
+        port: 8080
+      }
+    })
+  })
+
   test('should log the correct URL and options', async () => {
     const path = '/search'
     const expectedUrl = 'https://cmr.example.com/search'
@@ -80,11 +125,43 @@ describe('cmrGetRequest', () => {
 
     await cmrGetRequest({ path })
 
-    expect(logger.info).toHaveBeenCalledWith(
+    expect(logger.debug).toHaveBeenCalledWith(
       'URL:',
       expectedUrl,
       'with options:',
       expectedOptions
     )
+  })
+
+  test('should include custom accept and headers when provided', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true })
+    await cmrGetRequest({
+      path: '/collections',
+      accept: 'application/json',
+      headers: {
+        'X-Request-Id': 'request-123'
+      }
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cmr.example.com/collections',
+      {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Request-Id': 'request-123'
+        }
+      }
+    )
+  })
+
+  test('should throw when CMR_BASE_URL is not configured', async () => {
+    delete process.env.CMR_BASE_URL
+
+    await expect(cmrGetRequest({
+      path: '/collections'
+    })).rejects.toThrow('CMR_BASE_URL environment variable is not set')
+
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 })

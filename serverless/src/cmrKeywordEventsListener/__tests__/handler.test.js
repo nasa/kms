@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
@@ -18,6 +19,10 @@ vi.mock('@/shared/logger', () => ({
   }
 }))
 
+vi.mock('@/shared/getCmrCollectionConceptIds', () => ({
+  getCmrCollectionConceptIds: vi.fn()
+}))
+
 vi.mock('@/shared/publishMetadataCorrectionRequest', () => ({
   publishMetadataCorrectionRequest: vi.fn()
 }))
@@ -25,6 +30,11 @@ vi.mock('@/shared/publishMetadataCorrectionRequest', () => ({
 describe('when the CMR keyword events processor is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getCmrCollectionConceptIds).mockResolvedValue([
+      'C1000000000-PROV',
+      'C2000000000-PROV'
+    ])
+
     vi.mocked(publishMetadataCorrectionRequest).mockResolvedValue({
       messageId: 'metadata-correction-message-123',
       message: '{}',
@@ -34,7 +44,7 @@ describe('when the CMR keyword events processor is invoked', () => {
 
   describe('when the invocation is successful', () => {
     describe('when the queue record contains a valid SNS notification', () => {
-      test('should log the parsed keyword event and acknowledge the batch', async () => {
+      test('should discover collection concept ids, publish one request per concept id, and acknowledge the batch', async () => {
         const result = await cmrKeywordEventsListener({
           Records: [
             {
@@ -54,20 +64,62 @@ describe('when the CMR keyword events processor is invoked', () => {
           ]
         })
 
+        expect(getCmrCollectionConceptIds).toHaveBeenCalledWith({
+          scheme: 'sciencekeywords',
+          uuid: '1234',
+          keywordPath: 'New > Keyword'
+        })
+
         expect(logger.info).toHaveBeenCalledWith(
-          '[consumer] Received keyword event for CMR listener',
-          expect.objectContaining({
-            messageId: 'message-123',
-            keywordEvent: expect.objectContaining({
-              EventType: 'UPDATED',
-              UUID: '1234'
-            })
-          })
+          expect.stringContaining(
+            '[consumer] Received keyword event for CMR listener '
+          )
         )
 
-        expect(publishMetadataCorrectionRequest).toHaveBeenCalledWith({
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('messageId=message-123')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('eventType=UPDATED')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('scheme=sciencekeywords')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('uuid=1234')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=New > Keyword')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('[consumer] Found collection concept ids for metadata correction ')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('count=2')
+        )
+
+        expect(publishMetadataCorrectionRequest).toHaveBeenNthCalledWith(1, {
           source: 'cmrKeywordEventsListener',
-          collectionConceptId: 'C0000000000-KMS',
+          collectionConceptId: 'C1000000000-PROV',
+          keywordEvent: {
+            eventType: 'UPDATED',
+            scheme: 'sciencekeywords',
+            uuid: '1234',
+            oldKeywordPath: 'Old > Keyword',
+            newKeywordPath: 'New > Keyword',
+            timestamp: '2026-04-21T00:00:00.000Z'
+          }
+        })
+
+        expect(publishMetadataCorrectionRequest).toHaveBeenNthCalledWith(2, {
+          source: 'cmrKeywordEventsListener',
+          collectionConceptId: 'C2000000000-PROV',
           keywordEvent: {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',
@@ -79,13 +131,188 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(logger.info).toHaveBeenCalledWith(
-          '[consumer] Published metadata correction request',
-          expect.objectContaining({
-            collectionConceptId: 'C0000000000-KMS',
-            messageId: 'metadata-correction-message-123'
-          })
+          expect.stringContaining('[consumer] Published metadata correction request ')
         )
 
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('collectionConceptId=C1000000000-PROV')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('messageId=metadata-correction-message-123')
+        )
+
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should skip publish when no affected collection concept ids are found', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockResolvedValue([])
+
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234'
+                })
+              })
+            }
+          ]
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('[consumer] No affected collection concept ids found for keyword event ')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('scheme=sciencekeywords')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('uuid=1234')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=n/a')
+        )
+
+        expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should skip concept-id lookup for inserted keyword events', async () => {
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'INSERTED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234',
+                  NewKeywordPath: 'New > Keyword'
+                })
+              })
+            }
+          ]
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('[consumer] Skipping metadata correction concept-id lookup for event type ')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('eventType=INSERTED')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=New > Keyword')
+        )
+
+        expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
+        expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should keep publish logging safe when the publish helper returns a partial result object', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockResolvedValue(['C1000000000-PROV'])
+        vi.mocked(publishMetadataCorrectionRequest).mockResolvedValue({})
+
+        await cmrKeywordEventsListener({
+          Records: [
+            {
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234'
+                })
+              })
+            }
+          ]
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('messageId=n/a')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('topicArn=n/a')
+        )
+      })
+
+      test('should serialize an undefined error payload without failing in the logger path', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockRejectedValueOnce(undefined)
+
+        await expect(cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234',
+                  NewKeywordPath: 'New > Keyword'
+                })
+              })
+            }
+          ]
+        })).rejects.toBeUndefined()
+
+        expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
+          messageId: 'message-123',
+          eventType: 'UPDATED',
+          scheme: 'sciencekeywords',
+          uuid: '1234',
+          keywordPath: 'New > Keyword',
+          error: undefined
+        })
+      })
+
+      test('should log n/a event details when a keyword event body is present but empty', async () => {
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({})
+              })
+            }
+          ]
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('eventType=n/a')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('scheme=n/a')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('uuid=n/a')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordPath=n/a')
+        )
+
+        expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
+        expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
         expect(result).toEqual({
           batchItemFailures: []
         })
@@ -106,17 +333,14 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(logger.info).toHaveBeenCalledWith(
-          '[consumer] Received keyword event for CMR listener',
-          expect.objectContaining({
-            messageId: 'message-456',
-            keywordEvent: null
-          })
+          expect.stringContaining('messageId=message-456')
         )
 
         expect(result).toEqual({
           batchItemFailures: []
         })
 
+        expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
       })
     })
@@ -132,17 +356,14 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(logger.info).toHaveBeenCalledWith(
-          '[consumer] Received keyword event for CMR listener',
-          expect.objectContaining({
-            messageId: 'message-789',
-            keywordEvent: null
-          })
+          expect.stringContaining('messageId=message-789')
         )
 
         expect(result).toEqual({
           batchItemFailures: []
         })
 
+        expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
       })
     })
@@ -172,6 +393,74 @@ describe('when the CMR keyword events processor is invoked', () => {
       })
     })
 
+    describe('when concept-id lookup fails', () => {
+      test('should log the error and throw', async () => {
+        const error = new TypeError('fetch failed')
+
+        error.cmrRequest = {
+          method: 'GET',
+          endpoint: 'https://cmr.sit.earthdata.nasa.gov',
+          path: '/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1',
+          fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1'
+        }
+
+        error.cmrCause = {
+          name: 'Error',
+          message: 'connect ETIMEDOUT 10.0.0.15:443',
+          code: 'ETIMEDOUT',
+          errno: -60,
+          syscall: 'connect',
+          address: '10.0.0.15',
+          port: 443
+        }
+
+        vi.mocked(getCmrCollectionConceptIds).mockRejectedValue(error)
+
+        await expect(cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234'
+                })
+              })
+            }
+          ]
+        })).rejects.toThrow('fetch failed')
+
+        expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
+          messageId: 'message-123',
+          eventType: 'UPDATED',
+          scheme: 'sciencekeywords',
+          uuid: '1234',
+          keywordPath: 'n/a',
+          error: expect.objectContaining({
+            name: 'TypeError',
+            message: 'fetch failed',
+            cmrRequest: {
+              method: 'GET',
+              endpoint: 'https://cmr.sit.earthdata.nasa.gov',
+              path: '/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1',
+              fullUrl: 'https://cmr.sit.earthdata.nasa.gov/search/collections.umm_json?keyword=1234&page_size=2000&page_num=1'
+            },
+            cmrCause: {
+              name: 'Error',
+              message: 'connect ETIMEDOUT 10.0.0.15:443',
+              code: 'ETIMEDOUT',
+              errno: -60,
+              syscall: 'connect',
+              address: '10.0.0.15',
+              port: 443
+            }
+          })
+        })
+      })
+    })
+
     describe('when publishing the metadata correction request fails', () => {
       test('should log the error and throw', async () => {
         vi.mocked(publishMetadataCorrectionRequest).mockRejectedValue(new Error('SNS unavailable'))
@@ -184,6 +473,7 @@ describe('when the CMR keyword events processor is invoked', () => {
                 Type: 'Notification',
                 Message: JSON.stringify({
                   EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
                   UUID: '1234'
                 })
               })

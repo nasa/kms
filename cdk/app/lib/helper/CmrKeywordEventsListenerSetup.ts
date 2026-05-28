@@ -1,6 +1,7 @@
 import * as path from 'path'
 
 import * as cdk from 'aws-cdk-lib'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -14,10 +15,14 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  * Properties for the CMR keyword events listener infrastructure.
  */
 interface CmrKeywordEventsListenerSetupProps {
+  cmrBaseUrl: string
   prefix: string
+  securityGroup: ec2.SecurityGroup
   stage: string
   keywordEventsTopic: sns.ITopic
   metadataCorrectionRequestsTopic: sns.ITopic
+  useLocalstack: boolean
+  vpc: ec2.IVpc
 }
 
 /**
@@ -38,27 +43,46 @@ export class CmrKeywordEventsListenerSetup extends Construct {
   constructor(scope: Construct, id: string, props: CmrKeywordEventsListenerSetupProps) {
     super(scope, id)
 
-    const queueName = `${props.prefix}-${props.stage}-cmr-keyword-events`
+    const {
+      cmrBaseUrl,
+      keywordEventsTopic,
+      metadataCorrectionRequestsTopic,
+      prefix,
+      securityGroup,
+      stage,
+      useLocalstack,
+      vpc
+    } = props
+
+    const queueName = `${prefix}-${stage}-cmr-keyword-events`
     const projectRoot = path.join(__dirname, '../../../..')
 
     this.queue = new sqs.Queue(this, 'CmrKeywordEventsQueue', {
       queueName
     })
 
-    props.keywordEventsTopic.addSubscription(new subscriptions.SqsSubscription(this.queue))
+    keywordEventsTopic.addSubscription(new subscriptions.SqsSubscription(this.queue))
 
-    this.listenerLambda = new NodejsFunction(this, `${props.prefix}-cmr-keyword-events-processor`, {
-      functionName: `${props.prefix}-${props.stage}-cmr-keyword-events-processor`,
+    this.listenerLambda = new NodejsFunction(this, `${prefix}-cmr-keyword-events-processor`, {
+      functionName: `${prefix}-${stage}-cmr-keyword-events-processor`,
       entry: path.join(projectRoot, 'serverless/src/cmrKeywordEventsListener/handler.js'),
       handler: 'cmrKeywordEventsListener',
       runtime: NODE_LAMBDA_RUNTIME,
       timeout: cdk.Duration.seconds(30),
       memorySize: 1024,
       environment: {
-        METADATA_CORRECTION_REQUESTS_TOPIC_ARN: props.metadataCorrectionRequestsTopic.topicArn
+        CMR_BASE_URL: cmrBaseUrl,
+        METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopic.topicArn
       },
       depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
-      projectRoot
+      projectRoot,
+      ...(useLocalstack ? {} : {
+        vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+        },
+        securityGroups: [securityGroup]
+      })
     })
 
     this.listenerLambda.addEventSource(new eventsources.SqsEventSource(this.queue, {
@@ -66,11 +90,11 @@ export class CmrKeywordEventsListenerSetup extends Construct {
     }))
 
     this.queue.grantConsumeMessages(this.listenerLambda)
-    props.metadataCorrectionRequestsTopic.grantPublish(this.listenerLambda)
+    metadataCorrectionRequestsTopic.grantPublish(this.listenerLambda)
 
     this.queueUrlOutput = new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
       description: 'Queue URL for CMR keyword event processing',
-      exportName: `${props.prefix}-CmrKeywordEventsQueueUrl`,
+      exportName: `${prefix}-CmrKeywordEventsQueueUrl`,
       value: this.queue.queueUrl
     })
   }

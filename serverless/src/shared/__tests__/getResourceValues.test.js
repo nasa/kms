@@ -1,7 +1,7 @@
 import {
   describe,
   expect,
-  it
+  test
 } from 'vitest'
 
 import { getResourceValues } from '../getResourceValues'
@@ -17,7 +17,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an array of all resource values', () => {
+    test('should return an array of all resource values', () => {
       const result = getResourceValues(validXml, 'skos:related')
       expect(result).toEqual([
         '2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df',
@@ -35,7 +35,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an array with one resource value', () => {
+    test('should return an array with one resource value', () => {
       const result = getResourceValues(validXml, 'skos:related')
       expect(result).toEqual(['2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df'])
     })
@@ -50,7 +50,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an empty array', () => {
+    test('should return an empty array', () => {
       const result = getResourceValues(validXml, 'skos:related')
       expect(result).toEqual([])
     })
@@ -65,7 +65,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an array with one resource value', () => {
+    test('should return an array with one resource value', () => {
       const result = getResourceValues(validXml, 'skos:related')
       expect(result).toEqual(['2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df'])
     })
@@ -80,7 +80,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an empty array and log a warning', () => {
+    test('should return an empty array and log a warning', () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
       const result = getResourceValues(validXml, 'skos:related')
       expect(result).toEqual([])
@@ -98,7 +98,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an array with one resource value', () => {
+    test('should return an array with one resource value', () => {
       const result = getResourceValues(validXml, 'skos:exactMatch')
       expect(result).toEqual(['2ab4ba32-0bb3-4e4e-bac6-1ff4a3baf0df'])
     })
@@ -113,7 +113,7 @@ describe('getResourceValues', () => {
       </rdf:RDF>
     `
 
-    it('should return an empty array', () => {
+    test('should return an empty array', () => {
       const result = getResourceValues(validXml, 'skos:exactMatch')
       expect(result).toEqual([])
     })

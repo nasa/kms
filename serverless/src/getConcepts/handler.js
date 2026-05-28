@@ -101,8 +101,14 @@ export const getConcepts = async (event, context) => {
   const { queryStringParameters } = event
   const { pattern } = event?.pathParameters || {}
   let { conceptScheme } = event?.pathParameters || {}
-  const { page_num: pageNumStr = '1', page_size: pageSizeStr = '2000', format = 'rdf' } = event?.queryStringParameters || {}
+  const {
+    page_num: pageNumStr = '1',
+    page_size: pageSizeStr = '2000',
+    format = 'rdf',
+    bypassCache: bypassCacheFlag
+  } = event?.queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
+  const bypassCache = bypassCacheFlag === 'true'
 
   // Convert page_num and page_size to integers
   const pageNum = parseInt(pageNumStr, 10)
@@ -167,7 +173,8 @@ export const getConcepts = async (event, context) => {
       const cachedResponse = await getCachedJsonResponse({
         cacheKey,
         entityLabel: 'response',
-        format
+        format,
+        bypassCache
       })
       if (cachedResponse) {
         return cachedResponse

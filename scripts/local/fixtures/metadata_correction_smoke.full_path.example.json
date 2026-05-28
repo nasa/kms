@@ -1,0 +1,135 @@
+{
+  "historicalConcepts": [
+    {
+      "lookupType": "fullPath",
+      "scheme": "sciencekeywords",
+      "fullPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS",
+      "responseBody": {
+        "uuid": "2e5a401b-1507-4f57-82b8-36557c13b154",
+        "fullPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS"
+      }
+    },
+    {
+      "lookupType": "shortName",
+      "scheme": "platforms",
+      "shortName": "Aqua Legacy",
+      "responseBody": {
+        "uuid": "ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8",
+        "fullPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy",
+        "longName": "Aqua Legacy"
+      }
+    },
+    {
+      "lookupType": "shortName",
+      "scheme": "instruments",
+      "shortName": "Legacy MODIS",
+      "responseBody": {
+        "uuid": "deleted-instrument-uuid",
+        "fullPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy > Legacy MODIS",
+        "longName": "Legacy MODIS"
+      }
+    }
+  ],
+  "publishedConcepts": [
+    {
+      "lookupType": "fullPath",
+      "scheme": "sciencekeywords",
+      "fullPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
+      "responseBody": {
+        "uuid": "2e5a401b-1507-4f57-82b8-36557c13b154",
+        "fullPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS"
+      }
+    },
+    {
+      "lookupType": "shortName",
+      "scheme": "platforms",
+      "shortName": "Aqua",
+      "responseBody": {
+        "uuid": "ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8",
+        "fullPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua",
+        "longName": "Aqua"
+      }
+    }
+  ],
+  "keywordEvents": [
+    {
+      "EventType": "UPDATED",
+      "Scheme": "sciencekeywords",
+      "UUID": "2e5a401b-1507-4f57-82b8-36557c13b154",
+      "OldKeywordPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS",
+      "NewKeywordPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
+      "Timestamp": "2026-05-06T00:00:00.000Z"
+    },
+    {
+      "EventType": "UPDATED",
+      "Scheme": "platforms",
+      "UUID": "ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8",
+      "OldKeywordPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy",
+      "NewKeywordPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua",
+      "Timestamp": "2026-05-06T00:00:00.000Z"
+    },
+    {
+      "EventType": "DELETED",
+      "Scheme": "instruments",
+      "UUID": "deleted-instrument-uuid",
+      "OldKeywordPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy > Legacy MODIS",
+      "NewKeywordPath": "",
+      "Timestamp": "2026-05-06T00:00:00.000Z"
+    }
+  ],
+  "cmr": {
+    "collectionConceptIdsByKeyword": [
+      {
+        "scheme": "sciencekeywords",
+        "uuid": "2e5a401b-1507-4f57-82b8-36557c13b154",
+        "conceptIds": [
+          "C1234567890-LOCAL"
+        ]
+      },
+      {
+        "scheme": "platforms",
+        "uuid": "ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8",
+        "conceptIds": [
+          "C1234567890-LOCAL"
+        ]
+      },
+      {
+        "scheme": "instruments",
+        "uuid": "deleted-instrument-uuid",
+        "conceptIds": [
+          "C1234567890-LOCAL"
+        ]
+      }
+    ],
+    "collections": [
+      {
+        "conceptId": "C1234567890-LOCAL",
+        "nativeId": "local-smoke-collection-1",
+        "providerId": "LOCAL",
+        "format": "application/vnd.nasa.cmr.umm+json",
+        "revisionId": 1,
+        "umm": {
+          "ShortName": "LOCAL-METADATA-CORRECTION-SMOKE",
+          "Platforms": [
+            {
+              "ShortName": "Aqua Legacy",
+              "Instruments": [
+                {
+                  "ShortName": "Legacy MODIS"
+                }
+              ]
+            }
+          ],
+          "ScienceKeywords": [
+            {
+              "Category": "EARTH SCIENCE",
+              "Topic": "ATMOSPHERE",
+              "Term": "AEROSOLS",
+              "VariableLevel1": "LEGACY AEROSOLS"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

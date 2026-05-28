@@ -78,8 +78,13 @@ export const getConcept = async (event, context) => {
     conceptId, shortName, altLabel, fullPath
   } = pathParameters || {}
   const { queryStringParameters } = event
-  const { scheme, format = 'rdf' } = queryStringParameters || {}
+  const {
+    scheme,
+    format = 'rdf',
+    bypassCache: bypassCacheFlag
+  } = queryStringParameters || {}
   const version = queryStringParameters?.version || 'published'
+  const bypassCache = bypassCacheFlag === 'true'
 
   logAnalyticsData({
     event,
@@ -110,7 +115,8 @@ export const getConcept = async (event, context) => {
     try {
       const cachedResponse = await getCachedJsonResponse({
         cacheKey: conceptCacheKey,
-        entityLabel: 'concept response'
+        entityLabel: 'concept response',
+        bypassCache
       })
       if (cachedResponse) {
         return cachedResponse
