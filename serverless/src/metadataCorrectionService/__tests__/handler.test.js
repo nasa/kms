@@ -95,7 +95,9 @@ describe('when the metadata correction service is invoked', () => {
           collectionConceptId: 'C0000000000-KMS',
           messageId: 'message-123',
           nativeFormat: 'DIF10',
-          correctionCount: 1
+          correctionCount: 1,
+          correctionsApplied: [{ scheme: 'sciencekeywords' }],
+          correctedMetadata: '<DIF><Entry_ID/></DIF>'
         })
       )
 

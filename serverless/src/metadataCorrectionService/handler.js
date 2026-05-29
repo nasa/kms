@@ -85,7 +85,9 @@ export const metadataCorrectionService = async (event) => {
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
         messageId: record.messageId,
         nativeFormat,
-        correctionCount: correctionResult.correctionCount
+        correctionCount: correctionResult.correctionCount,
+        correctionsApplied: correctionResult.correctionsApplied || [],
+        correctedMetadata: correctionResult.correctedMetadata || ''
       })
 
       const writeResult = await writeCorrectedMetadataToCmr({
