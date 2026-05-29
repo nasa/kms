@@ -6,8 +6,19 @@
     {
       "scheme": "sciencekeywords",
       "action": "replace",
-      "oldKeywordPath": "EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > SEDIMENTARY STRUCTURES",
-      "newKeywordPath": "EARTH SCIENCE > OCEANS > OCEAN TEMPERATURE > WATER TEMPERATURE"
+      "oldKeywordPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
+      "newKeywordPath": "EARTH SCIENCE > OCEANS > MARINE SEDIMENTS"
+    },
+    {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordPath": "CONTINENT > ANTARCTICA >  >  >  > MCMURDO SOUND"
+    },
+    {
+      "scheme": "chronounits",
+      "action": "replace",
+      "oldKeywordPath": "PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ",
+      "newKeywordPath": "PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > "
     },
     {
       "scheme": "platforms",
@@ -17,8 +28,62 @@
       "newLongName": "Systeme Observation de la Terre-4 Updated"
     },
     {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordPath": "Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES"
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "oldKeywordPath": "A - C > ALIENS",
+      "newKeywordPath": "A - C > ALIENS-UPDATED",
+      "newLongName": "Aliens in Antarctica Updated"
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "oldKeywordPath": "ARCHIVER >  >  >  > NZ/NZAI/ANZ",
+      "newKeywordPath": "ARCHIVER >  >  >  > NZ/NZAI/ANZ-UPDATED",
+      "newLongName": "Antarctica New Zealand Updated"
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordPath": "DistributionURL > VIEW RELATED INFORMATION > OpenSearch",
+      "newKeywordPath": "DistributionURL > VIEW RELATED INFORMATION > OGC WMS"
+    },
+    {
+      "scheme": "idnnode",
+      "action": "delete",
+      "oldKeywordPath": "CEOS"
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordPath": "GEOSCIENTIFIC INFORMATION",
+      "newKeywordPath": "OCEANS"
+    },
+    {
+      "scheme": "temporalresolutionrange",
+      "action": "delete",
+      "oldKeywordPath": "Hourly"
+    },
+    {
+      "scheme": "verticalresolutionrange",
+      "action": "replace",
+      "oldKeywordPath": "5 meters",
+      "newKeywordPath": "50 meters"
+    },
+    {
+      "scheme": "horizontalresolutionrange",
+      "action": "replace",
+      "oldKeywordPath": "10 meters",
+      "newKeywordPath": "100 meters"
+    },
+    {
       "scheme": "productlevelid",
       "action": "replace",
+      "oldKeywordPath": "NA",
       "newKeywordPath": "1A"
     }
   ]

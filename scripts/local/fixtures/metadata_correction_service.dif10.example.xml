@@ -1,0 +1,125 @@
+<DIF>
+    <Entry_ID>
+        <Short_Name>PRESERVATION_TEST</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Entry_Title>Preservation Regression Test</Entry_Title>
+    <Personnel>
+        <Role>INVESTIGATOR</Role>
+        <Contact_Person>
+            <First_Name>RAY</First_Name>
+            <Last_Name>DIBBLE</Last_Name>
+            <Email>r.dibble@example.org</Email>
+        </Contact_Person>
+    </Personnel>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>ATMOSPHERE</Topic>
+        <Term>AEROSOLS</Term>
+    </Science_Keywords>
+    <Science_Keywords>
+        <Category>EARTH SCIENCE</Category>
+        <Topic>SOLID EARTH</Topic>
+        <Term>TECTONICS</Term>
+        <Variable_Level_1>EARTHQUAKES</Variable_Level_1>
+    </Science_Keywords>
+    <ISO_Topic_Category>GEOSCIENTIFIC INFORMATION</ISO_Topic_Category>
+    <Platform>
+        <Type>Earth Observation Satellites</Type>
+        <Short_Name>SPOT-4</Short_Name>
+        <Long_Name>Systeme Observation de la Terre-4</Long_Name>
+        <Instrument>
+            <Short_Name>SEISMIC REFLECTION PROFILERS</Short_Name>
+        </Instrument>
+        <Instrument>
+            <Short_Name>GEOPHONES</Short_Name>
+            <Long_Name>Geophone Array</Long_Name>
+        </Instrument>
+    </Platform>
+    <Platform>
+        <Type>Aircraft</Type>
+        <Short_Name>NASA S-3B VIKING</Short_Name>
+        <Instrument>
+            <Short_Name>TSX-1</Short_Name>
+            <Long_Name>Synthetic Aperture Radar</Long_Name>
+        </Instrument>
+    </Platform>
+    <Temporal_Coverage>
+        <Paleo_DateTime>
+            <Chronostratigraphic_Unit>
+                <Eon>PHANEROZOIC</Eon>
+                <Era>CENOZOIC</Era>
+                <Period>QUATERNARY</Period>
+                <Epoch>HOLOCENE</Epoch>
+            </Chronostratigraphic_Unit>
+        </Paleo_DateTime>
+        <Temporal_Info>Regression Temporal Info</Temporal_Info>
+    </Temporal_Coverage>
+    <Data_Resolution>
+        <Horizontal_Resolution_Range>10 meters</Horizontal_Resolution_Range>
+        <Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>
+        <Temporal_Resolution_Range>Hourly</Temporal_Resolution_Range>
+    </Data_Resolution>
+    <Location>
+        <Location_Category>CONTINENT</Location_Category>
+        <Location_Type>ANTARCTICA</Location_Type>
+        <Detailed_Location>MCMURDO SOUND</Detailed_Location>
+    </Location>
+    <Location>
+        <Location_Category>GEOGRAPHIC REGION</Location_Category>
+        <Location_Type>POLAR</Location_Type>
+    </Location>
+    <Project>
+        <Short_Name>ALIENS</Short_Name>
+        <Long_Name>Aliens in Antarctica</Long_Name>
+    </Project>
+    <Project>
+        <Short_Name>ICEBRIDGE</Short_Name>
+        <Long_Name>IceBridge Mission</Long_Name>
+    </Project>
+    <Quality>
+        Regression quality narrative that should remain untouched.
+    </Quality>
+    <Dataset_Language>English</Dataset_Language>
+    <Organization>
+        <Organization_Type>ARCHIVER</Organization_Type>
+        <Organization_Name>
+            <Short_Name>NZ/NZAI/ANZ</Short_Name>
+            <Long_Name>Antarctica New Zealand, New Zealand Antarctic Institute, New Zealand</Long_Name>
+        </Organization_Name>
+        <Organization_URL>http://www.antarcticanz.govt.nz/</Organization_URL>
+        <Personnel>
+            <Role>DATA CENTER CONTACT</Role>
+            <Contact_Person>
+                <First_Name>SHULAMIT</First_Name>
+                <Last_Name>GORDON</Last_Name>
+                <Email>s.gordon@antarcticanz.govt.nz</Email>
+            </Contact_Person>
+        </Personnel>
+    </Organization>
+    <Summary>
+        <Abstract>Regression abstract that should remain untouched.</Abstract>
+    </Summary>
+    <Related_URL>
+        <URL_Content_Type>
+            <Type>VIEW RELATED INFORMATION</Type>
+            <Subtype>OpenSearch</Subtype>
+        </URL_Content_Type>
+        <URL>http://www.victoria.ac.nz/antarctic/</URL>
+        <Description>Regression related URL description.</Description>
+    </Related_URL>
+    <IDN_Node>
+        <Short_Name>AMD/NZ</Short_Name>
+    </IDN_Node>
+    <IDN_Node>
+        <Short_Name>CEOS</Short_Name>
+    </IDN_Node>
+    <Metadata_Dates>
+        <Metadata_Last_Revision>2017-04-20</Metadata_Last_Revision>
+    </Metadata_Dates>
+    <Additional_Attributes>
+        <Name>metadata.keyword_version</Name>
+        <Value>8.1</Value>
+    </Additional_Attributes>
+    <Product_Level_Id>NA</Product_Level_Id>
+</DIF>
