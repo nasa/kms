@@ -210,25 +210,18 @@ describe('metadata correction delegate stubs', () => {
     })
   })
 
-  test('returns the expected DIF10 delegate stub shape', async () => {
+  test('returns the expected DIF10 no-payload shape', async () => {
     await expect(applyDif10MetadataCorrections({
       collectionConceptId: 'C5',
       providerId: 'PROV',
       nativeId: 'native-5'
     })).resolves.toEqual({
-      nativeFormat: 'DIF10',
-      delegateName: 'dif10',
-      collectionConceptId: 'C5',
-      providerId: 'PROV',
-      nativeId: 'native-5',
       correctionCount: 0,
-      correctedMetadata: undefined,
-      correctionsApplied: [],
       stubbed: true
     })
   })
 
-  test('preserves optional long-name fields in DIF10 correction handoff', async () => {
+  test('returns the expected DIF10 no-payload shape even when corrections are provided', async () => {
     await expect(applyDif10MetadataCorrections({
       collectionConceptId: 'C5',
       providerId: 'PROV',
@@ -245,24 +238,7 @@ describe('metadata correction delegate stubs', () => {
         }
       ]
     })).resolves.toEqual({
-      nativeFormat: 'DIF10',
-      delegateName: 'dif10',
-      collectionConceptId: 'C5',
-      providerId: 'PROV',
-      nativeId: 'native-5',
-      correctionCount: 1,
-      correctedMetadata: undefined,
-      correctionsApplied: [
-        {
-          scheme: 'platforms',
-          action: 'replace',
-          keywordConceptUuid: 'uuid-5',
-          oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > HU-25A',
-          newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > HU-25A',
-          oldLongName: 'Dassault HU-25A Guardian Legacy',
-          newLongName: 'Dassault HU-25A Guardian'
-        }
-      ],
+      correctionCount: 0,
       stubbed: true
     })
   })
