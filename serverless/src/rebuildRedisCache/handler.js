@@ -135,6 +135,10 @@ export const rebuildRedisCache = async () => {
     logger.info('[cache-rebuild] Flushing Redis before rebuild')
     await redisClient.flushAll()
 
+    // Observed in SIT on 2026-05-31, a full flush-and-rebuild run completed in about
+    // 5 minutes. That is comfortably inside the 15-minute Lambda timeout for now, but
+    // if rebuild time grows materially we should split this into multiple async stages
+    // instead of keeping all cache rebuild work in one worker invocation.
     logger.info('[cache-rebuild] Rebuilding published concept lookup cache and CSV snapshots')
     const publishedCacheResult = await exportPublishSchemeCsvToS3()
 
