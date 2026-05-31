@@ -398,6 +398,18 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'rebuildRedisCache/handler.js',
+      'rebuild-redis-cache',
+      'requestRebuildRedisCache',
+      '/cache/rebuild',
+      'POST',
+      true,
+      Duration.seconds(30),
+      2048
+    )
+
+    this.createApiLambda(
+      scope,
       'createConceptScheme/handler.js',
       'create-concept-scheme',
       'createConceptScheme',
@@ -428,11 +440,13 @@ export class LambdaFunctions {
   }
 
   /**
-   * Creates EventBridge wiring for publish events and cache-prime target execution.
+   * Creates EventBridge wiring for publish events, cache-prime execution, and manual cache
+   * rebuild requests.
    *
    * This method sets up a two-stage event pipeline:
    * 1. publish Lambda emits 'kms.published.version.changed' → triggers publisher Lambda
    * 2. publisher Lambda emits 'kms.publisher.analysis.completed' → triggers cache-prime Lambda
+   * 3. cache rebuild API emits 'kms.redis.cache.rebuild.requested' → triggers rebuild worker Lambda
    *
    * @param {Construct} scope - Construct scope.
    * @private
@@ -444,8 +458,15 @@ export class LambdaFunctions {
       throw new Error(`Expected publish lambda to exist in map for key=${publishLambdaKey}`)
     }
 
+    const rebuildRedisCacheLambdaKey = 'rebuildRedisCache/handler.js::rebuild-redis-cache'
+    const rebuildRedisCacheLambda = this.lambdas[rebuildRedisCacheLambdaKey]
+    if (!rebuildRedisCacheLambda) {
+      throw new Error(`Expected rebuild cache lambda to exist in map for key=${rebuildRedisCacheLambdaKey}`)
+    }
+
     const publisherLambda = this.createPublisherLambda(scope)
     const cachePrimeLambda = this.createCachePrimeLambda(scope)
+    const rebuildRedisCacheWorkerLambda = this.createRebuildRedisCacheWorkerLambda(scope)
 
     const defaultEventBusArn = Stack.of(scope).formatArn({
       service: 'events',
@@ -455,6 +476,11 @@ export class LambdaFunctions {
 
     // Grant publish Lambda permission to emit events
     publishLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['events:PutEvents'],
+      resources: [defaultEventBusArn]
+    }))
+
+    rebuildRedisCacheLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['events:PutEvents'],
       resources: [defaultEventBusArn]
     }))
@@ -482,6 +508,14 @@ export class LambdaFunctions {
       }
     })
     publisherToPrimeCacheRule.addTarget(new targets.LambdaFunction(cachePrimeLambda))
+
+    const rebuildCacheRule = new events.Rule(scope, `${this.props.prefix}-RebuildCacheRule`, {
+      eventPattern: {
+        source: ['kms.cache'],
+        detailType: ['kms.redis.cache.rebuild.requested']
+      }
+    })
+    rebuildCacheRule.addTarget(new targets.LambdaFunction(rebuildRedisCacheWorkerLambda))
   }
 
   /**
@@ -537,6 +571,25 @@ export class LambdaFunctions {
     )
 
     return cachePrimeLambda
+  }
+
+  /**
+   * Creates the worker Lambda that flushes and rebuilds Redis after a rebuild request event.
+   * It is intentionally not exposed as an API route.
+   * @param {Construct} scope - The scope in which to define these constructs
+   * @private
+   */
+  private createRebuildRedisCacheWorkerLambda(scope: Construct): lambda.Function {
+    const rebuildRedisCacheWorkerLambda = this.createLambdaFunction(
+      scope,
+      'rebuildRedisCache/handler.js',
+      'rebuild-redis-cache-worker',
+      'rebuildRedisCache',
+      Duration.minutes(15),
+      2048
+    )
+
+    return rebuildRedisCacheWorkerLambda
   }
 
   /**

@@ -168,6 +168,14 @@ export const getCapabilities = async () => {
                 params: 'scheme=',
                 action: 'GET'
               }
+            },
+            {
+              ':@': {
+                name: 'rebuild_redis_cache',
+                href: '/cache/rebuild',
+                params: 'None',
+                action: 'POST'
+              }
             }
 
           ]
