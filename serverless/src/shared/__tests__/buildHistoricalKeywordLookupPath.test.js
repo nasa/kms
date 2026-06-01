@@ -34,6 +34,16 @@ describe('buildHistoricalKeywordLookupPath', () => {
     })).toEqual('CONTINENT > NORTH AMERICA >  >  >  > ')
   })
 
+  test('preserves the trailing blank subtype slot for related URL content type paths', () => {
+    expect(buildHistoricalKeywordLookupPath({
+      scheme: 'rucontenttype',
+      keywordValue: {
+        URLContentType: 'CollectionURL',
+        Type: 'PROJECT HOME PAGE'
+      }
+    })).toEqual('CollectionURL > PROJECT HOME PAGE > ')
+  })
+
   test('leaves scalar schemes unchanged', () => {
     expect(buildHistoricalKeywordLookupPath({
       scheme: 'temporalresolutionrange',

@@ -220,6 +220,63 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
     expect(editor.serialize()).toContain('<Term>MARINE SEDIMENTS</Term>')
   })
 
+  test('should match and update block nodes in DIF10 payloads with a default namespace', () => {
+    const editor = new XmlMetadataPathEditor(`
+      <DIF xmlns="http://gcmd.gsfc.nasa.gov/Aboutus/xml/dif/">
+        <Science_Keywords>
+          <Category>EARTH SCIENCE</Category>
+          <Topic>CRYOSPHERE</Topic>
+          <Term>SNOW/ICE</Term>
+        </Science_Keywords>
+      </DIF>
+    `)
+
+    const isUpdated = editor.updateBlockNode({
+      action: 'replace',
+      oldKeywordPath: 'EARTH SCIENCE > CRYOSPHERE > SNOW/ICE >  >  >  > ',
+      newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE > SNOW/ICE - chris v5 >  >  >  > '
+    }, {
+      nodeXPath: '//DIF/Science_Keywords',
+      find: {
+        fieldPaths: [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ]
+      },
+      replace: [
+        {
+          fieldPath: 'Category',
+          source: {
+            type: 'path',
+            pathIndex: 0
+          }
+        },
+        {
+          fieldPath: 'Topic',
+          source: {
+            type: 'path',
+            pathIndex: 1
+          }
+        },
+        {
+          fieldPath: 'Term',
+          source: {
+            type: 'path',
+            pathIndex: 2
+          }
+        }
+      ]
+    })
+
+    expect(isUpdated).toBe(true)
+    expect(editor.serialize()).toContain('<Term>SNOW/ICE - chris v5</Term>')
+  })
+
   test('should invoke afterDelete callbacks for block nodes', () => {
     let callbackNodeName = null
     const editor = new XmlMetadataPathEditor('<DIF><Block><Short_Name>ONE</Short_Name></Block></DIF>')

@@ -40,7 +40,7 @@ describe('validateCmrCollectionUmm', () => {
 
   test('should validate a collection and return an empty error list when all published lookups exist', async () => {
     const scienceKeywordKey = createPublishedConceptResponseCacheKeyByFullPath({
-      fullPath: 'earth science > atmosphere > aerosols',
+      fullPath: 'earth science > atmosphere > aerosols >  >  >  > ',
       scheme: 'sciencekeywords'
     })
     const platformKey = createPublishedConceptResponseCacheKeyByShortName({
@@ -60,7 +60,7 @@ describe('validateCmrCollectionUmm', () => {
       if (cacheKey === scienceKeywordKey) {
         return createCachedResponse({
           uuid: 'science-keyword-uuid',
-          fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+          fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
         })
       }
 
@@ -135,6 +135,50 @@ describe('validateCmrCollectionUmm', () => {
     expect(logger.info).toHaveBeenCalledWith(
       expect.stringContaining('status=200')
     )
+  })
+
+  test('should use the slotted full path when validating rucontenttype against the published cache', async () => {
+    const ruContentTypeKey = createPublishedConceptResponseCacheKeyByFullPath({
+      fullPath: 'collectionurl > project home page > ',
+      scheme: 'rucontenttype'
+    })
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === ruContentTypeKey) {
+        return createCachedResponse({
+          uuid: 'ru-content-type-uuid',
+          fullPath: 'CollectionURL > PROJECT HOME PAGE > '
+        })
+      }
+
+      return null
+    })
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        RelatedUrls: [
+          {
+            URLContentType: 'CollectionURL',
+            Type: 'PROJECT HOME PAGE'
+          }
+        ]
+      }
+    })
+
+    expect(result).toEqual({
+      status: 200,
+      errors: [],
+      warnings: [],
+      responseBody: {
+        warnings: []
+      }
+    })
+
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: ruContentTypeKey,
+      entityLabel: 'Published Concept by fullPath'
+    })
   })
 
   test('should return CMR-like validation errors when published keyword lookups are missing', async () => {

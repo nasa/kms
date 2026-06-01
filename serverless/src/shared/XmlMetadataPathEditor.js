@@ -21,6 +21,14 @@ const padSegments = (segments, expectedLength) => {
 // Ignore fully empty path selections when deciding whether a find rule is usable.
 const hasAnyValue = (segments) => segments.some((segment) => trimString(segment).length > 0)
 
+// Live CMR DIF10 payloads use a default namespace, while several local fixtures do not. Our
+// scheme configs intentionally use simple unprefixed XPath like `//DIF/Science_Keywords`, so we
+// normalize all element-path lookups into a namespace-agnostic `local-name()` form up front.
+const toNamespaceAgnosticXPath = (expression) => expression.replace(
+  /(^|\/)([A-Za-z_][\w.-]*)(?=\/|$)/g,
+  '$1*[local-name()="$2"]'
+)
+
 /**
  * Builds a one-to-one replacement mapping between ordered KMS path slots and XML field paths.
  *
@@ -203,7 +211,7 @@ export class XmlMetadataPathEditor {
    * const platforms = editor.selectNodes('//DIF/Platform')
    */
   selectNodes(expression, contextNode = this.document) {
-    return xpath.select(expression, contextNode)
+    return xpath.select(toNamespaceAgnosticXPath(expression), contextNode)
       .filter((node) => node?.nodeType === ELEMENT_NODE)
   }
 

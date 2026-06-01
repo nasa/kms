@@ -15,6 +15,7 @@
  * (`{ status, errors, warnings, responseBody }`) so downstream correction logic can keep working
  * without needing to care whether validation came from CMR or from the published cache.
  */
+import { buildHistoricalKeywordLookupPath } from './buildHistoricalKeywordLookupPath'
 import { extractKeywordValue } from './extractKeywordValue'
 import { logger } from './logger'
 import {
@@ -64,8 +65,6 @@ const VALIDATION_MESSAGES = {
   rucontenttype: 'Related URL Content Type was not a valid set together.'
 }
 
-const LOOKUP_PATH_SEPARATOR = ' > '
-
 // Flattens nested keyword objects/arrays into a simple list of string values.
 const flattenKeywordValues = (keywordValue) => {
   if (keywordValue === undefined || keywordValue === null) {
@@ -102,7 +101,10 @@ const getKeywordLookupValue = ({
     const pathSegments = flattenKeywordValues(keywordValue)
 
     return pathSegments.length > 0
-      ? pathSegments.join(LOOKUP_PATH_SEPARATOR)
+      ? buildHistoricalKeywordLookupPath({
+        keywordValue,
+        scheme: normalizedScheme
+      })
       : undefined
   }
 
