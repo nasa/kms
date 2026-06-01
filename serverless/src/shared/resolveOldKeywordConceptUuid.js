@@ -1,3 +1,4 @@
+import { buildHistoricalKeywordLookupPath } from './buildHistoricalKeywordLookupPath'
 import { getConceptUuidByFullPath } from './getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from './getConceptUuidByShortName'
 import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
@@ -21,10 +22,6 @@ import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
  * metadata when the historical/published caches provide it.
  */
 
-const OLD_KEYWORD_PLACEHOLDER_PREFIX = '[resolve old keyword from UMM-C value: '
-const INTERNAL_PATH_SEPARATOR = '|'
-const HISTORICAL_CACHE_PATH_SEPARATOR = ' > '
-
 const FULL_PATH_SCHEMES = new Set([
   'sciencekeywords',
   'locations',
@@ -47,29 +44,19 @@ const SHORT_NAME_SCHEMES = new Set([
   'granuledataformat'
 ])
 
-/**
- * Converts the current extraction placeholder back into the raw lookup value.
- *
- * @param {string} oldKeyword - Placeholder or raw extracted keyword value.
- * @returns {string} Raw lookup value suitable for historical cache lookup.
- */
-const extractLookupValue = (oldKeyword) => {
-  if (oldKeyword.startsWith(OLD_KEYWORD_PLACEHOLDER_PREFIX) && oldKeyword.endsWith(']')) {
-    return oldKeyword.slice(OLD_KEYWORD_PLACEHOLDER_PREFIX.length, -1)
+const extractShortNameLookupValue = (keywordValue) => {
+  if (keywordValue === undefined || keywordValue === null) {
+    return ''
   }
 
-  return oldKeyword
-}
+  if (typeof keywordValue === 'string' || typeof keywordValue === 'number') {
+    return String(keywordValue)
+  }
 
-/**
- * Converts the internal placeholder path separator back into the historical cache path format.
- *
- * @param {string} keywordPath - Placeholder path using the internal separator.
- * @returns {string} Historical cache full path using the normal KMS path separator.
- */
-const toHistoricalCacheFullPath = (keywordPath) => keywordPath
-  .split(INTERNAL_PATH_SEPARATOR)
-  .join(HISTORICAL_CACHE_PATH_SEPARATOR)
+  return typeof keywordValue?.ShortName === 'string'
+    ? keywordValue.ShortName
+    : ''
+}
 
 /**
  * Determines whether the triggering keyword event should be treated as a true delete for the
@@ -185,7 +172,8 @@ const buildKeywordReference = ({
  *
  * @param {object} params - Lookup parameters.
  * @param {string} params.scheme - KMS scheme for the broken keyword.
- * @param {string} params.oldKeyword - Current placeholder value extracted from UMM-C.
+ * @param {unknown} [params.keywordValue] - Extracted UMM-C keyword fragment used for both
+ * full-path and short-name lookups.
  * @param {{ eventType?: string, scheme?: string, uuid?: string }} [params.keywordEvent={}] - Triggering keyword event context.
  * @returns {Promise<{
  *   keywordConceptUuid: string,
@@ -198,26 +186,26 @@ const buildKeywordReference = ({
  */
 export const resolveOldKeywordConceptUuid = async ({
   scheme,
-  oldKeyword,
+  keywordValue,
   keywordEvent = {}
 }) => {
-  // Without both scheme and extracted keyword value, there is nothing to resolve.
-  if (!scheme || !oldKeyword) {
+  if (!scheme) {
     return undefined
   }
 
   const normalizedScheme = scheme.toLowerCase()
-  const lookupValue = extractLookupValue(oldKeyword)
-
-  // The placeholder may normalize down to an empty lookup token; treat that as unresolved.
-  if (!lookupValue) {
-    return undefined
-  }
 
   if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+    if (keywordValue === undefined) {
+      return undefined
+    }
+
     // Resolve schemes whose historical cache key is based on a hierarchical full path.
     const historicalConcept = await getConceptUuidByFullPath({
-      fullPath: toHistoricalCacheFullPath(lookupValue),
+      fullPath: buildHistoricalKeywordLookupPath({
+        keywordValue,
+        scheme: normalizedScheme
+      }),
       scheme: normalizedScheme
     })
     const keywordConceptUuid = historicalConcept?.uuid
@@ -256,6 +244,12 @@ export const resolveOldKeywordConceptUuid = async ({
 
   if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
     // Resolve schemes whose historical cache key is based on a short-name lookup.
+    const lookupValue = extractShortNameLookupValue(keywordValue)
+
+    if (!lookupValue) {
+      return undefined
+    }
+
     const historicalConcept = await getConceptUuidByShortName({
       shortName: lookupValue,
       scheme: normalizedScheme

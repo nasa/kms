@@ -206,7 +206,11 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(resolveOldKeywordConceptUuid).toHaveBeenCalledWith({
         scheme: 'sciencekeywords',
-        oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS]',
+        keywordValue: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'ATMOSPHERE',
+          Term: 'LEGACY AEROSOLS'
+        },
         keywordEvent: {
           eventType: 'UPDATED',
           scheme: 'sciencekeywords',
@@ -352,7 +356,11 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(resolveOldKeywordConceptUuid).toHaveBeenCalledWith({
         scheme: 'sciencekeywords',
-        oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS]',
+        keywordValue: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'ATMOSPHERE',
+          Term: 'LEGACY AEROSOLS'
+        },
         keywordEvent: {}
       })
 

@@ -37,7 +37,7 @@ const buildResolvedCorrection = async ({
 }) => {
   const resolvedKeywordReference = await resolveOldKeywordConceptUuid({
     scheme: keywordFailure.scheme,
-    oldKeyword: keywordFailure.oldKeyword,
+    keywordValue: keywordFailure.keywordValue,
     keywordEvent
   })
 
