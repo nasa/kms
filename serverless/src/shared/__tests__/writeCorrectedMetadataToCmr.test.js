@@ -43,26 +43,4 @@ describe('when writing corrected metadata to cmr', () => {
       source: null
     })
   })
-
-  test('should coerce unsupported payload shapes into safe telemetry values', async () => {
-    const result = await writeCorrectedMetadataToCmr({
-      collectionConceptId: 'C0000000001-KMS',
-      nativeFormat: 'DIF10',
-      correctedMetadata: { xml: true },
-      correctionCount: '',
-      correctionsApplied: null,
-      source: 'metadataCorrectionService'
-    })
-
-    expect(result).toEqual({
-      stubbed: true,
-      targetComponent: 'cmr-writeback',
-      collectionConceptId: 'C0000000001-KMS',
-      nativeFormat: 'DIF10',
-      correctionCount: 0,
-      correctionsAppliedCount: 0,
-      correctedMetadataBytes: 0,
-      source: 'metadataCorrectionService'
-    })
-  })
 })

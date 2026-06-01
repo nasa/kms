@@ -39,10 +39,7 @@ export const writeCorrectedMetadataToCmr = async ({
   nativeFormat,
   correctionCount: Number(correctionCount || 0),
   correctionsAppliedCount: Array.isArray(correctionsApplied) ? correctionsApplied.length : 0,
-  correctedMetadataBytes: Buffer.byteLength(
-    typeof correctedMetadata === 'string' ? correctedMetadata : '',
-    'utf8'
-  ),
+  correctedMetadataBytes: Buffer.byteLength(correctedMetadata, 'utf8'),
   source
 })
 

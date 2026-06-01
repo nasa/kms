@@ -1,5 +1,12 @@
-import { applyDif10MetadataCorrections } from '@/shared/applyDif10MetadataCorrections'
+import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
+import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
+import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
+import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
+import { invokeMetadataCorrectionDelegate } from '@/shared/invokeMetadataCorrectionDelegate'
 import { logger } from '@/shared/logger'
+import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
+import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptUuid'
+import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
 
 const SUPPORTED_NATIVE_FORMATS = ['DIF10']
@@ -7,56 +14,82 @@ const SUPPORTED_NATIVE_FORMATS = ['DIF10']
 // Normalize request formats so the service can compare them consistently.
 const normalizeNativeFormat = (nativeFormat) => String(nativeFormat).trim().toUpperCase()
 
-// This service only accepts fully prepared correction requests. Earlier pipeline stages are
-// responsible for fetching native metadata and building the concrete corrections array.
-const validateMetadataCorrectionRequest = (metadataCorrectionRequest) => {
-  const missingFields = []
-
+// Accept only the collection identifier up front. Optional keyword-event context is used only
+// to safely prove delete actions for resolved keywords.
+const validateMetadataCorrectionRequest = (metadataCorrectionRequest = {}) => {
   if (typeof metadataCorrectionRequest.collectionConceptId !== 'string'
     || metadataCorrectionRequest.collectionConceptId.trim().length === 0) {
-    missingFields.push('collectionConceptId')
+    throw new Error('Incomplete metadata correction request: missing collectionConceptId')
+  }
+}
+
+const normalizeKeywordEvent = (keywordEvent) => (
+  keywordEvent && typeof keywordEvent === 'object'
+    ? keywordEvent
+    : {}
+)
+
+// Resolve one extracted invalid keyword into a concrete correction descriptor. Delete actions are
+// only emitted when the optional triggering keyword event positively proves the deleted UUID.
+const buildResolvedCorrection = async ({
+  keywordFailure,
+  keywordEvent
+}) => {
+  const resolvedKeywordReference = await resolveOldKeywordConceptUuid({
+    scheme: keywordFailure.scheme,
+    oldKeyword: keywordFailure.oldKeyword,
+    keywordEvent
+  })
+
+  if (!resolvedKeywordReference) {
+    return undefined
   }
 
-  if (typeof metadataCorrectionRequest.nativeFormat !== 'string'
-    || metadataCorrectionRequest.nativeFormat.trim().length === 0) {
-    missingFields.push('nativeFormat')
+  return {
+    ...resolvedKeywordReference,
+    scheme: keywordFailure.scheme,
+    ummPath: keywordFailure.path
   }
+}
 
-  if (typeof metadataCorrectionRequest.metadataPayload !== 'string'
-    || metadataCorrectionRequest.metadataPayload.length === 0) {
-    missingFields.push('metadataPayload')
+// Run the collection validation -> extraction -> historical resolution pipeline. Without explicit
+// delete context, unresolved historical/published cache gaps are skipped rather than inferred as deletes.
+const resolveMetadataCorrectionsFromCollection = async ({
+  collectionDetails,
+  keywordEvent
+}) => {
+  const validationResult = await validateCmrCollectionUmm({
+    providerId: collectionDetails.providerId,
+    nativeId: collectionDetails.nativeId,
+    umm: collectionDetails.umm
+  })
+  const keywordValidationFailures = extractKeywordValidationFailures({
+    umm: collectionDetails.umm,
+    validationErrors: validationResult.errors
+  })
+  const resolvedCorrections = (await Promise.all(
+    keywordValidationFailures.map(async (keywordFailure) => buildResolvedCorrection({
+      keywordFailure,
+      keywordEvent
+    }))
+  )).filter(Boolean)
+
+  return {
+    keywordValidationFailures,
+    resolvedCorrections
   }
-
-  if (!Array.isArray(metadataCorrectionRequest.corrections)) {
-    missingFields.push('corrections')
-  }
-
-  if (missingFields.length > 0) {
-    throw new Error(
-      `Incomplete metadata correction request: missing ${missingFields.join(', ')}`
-    )
-  }
-
-  const nativeFormat = normalizeNativeFormat(metadataCorrectionRequest.nativeFormat)
-
-  if (!SUPPORTED_NATIVE_FORMATS.includes(nativeFormat)) {
-    throw new Error(`Unsupported native format: ${nativeFormat}`)
-  }
-
-  return nativeFormat
 }
 
 /**
- * Metadata correction service that consumes metadata correction requests from SQS.
+ * Metadata correction service that consumes collection-scoped correction requests from SQS.
  *
- * This service expects a fully prepared correction request and ends at a clean handoff boundary:
- * 1. parse the request
- * 2. validate that the request is complete and supported
- * 3. apply the supported DIF10 metadata corrections
- * 4. pass the corrected payload to the downstream CMR write stub
+ * The service accepts a collection concept id, fetches the current collection details from CMR,
+ * validates the UMM-C payload against published KMS keywords, resolves concrete corrections,
+ * fetches the native metadata payload, and then invokes the selected native-format delegate.
  *
- * A follow-on external ticket will replace the write stub with the component that writes
- * corrected metadata back to CMR.
+ * Optional `keywordEvent` context is used only to safely prove delete actions. Without that
+ * context, the service will resolve replacement-style corrections only and skip anything that
+ * cannot be positively mapped to a current published keyword.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
  * @returns {Promise<{batchItemFailures: Array}>} Empty batch failures for acknowledged messages.
@@ -67,6 +100,7 @@ export const metadataCorrectionService = async (event) => {
   await Promise.all(records.map(async (record) => {
     try {
       const metadataCorrectionRequest = JSON.parse(record.body || '{}')
+      const keywordEvent = normalizeKeywordEvent(metadataCorrectionRequest.keywordEvent)
 
       logger.info('[metadata-correction] Received metadata correction request', {
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
@@ -74,33 +108,102 @@ export const metadataCorrectionService = async (event) => {
         metadataCorrectionRequest
       })
 
-      const nativeFormat = validateMetadataCorrectionRequest(metadataCorrectionRequest)
+      validateMetadataCorrectionRequest(metadataCorrectionRequest)
 
-      const correctionResult = await applyDif10MetadataCorrections({
-        ...metadataCorrectionRequest,
-        nativeFormat
+      const collectionDetails = await getCmrCollectionUmmDetails({
+        collectionConceptId: metadataCorrectionRequest.collectionConceptId
+      })
+      const { collectionConceptId } = collectionDetails
+      const nativeFormat = normalizeNativeFormat(detectNativeMetadataFormat({
+        format: collectionDetails.format
+      }))
+
+      if (!SUPPORTED_NATIVE_FORMATS.includes(nativeFormat)) {
+        throw new Error(`Unsupported native format: ${nativeFormat}`)
+      }
+
+      const {
+        keywordValidationFailures,
+        resolvedCorrections
+      } = await resolveMetadataCorrectionsFromCollection({
+        collectionDetails,
+        keywordEvent
       })
 
+      logger.info('[metadata-correction] Resolved metadata corrections from collection UMM', {
+        collectionConceptId,
+        messageId: record.messageId,
+        nativeFormat,
+        keywordValidationFailureCount: keywordValidationFailures.length,
+        resolvedCorrectionCount: resolvedCorrections.length
+      })
+
+      if (resolvedCorrections.length === 0) {
+        logger.info('[metadata-correction] No resolvable keyword corrections found', {
+          collectionConceptId,
+          messageId: record.messageId,
+          nativeFormat,
+          keywordValidationFailureCount: keywordValidationFailures.length
+        })
+
+        return
+      }
+
+      const metadataPayload = await getCmrCollectionNativeMetadata({
+        collectionConceptId,
+        revisionId: collectionDetails.revisionId
+      })
+
+      const correctionResult = await invokeMetadataCorrectionDelegate({
+        collectionConceptId,
+        providerId: collectionDetails.providerId,
+        nativeId: collectionDetails.nativeId,
+        nativeFormat,
+        metadataPayload,
+        corrections: resolvedCorrections
+      })
+      const correctionsForAudit = Array.isArray(correctionResult.correctionsApplied)
+        ? correctionResult.correctionsApplied
+        : []
+
+      if (correctionsForAudit.length > 0) {
+        const auditResult = await persistMetadataCorrectionAuditLog({
+          collectionConceptId,
+          keywordEvent,
+          nativeFormat,
+          delegateName: correctionResult.delegateName || nativeFormat.toLowerCase(),
+          corrections: correctionsForAudit,
+          status: 'pending'
+        })
+
+        logger.info('[metadata-correction] Persisted metadata correction audit log', {
+          collectionConceptId,
+          messageId: record.messageId,
+          nativeFormat,
+          auditResult
+        })
+      }
+
       logger.info('[metadata-correction] Produced corrected metadata payload', {
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         messageId: record.messageId,
         nativeFormat,
         correctionCount: correctionResult.correctionCount,
         correctionsApplied: correctionResult.correctionsApplied || [],
-        correctedMetadata: correctionResult.correctedMetadata || ''
+        correctedMetadata: correctionResult.correctedMetadata ?? ''
       })
 
       const writeResult = await writeCorrectedMetadataToCmr({
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         nativeFormat,
-        correctedMetadata: correctionResult.correctedMetadata || '',
+        correctedMetadata: correctionResult.correctedMetadata ?? '',
         correctionCount: correctionResult.correctionCount || 0,
         correctionsApplied: correctionResult.correctionsApplied || [],
         source: metadataCorrectionRequest.source || 'metadataCorrectionService'
       })
 
       logger.info('[metadata-correction] Stubbed corrected metadata write to CMR', {
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         messageId: record.messageId,
         nativeFormat,
         correctionCount: correctionResult.correctionCount,

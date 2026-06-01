@@ -317,16 +317,24 @@ Good rule of thumb:
 
 ## Metadata Correction Service Contract
 
-`serverless/src/metadataCorrectionService/handler.js` now expects a fully prepared correction request. That means this service is not the place for a raw `keywordEvent` by itself. Earlier pipeline stages are responsible for determining the affected collection, fetching the native metadata payload, and building the concrete correction list.
-
-The current request contract is:
+`serverless/src/metadataCorrectionService/handler.js` expects a collection-scoped correction request:
 
 - `collectionConceptId`
-- `nativeFormat`
-- `metadataPayload`
-- `corrections`
+- optional `keywordEvent`
 
-If any of those fields are missing, the service rejects the message as incomplete. If the format is supported, the service applies the native-format correction and then calls `serverless/src/shared/writeCorrectedMetadataToCmr.js`, which is currently a stubbed write seam for the later external CMR persistence ticket.
+The service then:
+
+1. fetches the collection UMM/native metadata details from CMR
+2. validates the collection against the published Redis cache
+3. extracts invalid keyword values from UMM-C
+4. resolves concrete corrections through the historical/published cache helpers
+5. fetches the raw native metadata payload
+6. invokes the native-format delegate
+7. calls `serverless/src/shared/writeCorrectedMetadataToCmr.js`
+
+`keywordEvent` is now optional and is used only as extra delete proof. Without delete-specific
+event context, unresolved cache lookups are skipped rather than inferred as delete actions. At the
+moment, runtime native-format support remains limited to `DIF10`.
 
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.
