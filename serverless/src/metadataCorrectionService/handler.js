@@ -149,6 +149,13 @@ export const metadataCorrectionService = async (event) => {
         return
       }
 
+      logger.info('[metadata-correction] Prepared resolved corrections for native metadata delegate', {
+        collectionConceptId,
+        messageId: record.messageId,
+        nativeFormat,
+        resolvedCorrections
+      })
+
       const metadataPayload = await getCmrCollectionNativeMetadata({
         collectionConceptId,
         revisionId: collectionDetails.revisionId
