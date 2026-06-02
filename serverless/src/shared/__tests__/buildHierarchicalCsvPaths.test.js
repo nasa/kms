@@ -5,16 +5,23 @@ import {
 } from 'vitest'
 
 import { buildHierarchicalCsvPaths } from '../buildHierarchicalCsvPaths'
-import { formatCsvPath } from '../formatCsvPath'
 import { getNarrowers } from '../getNarrowers'
 import { isCsvLongNameFlag } from '../isCsvLongNameFlag'
 import { isCsvProviderUrlFlag } from '../isCsvProviderUrlFlag'
+import { formatKeywordCsvPath } from '../keywordPaths'
 
 // Mock the imported functions
 vi.mock('../getNarrowers')
-vi.mock('../formatCsvPath')
 vi.mock('../isCsvLongNameFlag')
 vi.mock('../isCsvProviderUrlFlag')
+vi.mock('../keywordPaths', async () => {
+  const actual = await vi.importActual('../keywordPaths')
+
+  return {
+    ...actual,
+    formatKeywordCsvPath: vi.fn()
+  }
+})
 
 describe('buildHierarchicalCsvPaths', () => {
   beforeEach(() => {
@@ -177,13 +184,12 @@ describe('buildHierarchicalCsvPaths', () => {
     // Verify that getNarrowers was called
     expect(getNarrowers).toHaveBeenCalledWith('http://example.com/root', map)
 
-    // Verify that formatCsvPath was not called with the root node's path
-    expect(formatCsvPath).not.toHaveBeenCalledWith(
+    expect(formatKeywordCsvPath).not.toHaveBeenCalledWith({
       scheme,
       csvHeadersCount,
-      ['Root'],
-      true
-    )
+      path: ['Root'],
+      isLeaf: true
+    })
   })
 
   test('should handle nodes without long names or provider URLs', async () => {
@@ -288,6 +294,11 @@ describe('buildHierarchicalCsvPaths', () => {
       paths
     })
 
-    expect(formatCsvPath).toHaveBeenCalledWith(scheme, csvHeadersCount, ['Child', 'child'], true)
+    expect(formatKeywordCsvPath).toHaveBeenCalledWith({
+      scheme,
+      csvHeadersCount,
+      path: ['Child', 'child'],
+      isLeaf: true
+    })
   })
 })

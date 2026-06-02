@@ -1,5 +1,10 @@
 import { ConceptForFullPathCacheBuilder } from './conceptForFullPathCacheBuilder'
 import { ConceptForShortNameCacheBuilder } from './conceptForShortNameCacheBuilder'
+import {
+  isPublishedCacheFullPathScheme,
+  isPublishedCacheShortNameScheme,
+  normalizeKeywordScheme
+} from './keywordPaths'
 import { logger } from './logger'
 import {
   createPublishedConceptResponseCacheKeyByFullPath,
@@ -22,32 +27,10 @@ import { clearCachedByPrefix, getRedisClient } from './redisCacheStore'
  * - UUID-to-current-published-concept lookups so correction resolution can find the latest path
  */
 
-const PUBLISHED_CONCEPT_FULL_PATH_SCHEMES = new Set([
-  'sciencekeywords',
-  'locations',
-  'chronounits',
-  'rucontenttype',
-  'isotopiccategory',
-  'temporalresolutionrange',
-  'horizontalresolutionrange',
-  'verticalresolutionrange',
-  'productlevelid'
-])
-
-const PUBLISHED_CONCEPT_SHORT_NAME_SCHEMES = new Set([
-  'providers',
-  'platforms',
-  'instruments',
-  'projects',
-  'idnnode',
-  'dataformat',
-  'granuledataformat'
-])
-
 const normalizePublishedCacheScheme = (scheme) => (
-  String(scheme).toLowerCase() === 'granuledataformat'
+  normalizeKeywordScheme(scheme) === 'granuledataformat'
     ? 'dataformat'
-    : String(scheme).toLowerCase()
+    : normalizeKeywordScheme(scheme)
 )
 
 const createResponse = (bodyData) => ({
@@ -121,7 +104,7 @@ export const primePublishedConceptCacheFromCsv = async ({
     throw new Error('csvContent and scheme are required to prime published concept cache')
   }
 
-  const normalizedScheme = String(scheme).toLowerCase()
+  const normalizedScheme = normalizeKeywordScheme(scheme)
   const normalizedCacheScheme = normalizePublishedCacheScheme(scheme)
   const redisClient = await getRedisClient()
 
@@ -140,7 +123,7 @@ export const primePublishedConceptCacheFromCsv = async ({
 
   let cacheEntries = []
 
-  if (PUBLISHED_CONCEPT_FULL_PATH_SCHEMES.has(normalizedScheme)) {
+  if (isPublishedCacheFullPathScheme(normalizedScheme)) {
     const builder = new ConceptForFullPathCacheBuilder()
     const records = builder.parseCsvContent(csvContent)
 
@@ -156,7 +139,7 @@ export const primePublishedConceptCacheFromCsv = async ({
         scheme
       })
     })
-  } else if (PUBLISHED_CONCEPT_SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+  } else if (isPublishedCacheShortNameScheme(normalizedScheme)) {
     const builder = new ConceptForShortNameCacheBuilder()
     const records = builder.parseCsvContent(csvContent, {
       scheme: normalizedScheme

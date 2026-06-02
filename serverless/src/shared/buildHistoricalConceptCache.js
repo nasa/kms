@@ -6,11 +6,9 @@ import { getS3Client } from './awsClients'
 import { ConceptForFullPathCacheBuilder } from './conceptForFullPathCacheBuilder'
 import { ConceptForShortNameCacheBuilder } from './conceptForShortNameCacheBuilder'
 import {
-  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
-} from './constants/fullPathForHistoricalConceptSchemes'
-import {
-  HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES
-} from './constants/shortNameForHistoricalConceptSchemes'
+  HISTORICAL_CACHE_FULL_PATH_SCHEMES,
+  HISTORICAL_CACHE_SHORT_NAME_SCHEMES
+} from './keywordPaths'
 import { logger } from './logger'
 import { getRedisClient } from './redisCacheStore'
 
@@ -102,8 +100,8 @@ export const buildHistoricalConceptCache = async (bucketName) => {
 
   const s3Client = getS3Client()
 
-  const fullPathSchemes = HISTORICAL_CONCEPT_FULL_PATH_SCHEMES.map((s) => s.toLowerCase())
-  const shortNameSchemes = HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES.map((s) => s.toLowerCase())
+  const fullPathSchemes = HISTORICAL_CACHE_FULL_PATH_SCHEMES.map((s) => s.toLowerCase())
+  const shortNameSchemes = HISTORICAL_CACHE_SHORT_NAME_SCHEMES.map((s) => s.toLowerCase())
 
   const fullPathCacheBuilder = new ConceptForFullPathCacheBuilder()
   const shortNameCacheBuilder = new ConceptForShortNameCacheBuilder()

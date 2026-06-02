@@ -1,8 +1,8 @@
-import { buildHistoricalKeywordLookupPath } from '../buildHistoricalKeywordLookupPath'
+import { buildKeywordPathFromValue } from '../keywordPaths'
 
 describe('buildHistoricalKeywordLookupPath', () => {
   test('pads science keyword paths to the canonical slot count', () => {
-    expect(buildHistoricalKeywordLookupPath({
+    expect(buildKeywordPathFromValue({
       scheme: 'sciencekeywords',
       keywordValue: {
         Category: 'EARTH SCIENCE',
@@ -13,7 +13,7 @@ describe('buildHistoricalKeywordLookupPath', () => {
   })
 
   test('preserves interior holes when building a science keyword path from keywordValue', () => {
-    expect(buildHistoricalKeywordLookupPath({
+    expect(buildKeywordPathFromValue({
       scheme: 'sciencekeywords',
       keywordValue: {
         Category: 'EARTH SCIENCE',
@@ -25,7 +25,7 @@ describe('buildHistoricalKeywordLookupPath', () => {
   })
 
   test('pads location keyword paths to the canonical slot count', () => {
-    expect(buildHistoricalKeywordLookupPath({
+    expect(buildKeywordPathFromValue({
       scheme: 'locations',
       keywordValue: {
         Category: 'CONTINENT',
@@ -35,7 +35,7 @@ describe('buildHistoricalKeywordLookupPath', () => {
   })
 
   test('preserves the trailing blank subtype slot for related URL content type paths', () => {
-    expect(buildHistoricalKeywordLookupPath({
+    expect(buildKeywordPathFromValue({
       scheme: 'rucontenttype',
       keywordValue: {
         URLContentType: 'CollectionURL',
@@ -45,7 +45,7 @@ describe('buildHistoricalKeywordLookupPath', () => {
   })
 
   test('leaves scalar schemes unchanged', () => {
-    expect(buildHistoricalKeywordLookupPath({
+    expect(buildKeywordPathFromValue({
       scheme: 'temporalresolutionrange',
       keywordValue: 'P1D'
     })).toEqual('P1D')

@@ -1,7 +1,7 @@
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import xpath from 'xpath'
 
-import { splitKeywordPath } from './splitKeywordPath'
+import { splitKeywordPath } from './keywordPaths'
 
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 const ELEMENT_NODE = 1

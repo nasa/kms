@@ -28,8 +28,8 @@ vi.mock('@/shared/redisCacheKeys', () => ({
   )
 }))
 
-vi.mock('@/shared/constants/shortNameForHistoricalConceptSchemes', () => ({
-  HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES: ['providers', 'platforms', 'instruments', 'projects', 'idnnode', 'DataFormat']
+vi.mock('@/shared/keywordPaths', () => ({
+  HISTORICAL_CACHE_SHORT_NAME_SCHEMES: ['providers', 'platforms', 'instruments', 'projects', 'idnnode', 'DataFormat']
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({

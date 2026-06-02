@@ -10,6 +10,8 @@
  * stub: it knows just enough UMM-C structure to rewrite supported keyword shapes and remove
  * delete-targets during the smoke test.
  */
+import { splitKeywordPath } from './keywordPaths'
+
 const SHORT_NAME_SCHEMES = new Set([
   'platforms',
   'instruments',
@@ -27,8 +29,6 @@ const SCIENCE_KEYWORD_FIELDS = [
   'VariableLevel3',
   'DetailedVariable'
 ]
-
-const UMM_PATH_SEPARATOR = ' > '
 
 const cloneMetadata = (metadataPayload) => (
   metadataPayload ? structuredClone(metadataPayload) : metadataPayload
@@ -55,9 +55,7 @@ const getParentAtPath = (source, path = []) => {
   )
 }
 
-const splitKeywordPath = (keywordPath = '') => keywordPath
-  .split(UMM_PATH_SEPARATOR)
-  .map((segment) => segment.trim())
+const splitNonEmptyKeywordPath = (keywordPath = '') => splitKeywordPath(keywordPath)
   .filter(Boolean)
 
 // Science keywords are stored in UMM-C as leveled fields rather than a single ShortName.
@@ -69,7 +67,7 @@ const applyScienceKeywordCorrection = (targetKeyword, newKeywordPath) => {
   }
 
   const keyword = targetKeyword
-  const pathSegments = splitKeywordPath(newKeywordPath)
+  const pathSegments = splitNonEmptyKeywordPath(newKeywordPath)
   const normalizedSegments = pathSegments[0] === 'Science Keywords'
     ? pathSegments.slice(1)
     : pathSegments
@@ -95,7 +93,7 @@ const applyShortNameCorrection = (targetKeyword, newKeywordPath) => {
   }
 
   const keyword = targetKeyword
-  const pathSegments = splitKeywordPath(newKeywordPath)
+  const pathSegments = splitNonEmptyKeywordPath(newKeywordPath)
   const nextShortName = pathSegments.at(-1)
 
   if (!nextShortName) {

@@ -5,10 +5,10 @@
 
 import { cloneDeep } from 'lodash'
 
-import { formatCsvPath } from '@/shared/formatCsvPath'
 import { getNarrowers } from '@/shared/getNarrowers'
 import { isCsvLongNameFlag } from '@/shared/isCsvLongNameFlag'
 import { isCsvProviderUrlFlag } from '@/shared/isCsvProviderUrlFlag'
+import { formatKeywordCsvPath } from '@/shared/keywordPaths'
 
 /**
  * Builds hierarchical CSV paths recursively.
@@ -118,7 +118,12 @@ export const buildHierarchicalCsvPaths = async (params) => {
     path.shift()
 
     // Format the CSV path
-    formatCsvPath(scheme, csvHeadersCount, path, isLeaf)
+    formatKeywordCsvPath({
+      scheme,
+      csvHeadersCount,
+      path,
+      isLeaf
+    })
 
     // Add long name if required by the scheme
     if (isCsvLongNameFlag(scheme)) {

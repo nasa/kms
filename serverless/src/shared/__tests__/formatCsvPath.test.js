@@ -1,4 +1,11 @@
-import { formatCsvPath } from '../formatCsvPath'
+import { formatKeywordCsvPath } from '../keywordPaths'
+
+const formatCsvPath = (scheme, csvHeadersCount, path, isLeaf) => formatKeywordCsvPath({
+  scheme,
+  csvHeadersCount,
+  path,
+  isLeaf
+})
 
 describe('formatPath', () => {
   beforeEach(() => {

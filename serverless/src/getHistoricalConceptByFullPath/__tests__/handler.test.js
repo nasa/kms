@@ -28,8 +28,8 @@ vi.mock('@/shared/redisCacheKeys', () => ({
   )
 }))
 
-vi.mock('@/shared/constants/fullPathForHistoricalConceptSchemes', () => ({
-  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES: ['sciencekeywords', 'locations']
+vi.mock('@/shared/keywordPaths', () => ({
+  HISTORICAL_CACHE_FULL_PATH_SCHEMES: ['sciencekeywords', 'locations']
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({

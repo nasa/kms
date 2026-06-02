@@ -4,7 +4,7 @@ import {
   test
 } from 'vitest'
 
-import { splitKeywordPath } from '../splitKeywordPath'
+import { splitKeywordPath } from '../keywordPaths'
 
 describe('splitKeywordPath', () => {
   test('should split a standard keyword path into an array', () => {

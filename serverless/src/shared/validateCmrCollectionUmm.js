@@ -15,36 +15,21 @@
  * (`{ status, errors, warnings, responseBody }`) so downstream correction logic can keep working
  * without needing to care whether validation came from CMR or from the published cache.
  */
-import { buildHistoricalKeywordLookupPath } from './buildHistoricalKeywordLookupPath'
 import { extractKeywordValue } from './extractKeywordValue'
+import {
+  buildKeywordPathFromValue,
+  extractShortNameLookupValue,
+  flattenKeywordPathValue,
+  isLookupFullPathScheme,
+  isLookupShortNameScheme,
+  normalizeKeywordScheme
+} from './keywordPaths'
 import { logger } from './logger'
 import {
   createPublishedConceptResponseCacheKeyByFullPath,
   createPublishedConceptResponseCacheKeyByShortName
 } from './redisCacheKeys'
 import { getCachedJsonResponse, getRedisClient } from './redisCacheStore'
-
-const FULL_PATH_SCHEMES = new Set([
-  'sciencekeywords',
-  'locations',
-  'chronounits',
-  'rucontenttype',
-  'isotopiccategory',
-  'temporalresolutionrange',
-  'horizontalresolutionrange',
-  'verticalresolutionrange',
-  'productlevelid'
-])
-
-const SHORT_NAME_SCHEMES = new Set([
-  'providers',
-  'platforms',
-  'instruments',
-  'projects',
-  'idnnode',
-  'dataformat',
-  'granuledataformat'
-])
 
 const VALIDATION_MESSAGES = {
   sciencekeywords: 'Science keyword was not a valid keyword combination.',
@@ -65,43 +50,22 @@ const VALIDATION_MESSAGES = {
   rucontenttype: 'Related URL Content Type was not a valid set together.'
 }
 
-// Flattens nested keyword objects/arrays into a simple list of string values.
-const flattenKeywordValues = (keywordValue) => {
-  if (keywordValue === undefined || keywordValue === null) {
-    return []
-  }
-
-  if (Array.isArray(keywordValue)) {
-    return keywordValue.flatMap(flattenKeywordValues)
-  }
-
-  if (typeof keywordValue === 'object') {
-    return Object.values(keywordValue).flatMap(flattenKeywordValues)
-  }
-
-  return [String(keywordValue)]
-}
-
 // Converts a scheme-specific UMM keyword value into the published-cache lookup value.
 const getKeywordLookupValue = ({
   scheme,
   keywordValue
 }) => {
-  const normalizedScheme = String(scheme).toLowerCase()
+  const normalizedScheme = normalizeKeywordScheme(scheme)
 
-  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
-    if (keywordValue?.ShortName) {
-      return String(keywordValue.ShortName)
-    }
-
-    return flattenKeywordValues(keywordValue)[0]
+  if (isLookupShortNameScheme(normalizedScheme)) {
+    return extractShortNameLookupValue(keywordValue) || flattenKeywordPathValue(keywordValue)[0]
   }
 
-  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
-    const pathSegments = flattenKeywordValues(keywordValue)
+  if (isLookupFullPathScheme(normalizedScheme)) {
+    const pathSegments = flattenKeywordPathValue(keywordValue)
 
     return pathSegments.length > 0
-      ? buildHistoricalKeywordLookupPath({
+      ? buildKeywordPathFromValue({
         keywordValue,
         scheme: normalizedScheme
       })
@@ -362,7 +326,7 @@ const validatePublishedKeywordCandidate = async ({
   path,
   umm
 }) => {
-  const normalizedScheme = String(scheme).toLowerCase()
+  const normalizedScheme = normalizeKeywordScheme(scheme)
   const keywordValue = extractKeywordValue({
     scheme,
     path,
@@ -380,7 +344,7 @@ const validatePublishedKeywordCandidate = async ({
     })
   }
 
-  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+  if (isLookupFullPathScheme(normalizedScheme)) {
     const publishedConcept = await getPublishedConceptByFullPath({
       fullPath: lookupValue,
       scheme: normalizedScheme
@@ -394,7 +358,7 @@ const validatePublishedKeywordCandidate = async ({
       })
   }
 
-  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+  if (isLookupShortNameScheme(normalizedScheme)) {
     const publishedConcept = await getPublishedConceptByShortName({
       shortName: lookupValue,
       scheme: normalizedScheme

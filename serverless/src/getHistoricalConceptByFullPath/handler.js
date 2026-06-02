@@ -1,7 +1,5 @@
-import {
-  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
-} from '@/shared/constants/fullPathForHistoricalConceptSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { HISTORICAL_CACHE_FULL_PATH_SCHEMES } from '@/shared/keywordPaths'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { createConceptResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
@@ -38,7 +36,7 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
 export const getHistoricalConceptByFullPath = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
 
-  const schemesForHistoricalConceptByFullPath = HISTORICAL_CONCEPT_FULL_PATH_SCHEMES.map(
+  const schemesForHistoricalConceptByFullPath = HISTORICAL_CACHE_FULL_PATH_SCHEMES.map(
     (s) => s.toLowerCase()
   )
 

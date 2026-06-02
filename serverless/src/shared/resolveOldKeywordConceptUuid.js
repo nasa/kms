@@ -1,7 +1,13 @@
-import { buildHistoricalKeywordLookupPath } from './buildHistoricalKeywordLookupPath'
 import { getConceptUuidByFullPath } from './getConceptUuidByFullPath'
 import { getConceptUuidByShortName } from './getConceptUuidByShortName'
 import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
+import {
+  buildKeywordPathFromValue,
+  extractShortNameLookupValue,
+  isLookupFullPathScheme,
+  isLookupShortNameScheme,
+  normalizeKeywordScheme
+} from './keywordPaths'
 
 /**
  * Historical-to-published keyword resolution helper for metadata correction.
@@ -21,42 +27,6 @@ import { getPublishedConceptByUuid } from './getPublishedConceptByUuid'
  * plan: `{ keywordConceptUuid, oldKeywordPath, newKeywordPath, action }`, with optional long-name
  * metadata when the historical/published caches provide it.
  */
-
-const FULL_PATH_SCHEMES = new Set([
-  'sciencekeywords',
-  'locations',
-  'chronounits',
-  'rucontenttype',
-  'isotopiccategory',
-  'temporalresolutionrange',
-  'horizontalresolutionrange',
-  'verticalresolutionrange',
-  'productlevelid'
-])
-
-const SHORT_NAME_SCHEMES = new Set([
-  'providers',
-  'platforms',
-  'instruments',
-  'projects',
-  'idnnode',
-  'dataformat',
-  'granuledataformat'
-])
-
-const extractShortNameLookupValue = (keywordValue) => {
-  if (keywordValue === undefined || keywordValue === null) {
-    return ''
-  }
-
-  if (typeof keywordValue === 'string' || typeof keywordValue === 'number') {
-    return String(keywordValue)
-  }
-
-  return typeof keywordValue?.ShortName === 'string'
-    ? keywordValue.ShortName
-    : ''
-}
 
 /**
  * Determines whether the triggering keyword event should be treated as a true delete for the
@@ -193,16 +163,16 @@ export const resolveOldKeywordConceptUuid = async ({
     return undefined
   }
 
-  const normalizedScheme = scheme.toLowerCase()
+  const normalizedScheme = normalizeKeywordScheme(scheme)
 
-  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
+  if (isLookupFullPathScheme(normalizedScheme)) {
     if (keywordValue === undefined) {
       return undefined
     }
 
     // Resolve schemes whose historical cache key is based on a hierarchical full path.
     const historicalConcept = await getConceptUuidByFullPath({
-      fullPath: buildHistoricalKeywordLookupPath({
+      fullPath: buildKeywordPathFromValue({
         keywordValue,
         scheme: normalizedScheme
       }),
@@ -242,7 +212,7 @@ export const resolveOldKeywordConceptUuid = async ({
     })
   }
 
-  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
+  if (isLookupShortNameScheme(normalizedScheme)) {
     // Resolve schemes whose historical cache key is based on a short-name lookup.
     const lookupValue = extractShortNameLookupValue(keywordValue)
 
