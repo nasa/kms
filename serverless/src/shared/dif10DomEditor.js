@@ -27,6 +27,7 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Science_Keywords',
     find: {
       fieldPaths: [
+        // XML fields to read from
         'Category',
         'Topic',
         'Term',
@@ -36,6 +37,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Variable'
       ],
       valueKeys: [
+        // Keyword object keys to compare against
         'Category',
         'Topic',
         'Term',
@@ -68,6 +70,7 @@ export const DIF10_SCHEME_EDITORS = {
     // - Term <- 'MARINE SEDIMENTS'
     replace: sequentialValueReplace(
       [
+        // XML fields to write to
         'Category',
         'Topic',
         'Term',
@@ -77,6 +80,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Variable'
       ],
       [
+        // UMM fields to read from
         'Category',
         'Topic',
         'Term',
@@ -91,6 +95,7 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Location',
     find: {
       fieldPaths: [
+        // XML fields to read from
         'Location_Category',
         'Location_Type',
         'Location_Subregion1',
@@ -99,6 +104,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Location'
       ],
       valueKeys: [
+        // Keyword object keys to compare against
         'Category',
         'Type',
         'Subregion1',
@@ -109,6 +115,7 @@ export const DIF10_SCHEME_EDITORS = {
     },
     replace: sequentialValueReplace(
       [
+        // XML fields to write to
         'Location_Category',
         'Location_Type',
         'Location_Subregion1',
@@ -117,6 +124,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Location'
       ],
       [
+        // UMM fields to read from
         'Category',
         'Type',
         'Subregion1',
@@ -130,6 +138,7 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Temporal_Coverage/Paleo_DateTime/Chronostratigraphic_Unit',
     find: {
       fieldPaths: [
+        // XML fields to read from
         'Eon',
         'Era',
         'Period',
@@ -138,6 +147,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Classification'
       ],
       valueKeys: [
+        // Keyword object keys to compare against
         'Eon',
         'Era',
         'Period',
@@ -148,6 +158,7 @@ export const DIF10_SCHEME_EDITORS = {
     },
     replace: sequentialValueReplace(
       [
+        // XML fields to write to
         'Eon',
         'Era',
         'Period',
@@ -156,6 +167,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Classification'
       ],
       [
+        // UMM fields to read from
         'Eon',
         'Era',
         'Period',
@@ -175,25 +187,36 @@ export const DIF10_SCHEME_EDITORS = {
     // only object fields written back into the XML.
     nodeXPath: '//DIF/Platform',
     find: {
-      fieldPaths: ['Short_Name'],
-      valueKeys: ['ShortName']
+      fieldPaths: [
+        // XML fields to read from
+        'Short_Name'
+      ],
+      valueKeys: [
+        // Keyword object keys to compare against
+        'ShortName'
+      ]
     },
     replace: [
       {
+        // XML field to write to
         fieldPath: 'Type',
         source: {
+          // Keyword object key to read from
           type: 'value',
           key: 'Type'
         }
       },
       {
+        // XML field to write to
         fieldPath: 'Short_Name',
         source: {
+          // Keyword object key to read from
           type: 'value',
           key: 'ShortName'
         }
       },
       {
+        // XML field to write to
         fieldPath: 'Long_Name',
         source: {
           // Example correction input:
@@ -215,6 +238,7 @@ export const DIF10_SCHEME_EDITORS = {
           //
           // This reads the replacement value directly from correction.newLongName
           // instead of taking it from the normalized keyword object.
+          // Correction param to read from
           type: 'param',
           key: 'newLongName'
         }
@@ -224,20 +248,30 @@ export const DIF10_SCHEME_EDITORS = {
   instruments: blockScheme({
     nodeXPath: '//DIF/Platform/Instrument',
     find: {
-      fieldPaths: ['Short_Name'],
-      valueKeys: ['ShortName']
+      fieldPaths: [
+        // XML fields to read from
+        'Short_Name'
+      ],
+      valueKeys: [
+        // Keyword object keys to compare against
+        'ShortName'
+      ]
     },
     replace: [
       {
+        // XML field to write to
         fieldPath: 'Short_Name',
         source: {
+          // Keyword object key to read from
           type: 'value',
           key: 'ShortName'
         }
       },
       {
+        // XML field to write to
         fieldPath: 'Long_Name',
         source: {
+          // Correction param to read from
           type: 'param',
           key: 'newLongName'
         }
@@ -247,20 +281,30 @@ export const DIF10_SCHEME_EDITORS = {
   projects: blockScheme({
     nodeXPath: '//DIF/Project',
     find: {
-      fieldPaths: ['Short_Name'],
-      valueKeys: ['ShortName']
+      fieldPaths: [
+        // XML fields to read from
+        'Short_Name'
+      ],
+      valueKeys: [
+        // Keyword object keys to compare against
+        'ShortName'
+      ]
     },
     replace: [
       {
+        // XML field to write to
         fieldPath: 'Short_Name',
         source: {
+          // Keyword object key to read from
           type: 'value',
           key: 'ShortName'
         }
       },
       {
+        // XML field to write to
         fieldPath: 'Long_Name',
         source: {
+          // Correction param to read from
           type: 'param',
           key: 'newLongName'
         }
@@ -270,20 +314,30 @@ export const DIF10_SCHEME_EDITORS = {
   providers: blockScheme({
     nodeXPath: '//DIF/Organization',
     find: {
-      fieldPaths: ['Organization_Name/Short_Name'],
-      valueKeys: ['ShortName']
+      fieldPaths: [
+        // XML fields to read from
+        'Organization_Name/Short_Name'
+      ],
+      valueKeys: [
+        // Keyword object keys to compare against
+        'ShortName'
+      ]
     },
     replace: [
       {
+        // XML field to write to
         fieldPath: 'Organization_Name/Short_Name',
         source: {
+          // Keyword object key to read from
           type: 'value',
           key: 'ShortName'
         }
       },
       {
+        // XML field to write to
         fieldPath: 'Organization_Name/Long_Name',
         source: {
+          // Correction param to read from
           type: 'param',
           key: 'newLongName'
         }
@@ -293,20 +347,39 @@ export const DIF10_SCHEME_EDITORS = {
   rucontenttype: blockScheme({
     nodeXPath: '//DIF/Related_URL/URL_Content_Type',
     find: {
-      fieldPaths: ['Type', 'Subtype'],
-      valueKeys: ['Type', 'Subtype']
+      fieldPaths: [
+        // XML fields to read from
+        'Type',
+        'Subtype'
+      ],
+      valueKeys: [
+        // Keyword object keys to compare against
+        'Type',
+        'Subtype'
+      ]
     },
-    replace: sequentialValueReplace(['Type', 'Subtype']),
+    replace: sequentialValueReplace([
+      // XML fields to write to and UMM fields to read from
+      'Type',
+      'Subtype'
+    ]),
     removeNodeIfEmptyAfterReplace: true
   }),
   idnnode: blockScheme({
     nodeXPath: '//DIF/IDN_Node',
     find: {
-      fieldPaths: ['Short_Name'],
-      valueKeys: ['ShortName']
+      fieldPaths: [
+        // XML fields to read from
+        'Short_Name'
+      ],
+      valueKeys: [
+        // Keyword object keys to compare against
+        'ShortName'
+      ]
     },
     replace: [
       {
+        // XML field to write to
         fieldPath: 'Short_Name',
         source: {
           // Example correction input:
@@ -324,13 +397,16 @@ export const DIF10_SCHEME_EDITORS = {
           //
           // IDN nodes are modeled as a single free-form keyword value, so the normalized
           // correction object carries the replacement in `newKeywordObject.ShortName`.
+          // Keyword object key to read from
           type: 'value',
           key: 'ShortName'
         }
       },
       {
+        // XML field to write to
         fieldPath: 'Long_Name',
         source: {
+          // Correction param to read from
           type: 'param',
           key: 'newLongName'
         }
