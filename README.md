@@ -126,6 +126,43 @@ The script re-synthesizes `cdk/cdk.out/KmsStack.template.json` each run so local
 npm run prime-cache:invoke-local
 ```
 
+### Rebuild Redis cache with curl
+
+KMS also exposes a `POST /cache/rebuild` endpoint that kicks off a full Redis cache rebuild.
+This call is asynchronous:
+
+- the API returns `202 Accepted` as soon as it successfully emits the rebuild request event
+- the actual rebuild work happens in the background worker
+- the worker flushes Redis, rebuilds the published concept lookup cache, rebuilds the historical
+  concept lookup cache, and then primes the published API/tree response caches
+
+Local SAM example:
+
+```bash
+curl -X POST http://127.0.0.1:3013/cache/rebuild
+```
+
+Expected response:
+
+```json
+{"message":"Redis cache rebuild initiated"}
+```
+
+Deployed environment example:
+
+```bash
+curl -X POST "$KMS_API_BASE_URL/cache/rebuild" \
+  -H "Authorization: Bearer $EDL_LEVEL_5_TOKEN"
+```
+
+Notes:
+
+- the deployed route is protected, so use a valid auth token
+- a successful `202` means the rebuild was queued, not that the worker has already finished
+- to verify completion, check the logs from the `rebuildRedisCache` worker Lambda
+- if Redis is not configured, the background worker returns a `503` when it runs
+- if `RDF_BUCKET_NAME` is missing, the background worker returns a `500` when it runs
+
 ### Redis cache namespaces and lifecycle
 
 KMS uses Redis for two different jobs:
