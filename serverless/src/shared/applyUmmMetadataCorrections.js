@@ -10,7 +10,7 @@
  * stub: it knows just enough UMM-C structure to rewrite supported keyword shapes and remove
  * delete-targets during the smoke test.
  */
-import { splitKeywordPath } from './keywordPaths'
+import { getKeywordPathSlotFields, splitKeywordPath } from './keywordPaths'
 
 const SHORT_NAME_SCHEMES = new Set([
   'platforms',
@@ -20,15 +20,7 @@ const SHORT_NAME_SCHEMES = new Set([
   'idnnode'
 ])
 
-const SCIENCE_KEYWORD_FIELDS = [
-  'Category',
-  'Topic',
-  'Term',
-  'VariableLevel1',
-  'VariableLevel2',
-  'VariableLevel3',
-  'DetailedVariable'
-]
+const SCIENCE_KEYWORD_FIELDS = getKeywordPathSlotFields('sciencekeywords') || []
 
 const cloneMetadata = (metadataPayload) => (
   metadataPayload ? structuredClone(metadataPayload) : metadataPayload
@@ -67,7 +59,7 @@ const applyScienceKeywordCorrection = (targetKeyword, newKeywordPath) => {
   }
 
   const keyword = targetKeyword
-  const pathSegments = splitNonEmptyKeywordPath(newKeywordPath)
+  const pathSegments = splitKeywordPath(newKeywordPath)
   const normalizedSegments = pathSegments[0] === 'Science Keywords'
     ? pathSegments.slice(1)
     : pathSegments

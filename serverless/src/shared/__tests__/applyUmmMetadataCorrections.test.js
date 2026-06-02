@@ -68,6 +68,50 @@ describe('applyUmmMetadataCorrections edge cases', () => {
     })
   })
 
+  test('preserves interior science keyword slots when rewriting UMM fields', async () => {
+    await expect(applyUmmMetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: {
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'CRYOSPHERE',
+            VariableLevel1: 'LEGACY SNOW/ICE'
+          }
+        ]
+      },
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > LEGACY SNOW/ICE >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > '
+        }
+      ]
+    })).resolves.toMatchObject({
+      correctionCount: 1,
+      correctedMetadata: {
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'CRYOSPHERE',
+            VariableLevel1: 'SNOW/ICE'
+          }
+        ]
+      },
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          ummPath: ['ScienceKeywords', 0],
+          oldKeywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > LEGACY SNOW/ICE >  >  > ',
+          newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > '
+        }
+      ]
+    })
+  })
+
   test('supports object-property deletes and ignores invalid delete paths', async () => {
     await expect(applyUmmMetadataCorrections({
       collectionConceptId: 'C1',
