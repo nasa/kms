@@ -37,7 +37,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Variable'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'Category',
         'Topic',
         'Term',
@@ -80,7 +80,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Variable'
       ],
       [
-        // UMM fields to read from
+        // Keys from newKeywordObject to read from
         'Category',
         'Topic',
         'Term',
@@ -104,7 +104,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Location'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'Category',
         'Type',
         'Subregion1',
@@ -124,7 +124,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Location'
       ],
       [
-        // UMM fields to read from
+        // Keys from newKeywordObject to read from
         'Category',
         'Type',
         'Subregion1',
@@ -147,7 +147,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Classification'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'Eon',
         'Era',
         'Period',
@@ -167,7 +167,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Detailed_Classification'
       ],
       [
-        // UMM fields to read from
+        // Keys from newKeywordObject to read from
         'Eon',
         'Era',
         'Period',
@@ -192,7 +192,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Short_Name'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'ShortName'
       ]
     },
@@ -201,7 +201,7 @@ export const DIF10_SCHEME_EDITORS = {
         // XML field to write to
         fieldPath: 'Type',
         source: {
-          // Keyword object key to read from
+          // Key from newKeywordObject to read from
           type: 'value',
           key: 'Type'
         }
@@ -210,7 +210,7 @@ export const DIF10_SCHEME_EDITORS = {
         // XML field to write to
         fieldPath: 'Short_Name',
         source: {
-          // Keyword object key to read from
+          // Key from newKeywordObject to read from
           type: 'value',
           key: 'ShortName'
         }
@@ -253,7 +253,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Short_Name'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'ShortName'
       ]
     },
@@ -262,7 +262,7 @@ export const DIF10_SCHEME_EDITORS = {
         // XML field to write to
         fieldPath: 'Short_Name',
         source: {
-          // Keyword object key to read from
+          // Key from newKeywordObject to read from
           type: 'value',
           key: 'ShortName'
         }
@@ -286,7 +286,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Short_Name'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'ShortName'
       ]
     },
@@ -295,7 +295,7 @@ export const DIF10_SCHEME_EDITORS = {
         // XML field to write to
         fieldPath: 'Short_Name',
         source: {
-          // Keyword object key to read from
+          // Key from newKeywordObject to read from
           type: 'value',
           key: 'ShortName'
         }
@@ -319,7 +319,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Organization_Name/Short_Name'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'ShortName'
       ]
     },
@@ -328,7 +328,7 @@ export const DIF10_SCHEME_EDITORS = {
         // XML field to write to
         fieldPath: 'Organization_Name/Short_Name',
         source: {
-          // Keyword object key to read from
+          // Key from newKeywordObject to read from
           type: 'value',
           key: 'ShortName'
         }
@@ -353,13 +353,13 @@ export const DIF10_SCHEME_EDITORS = {
         'Subtype'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'Type',
         'Subtype'
       ]
     },
     replace: sequentialValueReplace([
-      // XML fields to write to and UMM fields to read from
+      // XML fields to write to and keys from newKeywordObject to read from
       'Type',
       'Subtype'
     ]),
@@ -373,7 +373,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Short_Name'
       ],
       valueKeys: [
-        // Keyword object keys to compare against
+        // Keys from oldKeywordObject to compare against
         'ShortName'
       ]
     },
@@ -397,7 +397,7 @@ export const DIF10_SCHEME_EDITORS = {
           //
           // IDN nodes are modeled as a single free-form keyword value, so the normalized
           // correction object carries the replacement in `newKeywordObject.ShortName`.
-          // Keyword object key to read from
+          // Key from newKeywordObject to read from
           type: 'value',
           key: 'ShortName'
         }

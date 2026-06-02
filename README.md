@@ -283,6 +283,13 @@ Internally, the correction flow is now object-first:
 - joined `oldKeywordPath` / `newKeywordPath` strings are now primarily boundary values for Redis,
   logs, and audit records
 
+The important distinction is:
+
+- `oldKeywordObject` is the current value we expect to find in the metadata
+- `newKeywordObject` is the replacement value we want to write back
+- delete-style corrections usually match on `oldKeywordObject` and remove the target node without
+  needing `newKeywordObject`
+
 ### Reading An Existing Config
 
 If you are trying to understand a config file like `serverless/src/shared/dif10DomEditor.js`, the easiest way to read it is from the outside in:
@@ -295,13 +302,14 @@ If you are trying to understand a config file like `serverless/src/shared/dif10D
    - this tells you which XML nodes are candidates for the correction
 3. Look at `find`:
    - `fieldPaths` says which XML fields are read from the candidate node
-   - `valueKeys` says which normalized keyword-object keys those XML values are compared against
-   - the editor compares the current XML content to `oldKeywordObject`, not to raw path indexes
+   - `valueKeys` says which `oldKeywordObject` keys those XML values are compared against
+   - `find` is always about matching the current XML content to the correction's old/current value
 4. Look at `replace`:
    - each entry says which XML field gets written
    - `sequentialValueReplace(...)` is the compact “XML field order on the left, keyword-object key order on the right” helper
    - `source.type: 'value'` means “take this value from `newKeywordObject`”
    - `source.type: 'param'` means “take this value from another correction property such as `newLongName`”
+   - `replace` is always about writing the correction's new/replacement value, not re-reading the old one
 5. Look for cleanup hooks:
    - `removeNodeIfEmptyAfterReplace` removes the matched block if a replace clears all of its child fields
    - `removeEmptyParent` prunes an otherwise-empty parent container after a leaf delete
@@ -356,7 +364,7 @@ Recommended approach:
    - repeated block: `blockScheme`
    - single text node: `leafScheme`
    - root scalar field: `scalarScheme`
-4. Define `find.fieldPaths` in the XML order you want to read and `find.valueKeys` in the normalized keyword-object order you want to compare.
+4. Define `find.fieldPaths` in the XML order you want to read and `find.valueKeys` in the `oldKeywordObject` order you want to compare.
 5. Define `replace` so each XML field clearly states where its new value comes from:
    - a `newKeywordObject` value
    - or a named correction parameter such as `newLongName`
