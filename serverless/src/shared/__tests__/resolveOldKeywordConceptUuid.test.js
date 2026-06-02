@@ -6,20 +6,19 @@ import {
   vi
 } from 'vitest'
 
-import { getConceptUuidByFullPath } from '../getConceptUuidByFullPath'
-import { getConceptUuidByShortName } from '../getConceptUuidByShortName'
-import { getPublishedConceptByUuid } from '../getPublishedConceptByUuid'
+import { getHistoricalConceptByKeyword, getPublishedConceptByUuid } from '../redisPathStore'
 import { resolveOldKeywordConceptUuid } from '../resolveOldKeywordConceptUuid'
 
-vi.mock('../getConceptUuidByFullPath', () => ({
-  getConceptUuidByFullPath: vi.fn()
-}))
-
-vi.mock('../getConceptUuidByShortName', () => ({
-  getConceptUuidByShortName: vi.fn()
-}))
-
-vi.mock('../getPublishedConceptByUuid', () => ({
+vi.mock('../redisPathStore', () => ({
+  buildKeywordObjectFromPath: vi.fn(({ scheme, keywordPath }) => (
+    keywordPath
+      ? {
+        scheme,
+        keywordPath
+      }
+      : {}
+  )),
+  getHistoricalConceptByKeyword: vi.fn(),
   getPublishedConceptByUuid: vi.fn()
 }))
 
@@ -29,7 +28,7 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('routes hierarchy schemes to the full path stub using keywordValue', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-full-path',
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
     })
@@ -48,13 +47,27 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-full-path',
-      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
-      newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
+      oldKeywordObject: {
+        scheme: 'sciencekeywords',
+        keywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
+      },
+      newKeywordObject: {
+        scheme: 'sciencekeywords',
+        keywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
+      },
       action: 'replace'
     })
 
-    expect(getConceptUuidByFullPath).toHaveBeenCalledWith({
-      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+      keywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
       scheme: 'sciencekeywords'
     })
 
@@ -65,7 +78,7 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('preserves interior holes for full-path lookups when keywordValue has sparse levels', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -76,14 +89,22 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toBeUndefined()
 
-    expect(getConceptUuidByFullPath).toHaveBeenCalledWith({
-      fullPath: 'EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > ',
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+      keywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'CRYOSPHERE',
+        Term: '',
+        VariableLevel1: 'SNOW/ICE',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
       scheme: 'sciencekeywords'
     })
   })
 
   test('routes short-name schemes to the short-name stub', async () => {
-    vi.mocked(getConceptUuidByShortName).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-short-name',
       fullPath: 'AIR-BASED PLATFORMS > HU-25A',
       longName: 'Dassault HU-25A Guardian'
@@ -103,15 +124,23 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-short-name',
-      oldKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
-      newKeywordPath: 'AIR-BASED PLATFORMS > HU-25A',
+      oldKeywordObject: {
+        scheme: 'platforms',
+        keywordPath: 'AIR-BASED PLATFORMS > HU-25A'
+      },
+      newKeywordObject: {
+        scheme: 'platforms',
+        keywordPath: 'AIR-BASED PLATFORMS > HU-25A'
+      },
       oldLongName: 'Dassault HU-25A Guardian',
       newLongName: 'Dassault HU-25A Guardian',
       action: 'replace'
     })
 
-    expect(getConceptUuidByShortName).toHaveBeenCalledWith({
-      shortName: 'HU-25A',
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+      keywordObject: {
+        ShortName: 'HU-25A'
+      },
       scheme: 'platforms'
     })
 
@@ -122,15 +151,17 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('requires keywordValue for full-path lookups', async () => {
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue(undefined)
+
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords'
     })).resolves.toBeUndefined()
 
-    expect(getConceptUuidByFullPath).not.toHaveBeenCalled()
+    expect(getHistoricalConceptByKeyword).not.toHaveBeenCalled()
   })
 
   test('returns undefined when the historical lookup misses', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -143,7 +174,7 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('returns undefined when the current published path cannot be built', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-full-path',
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
     })
@@ -166,7 +197,7 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('returns a delete action when a delete event uuid matches the historical concept', async () => {
-    vi.mocked(getConceptUuidByShortName).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'deleted-project-uuid',
       fullPath: 'Projects > Legacy Climate Study'
     })
@@ -183,8 +214,11 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toEqual({
       keywordConceptUuid: 'deleted-project-uuid',
-      oldKeywordPath: 'Projects > Legacy Climate Study',
-      newKeywordPath: '',
+      oldKeywordObject: {
+        scheme: 'projects',
+        keywordPath: 'Projects > Legacy Climate Study'
+      },
+      newKeywordObject: {},
       action: 'delete'
     })
 
@@ -192,7 +226,7 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('returns a delete action for full-path schemes when the delete event matches the historical concept', async () => {
-    vi.mocked(getConceptUuidByFullPath).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'deleted-science-uuid',
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
       longName: 'Legacy Aerosols'
@@ -213,8 +247,11 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toEqual({
       keywordConceptUuid: 'deleted-science-uuid',
-      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
-      newKeywordPath: '',
+      oldKeywordObject: {
+        scheme: 'sciencekeywords',
+        keywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > '
+      },
+      newKeywordObject: {},
       oldLongName: 'Legacy Aerosols',
       action: 'delete'
     })

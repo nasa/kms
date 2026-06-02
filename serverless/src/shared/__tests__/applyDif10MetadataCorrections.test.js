@@ -3387,7 +3387,15 @@ describe('when applying related URL content type DIF10 corrections', () => {
           scheme: 'rucontenttype',
           action: 'replace',
           oldKeywordPath: 'GET DATA > ',
-          newKeywordPath: 'GET SERVICE > '
+          newKeywordPath: 'GET SERVICE > ',
+          oldKeywordObject: {
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            Type: 'GET SERVICE',
+            Subtype: ''
+          }
         }
       ]
     })

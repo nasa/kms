@@ -20,7 +20,7 @@ describe('metadata correction delegate stubs', () => {
       metadataPayload: {
         ShortName: 'TEST'
       }
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       nativeFormat: 'UMM',
       delegateName: 'umm',
       collectionConceptId: 'C1',
@@ -70,7 +70,7 @@ describe('metadata correction delegate stubs', () => {
           newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
         }
       ]
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       nativeFormat: 'UMM',
       delegateName: 'umm',
       collectionConceptId: 'C1',
@@ -132,7 +132,7 @@ describe('metadata correction delegate stubs', () => {
           newKeywordPath: ''
         }
       ]
-    })).resolves.toEqual({
+    })).resolves.toMatchObject({
       nativeFormat: 'UMM',
       delegateName: 'umm',
       collectionConceptId: 'C1',

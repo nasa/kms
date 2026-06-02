@@ -57,6 +57,40 @@ vi.mock('@/shared/writeCorrectedMetadataToCmr', () => ({
   writeCorrectedMetadataToCmr: vi.fn()
 }))
 
+const OLD_SCIENCE_KEYWORD_OBJECT = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'ATMOSPHERE',
+  Term: 'LEGACY AEROSOLS'
+}
+
+const NEW_SCIENCE_KEYWORD_OBJECT = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'ATMOSPHERE',
+  Term: 'AEROSOLS'
+}
+
+const OLD_TRIGGER_SCIENCE_KEYWORD_OBJECT = {
+  PathSegments: ['EARTH SCIENCE', 'ATMOSPHERE', 'LEGACY AEROSOLS'],
+  Category: 'EARTH SCIENCE',
+  Topic: 'ATMOSPHERE',
+  Term: 'LEGACY AEROSOLS',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT = {
+  PathSegments: ['EARTH SCIENCE', 'ATMOSPHERE', 'AEROSOLS'],
+  Category: 'EARTH SCIENCE',
+  Topic: 'ATMOSPHERE',
+  Term: 'AEROSOLS',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
 describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -142,8 +176,8 @@ describe('when the metadata correction service is invoked', () => {
 
       vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
         keywordConceptUuid: 'science-uuid-1',
-        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-        newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+        oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+        newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
         action: 'replace'
       })
 
@@ -158,8 +192,8 @@ describe('when the metadata correction service is invoked', () => {
           {
             scheme: 'sciencekeywords',
             keywordConceptUuid: 'science-uuid-1',
-            oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-            newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             action: 'replace',
             ummPath: ['ScienceKeywords', 0]
           }
@@ -178,8 +212,8 @@ describe('when the metadata correction service is invoked', () => {
                 eventType: 'UPDATED',
                 scheme: 'sciencekeywords',
                 uuid: 'science-uuid-1',
-                oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-                newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+                oldKeywordObject: OLD_TRIGGER_SCIENCE_KEYWORD_OBJECT,
+                newKeywordObject: NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT
               }
             })
           }
@@ -215,8 +249,8 @@ describe('when the metadata correction service is invoked', () => {
           eventType: 'UPDATED',
           scheme: 'sciencekeywords',
           uuid: 'science-uuid-1',
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+          oldKeywordObject: OLD_TRIGGER_SCIENCE_KEYWORD_OBJECT,
+          newKeywordObject: NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT
         }
       })
 
@@ -230,8 +264,8 @@ describe('when the metadata correction service is invoked', () => {
           {
             scheme: 'sciencekeywords',
             keywordConceptUuid: 'science-uuid-1',
-            oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-            newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             action: 'replace',
             ummPath: ['ScienceKeywords', 0]
           }
@@ -244,8 +278,8 @@ describe('when the metadata correction service is invoked', () => {
           eventType: 'UPDATED',
           scheme: 'sciencekeywords',
           uuid: 'science-uuid-1',
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+          oldKeywordObject: OLD_TRIGGER_SCIENCE_KEYWORD_OBJECT,
+          newKeywordObject: NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT
         },
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
@@ -253,8 +287,8 @@ describe('when the metadata correction service is invoked', () => {
           {
             scheme: 'sciencekeywords',
             keywordConceptUuid: 'science-uuid-1',
-            oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-            newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             action: 'replace',
             ummPath: ['ScienceKeywords', 0]
           }
@@ -271,8 +305,8 @@ describe('when the metadata correction service is invoked', () => {
           {
             scheme: 'sciencekeywords',
             keywordConceptUuid: 'science-uuid-1',
-            oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-            newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             action: 'replace',
             ummPath: ['ScienceKeywords', 0]
           }
@@ -335,8 +369,8 @@ describe('when the metadata correction service is invoked', () => {
 
       vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
         keywordConceptUuid: 'science-uuid-1',
-        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-        newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+        oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+        newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
         action: 'replace'
       })
 
@@ -506,8 +540,8 @@ describe('when the metadata correction service is invoked', () => {
 
       vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
         keywordConceptUuid: 'science-uuid-1',
-        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
-        newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
+        oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+        newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
         action: 'replace'
       })
 

@@ -16,20 +16,10 @@
  * without needing to care whether validation came from CMR or from the published cache.
  */
 import { extractKeywordValue } from './extractKeywordValue'
-import {
-  buildKeywordPathFromValue,
-  extractShortNameLookupValue,
-  flattenKeywordPathValue,
-  isLookupFullPathScheme,
-  isLookupShortNameScheme,
-  normalizeKeywordScheme
-} from './keywordPaths'
+import { buildKeywordLookupObject, normalizeKeywordScheme } from './keywordPaths'
 import { logger } from './logger'
-import {
-  createPublishedConceptResponseCacheKeyByFullPath,
-  createPublishedConceptResponseCacheKeyByShortName
-} from './redisCacheKeys'
-import { getCachedJsonResponse, getRedisClient } from './redisCacheStore'
+import { getRedisClient } from './redisCacheStore'
+import { getPublishedConceptByKeyword } from './redisPathStore'
 
 const VALIDATION_MESSAGES = {
   sciencekeywords: 'Science keyword was not a valid keyword combination.',
@@ -48,74 +38,6 @@ const VALIDATION_MESSAGES = {
   dataformat: 'Format was not a valid keyword.',
   granuledataformat: 'Format was not a valid keyword.',
   rucontenttype: 'Related URL Content Type was not a valid set together.'
-}
-
-// Converts a scheme-specific UMM keyword value into the published-cache lookup value.
-const getKeywordLookupValue = ({
-  scheme,
-  keywordValue
-}) => {
-  const normalizedScheme = normalizeKeywordScheme(scheme)
-
-  if (isLookupShortNameScheme(normalizedScheme)) {
-    return extractShortNameLookupValue(keywordValue) || flattenKeywordPathValue(keywordValue)[0]
-  }
-
-  if (isLookupFullPathScheme(normalizedScheme)) {
-    const pathSegments = flattenKeywordPathValue(keywordValue)
-
-    return pathSegments.length > 0
-      ? buildKeywordPathFromValue({
-        keywordValue,
-        scheme: normalizedScheme
-      })
-      : undefined
-  }
-
-  /* istanbul ignore next -- unsupported schemes are filtered before this helper is used */
-  return undefined
-}
-
-// Reads a published concept from Redis using the normalized full-path lookup key.
-const getPublishedConceptByFullPath = async ({
-  fullPath,
-  scheme
-}) => {
-  const cacheKey = createPublishedConceptResponseCacheKeyByFullPath({
-    fullPath: fullPath.toLowerCase(),
-    scheme: scheme.toLowerCase()
-  })
-  const cachedResponse = await getCachedJsonResponse({
-    cacheKey,
-    entityLabel: 'Published Concept by fullPath'
-  })
-
-  if (!cachedResponse?.body) {
-    return undefined
-  }
-
-  return JSON.parse(cachedResponse.body)
-}
-
-// Reads a published concept from Redis using the normalized short-name lookup key.
-const getPublishedConceptByShortName = async ({
-  shortName,
-  scheme
-}) => {
-  const cacheKey = createPublishedConceptResponseCacheKeyByShortName({
-    shortName: shortName.toLowerCase(),
-    scheme: scheme.toLowerCase()
-  })
-  const cachedResponse = await getCachedJsonResponse({
-    cacheKey,
-    entityLabel: 'Published Concept by shortName'
-  })
-
-  if (!cachedResponse?.body) {
-    return undefined
-  }
-
-  return JSON.parse(cachedResponse.body)
 }
 
 // Builds the CMR-like validation error shape expected by downstream correction logic.
@@ -332,48 +254,29 @@ const validatePublishedKeywordCandidate = async ({
     path,
     umm
   })
-  const lookupValue = getKeywordLookupValue({
+  const keywordObject = buildKeywordLookupObject({
     scheme,
     keywordValue
   })
 
-  if (!lookupValue) {
+  if (Object.keys(keywordObject).length === 0) {
     return createValidationError({
       scheme: normalizedScheme,
       path
     })
   }
 
-  if (isLookupFullPathScheme(normalizedScheme)) {
-    const publishedConcept = await getPublishedConceptByFullPath({
-      fullPath: lookupValue,
-      scheme: normalizedScheme
+  const publishedConcept = await getPublishedConceptByKeyword({
+    scheme: normalizedScheme,
+    keywordObject
+  })
+
+  return publishedConcept
+    ? undefined
+    : createValidationError({
+      scheme: normalizedScheme,
+      path
     })
-
-    return publishedConcept
-      ? undefined
-      : createValidationError({
-        scheme: normalizedScheme,
-        path
-      })
-  }
-
-  if (isLookupShortNameScheme(normalizedScheme)) {
-    const publishedConcept = await getPublishedConceptByShortName({
-      shortName: lookupValue,
-      scheme: normalizedScheme
-    })
-
-    return publishedConcept
-      ? undefined
-      : createValidationError({
-        scheme: normalizedScheme,
-        path
-      })
-  }
-
-  /* istanbul ignore next -- unsupported schemes are filtered before validation reaches this branch */
-  return undefined
 }
 
 // Validates the collection's supported keywords against the published cache and returns a CMR-like result.

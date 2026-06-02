@@ -10,7 +10,8 @@
  * stub: it knows just enough UMM-C structure to rewrite supported keyword shapes and remove
  * delete-targets during the smoke test.
  */
-import { getKeywordPathSlotFields, splitKeywordPath } from './keywordPaths'
+import { getKeywordPathSlotFields } from './keywordPaths'
+import { ensureCorrectionKeywordObjects } from './redisPathStore'
 
 const SHORT_NAME_SCHEMES = new Set([
   'platforms',
@@ -20,8 +21,47 @@ const SHORT_NAME_SCHEMES = new Set([
   'idnnode'
 ])
 
-const SCIENCE_KEYWORD_FIELDS = getKeywordPathSlotFields('sciencekeywords') || []
+// Most full-path UMM schemes map canonical slot keys straight back to same-named UMM fields.
+const createOneToOneFieldMap = (scheme) => (
+  (getKeywordPathSlotFields(scheme) || []).map((fieldName) => ({
+    pathKey: fieldName,
+    ummField: fieldName
+  }))
+)
 
+const FULL_PATH_OBJECT_FIELD_MAPS = {
+  sciencekeywords: createOneToOneFieldMap('sciencekeywords'),
+  locations: createOneToOneFieldMap('locations'),
+  rucontenttype: createOneToOneFieldMap('rucontenttype'),
+  chronounits: [
+    {
+      pathKey: 'Eon',
+      ummField: 'Eon'
+    },
+    {
+      pathKey: 'Era',
+      ummField: 'Era'
+    },
+    {
+      pathKey: 'Period',
+      ummField: 'Period'
+    },
+    {
+      pathKey: 'Epoch',
+      ummField: 'Epoch'
+    },
+    {
+      pathKey: 'Age',
+      ummField: 'Stage'
+    },
+    {
+      pathKey: 'SubAge',
+      ummField: 'DetailedClassification'
+    }
+  ]
+}
+
+// Clone the payload so the delegate can return a mutated copy without touching caller input.
 const cloneMetadata = (metadataPayload) => (
   metadataPayload ? structuredClone(metadataPayload) : metadataPayload
 )
@@ -47,30 +87,40 @@ const getParentAtPath = (source, path = []) => {
   )
 }
 
-const splitNonEmptyKeywordPath = (keywordPath = '') => splitKeywordPath(keywordPath)
-  .filter(Boolean)
-
-// Science keywords are stored in UMM-C as leveled fields rather than a single ShortName.
-// We therefore translate the resolved KMS full path back into the UMM field layout:
-// Category -> Topic -> Term -> VariableLevel1 -> ...
-const applyScienceKeywordCorrection = (targetKeyword, newKeywordPath) => {
+// Object-backed full-path schemes are written by mapping canonical path keys back into the
+// specific UMM field names used by that scheme.
+const applyFullPathObjectCorrection = ({
+  targetKeyword,
+  normalizedScheme,
+  newKeywordObject
+}) => {
   if (!targetKeyword || typeof targetKeyword !== 'object') {
     return false
   }
 
-  const keyword = targetKeyword
-  const pathSegments = splitKeywordPath(newKeywordPath)
-  const normalizedSegments = pathSegments[0] === 'Science Keywords'
-    ? pathSegments.slice(1)
-    : pathSegments
+  const fieldMap = FULL_PATH_OBJECT_FIELD_MAPS[normalizedScheme]
 
-  SCIENCE_KEYWORD_FIELDS.forEach((field, index) => {
-    const nextValue = normalizedSegments[index]
+  if (!Array.isArray(fieldMap) || fieldMap.length === 0) {
+    return false
+  }
+
+  const keyword = targetKeyword
+  const keywordObject = (
+    newKeywordObject && typeof newKeywordObject === 'object'
+      ? newKeywordObject
+      : {}
+  )
+
+  fieldMap.forEach(({
+    pathKey,
+    ummField
+  }) => {
+    const nextValue = keywordObject[pathKey]
 
     if (nextValue) {
-      keyword[field] = nextValue
+      keyword[ummField] = nextValue
     } else {
-      delete keyword[field]
+      delete keyword[ummField]
     }
   })
 
@@ -79,14 +129,13 @@ const applyScienceKeywordCorrection = (targetKeyword, newKeywordPath) => {
 
 // Short-name schemes keep the resolved concept in the last path segment, so replacing the
 // keyword is as simple as swapping the UMM ShortName to the leaf value from KMS.
-const applyShortNameCorrection = (targetKeyword, newKeywordPath) => {
+const applyShortNameCorrection = (targetKeyword, newKeywordObject = {}) => {
   if (!targetKeyword || typeof targetKeyword !== 'object') {
     return false
   }
 
   const keyword = targetKeyword
-  const pathSegments = splitNonEmptyKeywordPath(newKeywordPath)
-  const nextShortName = pathSegments.at(-1)
+  const nextShortName = newKeywordObject.ShortName
 
   if (!nextShortName) {
     return false
@@ -150,6 +199,7 @@ export const applyUmmMetadataCorrections = async ({
   const correctionsApplied = []
 
   corrections.forEach((correction) => {
+    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const normalizedAction = String(correction.action || 'replace').toLowerCase()
     const normalizedScheme = String(correction.scheme || '').toLowerCase()
     let didApply = false
@@ -157,27 +207,31 @@ export const applyUmmMetadataCorrections = async ({
     if (normalizedAction === 'delete') {
       // For delete events, the resolver already proved the metadata keyword matches the
       // deleted concept UUID. All we need to do here is remove that exact keyword node.
-      didApply = removeKeywordAtPath(correctedMetadata, correction.ummPath)
+      didApply = removeKeywordAtPath(correctedMetadata, normalizedCorrection.ummPath)
     } else {
       // For replace-style updates, we first locate the failing keyword in the UMM payload
       // and then rewrite it according to the scheme-specific shape.
-      const targetKeyword = getTargetAtPath(correctedMetadata, correction.ummPath)
+      const targetKeyword = getTargetAtPath(correctedMetadata, normalizedCorrection.ummPath)
 
       if (!targetKeyword) {
         return
       }
 
-      if (normalizedScheme === 'sciencekeywords') {
-        didApply = applyScienceKeywordCorrection(targetKeyword, correction.newKeywordPath)
+      if (FULL_PATH_OBJECT_FIELD_MAPS[normalizedScheme]) {
+        didApply = applyFullPathObjectCorrection({
+          targetKeyword,
+          normalizedScheme,
+          newKeywordObject: normalizedCorrection.newKeywordObject
+        })
       } else if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
-        didApply = applyShortNameCorrection(targetKeyword, correction.newKeywordPath)
+        didApply = applyShortNameCorrection(targetKeyword, normalizedCorrection.newKeywordObject)
       }
     }
 
     if (didApply) {
       // We keep the original correction descriptor so the caller can audit exactly which
       // resolved corrections were actually applied to this metadata payload.
-      correctionsApplied.push(correction)
+      correctionsApplied.push(normalizedCorrection)
     }
   })
 

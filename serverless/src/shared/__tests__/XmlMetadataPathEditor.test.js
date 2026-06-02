@@ -4,69 +4,36 @@ import {
   test
 } from 'vitest'
 
-import { sequentialReplace, XmlMetadataPathEditor } from '../XmlMetadataPathEditor'
+import { sequentialValueReplace, XmlMetadataPathEditor } from '../XmlMetadataPathEditor'
 
-describe('when using XmlMetadataPathEditor path helpers', () => {
-  test('should build sequential replace mappings for ordered field paths', () => {
-    expect(sequentialReplace(['Category', 'Topic', 'Term'])).toEqual([
+describe('when using XmlMetadataPathEditor object helpers', () => {
+  test('should build sequential value mappings for ordered field paths', () => {
+    expect(sequentialValueReplace(['Category', 'Topic', 'Term'])).toEqual([
       {
         fieldPath: 'Category',
         source: {
-          type: 'path',
-          pathIndex: 0
+          type: 'value',
+          key: 'Category',
+          valueKeys: ['Category', 'Topic', 'Term']
         }
       },
       {
         fieldPath: 'Topic',
         source: {
-          type: 'path',
-          pathIndex: 1
+          type: 'value',
+          key: 'Topic',
+          valueKeys: ['Category', 'Topic', 'Term']
         }
       },
       {
         fieldPath: 'Term',
         source: {
-          type: 'path',
-          pathIndex: 2
+          type: 'value',
+          key: 'Term',
+          valueKeys: ['Category', 'Topic', 'Term']
         }
       }
     ])
-  })
-
-  test('should normalize keyword path segments with default options', () => {
-    expect(XmlMetadataPathEditor.normalizePathSegments('A >  > B')).toEqual(['A', '', 'B'])
-  })
-
-  test('should pad trailing find segments to the configured field count', () => {
-    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B', {
-      fieldPaths: ['One', 'Two', 'Three']
-    })).toEqual(['A', 'B', ''])
-  })
-
-  test('should return null when find configuration is missing', () => {
-    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B', null)).toBeNull()
-  })
-
-  test('should select find segments by path index and keep empty fallbacks', () => {
-    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A >  > C', {
-      pathIndexes: [0, 2, 4]
-    })).toEqual(['A', 'C', ''])
-  })
-
-  test('should select multiple explicit path indexes when requested', () => {
-    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B > C', {
-      pathIndexes: [1, 2]
-    })).toEqual(['B', 'C'])
-  })
-
-  test('should select trailing path indexes using negative positions', () => {
-    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B > C', {
-      pathIndexes: [-2, -1]
-    })).toEqual(['B', 'C'])
-  })
-
-  test('should use default find configuration when it is omitted', () => {
-    expect(XmlMetadataPathEditor.getPathSegmentsForFind('A > B')).toEqual(['A', 'B'])
   })
 })
 
@@ -104,7 +71,7 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     expect(editor.getElementText(editor.selectNodes('//DIF/Node/Child')[0])).toBe('1')
   })
 
-  test('should derive replacement values from params and path segments', () => {
+  test('should derive replacement values from params and keyword objects', () => {
     const editor = new XmlMetadataPathEditor('<DIF/>')
 
     expect(editor.getReplacementValue(
@@ -116,48 +83,47 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     )).toBe('Long Name')
 
     expect(editor.getReplacementValue(
-      { newKeywordPath: 'A > B > C' },
       {
-        type: 'path',
-        pathIndex: 1
+        newKeywordObject: {
+          Type: 'B'
+        }
+      },
+      {
+        type: 'value',
+        key: 'Type'
       }
     )).toBe('B')
 
     expect(editor.getReplacementValue(
-      { newKeywordPath: 'A >  > C' },
       {
-        type: 'path',
-        pathIndex: 1
+        newKeywordObject: {
+          Type: ''
+        }
+      },
+      {
+        type: 'value',
+        key: 'Type'
       }
     )).toBe('')
 
     expect(editor.getReplacementValue(
-      { newKeywordPath: 'A > B > C' },
-      {
-        type: 'path',
-        pathIndex: -1
-      }
-    )).toBe('C')
-
-    expect(editor.getReplacementValue(
-      { newKeywordPath: '' },
-      {
-        type: 'path',
-        pathIndex: -2
-      }
+      { newKeywordObject: { Type: 'B' } }
     )).toBe('')
+  })
+
+  test('should derive replacement values from canonical keyword objects', () => {
+    const editor = new XmlMetadataPathEditor('<DIF/>')
 
     expect(editor.getReplacementValue(
-      { newKeywordPath: 'A > B > C' },
       {
-        type: 'path',
-        pathIndex: -2
+        scheme: 'sciencekeywords',
+        newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > '
+      },
+      {
+        type: 'value',
+        key: 'VariableLevel1'
       }
-    )).toBe('B')
-
-    expect(editor.getReplacementValue(
-      { newKeywordPath: 'A > B > C' }
-    )).toBe('')
+    )).toBe('SNOW/ICE')
   })
 })
 
@@ -175,8 +141,27 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateBlockNode({
       action: 'replace',
+      scheme: 'sciencekeywords',
       oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
-      newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+      newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'OCEANS',
+        Term: 'MARINE SEDIMENTS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      }
     }, {
       nodeXPath: '//DIF/Science_Keywords',
       find: {
@@ -188,31 +173,37 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
           'Variable_Level_2',
           'Variable_Level_3',
           'Detailed_Variable'
+        ],
+        valueKeys: [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
         ]
       },
-      replace: [
-        {
-          fieldPath: 'Category',
-          source: {
-            type: 'path',
-            pathIndex: 0
-          }
-        },
-        {
-          fieldPath: 'Topic',
-          source: {
-            type: 'path',
-            pathIndex: 1
-          }
-        },
-        {
-          fieldPath: 'Term',
-          source: {
-            type: 'path',
-            pathIndex: 2
-          }
-        }
-      ]
+      replace: sequentialValueReplace(
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ],
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
+        ]
+      )
     })
 
     expect(isUpdated).toBe(true)
@@ -233,6 +224,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateBlockNode({
       action: 'replace',
+      scheme: 'sciencekeywords',
       oldKeywordPath: 'EARTH SCIENCE > CRYOSPHERE > SNOW/ICE >  >  >  > ',
       newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE > SNOW/ICE - chris v5 >  >  >  > '
     }, {
@@ -246,31 +238,37 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
           'Variable_Level_2',
           'Variable_Level_3',
           'Detailed_Variable'
+        ],
+        valueKeys: [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
         ]
       },
-      replace: [
-        {
-          fieldPath: 'Category',
-          source: {
-            type: 'path',
-            pathIndex: 0
-          }
-        },
-        {
-          fieldPath: 'Topic',
-          source: {
-            type: 'path',
-            pathIndex: 1
-          }
-        },
-        {
-          fieldPath: 'Term',
-          source: {
-            type: 'path',
-            pathIndex: 2
-          }
-        }
-      ]
+      replace: sequentialValueReplace(
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ],
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
+        ]
+      )
     })
 
     expect(isUpdated).toBe(true)
@@ -283,11 +281,14 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateBlockNode({
       action: 'delete',
-      oldKeywordPath: 'ONE'
+      oldKeywordObject: {
+        ShortName: 'ONE'
+      }
     }, {
       nodeXPath: '//DIF/Block',
       find: {
-        fieldPaths: ['Short_Name']
+        fieldPaths: ['Short_Name'],
+        valueKeys: ['ShortName']
       },
       afterDelete: (_, targetNode) => {
         callbackNodeName = targetNode.nodeName
@@ -305,19 +306,24 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateBlockNode({
       action: 'replace',
-      oldKeywordPath: 'ONE',
-      newKeywordPath: 'TWO'
+      oldKeywordObject: {
+        ShortName: 'ONE'
+      },
+      newKeywordObject: {
+        ShortName: 'TWO'
+      }
     }, {
       nodeXPath: '//DIF/Block',
       find: {
-        fieldPaths: ['Short_Name']
+        fieldPaths: ['Short_Name'],
+        valueKeys: ['ShortName']
       },
       replace: [
         {
           fieldPath: 'Short_Name',
           source: {
-            type: 'path',
-            pathIndex: 0
+            type: 'value',
+            key: 'ShortName'
           }
         }
       ],

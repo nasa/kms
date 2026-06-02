@@ -112,6 +112,62 @@ describe('applyUmmMetadataCorrections edge cases', () => {
     })
   })
 
+  test('maps canonical chronounit slots back into UMM field names', async () => {
+    await expect(applyUmmMetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: {
+        PaleoTemporalCoverages: [
+          {
+            ChronostratigraphicUnits: [
+              {
+                Eon: 'PHANEROZOIC',
+                Era: 'CENOZOIC',
+                Period: 'QUATERNARY',
+                Epoch: 'HOLOCENE',
+                Stage: 'NORTHGRIPPIAN'
+              }
+            ]
+          }
+        ]
+      },
+      corrections: [
+        {
+          scheme: 'chronounits',
+          ummPath: ['PaleoTemporalCoverages', 0, 'ChronostratigraphicUnits', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > NORTHGRIPPIAN > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > MEGHALAYAN > '
+        }
+      ]
+    })).resolves.toMatchObject({
+      correctionCount: 1,
+      correctedMetadata: {
+        PaleoTemporalCoverages: [
+          {
+            ChronostratigraphicUnits: [
+              {
+                Eon: 'PHANEROZOIC',
+                Era: 'CENOZOIC',
+                Period: 'QUATERNARY',
+                Epoch: 'HOLOCENE',
+                Stage: 'MEGHALAYAN'
+              }
+            ]
+          }
+        ]
+      },
+      correctionsApplied: [
+        {
+          scheme: 'chronounits',
+          ummPath: ['PaleoTemporalCoverages', 0, 'ChronostratigraphicUnits', 0],
+          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > NORTHGRIPPIAN > ',
+          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > MEGHALAYAN > '
+        }
+      ]
+    })
+  })
+
   test('supports object-property deletes and ignores invalid delete paths', async () => {
     await expect(applyUmmMetadataCorrections({
       collectionConceptId: 'C1',

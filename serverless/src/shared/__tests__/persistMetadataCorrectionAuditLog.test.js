@@ -51,8 +51,25 @@ describe('persistMetadataCorrectionAuditLog', () => {
         {
           scheme: 'sciencekeywords',
           keywordConceptUuid: '2e5a401b-1507-4f57-82b8-36557c13b154',
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
-          newKeywordPath: 'Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            PathSegments: ['Science Keywords', 'EARTH SCIENCE', 'ATMOSPHERE', 'AEROSOLS'],
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ],
       status: 'pending',
@@ -82,6 +99,8 @@ describe('persistMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).toContain('gcmd:status "pending"')
     expect(sparqlCall.body).toContain('gcmd:triggerScheme "sciencekeywords"')
     expect(sparqlCall.body).toContain('gcmd:triggerKeywordUuid "2e5a401b-1507-4f57-82b8-36557c13b154"')
+    expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > "')
+    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS"')
     expect(sparqlCall.body).toContain('metadata-correction-audit/audit-record-123')
   })
 
@@ -139,8 +158,14 @@ describe('persistMetadataCorrectionAuditLog', () => {
         {
           scheme: 'platforms',
           keywordConceptUuid: 'uuid-optional',
-          oldKeywordPath: 'OLD PLATFORM',
-          newKeywordPath: 'NEW PLATFORM'
+          oldKeywordObject: {
+            PathSegments: ['OLD PLATFORM'],
+            ShortName: 'OLD PLATFORM'
+          },
+          newKeywordObject: {
+            PathSegments: ['NEW PLATFORM'],
+            ShortName: 'NEW PLATFORM'
+          }
         }
       ]
     })
@@ -150,6 +175,8 @@ describe('persistMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).toContain('gcmd:action "UNKNOWN"')
     expect(sparqlCall.body).toContain('gcmd:delegateName "dif10"')
     expect(sparqlCall.body).toContain('gcmd:nativeFormat "DIF10"')
+    expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "OLD PLATFORM"')
+    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "NEW PLATFORM"')
     expect(sparqlCall.body).toContain('^^xsd:dateTime')
     expect(sparqlCall.body).not.toContain('gcmd:triggerScheme')
     expect(sparqlCall.body).not.toContain('gcmd:triggerKeywordUuid')

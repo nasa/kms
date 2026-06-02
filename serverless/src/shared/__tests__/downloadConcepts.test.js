@@ -77,7 +77,7 @@ describe('downloadConcepts', () => {
     })
 
     test('should download CSV content for a specific concept scheme', async () => {
-      const mockCsvContent = '"Category","Series_Entity","Short_Name","Long_Name","UUID"\n"EARTH OBSERVATION SATELLITES","TERRA","AM-1","Advanced Microwave Technology Satellite-1","d3c8e1f2-9b7a-4c5d-8e6f-1a2b3c4d5e6f"'
+      const mockCsvContent = '"Category","Class","Type","Short_Name","Long_Name","UUID"\n"EARTH REMOTE SENSING INSTRUMENTS","PASSIVE REMOTE SENSING","MICROWAVE RADIOMETERS","AM-1","Advanced Microwave Technology Satellite-1","d3c8e1f2-9b7a-4c5d-8e6f-1a2b3c4d5e6f"'
       getConcepts.mockResolvedValue({
         statusCode: 200,
         body: mockCsvContent
@@ -183,7 +183,7 @@ describe('downloadConcepts', () => {
     })
 
     test('should handle platforms scheme', async () => {
-      const mockContent = '"Category","Series_Entity","Short_Name","UUID"\n"EARTH OBSERVATION SATELLITES","AQUA","AQUA","b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e"'
+      const mockContent = '"Category","Class","Type","Short_Name","UUID"\n"Platforms","Space-based Platforms","Earth Observation Satellites","AQUA","b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e"'
       getConcepts.mockResolvedValue({
         statusCode: 200,
         body: mockContent
@@ -215,7 +215,7 @@ describe('downloadConcepts', () => {
     })
 
     test('should pass bypassCache through to getConcepts when requested', async () => {
-      const mockContent = '"Category","Series_Entity","Short_Name","UUID"\n"EARTH OBSERVATION SATELLITES","AQUA","AQUA","b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e"'
+      const mockContent = '"Category","Class","Type","Short_Name","UUID"\n"Platforms","Space-based Platforms","Earth Observation Satellites","AQUA","b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e"'
       getConcepts.mockResolvedValue({
         statusCode: 200,
         body: mockContent

@@ -6,6 +6,7 @@ import {
   escapeSparqlLiteral,
   METADATA_CORRECTION_AUDIT_GRAPH
 } from '@/shared/metadataCorrectionAudit'
+import { buildKeywordPathFromKeywordObject } from '@/shared/redisPathStore'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -23,6 +24,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * schemes, but the audit log intentionally persists only the canonical UUID/path fields for now.
  */
 
+// Emits a triple only when the optional value is present so audit rows stay compact.
 const optionalLiteralTriple = (subject, predicate, value) => {
   if (value === undefined || value === null || value === '') {
     return ''
@@ -45,8 +47,8 @@ const optionalLiteralTriple = (subject, predicate, value) => {
  * @param {Array<{
  *   scheme: string,
  *   keywordConceptUuid: string,
- *   oldKeywordPath: string,
- *   newKeywordPath: string
+ *   oldKeywordObject: Record<string, string>,
+ *   newKeywordObject?: Record<string, string>
  * }>} params.corrections - Fully resolved corrections to persist. This audit shape is narrower
  * than the delegate handoff shape and intentionally excludes optional long-name fields.
  * @param {string} [params.status='pending'] - Audit lifecycle status.
@@ -89,6 +91,14 @@ export const persistMetadataCorrectionAuditLog = async ({
 
   const triples = corrections.map((correction) => {
     const recordUri = createMetadataCorrectionAuditRecordUri(uuidv4())
+    const oldKeywordPath = buildKeywordPathFromKeywordObject({
+      scheme: correction.scheme,
+      keywordObject: correction.oldKeywordObject
+    })
+    const newKeywordPath = buildKeywordPathFromKeywordObject({
+      scheme: correction.scheme,
+      keywordObject: correction.newKeywordObject
+    })
 
     return [
       `      <${recordUri}> a gcmd:MetadataCorrectionAuditRecord .`,
@@ -98,8 +108,8 @@ export const persistMetadataCorrectionAuditLog = async ({
       `      <${recordUri}> gcmd:keywordConceptUuid "${escapeSparqlLiteral(correction.keywordConceptUuid)}" .`,
       `      <${recordUri}> gcmd:scheme "${escapeSparqlLiteral(correction.scheme)}" .`,
       `      <${recordUri}> gcmd:action "${escapeSparqlLiteral(keywordEvent.eventType || 'UNKNOWN')}" .`,
-      `      <${recordUri}> gcmd:oldKeywordPath "${escapeSparqlLiteral(correction.oldKeywordPath)}" .`,
-      `      <${recordUri}> gcmd:newKeywordPath "${escapeSparqlLiteral(correction.newKeywordPath)}" .`,
+      `      <${recordUri}> gcmd:oldKeywordPath "${escapeSparqlLiteral(oldKeywordPath)}" .`,
+      `      <${recordUri}> gcmd:newKeywordPath "${escapeSparqlLiteral(newKeywordPath)}" .`,
       `      <${recordUri}> gcmd:nativeFormat "${escapeSparqlLiteral(nativeFormat)}" .`,
       `      <${recordUri}> gcmd:delegateName "${escapeSparqlLiteral(delegateName)}" .`,
       `      <${recordUri}> gcmd:status "${escapeSparqlLiteral(status)}" .`,

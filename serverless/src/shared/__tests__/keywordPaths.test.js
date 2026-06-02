@@ -1,8 +1,15 @@
 import {
+  buildFullPathLookupValue,
+  buildKeywordLookupObject,
+  buildKeywordPathFromObject,
   buildKeywordPathFromValue,
+  buildKeywordPathObjectFromPath,
+  buildKeywordPathObjectFromValue,
+  buildShortNameLookupValue,
   extractShortNameLookupValue,
   flattenKeywordPathValue,
   formatKeywordCsvPath,
+  hasKeywordPathObjectValue,
   isHistoricalCacheFullPathScheme,
   isHistoricalCacheShortNameScheme,
   isLookupFullPathScheme,
@@ -15,6 +22,64 @@ import {
 } from '../keywordPaths'
 
 describe('keywordPaths', () => {
+  test('buildKeywordPathObjectFromValue preserves named slot positions', () => {
+    expect(buildKeywordPathObjectFromValue({
+      scheme: 'sciencekeywords',
+      keywordValue: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'CRYOSPHERE',
+        VariableLevel1: 'SNOW/ICE'
+      }
+    })).toEqual({
+      Category: 'EARTH SCIENCE',
+      Topic: 'CRYOSPHERE',
+      Term: '',
+      VariableLevel1: 'SNOW/ICE',
+      VariableLevel2: '',
+      VariableLevel3: '',
+      DetailedVariable: ''
+    })
+  })
+
+  test('buildKeywordPathObjectFromPath preserves empty slots from canonical paths', () => {
+    expect(buildKeywordPathObjectFromPath({
+      scheme: 'sciencekeywords',
+      keywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > '
+    })).toEqual({
+      Category: 'EARTH SCIENCE',
+      Topic: 'CRYOSPHERE',
+      Term: '',
+      VariableLevel1: 'SNOW/ICE',
+      VariableLevel2: '',
+      VariableLevel3: '',
+      DetailedVariable: ''
+    })
+  })
+
+  test('buildKeywordPathFromObject rebuilds canonical slotted paths', () => {
+    expect(buildKeywordPathFromObject({
+      scheme: 'rucontenttype',
+      keywordObject: {
+        URLContentType: 'CollectionURL',
+        Type: 'PROJECT HOME PAGE',
+        Subtype: ''
+      }
+    })).toEqual('CollectionURL > PROJECT HOME PAGE > ')
+  })
+
+  test('hasKeywordPathObjectValue recognizes when a slotted object is effectively empty', () => {
+    expect(hasKeywordPathObjectValue({
+      Category: '',
+      Topic: '',
+      Term: ''
+    })).toBe(false)
+
+    expect(hasKeywordPathObjectValue({
+      Category: '',
+      Topic: 'CRYOSPHERE'
+    })).toBe(true)
+  })
+
   test('buildKeywordPathFromValue preserves interior holes for slotted schemes', () => {
     expect(buildKeywordPathFromValue({
       scheme: 'sciencekeywords',
@@ -41,6 +106,75 @@ describe('keywordPaths', () => {
     })).toEqual('P1D')
   })
 
+  test('buildFullPathLookupValue returns slotted lookup paths only when a full-path value is present', () => {
+    expect(buildFullPathLookupValue({
+      scheme: 'sciencekeywords',
+      keywordValue: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'CRYOSPHERE',
+        VariableLevel1: 'SNOW/ICE'
+      }
+    })).toEqual('EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > ')
+
+    expect(buildFullPathLookupValue({
+      scheme: 'sciencekeywords',
+      keywordValue: {
+        Category: '',
+        Topic: '',
+        Term: ''
+      }
+    })).toBeUndefined()
+
+    expect(buildFullPathLookupValue({
+      scheme: 'temporalresolutionrange',
+      keywordValue: 'P1D'
+    })).toEqual('P1D')
+  })
+
+  test('buildKeywordLookupObject returns a canonical slotted object for full-path schemes', () => {
+    expect(buildKeywordLookupObject({
+      scheme: 'sciencekeywords',
+      keywordValue: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'CRYOSPHERE',
+        VariableLevel1: 'SNOW/ICE'
+      }
+    })).toEqual({
+      Category: 'EARTH SCIENCE',
+      Topic: 'CRYOSPHERE',
+      Term: '',
+      VariableLevel1: 'SNOW/ICE',
+      VariableLevel2: '',
+      VariableLevel3: '',
+      DetailedVariable: ''
+    })
+  })
+
+  test('buildKeywordLookupObject returns an empty object when a slotted lookup has no usable values', () => {
+    expect(buildKeywordLookupObject({
+      scheme: 'sciencekeywords',
+      keywordValue: undefined
+    })).toEqual({})
+  })
+
+  test('buildKeywordLookupObject returns a short-name object for short-name schemes', () => {
+    expect(buildKeywordLookupObject({
+      scheme: 'platforms',
+      keywordValue: {
+        ShortName: 'AQUA'
+      }
+    })).toEqual({
+      ShortName: 'AQUA'
+    })
+
+    expect(buildKeywordLookupObject({
+      scheme: 'temporalresolutionrange',
+      keywordValue: 'P1D'
+    })).toEqual({
+      Value: 'P1D'
+    })
+  })
+
   test('extractShortNameLookupValue reads short names directly from structured values', () => {
     expect(extractShortNameLookupValue({
       ShortName: 'SPOT-4'
@@ -61,6 +195,18 @@ describe('keywordPaths', () => {
     expect(extractShortNameLookupValue({
       LongName: 'Terra (satellite)'
     })).toEqual('')
+  })
+
+  test('buildShortNameLookupValue falls back to the first flattened value when needed', () => {
+    expect(buildShortNameLookupValue({
+      ShortName: 'SPOT-4'
+    })).toEqual('SPOT-4')
+
+    expect(buildShortNameLookupValue({
+      Format: 'netCDF-4'
+    })).toEqual('netCDF-4')
+
+    expect(buildShortNameLookupValue(undefined)).toBeUndefined()
   })
 
   test('formatKeywordCsvPath inserts sparse platform padding before the leaf segment', () => {

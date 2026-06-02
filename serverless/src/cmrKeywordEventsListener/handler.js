@@ -1,6 +1,7 @@
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
+import { buildKeywordObjectFromPath } from '@/shared/redisPathStore'
 
 /**
  * Metadata-correction fanout listener for KMS keyword events.
@@ -44,13 +45,26 @@ const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
       eventType,
       scheme,
       uuid,
-      oldKeywordPath,
-      newKeywordPath,
+      oldKeywordObject: buildKeywordObjectFromPath({
+        scheme,
+        keywordPath: oldKeywordPath
+      }),
+      newKeywordObject: buildKeywordObjectFromPath({
+        scheme,
+        keywordPath: newKeywordPath
+      }),
       timestamp
     }
   }
 }
 
+/**
+ * Publishes one collection-scoped correction request per impacted collection concept id.
+ *
+ * @param {string[]} collectionConceptIds - Affected collection concept ids returned by CMR.
+ * @param {Record<string, unknown>} keywordEvent - Raw parsed KMS keyword event.
+ * @returns {Promise<void>} Resolves once all publish calls complete.
+ */
 const publishCollectionCorrectionRequests = async (collectionConceptIds, keywordEvent) => {
   await Promise.all(collectionConceptIds.map(async (collectionConceptId) => {
     const metadataCorrectionRequest = buildMetadataCorrectionRequest(
@@ -73,10 +87,24 @@ const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
   'DELETED'
 ])
 
+/**
+ * Chooses the keyword path best suited for collection lookup logging and CMR search.
+ *
+ * Updated events prefer the new path, while deleted events fall back to the old path.
+ *
+ * @param {Record<string, unknown>|null|undefined} keywordEvent - Parsed KMS keyword event.
+ * @returns {string|undefined} Preferred lookup path, if present.
+ */
 const getLookupKeywordPath = (keywordEvent) => (
   keywordEvent?.NewKeywordPath || keywordEvent?.OldKeywordPath
 )
 
+/**
+ * Narrows an arbitrary thrown value into a logger-safe error payload.
+ *
+ * @param {unknown} error - Thrown error or error-like value.
+ * @returns {Record<string, unknown>|undefined} Serializable error context for logs.
+ */
 const serializeError = (error) => {
   if (!error) {
     return undefined

@@ -1,4 +1,5 @@
 import { createDif10Editor, DIF10_SCHEME_EDITORS } from './dif10DomEditor'
+import { ensureCorrectionKeywordObjects } from './redisPathStore'
 
 /**
  * Applies DIF10 keyword corrections through a DOM-backed editor.
@@ -15,7 +16,10 @@ import { createDif10Editor, DIF10_SCHEME_EDITORS } from './dif10DomEditor'
  * @returns {Promise<Object>} Correction summary with the updated XML payload.
  */
 export const applyDif10MetadataCorrections = async (params) => {
-  const { metadataPayload, corrections = [] } = params
+  const {
+    metadataPayload,
+    corrections = []
+  } = params
 
   if (!metadataPayload) {
     return {
@@ -25,7 +29,10 @@ export const applyDif10MetadataCorrections = async (params) => {
   }
 
   const editor = createDif10Editor(metadataPayload)
-  const applied = corrections.reduce((acc, correction) => {
+  const normalizedCorrections = corrections.map(
+    (correction) => ensureCorrectionKeywordObjects(correction)
+  )
+  const applied = normalizedCorrections.reduce((acc, correction) => {
     const scheme = String(correction.scheme || '').toLowerCase()
     const delegate = DIF10_SCHEME_EDITORS[scheme]
 

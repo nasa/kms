@@ -12,6 +12,28 @@ import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrec
 
 import { cmrKeywordEventsListener } from '../handler'
 
+const OLD_SCIENCE_KEYWORD_OBJECT = {
+  PathSegments: ['Old', 'Keyword'],
+  Category: 'Old',
+  Topic: 'Keyword',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const NEW_SCIENCE_KEYWORD_OBJECT = {
+  PathSegments: ['New', 'Keyword'],
+  Category: 'New',
+  Topic: 'Keyword',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
 vi.mock('@/shared/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -111,8 +133,8 @@ describe('when the CMR keyword events processor is invoked', () => {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',
             uuid: '1234',
-            oldKeywordPath: 'Old > Keyword',
-            newKeywordPath: 'New > Keyword',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             timestamp: '2026-04-21T00:00:00.000Z'
           }
         })
@@ -124,8 +146,8 @@ describe('when the CMR keyword events processor is invoked', () => {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',
             uuid: '1234',
-            oldKeywordPath: 'Old > Keyword',
-            newKeywordPath: 'New > Keyword',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             timestamp: '2026-04-21T00:00:00.000Z'
           }
         })

@@ -37,9 +37,9 @@ describe('splitKeywordPath', () => {
   })
 
   test('should be sensitive to the specific delimiter', () => {
-    // Note: the function expects spaces around the bracket
+    // The parser now treats `>` as the structural boundary and trims surrounding whitespace.
     const input = 'ATMOSPHERIC >CHEMISTRY'
     const result = splitKeywordPath(input)
-    expect(result).toEqual(['ATMOSPHERIC >CHEMISTRY'])
+    expect(result).toEqual(['ATMOSPHERIC', 'CHEMISTRY'])
   })
 })

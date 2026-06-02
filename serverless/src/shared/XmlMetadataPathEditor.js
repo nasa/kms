@@ -1,63 +1,101 @@
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import xpath from 'xpath'
 
-import { splitKeywordPath } from './keywordPaths'
+import { ensureCorrectionKeywordObjects } from './redisPathStore'
 
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 const ELEMENT_NODE = 1
 
-// Normalize optional text inputs so path comparisons and XML writes behave consistently.
+/**
+ * Normalize optional text inputs so object comparisons and XML writes behave consistently.
+ *
+ * @example
+ * trimString('  SPOT-4  ')
+ * // 'SPOT-4'
+ */
 const trimString = (value) => ((typeof value === 'string') ? value.trim() : '')
 
-// Treat omitted trailing path levels as intentionally blank when a scheme expects more slots.
-const padSegments = (segments, expectedLength) => {
-  if (!Number.isInteger(expectedLength) || expectedLength <= segments.length) {
-    return segments
+/**
+ * True when any field in a keyword-style object contains meaningful text.
+ *
+ * @example
+ * hasAnyObjectValue({ Type: '', ShortName: 'SPOT-4' })
+ * // true
+ */
+const hasAnyObjectValue = (keywordObject = {}) => Object.values(keywordObject)
+  .some((value) => trimString(value).length > 0)
+
+/**
+ * Resolves the most useful scalar representation of a keyword object for leaf/scalar updates.
+ *
+ * @example
+ * getScalarKeywordText({ Value: 'OCEANS', ShortName: 'ignored' })
+ * // 'OCEANS'
+ */
+const getScalarKeywordText = (keywordObject = {}) => {
+  const preferredValue = [keywordObject.Value, keywordObject.ShortName]
+    .map((value) => trimString(value))
+    .find((value) => value.length > 0)
+
+  if (preferredValue) {
+    return preferredValue
   }
 
-  return segments.concat(Array(expectedLength - segments.length).fill(''))
+  return Object.values(keywordObject)
+    .map((value) => trimString(value))
+    .find((value) => value.length > 0) || ''
 }
 
-// Ignore fully empty path selections when deciding whether a find rule is usable.
-const hasAnyValue = (segments) => segments.some((segment) => trimString(segment).length > 0)
-
-// Live CMR DIF10 payloads use a default namespace, while several local fixtures do not. Our
-// scheme configs intentionally use simple unprefixed XPath like `//DIF/Science_Keywords`, so we
-// normalize all element-path lookups into a namespace-agnostic `local-name()` form up front.
+/**
+ * Rewrites simple element XPath into a namespace-agnostic `local-name()` form.
+ *
+ * Live CMR DIF10 payloads use a default namespace, while several local fixtures do not. Our
+ * scheme configs intentionally use simple unprefixed XPath like `//DIF/Science_Keywords`, so we
+ * normalize all element-path lookups into a namespace-agnostic `local-name()` form up front.
+ *
+ * @example
+ * toNamespaceAgnosticXPath('//DIF/Science_Keywords')
+ * // '//*[local-name()=\"DIF\"]/*[local-name()=\"Science_Keywords\"]'
+ */
 const toNamespaceAgnosticXPath = (expression) => expression.replace(
   /(^|\/)([A-Za-z_][\w.-]*)(?=\/|$)/g,
   '$1*[local-name()="$2"]'
 )
 
 /**
- * Builds a one-to-one replacement mapping between ordered KMS path slots and XML field paths.
+ * Builds a `replace` mapping that reads ordered values from the normalized keyword object.
  *
- * This is the common case for hierarchical keyword schemes where the XML fields and the
- * `newKeywordPath` segments line up in the same order.
- *
- * @param {string[]} fieldPaths Ordered XML field paths to populate.
- * @returns {Array<{fieldPath: string, source: {type: 'path', pathIndex: number}}>} Replace config entries.
+ * @param {string[]} fieldPaths - Ordered XML field paths to write.
+ * @param {string[]} [valueKeys=fieldPaths] - Ordered keyword-object keys to read from.
+ * @returns {Array<{fieldPath: string, source: {type: 'value', key: string, valueKeys: string[]}}>}
+ * Replace configuration entries for `updateBlockNode`.
  *
  * @example
- * sequentialReplace(['Category', 'Topic', 'Term'])
+ * const replace = sequentialValueReplace(
+ *   ['Category', 'Topic', 'Term'],
+ *   ['Category', 'Topic', 'Term']
+ * )
  * // [
- * //   { fieldPath: 'Category', source: { type: 'path', pathIndex: 0 } },
- * //   { fieldPath: 'Topic', source: { type: 'path', pathIndex: 1 } },
- * //   { fieldPath: 'Term', source: { type: 'path', pathIndex: 2 } }
+ * //   { fieldPath: 'Category', source: { type: 'value', key: 'Category', valueKeys: ['Category', 'Topic', 'Term'] } },
+ * //   { fieldPath: 'Topic', source: { type: 'value', key: 'Topic', valueKeys: ['Category', 'Topic', 'Term'] } },
+ * //   { fieldPath: 'Term', source: { type: 'value', key: 'Term', valueKeys: ['Category', 'Topic', 'Term'] } }
  * // ]
  */
-export const sequentialReplace = (fieldPaths) => fieldPaths.map((fieldPath, pathIndex) => ({
-  fieldPath,
-  source: {
-    type: 'path',
-    pathIndex
-  }
-}))
+export const sequentialValueReplace = (fieldPaths, valueKeys = fieldPaths) => fieldPaths.map(
+  (fieldPath, index) => ({
+    fieldPath,
+    source: {
+      type: 'value',
+      key: valueKeys[index],
+      valueKeys
+    }
+  })
+)
 
 /**
  * Generic XML editor for metadata formats whose controlled keyword content can be described as:
  * 1. an XPath to one or more candidate nodes
- * 2. a mapping between KMS `>`-delimited path segments and XML field names
+ * 2. a mapping between normalized keyword-object keys and XML field names
  * 3. a delete/replace strategy for the matched node
  *
  * DIF10 is the first consumer, but the core editor stays format-agnostic so ECHO10 / ISO-style
@@ -75,22 +113,27 @@ export const sequentialReplace = (fieldPaths) => fieldPaths.map((fieldPath, path
  *
  * editor.updateBlockNode({
  *   action: 'replace',
- *   oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
- *   newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED'
+ *   oldKeywordObject: {
+ *     ShortName: 'SPOT-4'
+ *   },
+ *   newKeywordObject: {
+ *     Type: 'Earth Observation Satellites',
+ *     ShortName: 'SPOT-4-UPDATED'
+ *   }
  * }, {
  *   nodeXPath: '//DIF/Platform',
  *   find: {
  *     fieldPaths: ['Short_Name'],
- *     pathIndexes: [-1]
+ *     valueKeys: ['ShortName']
  *   },
  *   replace: [
  *     {
  *       fieldPath: 'Type',
- *       source: { type: 'path', pathIndex: 1 }
+ *       source: { type: 'value', key: 'Type' }
  *     },
  *     {
  *       fieldPath: 'Short_Name',
- *       source: { type: 'path', pathIndex: 3 }
+ *       source: { type: 'value', key: 'ShortName' }
  *     }
  *   ]
  * })
@@ -105,6 +148,7 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * const editor = new XmlMetadataPathEditor('<DIF><Entry_ID/></DIF>')
+   * // XmlMetadataPathEditor instance
    */
   constructor(xmlString) {
     this.document = new DOMParser().parseFromString(xmlString, 'text/xml')
@@ -118,85 +162,10 @@ export class XmlMetadataPathEditor {
    * @example
    * const editor = new XmlMetadataPathEditor('<DIF><Node>value</Node></DIF>')
    * const xml = editor.serialize()
+   * // '<?xml version="1.0" encoding="UTF-8"?>\\n<DIF><Node>value</Node></DIF>'
    */
   serialize() {
     return `${XML_DECLARATION}\n${new XMLSerializer().serializeToString(this.document)}`
-  }
-
-  /**
-   * Splits a KMS keyword path into normalized `>`-delimited segments.
-   *
-   * @param {string} keywordPath Raw KMS keyword path.
-   * @returns {string[]} Normalized path segments.
-   *
-   * @example
-   * XmlMetadataPathEditor.normalizePathSegments('EARTH SCIENCE >  > AEROSOLS')
-   * // ['EARTH SCIENCE', '', 'AEROSOLS']
-   *
-   * @example
-   * XmlMetadataPathEditor.normalizePathSegments('A >  > C')
-   * // ['A', '', 'C']
-   */
-  static normalizePathSegments(keywordPath) {
-    return splitKeywordPath(typeof keywordPath === 'string' ? keywordPath : '')
-      .map((segment) => trimString(segment))
-  }
-
-  /**
-   * Extracts the path segments that should participate in a node find rule.
-   *
-   * @param {string} keywordPath Raw KMS keyword path.
-   * @param {Object} [findConfig={}] Find selection rules.
-   * @param {string[]} [findConfig.fieldPaths] Ordered XML fields that define a full hierarchy.
-   * @param {number[]} [findConfig.pathIndexes] Specific path slot indexes to compare. Negative
-   * values count backward from the end of the KMS path.
-   * @returns {string[]|null} Selected path segments or `null` when no usable value exists.
-   *
-   * @example
-   * XmlMetadataPathEditor.getPathSegmentsForFind(
-   *   'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-   *   { pathIndexes: [-1] }
-   * )
-   * // ['SPOT-4']
-   *
-   * @example
-   * XmlMetadataPathEditor.getPathSegmentsForFind(
-   *   'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
-   *   { pathIndexes: [-2, -1] }
-   * )
-   * // ['VIEW RELATED INFORMATION', 'OpenSearch']
-   */
-  static getPathSegmentsForFind(keywordPath, findConfig = {}) {
-    if (!findConfig) return null
-
-    const {
-      fieldPaths,
-      pathIndexes
-    } = findConfig
-
-    let segments = XmlMetadataPathEditor.normalizePathSegments(keywordPath)
-
-    if (Array.isArray(pathIndexes)) {
-      const nonNegativeIndexes = pathIndexes.filter((pathIndex) => (
-        Number.isInteger(pathIndex) && pathIndex >= 0
-      ))
-
-      if (nonNegativeIndexes.length > 0) {
-        segments = padSegments(segments, Math.max(...nonNegativeIndexes) + 1)
-      }
-
-      segments = pathIndexes.map((pathIndex) => {
-        if (Number.isInteger(pathIndex) && pathIndex < 0) {
-          return segments[segments.length + pathIndex] || ''
-        }
-
-        return segments[pathIndex] || ''
-      })
-    } else if (Array.isArray(fieldPaths) && fieldPaths.length > 0) {
-      segments = padSegments(segments, fieldPaths.length)
-    }
-
-    return hasAnyValue(segments) ? segments : null
   }
 
   /**
@@ -209,6 +178,7 @@ export class XmlMetadataPathEditor {
    * @example
    * const editor = new XmlMetadataPathEditor('<DIF><Platform/><Platform/></DIF>')
    * const platforms = editor.selectNodes('//DIF/Platform')
+   * // [platformNode, platformNode]
    */
   selectNodes(expression, contextNode = this.document) {
     return xpath.select(toNamespaceAgnosticXPath(expression), contextNode)
@@ -220,6 +190,10 @@ export class XmlMetadataPathEditor {
    *
    * @param {Node|null|undefined} node Candidate parent node.
    * @returns {Element[]} Direct child elements.
+   *
+   * @example
+   * const children = editor.getElementChildren(editor.selectNodes('/DIF')[0])
+   * // [platformNode, locationNode]
    */
   getElementChildren(node) {
     return Array.from(node?.childNodes || [])
@@ -232,6 +206,9 @@ export class XmlMetadataPathEditor {
    * @param {Node|null|undefined} node Candidate parent node.
    * @param {string} tagName Tag name to match.
    * @returns {Element|null} Matching direct child element, if present.
+   *
+   * @example
+   * const shortNameNode = editor.getDirectChildElement(platformNode, 'Short_Name')
    */
   getDirectChildElement(node, tagName) {
     return this.getElementChildren(node)
@@ -246,7 +223,8 @@ export class XmlMetadataPathEditor {
    * @returns {Element|null} Matching nested element, if present.
    *
    * @example
-   * const shortName = editor.getNestedElement(platformNode, 'Organization_Name/Short_Name')
+   * const shortNameNode = editor.getNestedElement(platformNode, 'Organization_Name/Short_Name')
+   * // shortNameNode
    */
   getNestedElement(node, fieldPath) {
     return fieldPath
@@ -261,6 +239,10 @@ export class XmlMetadataPathEditor {
    *
    * @param {Node|null|undefined} node Candidate text node owner.
    * @returns {string} Trimmed text content.
+   *
+   * @example
+   * const text = editor.getElementText(shortNameNode)
+   * // 'SPOT-4'
    */
   getElementText(node) {
     return trimString(node?.textContent)
@@ -275,6 +257,7 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * const shortName = editor.getNestedText(platformNode, 'Short_Name')
+   * // 'SPOT-4'
    */
   getNestedText(node, fieldPath) {
     return this.getElementText(this.getNestedElement(node, fieldPath))
@@ -299,9 +282,32 @@ export class XmlMetadataPathEditor {
   }
 
   /**
+   * Builds a keyword-style object from ordered XML field paths on a node.
+   *
+   * @param {Node} node Candidate metadata node.
+   * @param {string[]} fieldPaths Ordered XML field paths.
+   * @param {string[]} valueKeys Ordered keyword-object keys.
+   * @returns {Record<string, string>} Keyword-style object keyed by the provided value keys.
+   *
+   * @example
+   * const keywordObject = editor.getNodeValueObject(platformNode, ['Type', 'Short_Name'], ['Type', 'ShortName'])
+   * // { Type: 'Earth Observation Satellites', ShortName: 'SPOT-4' }
+   */
+  getNodeValueObject(node, fieldPaths, valueKeys) {
+    return fieldPaths.reduce((keywordObject, fieldPath, index) => ({
+      ...keywordObject,
+      [valueKeys[index]]: this.getNestedText(node, fieldPath)
+    }), {})
+  }
+
+  /**
    * Removes all existing children from an element before replacing its text content.
    *
    * @param {Node|null|undefined} node Target node.
+   *
+   * @example
+   * editor.removeAllChildren(longNameNode)
+   * // undefined
    */
   removeAllChildren(node) {
     while (node?.firstChild) {
@@ -318,6 +324,7 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * const longNameNode = editor.ensureDirectChildElement(platformNode, 'Long_Name')
+   * // longNameNode
    */
   ensureDirectChildElement(node, tagName) {
     const existingChild = this.getDirectChildElement(node, tagName)
@@ -343,6 +350,7 @@ export class XmlMetadataPathEditor {
    *   organizationNode,
    *   'Organization_Name/Short_Name'
    * )
+   * // shortNameNode
    */
   ensureNestedElement(node, fieldPath) {
     return fieldPath
@@ -355,6 +363,10 @@ export class XmlMetadataPathEditor {
    *
    * @param {Element} node Target element.
    * @param {string} value Replacement text value.
+   *
+   * @example
+   * editor.setElementText(shortNameNode, 'SPOT-4-UPDATED')
+   * // undefined
    */
   setElementText(node, value) {
     this.removeAllChildren(node)
@@ -370,6 +382,7 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * editor.setNestedText(platformNode, 'Long_Name', 'Systeme Observation de la Terre-4')
+   * // undefined
    */
   setNestedText(node, fieldPath, value) {
     const target = this.ensureNestedElement(node, fieldPath)
@@ -384,6 +397,7 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * editor.removeNestedElement(relatedUrlNode, 'URL_Content_Type/Subtype')
+   * // undefined
    */
   removeNestedElement(node, fieldPath) {
     const pathParts = fieldPath.split('/')
@@ -400,6 +414,10 @@ export class XmlMetadataPathEditor {
    * Removes a node from its parent when possible.
    *
    * @param {Node|null|undefined} node Target node.
+   *
+   * @example
+   * editor.removeNode(shortNameNode)
+   * // undefined
    */
   removeNode(node) {
     if (node?.parentNode) {
@@ -411,6 +429,10 @@ export class XmlMetadataPathEditor {
    * Removes a node only when it no longer contains any child elements.
    *
    * @param {Element|null|undefined} node Candidate container node.
+   *
+   * @example
+   * editor.removeNodeIfNoElementChildren(platformNode)
+   * // undefined
    */
   removeNodeIfNoElementChildren(node) {
     if (node && this.getElementChildren(node).length === 0) {
@@ -427,32 +449,11 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * editor.getReplacementValue(
-   *   { newKeywordPath: 'A > B > C' },
-   *   { type: 'path', pathIndex: 1 }
-   * )
-   * // 'B'
-   *
-   * @example
-   * editor.getReplacementValue(
-   *   { newKeywordPath: 'A > B > C' },
-   *   { type: 'path', pathIndex: -1 }
-   * )
-   * // 'C'
-   *
-   * @example
-   * editor.getReplacementValue(
-   *   { newKeywordPath: 'A > B > C' },
-   *   { type: 'path', pathIndex: -2 }
-   * )
-   * // 'B'
-   *
-   * @example
-   * editor.getReplacementValue(
    *   {
-   *     scheme: 'platforms',
-   *     action: 'replace',
-   *     oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-   *     newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED',
+   *     newKeywordObject: {
+   *       Type: 'Earth Observation Satellites',
+   *       ShortName: 'SPOT-4-UPDATED'
+   *     },
    *     newLongName: 'Systeme Observation de la Terre-4 Updated'
    *   },
    *   { type: 'param', key: 'newLongName' }
@@ -460,18 +461,14 @@ export class XmlMetadataPathEditor {
    * // 'Systeme Observation de la Terre-4 Updated'
    */
   getReplacementValue(correction, sourceConfig = {}) {
+    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
+
     if (sourceConfig.type === 'param') {
-      return trimString(correction[sourceConfig.key])
+      return trimString(normalizedCorrection[sourceConfig.key])
     }
 
-    const segments = XmlMetadataPathEditor.normalizePathSegments(correction.newKeywordPath)
-
-    if (typeof sourceConfig.pathIndex === 'number') {
-      if (sourceConfig.pathIndex < 0) {
-        return trimString(segments[segments.length + sourceConfig.pathIndex] || '')
-      }
-
-      return trimString(segments[sourceConfig.pathIndex] || '')
+    if (sourceConfig.type === 'value') {
+      return trimString(normalizedCorrection.newKeywordObject?.[sourceConfig.key])
     }
 
     return ''
@@ -486,36 +483,50 @@ export class XmlMetadataPathEditor {
    *
    * @example
    * const targetNode = editor.resolveNodeByFind({
-   *   oldKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OpenSearch'
+   *   oldKeywordObject: {
+   *     Type: 'VIEW RELATED INFORMATION',
+   *     Subtype: 'OpenSearch'
+   *   }
    * }, {
    *   nodeXPath: '//DIF/Related_URL/URL_Content_Type',
    *   find: {
    *     fieldPaths: ['Type', 'Subtype'],
-   *     pathIndexes: [-2, -1]
+   *     valueKeys: ['Type', 'Subtype']
    *   }
    * })
+   * // targetNode
    */
   resolveNodeByFind(correction, config) {
+    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const nodes = this.selectNodes(config.nodeXPath)
     if (nodes.length === 0) {
       return null
     }
 
     if (config.find) {
-      const findSegments = XmlMetadataPathEditor.getPathSegmentsForFind(
-        correction.oldKeywordPath,
-        config.find
-      )
+      const valueKeys = Array.isArray(config.find.valueKeys) && config.find.valueKeys.length > 0
+        ? config.find.valueKeys
+        : config.find.fieldPaths
+      const findValueObject = valueKeys.reduce((keywordObject, valueKey) => ({
+        ...keywordObject,
+        [valueKey]: trimString(normalizedCorrection.oldKeywordObject?.[valueKey])
+      }), {})
 
-      if (findSegments) {
+      if (hasAnyObjectValue(findValueObject)) {
         const matchedNode = nodes.find((node) => {
-          const nodeSegments = this.getNodePathSegments(node, config.find.fieldPaths)
+          const nodeValueObject = this.getNodeValueObject(
+            node,
+            config.find.fieldPaths,
+            valueKeys
+          )
 
-          if (!hasAnyValue(nodeSegments)) {
+          if (!hasAnyObjectValue(nodeValueObject)) {
             return false
           }
 
-          return nodeSegments.join(' > ') === findSegments.join(' > ')
+          return valueKeys.every((valueKey) => (
+            nodeValueObject[valueKey] === findValueObject[valueKey]
+          ))
         })
 
         if (matchedNode) {
@@ -527,7 +538,7 @@ export class XmlMetadataPathEditor {
     }
 
     if (!config.find) {
-      const findText = trimString(correction.oldKeywordPath)
+      const findText = getScalarKeywordText(normalizedCorrection.oldKeywordObject)
       if (findText.length > 0) {
         const matchedNode = nodes.find((node) => this.getElementText(node) === findText)
 
@@ -552,10 +563,15 @@ export class XmlMetadataPathEditor {
    * @example
    * editor.updateBlockNode({
    *   action: 'replace',
-   *   oldKeywordPath: 'A - C > ALIENS',
-   *   newKeywordPath: 'A - C > ALIENS-UPDATED',
+   *   oldKeywordObject: {
+   *     ShortName: 'ALIENS'
+   *   },
+   *   newKeywordObject: {
+   *     ShortName: 'ALIENS-UPDATED'
+   *   },
    *   newLongName: 'Aliens in Antarctica Updated'
    * }, projectConfig)
+   * // true
    */
   updateBlockNode(correction, config) {
     const action = trimString(String(correction.action || 'replace')).toLowerCase()
@@ -612,15 +628,21 @@ export class XmlMetadataPathEditor {
    * @example
    * editor.updateLeafNode({
    *   action: 'replace',
-   *   oldKeywordPath: 'GEOSCIENTIFIC INFORMATION',
-   *   newKeywordPath: 'OCEANS'
+   *   oldKeywordObject: {
+   *     Value: 'GEOSCIENTIFIC INFORMATION'
+   *   },
+   *   newKeywordObject: {
+   *     Value: 'OCEANS'
+   *   }
    * }, {
    *   nodeXPath: '//DIF/ISO_Topic_Category'
    * })
+   * // true
    */
   updateLeafNode(correction, config) {
+    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const action = trimString(String(correction.action || 'replace')).toLowerCase()
-    const targetNode = this.resolveNodeByFind(correction, config)
+    const targetNode = this.resolveNodeByFind(normalizedCorrection, config)
     if (!targetNode) {
       return false
     }
@@ -637,7 +659,8 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      this.setElementText(targetNode, typeof correction.newKeywordPath === 'string' ? correction.newKeywordPath : '')
+      const value = getScalarKeywordText(normalizedCorrection.newKeywordObject)
+      this.setElementText(targetNode, value)
 
       return true
     }
@@ -659,13 +682,17 @@ export class XmlMetadataPathEditor {
    * @example
    * editor.updateScalarNode({
    *   action: 'replace',
-   *   newKeywordPath: '1A'
+   *   newKeywordObject: {
+   *     Value: '1A'
+   *   }
    * }, {
    *   nodeXPath: '//DIF/Product_Level_Id',
    *   tagName: 'Product_Level_Id'
    * })
+   * // true
    */
   updateScalarNode(correction, config) {
+    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const action = trimString(String(correction.action || 'replace')).toLowerCase()
     const targetNode = this.selectNodes(config.nodeXPath)[0] || null
 
@@ -680,7 +707,7 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      const value = trimString(correction.newKeywordPath)
+      const value = getScalarKeywordText(normalizedCorrection.newKeywordObject)
       if (value.length === 0) {
         return false
       }

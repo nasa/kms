@@ -1,4 +1,4 @@
-import XmlMetadataPathEditor, { sequentialReplace } from './XmlMetadataPathEditor'
+import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
 
 // Wrap a block-style scheme config in the shared editor contract used by the DIF10 delegate.
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
@@ -17,7 +17,7 @@ const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode
  *
  * Each scheme describes:
  * - the XPath used to find candidate DIF10 nodes
- * - how to match the current keyword path from XML content
+ * - how to match the current normalized keyword object from XML content
  * - how replacement values map back into DIF10 fields
  *
  * @type {Object.<string, Function>}
@@ -34,30 +34,58 @@ export const DIF10_SCHEME_EDITORS = {
         'Variable_Level_2',
         'Variable_Level_3',
         'Detailed_Variable'
+      ],
+      valueKeys: [
+        'Category',
+        'Topic',
+        'Term',
+        'VariableLevel1',
+        'VariableLevel2',
+        'VariableLevel3',
+        'DetailedVariable'
       ]
     },
     // Example correction input:
     // {
     //   scheme: 'sciencekeywords',
     //   action: 'replace',
-    //   oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
-    //   newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+    //   oldKeywordObject: {
+    //     Category: 'EARTH SCIENCE',
+    //     Topic: 'ATMOSPHERE',
+    //     Term: 'AEROSOLS'
+    //   },
+    //   newKeywordObject: {
+    //     Category: 'EARTH SCIENCE',
+    //     Topic: 'OCEANS',
+    //     Term: 'MARINE SEDIMENTS'
+    //   }
     // }
     //
-    // sequentialReplace(...) maps the ordered KMS path segments back into the
+    // sequentialValueReplace(...) maps the canonical keyword-object values back into the
     // ordered DIF10 XML fields:
     // - Category <- 'EARTH SCIENCE'
     // - Topic <- 'OCEANS'
     // - Term <- 'MARINE SEDIMENTS'
-    replace: sequentialReplace([
-      'Category',
-      'Topic',
-      'Term',
-      'Variable_Level_1',
-      'Variable_Level_2',
-      'Variable_Level_3',
-      'Detailed_Variable'
-    ])
+    replace: sequentialValueReplace(
+      [
+        'Category',
+        'Topic',
+        'Term',
+        'Variable_Level_1',
+        'Variable_Level_2',
+        'Variable_Level_3',
+        'Detailed_Variable'
+      ],
+      [
+        'Category',
+        'Topic',
+        'Term',
+        'VariableLevel1',
+        'VariableLevel2',
+        'VariableLevel3',
+        'DetailedVariable'
+      ]
+    )
   }),
   locations: blockScheme({
     nodeXPath: '//DIF/Location',
@@ -69,16 +97,34 @@ export const DIF10_SCHEME_EDITORS = {
         'Location_Subregion2',
         'Location_Subregion3',
         'Detailed_Location'
+      ],
+      valueKeys: [
+        'Category',
+        'Type',
+        'Subregion1',
+        'Subregion2',
+        'Subregion3',
+        'DetailedLocation'
       ]
     },
-    replace: sequentialReplace([
-      'Location_Category',
-      'Location_Type',
-      'Location_Subregion1',
-      'Location_Subregion2',
-      'Location_Subregion3',
-      'Detailed_Location'
-    ])
+    replace: sequentialValueReplace(
+      [
+        'Location_Category',
+        'Location_Type',
+        'Location_Subregion1',
+        'Location_Subregion2',
+        'Location_Subregion3',
+        'Detailed_Location'
+      ],
+      [
+        'Category',
+        'Type',
+        'Subregion1',
+        'Subregion2',
+        'Subregion3',
+        'DetailedLocation'
+      ]
+    )
   }),
   chronounits: blockScheme({
     nodeXPath: '//DIF/Temporal_Coverage/Paleo_DateTime/Chronostratigraphic_Unit',
@@ -90,44 +136,61 @@ export const DIF10_SCHEME_EDITORS = {
         'Epoch',
         'Stage',
         'Detailed_Classification'
+      ],
+      valueKeys: [
+        'Eon',
+        'Era',
+        'Period',
+        'Epoch',
+        'Age',
+        'SubAge'
       ]
     },
-    replace: sequentialReplace([
-      'Eon',
-      'Era',
-      'Period',
-      'Epoch',
-      'Stage',
-      'Detailed_Classification'
-    ])
+    replace: sequentialValueReplace(
+      [
+        'Eon',
+        'Era',
+        'Period',
+        'Epoch',
+        'Stage',
+        'Detailed_Classification'
+      ],
+      [
+        'Eon',
+        'Era',
+        'Period',
+        'Epoch',
+        'Age',
+        'SubAge'
+      ]
+    )
   }),
   platforms: blockScheme({
-    // KMS platform paths use four slots:
-    // 0 = taxonomy context (for example "Space-based Platforms")
-    // 1 = DIF10 <Type>
-    // 2 = reserved blank placeholder
-    // 3 = DIF10 <Short_Name>
+    // Platform corrections are normalized into an object that can carry:
+    // - Class: the GCMD platform class, for example "Space-based Platforms"
+    // - Type: DIF10 <Type>
+    // - ShortName: DIF10 <Short_Name>
     //
-    // DIF10 Platform does not persist slots 0 or 2, so only slots 1 and 3
-    // are written back into the XML.
+    // DIF10 Platform only persists `Type` and `ShortName`, so those are the
+    // only object fields written back into the XML.
     nodeXPath: '//DIF/Platform',
     find: {
       fieldPaths: ['Short_Name'],
-      pathIndexes: [-1]
+      valueKeys: ['ShortName']
     },
     replace: [
       {
         fieldPath: 'Type',
         source: {
-          type: 'path',
-          pathIndex: 1
+          type: 'value',
+          key: 'Type'
         }
       },
       {
         fieldPath: 'Short_Name',
         source: {
-          type: 'path',
-          pathIndex: 3
+          type: 'value',
+          key: 'ShortName'
         }
       },
       {
@@ -137,13 +200,21 @@ export const DIF10_SCHEME_EDITORS = {
           // {
           //   scheme: 'platforms',
           //   action: 'replace',
-          //   oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-          //   newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED',
+          //   oldKeywordObject: {
+          //     Class: 'Space-based Platforms',
+          //     Type: 'Earth Observation Satellites',
+          //     ShortName: 'SPOT-4'
+          //   },
+          //   newKeywordObject: {
+          //     Class: 'Space-based Platforms',
+          //     Type: 'Earth Observation Satellites',
+          //     ShortName: 'SPOT-4-UPDATED'
+          //   },
           //   newLongName: 'Systeme Observation de la Terre-4 Updated'
           // }
           //
           // This reads the replacement value directly from correction.newLongName
-          // instead of taking it from a path position in newKeywordPath.
+          // instead of taking it from the normalized keyword object.
           type: 'param',
           key: 'newLongName'
         }
@@ -154,14 +225,14 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Platform/Instrument',
     find: {
       fieldPaths: ['Short_Name'],
-      pathIndexes: [-1]
+      valueKeys: ['ShortName']
     },
     replace: [
       {
         fieldPath: 'Short_Name',
         source: {
-          type: 'path',
-          pathIndex: -1
+          type: 'value',
+          key: 'ShortName'
         }
       },
       {
@@ -177,14 +248,14 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Project',
     find: {
       fieldPaths: ['Short_Name'],
-      pathIndexes: [-1]
+      valueKeys: ['ShortName']
     },
     replace: [
       {
         fieldPath: 'Short_Name',
         source: {
-          type: 'path',
-          pathIndex: -1
+          type: 'value',
+          key: 'ShortName'
         }
       },
       {
@@ -200,14 +271,14 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Organization',
     find: {
       fieldPaths: ['Organization_Name/Short_Name'],
-      pathIndexes: [-1]
+      valueKeys: ['ShortName']
     },
     replace: [
       {
         fieldPath: 'Organization_Name/Short_Name',
         source: {
-          type: 'path',
-          pathIndex: -1
+          type: 'value',
+          key: 'ShortName'
         }
       },
       {
@@ -223,41 +294,16 @@ export const DIF10_SCHEME_EDITORS = {
     nodeXPath: '//DIF/Related_URL/URL_Content_Type',
     find: {
       fieldPaths: ['Type', 'Subtype'],
-      pathIndexes: [-2, -1]
+      valueKeys: ['Type', 'Subtype']
     },
-    replace: [
-      {
-        fieldPath: 'Type',
-        source: {
-          // Example correction input:
-          // {
-          //   scheme: 'rucontenttype',
-          //   action: 'replace',
-          //   oldKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
-          //   newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OGC WMS'
-          // }
-          //
-          // Negative path indexes read from the end of newKeywordPath, so
-          // pathIndex: -2 writes the DIF10 <Type> value.
-          type: 'path',
-          pathIndex: -2
-        }
-      },
-      {
-        fieldPath: 'Subtype',
-        source: {
-          type: 'path',
-          pathIndex: -1
-        }
-      }
-    ],
+    replace: sequentialValueReplace(['Type', 'Subtype']),
     removeNodeIfEmptyAfterReplace: true
   }),
   idnnode: blockScheme({
     nodeXPath: '//DIF/IDN_Node',
     find: {
       fieldPaths: ['Short_Name'],
-      pathIndexes: [-1]
+      valueKeys: ['ShortName']
     },
     replace: [
       {
@@ -267,15 +313,19 @@ export const DIF10_SCHEME_EDITORS = {
           // {
           //   scheme: 'idnnode',
           //   action: 'replace',
-          //   oldKeywordPath: 'CEOS',
-          //   newKeywordPath: 'AMD/NZ',
+          //   oldKeywordObject: {
+          //     ShortName: 'CEOS'
+          //   },
+          //   newKeywordObject: {
+          //     ShortName: 'AMD/NZ'
+          //   },
           //   newLongName: 'Antarctic Master Directory/New Zealand'
           // }
           //
-          // IDN nodes are modeled as a single free-form value, so the full
-          // correction.newKeywordPath becomes the new <Short_Name>.
-          type: 'param',
-          key: 'newKeywordPath'
+          // IDN nodes are modeled as a single free-form keyword value, so the normalized
+          // correction object carries the replacement in `newKeywordObject.ShortName`.
+          type: 'value',
+          key: 'ShortName'
         }
       },
       {
@@ -306,11 +356,15 @@ export const DIF10_SCHEME_EDITORS = {
     // {
     //   scheme: 'productlevelid',
     //   action: 'replace',
-    //   oldKeywordPath: 'NA',
-    //   newKeywordPath: '1A'
+    //   oldKeywordObject: {
+    //     Value: 'NA'
+    //   },
+    //   newKeywordObject: {
+    //     Value: '1A'
+    //   }
     // }
     //
-    // Scalar schemes ignore path matching and update the one target field
+    // Scalar schemes ignore block/path matching and update the one target field
     // selected by nodeXPath.
     nodeXPath: '//DIF/Product_Level_Id',
     tagName: 'Product_Level_Id'
