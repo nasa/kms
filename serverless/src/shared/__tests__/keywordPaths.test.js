@@ -6,8 +6,8 @@ import {
   isHistoricalCacheFullPathScheme,
   isHistoricalCacheShortNameScheme,
   isLookupFullPathScheme,
-  isPublishedCacheFullPathScheme,
   isLookupShortNameScheme,
+  isPublishedCacheFullPathScheme,
   isPublishedCacheShortNameScheme,
   joinKeywordPath,
   normalizeKeywordScheme,
@@ -142,12 +142,14 @@ describe('keywordPaths', () => {
   test('splitKeywordPath preserves empty slots', () => {
     expect(splitKeywordPath('Space-based Platforms > Earth Observation Satellites >  > SPOT-4'))
       .toEqual(['Space-based Platforms', 'Earth Observation Satellites', '', 'SPOT-4'])
+
     expect(splitKeywordPath()).toEqual([''])
   })
 
   test('joinKeywordPath trims and preserves blank segments', () => {
     expect(joinKeywordPath([' Earth Science ', undefined, ' Atmosphere ']))
       .toEqual('Earth Science >  > Atmosphere')
+
     expect(joinKeywordPath()).toEqual('')
   })
 
