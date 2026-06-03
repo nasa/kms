@@ -672,11 +672,17 @@ export class XmlMetadataPathEditor {
    * Applies a replace/delete correction to a single scalar XML field.
    *
    * Scalar fields are different from block and leaf updates: they do not locate a target by
-   * `oldKeywordPath`. Instead, they operate on the single field selected by `nodeXPath`, or
+   * `oldKeywordObject`. Instead, they operate on the single field selected by `nodeXPath`, or
    * create that field under the DIF root when `replace` is requested and the field is absent.
+   *
+   * `tagName` is only needed for that create-on-miss case. XPath tells us how to find the node
+   * when it already exists, but it does not give us the literal element name to pass to
+   * `document.createElement(...)` when we have to create the missing scalar field.
    *
    * @param {Object} correction Correction descriptor being applied.
    * @param {Object} config Scheme-specific mutation configuration.
+   * @param {string} config.nodeXPath XPath for the scalar field when it already exists.
+   * @param {string} config.tagName Literal element name to create when the scalar node is missing.
    * @returns {boolean} `true` when the scalar field was changed.
    *
    * @example
@@ -720,6 +726,8 @@ export class XmlMetadataPathEditor {
           return false
         }
 
+        // XPath is enough to find an existing scalar node, but when the field is missing we need
+        // the literal element name so we can create `<Product_Level_Id>` (or similar) explicitly.
         const newNode = this.document.createElement(config.tagName)
         this.setElementText(newNode, value)
         difNode.appendChild(newNode)
