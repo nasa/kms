@@ -426,7 +426,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
     expect(editor.getElementText(editor.selectNodes('//DIF/Leaf')[0])).toBe('')
   })
 
-  test('should create a missing scalar node when the DIF root exists', () => {
+  test('should use tagName to create a missing scalar node when the DIF root exists', () => {
     const editor = new XmlMetadataPathEditor('<DIF><Entry_ID/></DIF>')
 
     const isUpdated = editor.updateScalarNode({
