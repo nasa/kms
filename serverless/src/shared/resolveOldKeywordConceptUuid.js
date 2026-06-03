@@ -1,9 +1,4 @@
-import { buildKeywordLookupObject, normalizeKeywordScheme } from './keywordPaths'
-import {
-  buildKeywordObjectFromPath,
-  getHistoricalConceptByKeyword,
-  getPublishedConceptByUuid
-} from './redisPathStore'
+import { redisPathStore } from './redisPathStore'
 
 /**
  * Historical-to-published keyword resolution helper for metadata correction.
@@ -60,16 +55,18 @@ const isDeleteMatchForKeyword = ({
 const getCurrentPublishedKeywordConcept = async ({
   keywordConceptUuid,
   normalizedScheme
-}) => {
-  if (!keywordConceptUuid) {
-    return undefined
-  }
-
-  return getPublishedConceptByUuid({
+}) => redisPathStore.getPublishedConceptByUuid({
     uuid: keywordConceptUuid,
     scheme: normalizedScheme
   })
-}
+
+const normalizeKeywordObject = (keywordObject) => (
+  keywordObject
+  && typeof keywordObject === 'object'
+  && !Array.isArray(keywordObject)
+    ? keywordObject
+    : {}
+)
 
 /**
  * Builds the normalized correction descriptor returned to the metadata-correction service.
@@ -99,26 +96,28 @@ const buildKeywordReference = ({
   newLongName,
   action
 }) => {
+  const normalizedOldKeywordObject = normalizeKeywordObject(oldKeywordObject)
+  const normalizedNewKeywordObject = normalizeKeywordObject(newKeywordObject)
+
   if (
     !keywordConceptUuid
     || !action
-    || !oldKeywordObject
-    || Object.keys(oldKeywordObject).length === 0
+    || Object.keys(normalizedOldKeywordObject).length === 0
   ) {
     return undefined
   }
 
   if (
     action === 'replace'
-    && (!newKeywordObject || Object.keys(newKeywordObject).length === 0)
+    && Object.keys(normalizedNewKeywordObject).length === 0
   ) {
     return undefined
   }
 
   const keywordReference = {
     keywordConceptUuid,
-    oldKeywordObject,
-    newKeywordObject,
+    oldKeywordObject: normalizedOldKeywordObject,
+    newKeywordObject: normalizedNewKeywordObject,
     action
   }
 
@@ -136,20 +135,16 @@ const buildKeywordReference = ({
 /**
  * Normalizes the keyword object attached to a cached concept payload.
  *
- * Older cache entries may still expose only `fullPath`, so this helper rebuilds the canonical
- * object when the enriched `keywordObject` field is missing.
- *
  * @param {object|undefined} params.concept - Cached concept payload.
- * @param {string} params.normalizedScheme - Normalized KMS scheme namespace.
  * @returns {Record<string, string>} Canonical keyword object for the concept.
  */
 const getConceptKeywordObject = ({
-  concept,
-  normalizedScheme
-}) => concept?.keywordObject || buildKeywordObjectFromPath({
-  scheme: normalizedScheme,
-  keywordPath: concept?.fullPath
-})
+  concept
+}) => (
+  concept?.keywordObject && typeof concept.keywordObject === 'object'
+    ? concept.keywordObject
+    : {}
+)
 
 /**
  * Resolves an extracted invalid keyword value into a concrete correction descriptor.
@@ -181,19 +176,14 @@ export const resolveOldKeywordConceptUuid = async ({
     return undefined
   }
 
-  const normalizedScheme = normalizeKeywordScheme(scheme)
-  const keywordObject = buildKeywordLookupObject({
-    scheme: normalizedScheme,
-    keywordValue
-  })
-
-  if (Object.keys(keywordObject).length === 0) {
+  if (keywordValue === undefined || keywordValue === null) {
     return undefined
   }
 
-  const historicalConcept = await getHistoricalConceptByKeyword({
+  const normalizedScheme = String(scheme).toLowerCase()
+  const historicalConcept = await redisPathStore.getHistoricalConceptByKeyword({
     scheme: normalizedScheme,
-    keywordObject
+    keywordValue
   })
   const keywordConceptUuid = historicalConcept?.uuid
 
@@ -213,8 +203,7 @@ export const resolveOldKeywordConceptUuid = async ({
     return buildKeywordReference({
       keywordConceptUuid,
       oldKeywordObject: getConceptKeywordObject({
-        concept: historicalConcept,
-        normalizedScheme
+        concept: historicalConcept
       }),
       newKeywordObject: {},
       oldLongName: historicalConcept?.longName,
@@ -231,12 +220,10 @@ export const resolveOldKeywordConceptUuid = async ({
   return buildKeywordReference({
     keywordConceptUuid,
     oldKeywordObject: getConceptKeywordObject({
-      concept: historicalConcept,
-      normalizedScheme
+      concept: historicalConcept
     }),
     newKeywordObject: getConceptKeywordObject({
-      concept: currentPublishedConcept,
-      normalizedScheme
+      concept: currentPublishedConcept
     }),
     oldLongName: historicalConcept?.longName,
     newLongName: currentPublishedConcept?.longName,

@@ -2,12 +2,11 @@ import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
 import { primeConceptsCache } from '@/primeConceptsCache/handler'
 import { getEventBridgeClient } from '@/shared/awsClients'
-import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
-import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { getRedisClient } from '@/shared/redisCacheStore'
+import { redisPathStore } from '@/shared/redisPathStore'
 
 const REBUILD_CACHE_EVENT_SOURCE = 'kms.cache'
 const REBUILD_CACHE_EVENT_DETAIL_TYPE = 'kms.redis.cache.rebuild.requested'
@@ -101,20 +100,6 @@ export const requestRebuildRedisCache = async (event, context) => {
  */
 export const rebuildRedisCache = async () => {
   const { defaultResponseHeaders } = getApplicationConfig()
-  const bucketName = process.env.RDF_BUCKET_NAME
-
-  if (!bucketName) {
-    return {
-      statusCode: 500,
-      headers: {
-        ...defaultResponseHeaders,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        error: 'RDF_BUCKET_NAME is required to rebuild the historical cache'
-      })
-    }
-  }
 
   try {
     const redisClient = await getRedisClient()
@@ -140,10 +125,10 @@ export const rebuildRedisCache = async () => {
     // if rebuild time grows materially we should split this into multiple async stages
     // instead of keeping all cache rebuild work in one worker invocation.
     logger.info('[cache-rebuild] Rebuilding published concept lookup cache and CSV snapshots')
-    const publishedCacheResult = await exportPublishSchemeCsvToS3()
+    const publishedCacheResult = await redisPathStore.writePublishedConceptCaches()
 
     logger.info('[cache-rebuild] Rebuilding historical concept cache from archived CSV snapshots')
-    const historicalCacheResult = await buildHistoricalConceptCache(bucketName)
+    const historicalCacheResult = await redisPathStore.rebuildHistoricalConceptCache()
 
     logger.info('[cache-rebuild] Priming published API and tree response caches')
     const responseCacheResult = await primeConceptsCache()

@@ -9,11 +9,10 @@ import {
 import { primeConceptsCache } from '@/primeConceptsCache/handler'
 import { rebuildRedisCache, requestRebuildRedisCache } from '@/rebuildRedisCache/handler'
 import { getEventBridgeClient } from '@/shared/awsClients'
-import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
-import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getRedisClient } from '@/shared/redisCacheStore'
+import { redisPathStore } from '@/shared/redisPathStore'
 
 const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
   sendEventBridgeMock: vi.fn(),
@@ -26,12 +25,11 @@ vi.mock('@/shared/awsClients', () => ({
   }))
 }))
 
-vi.mock('@/shared/buildHistoricalConceptCache', () => ({
-  buildHistoricalConceptCache: vi.fn()
-}))
-
-vi.mock('@/shared/exportPublishSchemeCsvToS3', () => ({
-  exportPublishSchemeCsvToS3: vi.fn()
+vi.mock('@/shared/redisPathStore', () => ({
+  redisPathStore: {
+    rebuildHistoricalConceptCache: vi.fn(),
+    writePublishedConceptCaches: vi.fn()
+  }
 }))
 
 vi.mock('@/shared/getConfig', () => ({
@@ -169,6 +167,12 @@ describe('when rebuildRedisCache is invoked by the worker', () => {
   describe('when RDF_BUCKET_NAME is missing', () => {
     test('should return a 500 response', async () => {
       delete process.env.RDF_BUCKET_NAME
+      vi.mocked(getRedisClient).mockResolvedValue({
+        flushAll: vi.fn().mockResolvedValue('OK')
+      })
+
+      vi.mocked(redisPathStore.rebuildHistoricalConceptCache)
+        .mockRejectedValue(new Error('RDF bucket name is required to rebuild the historical cache'))
 
       const response = await rebuildRedisCache(event, context)
 
@@ -179,7 +183,7 @@ describe('when rebuildRedisCache is invoked by the worker', () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          error: 'RDF_BUCKET_NAME is required to rebuild the historical cache'
+          error: 'Error: RDF bucket name is required to rebuild the historical cache'
         })
       })
     })
@@ -232,15 +236,20 @@ describe('when rebuildRedisCache is invoked by the worker', () => {
         flushAll
       })
 
-      vi.mocked(exportPublishSchemeCsvToS3).mockResolvedValue(publishedCacheResult)
-      vi.mocked(buildHistoricalConceptCache).mockResolvedValue(historicalCacheResult)
+      vi.mocked(redisPathStore.writePublishedConceptCaches)
+        .mockResolvedValue(publishedCacheResult)
+
+      vi.mocked(redisPathStore.rebuildHistoricalConceptCache)
+        .mockResolvedValue(historicalCacheResult)
+
       vi.mocked(primeConceptsCache).mockResolvedValue(responseCacheResult)
 
       const response = await rebuildRedisCache(event, context)
 
       expect(flushAll).toHaveBeenCalledTimes(1)
-      expect(exportPublishSchemeCsvToS3).toHaveBeenCalledTimes(1)
-      expect(buildHistoricalConceptCache).toHaveBeenCalledWith('kms-rdf-backup-sit')
+      expect(redisPathStore.writePublishedConceptCaches).toHaveBeenCalledTimes(1)
+      expect(redisPathStore.rebuildHistoricalConceptCache).toHaveBeenCalledTimes(1)
+
       expect(primeConceptsCache).toHaveBeenCalledTimes(1)
       expect(logger.info).toHaveBeenCalledWith('[cache-rebuild] Completed Redis cache rebuild')
       expect(response).toEqual({

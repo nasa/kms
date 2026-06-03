@@ -317,6 +317,93 @@ describe('validateCmrCollectionUmm', () => {
     })).rejects.toThrow('Missing UMM-C payload for published keyword cache validation')
   })
 
+  test('should ignore null keyword candidates across supported families', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        ScienceKeywords: [null],
+        Platforms: [null],
+        LocationKeywords: [null],
+        PaleoTemporalCoverages: [
+          {
+            ChronostratigraphicUnits: [null]
+          }
+        ],
+        Projects: [null],
+        DataCenters: [null],
+        DirectoryNames: [null],
+        ISOTopicCategories: [null],
+        TemporalExtents: [
+          {}
+        ],
+        SpatialExtent: {
+          VerticalSpatialDomains: [null]
+        },
+        ArchiveAndDistributionInformation: {
+          FileArchiveInformation: [null],
+          FileDistributionInformation: [null]
+        },
+        RelatedUrls: [
+          {},
+          null
+        ]
+      }
+    })
+
+    expect(result).toEqual({
+      status: 200,
+      errors: [],
+      warnings: [],
+      responseBody: {
+        warnings: []
+      }
+    })
+  })
+
+  test('should ignore null instrument entries and null paleo coverage entries', async () => {
+    const platformKey = createPublishedConceptResponseCacheKeyByShortName({
+      shortName: 'aqua',
+      scheme: 'platforms'
+    })
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === platformKey) {
+        return createCachedResponse({
+          uuid: 'platform-uuid',
+          fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+        })
+      }
+
+      return null
+    })
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        Platforms: [
+          {
+            ShortName: 'Aqua',
+            Instruments: [null]
+          }
+        ],
+        PaleoTemporalCoverages: [
+          null
+        ]
+      }
+    })
+
+    expect(result).toEqual({
+      status: 200,
+      errors: [],
+      warnings: [],
+      responseBody: {
+        warnings: []
+      }
+    })
+  })
+
   test('should extract and validate the broader supported keyword families', async () => {
     vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
 

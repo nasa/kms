@@ -6,58 +6,125 @@ import {
   vi
 } from 'vitest'
 
-import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
-import { CsvComparator } from '@/shared/csvComparator'
-import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
-import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
-import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
-import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
+import { redisPathStore } from '@/shared/redisPathStore'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
-import {
-  createKeywordEvents,
-  getKeywordChanges,
-  publisher
-} from '../handler'
+import { publisher } from '../handler'
+
+const SCIENCE_PATH_KEYWORD = {
+  Category: 'PATH',
+  Topic: '',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const SCIENCE_PATH_ONE_KEYWORD = {
+  Category: 'PATH 1',
+  Topic: '',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const SCIENCE_PATH_TWO_KEYWORD = {
+  Category: 'PATH 2',
+  Topic: '',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
 
 const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
   sendEventBridgeMock: vi.fn(),
   PutEventsCommandMock: vi.fn((input) => input)
 }))
 
-const waitForCondition = async (assertion, attempts = 20) => {
-  try {
-    assertion()
+const createInsertedScienceKeywordEvent = ({
+  uuid,
+  keywordObject
+}) => ({
+  EventType: 'INSERTED',
+  Scheme: 'sciencekeywords',
+  UUID: uuid,
+  NewKeywordObject: keywordObject,
+  Timestamp: '2023-06-01T00:00:00.000Z',
+  MetadataSpecification: {
+    URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
+    Name: 'Kms-Keyword-Event',
+    Version: '1.0'
+  }
+})
 
-    return undefined
-  } catch (error) {
-    if (attempts <= 1) {
-      throw error
+const buildPublishKeywordEventsResult = ({
+  keywordEvents = [],
+  keywordChangesMap = new Map(),
+  failedSchemes = [],
+  totalSchemeCount = 0
+} = {}) => {
+  const keywordChangeSummary = keywordEvents.reduce((summary, keywordEvent) => {
+    if (keywordEvent.EventType === 'INSERTED') {
+      return {
+        ...summary,
+        addedCount: summary.addedCount + 1
+      }
     }
 
-    await Promise.resolve()
+    if (keywordEvent.EventType === 'DELETED') {
+      return {
+        ...summary,
+        removedCount: summary.removedCount + 1
+      }
+    }
 
-    return waitForCondition(assertion, attempts - 1)
+    return {
+      ...summary,
+      changedCount: summary.changedCount + 1
+    }
+  }, {
+    addedCount: 0,
+    removedCount: 0,
+    changedCount: 0
+  })
+
+  return {
+    keywordChangesMap,
+    keywordEvents,
+    keywordChangeSummary,
+    failedSchemes,
+    totalSchemeCount,
+    keywordChangeCount: (
+      keywordChangeSummary.addedCount
+      + keywordChangeSummary.removedCount
+      + keywordChangeSummary.changedCount
+    )
   }
 }
 
-// Mock the imported functions
-vi.mock('@/shared/csvComparator')
-vi.mock('@/shared/downloadConcepts')
+const mockPublishKeywordEvents = (keywordEvents = []) => {
+  vi.mocked(redisPathStore.getPublishKeywordEvents).mockResolvedValue(
+    buildPublishKeywordEventsResult({
+      keywordEvents
+    })
+  )
+}
+
 vi.mock('@/shared/emitPublisherMetrics')
-vi.mock('@/shared/getConceptSchemeDetails')
+vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
 vi.mock('@/shared/sparqlRequest')
-vi.mock('@/shared/exportRdfToS3')
-vi.mock('@/shared/exportPublishSchemeCsvToS3')
-vi.mock('@/shared/buildHistoricalConceptCache')
-vi.mock('@/shared/getConfig')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
     send: sendEventBridgeMock
@@ -66,1933 +133,339 @@ vi.mock('@aws-sdk/client-eventbridge', () => ({
 }))
 
 describe('publisher handler', () => {
+  const mockEvent = {
+    detail: {
+      versionName: 'v1.0.0',
+      publishDate: '2023-06-01T12:00:00.000Z'
+    }
+  }
+
   beforeEach(() => {
     vi.resetAllMocks()
+
     delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
+
+    vi.spyOn(redisPathStore, 'getPublishKeywordEvents').mockResolvedValue(
+      buildPublishKeywordEventsResult()
+    )
+
+    vi.spyOn(redisPathStore, 'rebuildHistoricalConceptCache').mockResolvedValue({
+      cacheReady: true
+    })
+
+    vi.spyOn(redisPathStore, 'writePublishedConceptCaches').mockResolvedValue({
+      cacheReady: true
+    })
+
     emitPublisherMetrics.mockResolvedValue()
-    sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
     exportRdfToS3.mockResolvedValue({ s3Key: 'test/rdf.xml' })
-
-    exportPublishSchemeCsvToS3.mockResolvedValue({
-      cacheReady: true
-    })
-
-    buildHistoricalConceptCache.mockResolvedValue({
-      cacheReady: true
-    })
-
+    getPublishUpdateQuery.mockReturnValue('mock query')
     publishKeywordEvent.mockResolvedValue({
       messageId: 'message-1',
       message: '{}',
       topicArn: 'arn:aws:sns:us-east-1:123456789012:keyword-events'
     })
 
+    sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
+    sparqlRequest.mockResolvedValue({ ok: true })
+
+    vi.spyOn(logger, 'debug').mockImplementation(() => {})
     vi.spyOn(logger, 'error').mockImplementation(() => {})
     vi.spyOn(logger, 'info').mockImplementation(() => {})
-    vi.spyOn(logger, 'debug').mockImplementation(() => {})
-    getApplicationConfig.mockReturnValue({ env: 'sit' })
-
     vi.spyOn(logger, 'warn').mockImplementation(() => {})
   })
 
-  describe('createKeywordEvents', () => {
-    test('should create INSERTED events for added keywords', () => {
-      const keywordChangesMap = new Map([
-        ['sciencekeywords', {
-          addedKeywords: new Map([
-            ['uuid1', {
-              oldPath: undefined,
-              newPath: 'EARTH SCIENCE > ATMOSPHERE'
-            }]
-          ]),
-          removedKeywords: new Map(),
-          changedKeywords: new Map()
-        }]
-      ])
+  test('successfully processes publish events with generated keyword events', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_KEYWORD
+      })
+    ])
 
-      const events = createKeywordEvents(keywordChangesMap)
+    const result = await publisher(mockEvent)
 
-      expect(events).toHaveLength(1)
-      expect(events[0]).toMatchObject({
-        EventType: 'INSERTED',
-        Scheme: 'sciencekeywords',
-        UUID: 'uuid1',
-        NewKeywordPath: 'EARTH SCIENCE > ATMOSPHERE',
-        MetadataSpecification: {
-          URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
-          Name: 'Kms-Keyword-Event',
-          Version: '1.0'
+    expect(getPublishUpdateQuery).toHaveBeenCalledWith('v1.0.0', expect.any(String))
+    expect(sparqlRequest).toHaveBeenCalledWith({
+      method: 'POST',
+      contentType: 'application/sparql-update',
+      accept: 'application/sparql-results+json',
+      body: 'mock query'
+    })
+
+    expect(redisPathStore.writePublishedConceptCaches).toHaveBeenCalledTimes(1)
+    expect(redisPathStore.rebuildHistoricalConceptCache).toHaveBeenCalledTimes(1)
+    expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
+    expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
+    expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
+    expect(publishKeywordEvent).toHaveBeenCalledWith(expect.objectContaining({
+      EventType: 'INSERTED',
+      Scheme: 'sciencekeywords',
+      UUID: 'uuid1',
+      NewKeywordObject: SCIENCE_PATH_KEYWORD
+    }))
+
+    expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+
+    expect(result).toEqual({
+      status: 'success',
+      versionName: 'v1.0.0',
+      publishDate: mockEvent.detail.publishDate,
+      published: true,
+      keywordChangesDetected: 1,
+      keywordEventsGenerated: 1,
+      keywordEventsPublished: 1,
+      keywordEventPublishFailures: 0,
+      cachePrimeEventEmitted: true,
+      keywordEventsCount: 1,
+      postPublishFailures: []
+    })
+
+    expect(emitPublisherMetrics).toHaveBeenCalledWith({
+      metrics: [
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
+          value: 1
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
+          value: 1
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
+          value: 1
+        },
+        {
+          metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
+          value: 0
         }
-      })
-
-      expect(events[0].Timestamp).toBeDefined()
-    })
-
-    test('should create DELETED events for removed keywords', () => {
-      const keywordChangesMap = new Map([
-        ['platforms', {
-          addedKeywords: new Map(),
-          removedKeywords: new Map([
-            ['uuid2', {
-              oldPath: 'OLD PATH',
-              newPath: undefined
-            }]
-          ]),
-          changedKeywords: new Map()
-        }]
-      ])
-
-      const events = createKeywordEvents(keywordChangesMap)
-
-      expect(events).toHaveLength(1)
-      expect(events[0]).toMatchObject({
-        EventType: 'DELETED',
-        Scheme: 'platforms',
-        UUID: 'uuid2',
-        OldKeywordPath: 'OLD PATH'
-      })
-
-      expect(events[0].NewKeywordPath).toBeUndefined()
-    })
-
-    test('should create UPDATED events for changed keywords', () => {
-      const keywordChangesMap = new Map([
-        ['instruments', {
-          addedKeywords: new Map(),
-          removedKeywords: new Map(),
-          changedKeywords: new Map([
-            ['uuid3', {
-              oldPath: 'OLD PATH',
-              newPath: 'NEW PATH'
-            }]
-          ])
-        }]
-      ])
-
-      const events = createKeywordEvents(keywordChangesMap)
-
-      expect(events).toHaveLength(1)
-      expect(events[0]).toMatchObject({
-        EventType: 'UPDATED',
-        Scheme: 'instruments',
-        UUID: 'uuid3',
-        OldKeywordPath: 'OLD PATH',
-        NewKeywordPath: 'NEW PATH'
-      })
-    })
-
-    test('should create multiple events for multiple schemes', () => {
-      const keywordChangesMap = new Map([
-        ['sciencekeywords', {
-          addedKeywords: new Map([['uuid1', {
-            oldPath: undefined,
-            newPath: 'PATH1'
-          }]]),
-          removedKeywords: new Map(),
-          changedKeywords: new Map()
-        }],
-        ['platforms', {
-          addedKeywords: new Map(),
-          removedKeywords: new Map([['uuid2', {
-            oldPath: 'PATH2',
-            newPath: undefined
-          }]]),
-          changedKeywords: new Map()
-        }]
-      ])
-
-      const events = createKeywordEvents(keywordChangesMap)
-
-      expect(events).toHaveLength(2)
-      expect(events[0].Scheme).toBe('sciencekeywords')
-      expect(events[1].Scheme).toBe('platforms')
-    })
-
-    test('should handle empty keyword changes', () => {
-      const keywordChangesMap = new Map()
-
-      const events = createKeywordEvents(keywordChangesMap)
-
-      expect(events).toHaveLength(0)
+      ]
     })
   })
 
-  describe('getKeywordChanges', () => {
-    test('should fetch and compare concept schemes', async () => {
-      const mockSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
+  test('fails before publish when keyword event generation fails', async () => {
+    vi.mocked(redisPathStore.getPublishKeywordEvents).mockRejectedValue(
+      new Error('Scheme lookup failed')
+    )
 
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
+    await expect(publisher(mockEvent)).rejects.toThrow('Scheme lookup failed')
 
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
+    expect(sparqlRequest).not.toHaveBeenCalled()
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(sendEventBridgeMock).not.toHaveBeenCalled()
+  })
 
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await getKeywordChanges()
-
-      expect(result).toBeInstanceOf(Map)
-      expect(result.size).toBe(2)
-      expect(getConceptSchemeDetails).toHaveBeenCalledWith({ version: 'published' })
-      expect(getConceptSchemeDetails).toHaveBeenCalledWith({ version: 'draft' })
-      expect(downloadConcepts).toHaveBeenCalledTimes(4) // 2 schemes × 2 versions
-      expect(logger.info).toHaveBeenCalledWith(
-        '[publisher] Keyword changes summary schemes=2 processed=2 failed=0 added=0 removed=0 changed=0'
-      )
-    })
-
-    test('should process concept schemes sequentially', async () => {
-      const mockSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-
-      const pendingResolvers = []
-      downloadConcepts.mockImplementation(({ conceptScheme, version }) => new Promise((resolve) => {
-        pendingResolvers.push({
-          conceptScheme,
-          version,
-          resolve
-        })
-      }))
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = getKeywordChanges()
-
-      await waitForCondition(() => {
-        expect(downloadConcepts).toHaveBeenCalledTimes(2)
+  test('returns partial_success when published CSV export fails', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_KEYWORD
       })
+    ])
 
-      expect(downloadConcepts).toHaveBeenNthCalledWith(1, {
-        bypassCache: true,
-        conceptScheme: 'sciencekeywords',
-        format: 'csv',
-        version: 'published'
+    vi.mocked(redisPathStore.writePublishedConceptCaches).mockRejectedValue(new Error('S3 CSV export failed'))
+
+    const result = await publisher(mockEvent)
+
+    expect(redisPathStore.rebuildHistoricalConceptCache).not.toHaveBeenCalled()
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(result.status).toBe('partial_success')
+    expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
+    expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
+    expect(result.postPublishFailures).toContain('Skipped keyword event publish because keyword caches were not fully prepared')
+  })
+
+  test('returns partial_success when historical cache rebuild fails', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_KEYWORD
       })
-
-      expect(downloadConcepts).toHaveBeenNthCalledWith(2, {
-        bypassCache: true,
-        conceptScheme: 'sciencekeywords',
-        format: 'csv',
-        version: 'draft'
-      })
-
-      pendingResolvers.splice(0).forEach(({ resolve }) => resolve('csv content'))
-
-      await waitForCondition(() => {
-        expect(downloadConcepts).toHaveBeenCalledTimes(4)
-      })
-
-      expect(downloadConcepts).toHaveBeenNthCalledWith(3, {
-        bypassCache: true,
-        conceptScheme: 'platforms',
-        format: 'csv',
-        version: 'published'
-      })
-
-      expect(downloadConcepts).toHaveBeenNthCalledWith(4, {
-        bypassCache: true,
-        conceptScheme: 'platforms',
-        format: 'csv',
-        version: 'draft'
-      })
-
-      pendingResolvers.splice(0).forEach(({ resolve }) => resolve('csv content'))
-
-      const result = await resultPromise
-
-      expect(result.size).toBe(2)
-    })
-
-    test('should return empty map when no concept schemes found', async () => {
-      getConceptSchemeDetails.mockResolvedValue([])
-
-      const result = await getKeywordChanges()
-
-      expect(result).toBeInstanceOf(Map)
-      expect(result.size).toBe(0)
-      expect(logger.warn).toHaveBeenCalledWith('No concept schemes found in either version')
-    })
-
-    test('should handle null concept schemes', async () => {
-      getConceptSchemeDetails.mockResolvedValue(null)
-
-      const result = await getKeywordChanges()
-
-      expect(result).toBeInstanceOf(Map)
-      expect(result.size).toBe(0)
-    })
-
-    test('should fail keyword change detection when any scheme exhausts retries and blocking is enabled', async () => {
-      vi.useFakeTimers()
-      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
-
-      const mockSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-
-      let callCount = 0
-      downloadConcepts.mockImplementation(() => {
-        callCount += 1
-        if (callCount <= 2) {
-          return Promise.resolve('csv content')
-        }
-
-        return Promise.reject(new Error('Download failed'))
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = getKeywordChanges()
-      const expectation = expect(resultPromise).rejects.toThrow(
-        'Keyword changes detection failed for 1 scheme(s): platforms: Download failed'
-      )
-
-      // Fast-forward through all retry delays
-      await vi.runAllTimersAsync()
-
-      await expectation
-
-      vi.useRealTimers()
-    })
-
-    test('should retry failed scheme downloads up to 4 times before giving up when blocking is enabled', async () => {
-      vi.useFakeTimers()
-      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
-
-      const mockSchemes = [
-        { notation: 'sciencekeywords' }
-      ]
-
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-
-      let attemptCount = 0
-      downloadConcepts.mockImplementation(() => {
-        attemptCount += 1
-
-        return Promise.reject(new Error('Download failed'))
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = getKeywordChanges()
-      const expectation = expect(resultPromise).rejects.toThrow(
-        'Keyword changes detection failed for 1 scheme(s): sciencekeywords: Download failed'
-      )
-
-      // Fast-forward through all retry delays
-      await vi.runAllTimersAsync()
-
-      // Should have retried 4 times total (initial + 3 retries)
-      expect(attemptCount).toBe(8) // 4 attempts × 2 downloads (published + draft)
-
-      await expectation
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed sciencekeywords: exhausted all 4 attempts - Download failed'
-      )
-
-      vi.useRealTimers()
-    })
-
-    test('should warn and continue with successful scheme comparisons when blocking is disabled', async () => {
-      vi.useFakeTimers()
-
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      let callCount = 0
-      downloadConcepts.mockImplementation(({ conceptScheme }) => {
-        callCount += 1
-
-        if (conceptScheme === 'sciencekeywords') {
-          return Promise.resolve('csv content')
-        }
-
-        return Promise.reject(new Error('Download failed'))
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = getKeywordChanges()
-
-      await vi.runAllTimersAsync()
-
-      const result = await resultPromise
-
-      expect(result.size).toBe(1)
-      expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('platforms')).toBe(false)
-      expect(logger.warn).toHaveBeenCalledWith(
-        '[publisher] Keyword changes detection failed for 1 scheme(s): platforms: Download failed. '
-        + 'Continuing with publish because BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE is disabled.'
-      )
-
-      expect(callCount).toBe(10)
-
-      vi.useRealTimers()
-    })
-
-    test('should succeed on retry if download succeeds on second attempt', async () => {
-      vi.useFakeTimers()
-
-      const mockSchemes = [
-        { notation: 'sciencekeywords' }
-      ]
-
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-
-      let attemptCount = 0
-      downloadConcepts.mockImplementation(() => {
-        attemptCount += 1
-        // Fail first attempt, succeed on retry
-        if (attemptCount === 1 || attemptCount === 2) {
-          return Promise.reject(new Error('Download failed'))
-        }
-
-        return Promise.resolve('csv content')
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = getKeywordChanges()
-
-      // Fast-forward through retry delay
-      await vi.runAllTimersAsync()
-
-      const result = await resultPromise
-
-      // Should have succeeded after retry
-      expect(result.size).toBe(1)
-      expect(result.has('sciencekeywords')).toBe(true)
-
-      vi.useRealTimers()
-    })
-
-    test('should create DELETED events when draft scheme does not exist', async () => {
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'deletedscheme' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' }
-        // Deletedscheme is not in draft
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes) // First call for published
-        .mockResolvedValueOnce(mockDraftSchemes) // Second call for draft
-
-      // Mock downloadConcepts with implementation that checks parameters
-      downloadConcepts.mockImplementation(({ conceptScheme, version }) => {
-        if (conceptScheme === 'sciencekeywords') {
-          return Promise.resolve('csv content for sciencekeywords')
-        }
-
-        if (conceptScheme === 'deletedscheme') {
-          if (version === 'published') {
-            return Promise.resolve('published csv content')
-          }
-
-          if (version === 'draft') {
-            return Promise.reject(Object.assign(
-              new Error('Failed to download CSV. Status: 404 - Invalid concept scheme parameter. Concept scheme not found'),
-              {
-                statusCode: 404
-              }
-            ))
-          }
-        }
-
-        return Promise.reject(new Error('Unexpected call'))
-      })
-
-      const mockComparator = {
-        compare: vi.fn((published, draft) => {
-          if (published === 'csv content for sciencekeywords' && draft === 'csv content for sciencekeywords') {
-            return {
-              addedKeywords: new Map(),
-              removedKeywords: new Map(),
-              changedKeywords: new Map()
-            }
-          }
-
-          if (published === 'published csv content' && draft === '') {
-            return {
-              addedKeywords: new Map(),
-              removedKeywords: new Map([['uuid-deleted', {
-                oldPath: 'OLD PATH',
-                newPath: undefined
-              }]]),
-              changedKeywords: new Map()
-            }
-          }
-
-          return {
-            addedKeywords: new Map(),
-            removedKeywords: new Map(),
-            changedKeywords: new Map()
-          }
-        }),
-        getSummary: vi.fn((comparison) => ({
-          addedCount: comparison.addedKeywords.size,
-          removedCount: comparison.removedKeywords.size,
-          changedCount: comparison.changedKeywords.size
-        }))
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await getKeywordChanges()
-
-      // Should have both schemes - deletedscheme now creates DELETED events
-      expect(result.size).toBe(2)
-      expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('deletedscheme')).toBe(true)
-
-      // Verify deletedscheme has removed keywords
-      expect(result.get('deletedscheme').removedKeywords.size).toBe(1)
-
-      // Verify compare was called with empty string for deletedscheme
-      expect(mockComparator.compare).toHaveBeenCalledWith('published csv content', '')
-    })
-
-    test('should fail when download fails with other error and blocking is enabled', async () => {
-      vi.useFakeTimers()
-
-      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
-
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' }
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      downloadConcepts.mockRejectedValue(new Error('Network timeout'))
-
-      const resultPromise = getKeywordChanges()
-      const expectation = expect(resultPromise).rejects.toThrow(
-        'Keyword changes detection failed for 1 scheme(s): sciencekeywords: Network timeout'
-      )
-
-      // Fast-forward through all retry delays
-      await vi.runAllTimersAsync()
-
-      await expectation
-
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed sciencekeywords: exhausted all 4 attempts - Network timeout'
-      )
-
-      vi.useRealTimers()
-    })
-
-    test('should handle multiple schemes with mixed success and scheme not found', async () => {
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'deletedscheme' },
-        { notation: 'platforms' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-        // Deletedscheme is not in draft
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      downloadConcepts.mockImplementation(({ conceptScheme }) => {
-        if (conceptScheme === 'sciencekeywords') {
-          return Promise.resolve('csv content for sciencekeywords')
-        }
-
-        if (conceptScheme === 'deletedscheme') {
-          return Promise.resolve('published csv content')
-        }
-
-        if (conceptScheme === 'platforms') {
-          return Promise.resolve('csv content for platforms')
-        }
-
-        return Promise.reject(new Error('Unexpected call'))
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await getKeywordChanges()
-
-      // Should have all three schemes - deletedscheme now creates DELETED events
-      expect(result.size).toBe(3)
-      expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('platforms')).toBe(true)
-      expect(result.has('deletedscheme')).toBe(true)
-
-      // Verify CSV comparator was called for all three schemes (including deletedscheme with empty string)
-      expect(mockComparator.compare).toHaveBeenCalledTimes(3)
-    })
-
-    test('should create INSERTED events when scheme only exists in draft', async () => {
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'newscheme' }
-        // Newscheme is only in draft
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      downloadConcepts.mockImplementation(({ conceptScheme }) => {
-        if (conceptScheme === 'sciencekeywords') {
-          return Promise.resolve('csv content for sciencekeywords')
-        }
-
-        if (conceptScheme === 'newscheme') {
-          return Promise.resolve('draft csv content for newscheme')
-        }
-
-        return Promise.reject(new Error('Unexpected call'))
-      })
-
-      const mockComparator = {
-        compare: vi.fn((published, draft) => {
-          if (published === 'csv content for sciencekeywords' && draft === 'csv content for sciencekeywords') {
-            return {
-              addedKeywords: new Map(),
-              removedKeywords: new Map(),
-              changedKeywords: new Map()
-            }
-          }
-
-          if (published === '' && draft === 'draft csv content for newscheme') {
-            return {
-              addedKeywords: new Map([['uuid-new', {
-                oldPath: undefined,
-                newPath: 'NEW PATH'
-              }]]),
-              removedKeywords: new Map(),
-              changedKeywords: new Map()
-            }
-          }
-
-          return {
-            addedKeywords: new Map(),
-            removedKeywords: new Map(),
-            changedKeywords: new Map()
-          }
-        }),
-        getSummary: vi.fn((comparison) => ({
-          addedCount: comparison.addedKeywords.size,
-          removedCount: comparison.removedKeywords.size,
-          changedCount: comparison.changedKeywords.size
-        }))
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await getKeywordChanges()
-
-      // Should have both schemes
-      expect(result.size).toBe(2)
-      expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('newscheme')).toBe(true)
-
-      // Verify newscheme has added keywords
-      expect(result.get('newscheme').addedKeywords.size).toBe(1)
-
-      // Verify compare was called with empty string for newscheme published
-      expect(mockComparator.compare).toHaveBeenCalledWith('', 'draft csv content for newscheme')
-    })
-
-    test('should handle schemes only in published, only in draft, and in both', async () => {
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'deletedscheme' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'newscheme' }
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      downloadConcepts.mockImplementation(({ conceptScheme }) => Promise.resolve(`csv content for ${conceptScheme}`))
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await getKeywordChanges()
-
-      // Should have all three schemes
-      expect(result.size).toBe(3)
-      expect(result.has('sciencekeywords')).toBe(true)
-      expect(result.has('deletedscheme')).toBe(true)
-      expect(result.has('newscheme')).toBe(true)
-
-      // Verify comparator was called 3 times
-      expect(mockComparator.compare).toHaveBeenCalledTimes(3)
-    })
-
-    test('should use Unknown error fallback when retries exhaust without an error message and blocking is enabled', async () => {
-      vi.useFakeTimers()
-      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockRejectedValue({})
-
-      const resultPromise = getKeywordChanges()
-      const expectation = expect(resultPromise).rejects.toThrow(
-        'Keyword changes detection failed for 1 scheme(s): sciencekeywords: Unknown error'
-      )
-
-      await vi.runAllTimersAsync()
-
-      await expectation
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed sciencekeywords: exhausted all 4 attempts - undefined'
-      )
-
-      vi.useRealTimers()
+    ])
+
+    vi.mocked(redisPathStore.rebuildHistoricalConceptCache).mockRejectedValue(
+      new Error('Cache build failed')
+    )
+
+    const result = await publisher(mockEvent)
+
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(result.status).toBe('partial_success')
+    expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
+    expect(result.postPublishFailures).toContain('Skipped keyword event publish because keyword caches were not fully prepared')
+  })
+
+  test('completes successfully without SNS publish when no keyword events are generated', async () => {
+    const result = await publisher(mockEvent)
+
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(logger.info).toHaveBeenCalledWith(
+      '[publisher] No keyword events generated, skipping SNS publish'
+    )
+
+    expect(result).toEqual({
+      status: 'success',
+      versionName: 'v1.0.0',
+      publishDate: mockEvent.detail.publishDate,
+      published: true,
+      keywordChangesDetected: 0,
+      keywordEventsGenerated: 0,
+      keywordEventsPublished: 0,
+      keywordEventPublishFailures: 0,
+      cachePrimeEventEmitted: true,
+      keywordEventsCount: 0,
+      postPublishFailures: []
     })
   })
 
-  describe('publisher', () => {
-    const mockEvent = {
+  test('throws when the SPARQL publish update fails', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_KEYWORD
+      })
+    ])
+
+    sparqlRequest.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error'
+    })
+
+    await expect(publisher(mockEvent)).rejects.toThrow(
+      'Failed to execute publish update: 500 Internal Server Error'
+    )
+
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(sendEventBridgeMock).not.toHaveBeenCalled()
+  })
+
+  test('returns partial_success when EventBridge emit fails after SNS publish succeeds', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_KEYWORD
+      })
+    ])
+
+    sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
+
+    const result = await publisher(mockEvent)
+
+    expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
+    expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({
+      status: 'partial_success',
+      versionName: 'v1.0.0',
+      publishDate: mockEvent.detail.publishDate,
+      published: true,
+      keywordChangesDetected: 1,
+      keywordEventsGenerated: 1,
+      keywordEventsPublished: 1,
+      keywordEventPublishFailures: 0,
+      cachePrimeEventEmitted: false,
+      keywordEventsCount: 1,
+      postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
+    })
+  })
+
+  test('publishes remaining keyword events after retries are exhausted for one event', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_ONE_KEYWORD
+      }),
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid2',
+        keywordObject: SCIENCE_PATH_TWO_KEYWORD
+      })
+    ])
+
+    publishKeywordEvent
+      .mockRejectedValueOnce(new Error('SNS unavailable'))
+      .mockRejectedValueOnce(new Error('SNS unavailable'))
+      .mockRejectedValueOnce(new Error('SNS unavailable'))
+      .mockRejectedValueOnce(new Error('SNS unavailable'))
+      .mockResolvedValueOnce({
+        messageId: 'message-2',
+        message: '{}',
+        topicArn: 'arn:aws:sns:us-east-1:123456789012:keyword-events'
+      })
+
+    const result = await publisher(mockEvent)
+
+    expect(publishKeywordEvent).toHaveBeenCalledTimes(5)
+    expect(publishKeywordEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ UUID: 'uuid1' }))
+    expect(publishKeywordEvent).toHaveBeenNthCalledWith(5, expect.objectContaining({ UUID: 'uuid2' }))
+    expect(result).toEqual({
+      status: 'partial_success',
+      versionName: 'v1.0.0',
+      publishDate: mockEvent.detail.publishDate,
+      published: true,
+      keywordChangesDetected: 2,
+      keywordEventsGenerated: 2,
+      keywordEventsPublished: 1,
+      keywordEventPublishFailures: 1,
+      cachePrimeEventEmitted: true,
+      keywordEventsCount: 2,
+      postPublishFailures: ['Publish completed, but 1 keyword event publishes failed after retries']
+    })
+  })
+
+  test('throws when versionName is missing', async () => {
+    await expect(publisher({ detail: {} })).rejects.toThrow(
+      'versionName is required in event.detail'
+    )
+  })
+
+  test('throws when event.detail is missing entirely', async () => {
+    await expect(publisher({})).rejects.toThrow(
+      'versionName is required in event.detail'
+    )
+  })
+
+  test('throws when publishDate is missing', async () => {
+    await expect(publisher({
       detail: {
-        versionName: 'v1.0.0',
-        publishDate: '2023-06-01T12:00:00.000Z'
+        versionName: 'v1.0.0'
       }
-    }
-
-    beforeEach(() => {
-      getPublishUpdateQuery.mockReturnValue('mock query')
-      sparqlRequest.mockResolvedValue({ ok: true })
-    })
-
-    test('should successfully process publish event', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Starting analysis for version=v1.0.0')
-      expect(getPublishUpdateQuery).toHaveBeenCalledWith('v1.0.0', expect.any(String))
-      expect(sparqlRequest).toHaveBeenCalledWith({
-        method: 'POST',
-        contentType: 'application/sparql-update',
-        accept: 'application/sparql-results+json',
-        body: 'mock query'
-      })
-
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Publish update completed for version=v1.0.0')
-
-      // Verify S3 exports were called
-      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
-      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
-      expect(exportPublishSchemeCsvToS3).toHaveBeenCalled()
-
-      expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
-      expect(publishKeywordEvent).toHaveBeenCalledWith(expect.objectContaining({
-        EventType: 'INSERTED',
-        Scheme: 'sciencekeywords',
-        UUID: 'uuid1',
-        NewKeywordPath: 'PATH'
-      }))
-
-      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
-
-      expect(result).toEqual({
-        status: 'success',
-        versionName: 'v1.0.0',
-        publishDate: mockEvent.detail.publishDate,
-        published: true,
-        keywordChangesDetected: 1,
-        keywordEventsGenerated: 1,
-        keywordEventsPublished: 1,
-        keywordEventPublishFailures: 0,
-        cachePrimeEventEmitted: true,
-        keywordEventsCount: 1,
-        postPublishFailures: []
-      })
-
-      expect(logger.info).toHaveBeenLastCalledWith(
-        expect.stringMatching(/Completed with status: success in \d+\.\d{2} seconds/),
-        result
-      )
-
-      expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
-      expect(emitPublisherMetrics).toHaveBeenCalledWith({
-        metrics: [
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
-            value: 1
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
-            value: 1
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
-            value: 1
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
-            value: 0
-          }
-        ]
-      })
-    })
-
-    test('should fail the invocation before publish when keyword change generation fails', async () => {
-      getConceptSchemeDetails.mockRejectedValue(new Error('Scheme lookup failed'))
-
-      await expect(publisher(mockEvent)).rejects.toThrow('Scheme lookup failed')
-
-      expect(sparqlRequest).not.toHaveBeenCalled()
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(sendEventBridgeMock).not.toHaveBeenCalled()
-    })
-
-    test('should return partial_success when S3 exports fail', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      // Mock exports to fail
-      exportRdfToS3
-        .mockRejectedValueOnce(new Error('S3 RDF published export failed'))
-        .mockResolvedValue({ s3Key: 'test/rdf.xml' }) // Draft export succeeds
-
-      exportPublishSchemeCsvToS3.mockRejectedValue(new Error('S3 CSV export failed'))
-
-      const result = await publisher(mockEvent)
-
-      expect(result.status).toBe('partial_success')
-      expect(result.postPublishFailures).toHaveLength(3)
-      expect(result.postPublishFailures).toContain('Failed to export Published RDF to S3: S3 RDF published export failed')
-      expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
-      expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
-
-      // Ensure both RDF exports were attempted
-      expect(exportRdfToS3).toHaveBeenCalledTimes(2)
-
-      // Ensure CSV export was attempted
-      expect(exportPublishSchemeCsvToS3).toHaveBeenCalledTimes(1)
-
-      // Ensure cache-prime event was still emitted
-      expect(result.cachePrimeEventEmitted).toBe(true)
-      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
-
-      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Published RDF to S3: S3 RDF published export failed')
-      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
-    })
-
-    test('should return partial_success when draft S3 RDF export fails', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      // Mock exports: published succeeds, draft fails
-      exportRdfToS3.mockImplementation(async ({ version }) => {
-        if (version === 'draft') {
-          throw new Error('S3 Draft export failed')
-        }
-
-        return { s3Key: 'published/rdf.xml' }
-      })
-
-      const result = await publisher(mockEvent)
-
-      expect(result.status).toBe('partial_success')
-      expect(result.postPublishFailures).toHaveLength(1)
-      expect(result.postPublishFailures).toContain('Failed to export Draft RDF to S3: S3 Draft export failed')
-
-      expect(exportRdfToS3).toHaveBeenCalledTimes(2)
-      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
-      expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
-
-      expect(exportPublishSchemeCsvToS3).toHaveBeenCalledTimes(1)
-
-      expect(result.cachePrimeEventEmitted).toBe(true)
-      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
-
-      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Draft RDF to S3: S3 Draft export failed')
-    })
-
-    test('should continue publish when keyword diff retries exhaust and blocking is disabled', async () => {
-      vi.useFakeTimers()
-
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      downloadConcepts.mockImplementation(({ conceptScheme }) => {
-        if (conceptScheme === 'sciencekeywords') {
-          return Promise.resolve('csv content')
-        }
-
-        return Promise.reject(new Error('Download failed'))
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = publisher(mockEvent)
-
-      await vi.runAllTimersAsync()
-
-      const result = await resultPromise
-
-      expect(sparqlRequest).toHaveBeenCalledTimes(1)
-      expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
-      expect(result.status).toBe('success')
-      expect(result.keywordChangesDetected).toBe(1)
-      expect(result.keywordEventsGenerated).toBe(1)
-      expect(result.keywordEventsPublished).toBe(1)
-      expect(logger.warn).toHaveBeenCalledWith(
-        '[publisher] Keyword changes detection failed for 1 scheme(s): platforms: Download failed. '
-        + 'Continuing with publish because BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE is disabled.'
-      )
-
-      vi.useRealTimers()
-    })
-
-    test('should fail publish when keyword diff retries exhaust and blocking is enabled', async () => {
-      vi.useFakeTimers()
-      process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE = 'true'
-
-      const mockPublishedSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      const mockDraftSchemes = [
-        { notation: 'sciencekeywords' },
-        { notation: 'platforms' }
-      ]
-
-      getConceptSchemeDetails
-        .mockResolvedValueOnce(mockPublishedSchemes)
-        .mockResolvedValueOnce(mockDraftSchemes)
-
-      downloadConcepts.mockImplementation(({ conceptScheme }) => {
-        if (conceptScheme === 'sciencekeywords') {
-          return Promise.resolve('csv content')
-        }
-
-        return Promise.reject(new Error('Download failed'))
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const resultPromise = publisher(mockEvent)
-      const expectation = expect(resultPromise).rejects.toThrow(
-        'Keyword changes detection failed for 1 scheme(s): platforms: Download failed'
-      )
-
-      await vi.runAllTimersAsync()
-      await expectation
-
-      expect(sparqlRequest).not.toHaveBeenCalled()
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(sendEventBridgeMock).not.toHaveBeenCalled()
-
-      vi.useRealTimers()
-    })
-
-    test('should complete successfully without SNS publish when no keyword events are generated', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(sparqlRequest).toHaveBeenCalledTimes(1)
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(logger.info).toHaveBeenCalledWith('[publisher] No keyword events generated, skipping SNS publish')
-      expect(result).toEqual({
-        status: 'success',
-        versionName: 'v1.0.0',
-        publishDate: mockEvent.detail.publishDate,
-        published: true,
-        keywordChangesDetected: 0,
-        keywordEventsGenerated: 0,
-        keywordEventsPublished: 0,
-        keywordEventPublishFailures: 0,
-        cachePrimeEventEmitted: true,
-        keywordEventsCount: 0,
-        postPublishFailures: []
-      })
-
-      expect(emitPublisherMetrics).toHaveBeenCalledTimes(1)
-      expect(emitPublisherMetrics).toHaveBeenCalledWith({
-        metrics: [
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
-            value: 0
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
-            value: 0
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
-            value: 0
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
-            value: 0
-          }
-        ]
-      })
-    })
-
-    test('should not publish keyword events when the SPARQL publish update fails', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error'
-      })
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      await expect(publisher(mockEvent)).rejects.toThrow(
-        'Failed to execute publish update: 500 Internal Server Error'
-      )
-
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(sendEventBridgeMock).not.toHaveBeenCalled()
-    })
-
-    test('should emit publisher event with keyword events', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(PutEventsCommandMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          Entries: expect.arrayContaining([
-            expect.objectContaining({
-              Source: 'kms.publisher',
-              DetailType: 'kms.publisher.analysis.completed',
-              Detail: expect.stringContaining('v1.0.0')
-            })
-          ])
-        })
-      )
-
-      const detailString = PutEventsCommandMock.mock.calls[0][0].Entries[0].Detail
-      const detail = JSON.parse(detailString)
-      expect(detail.keywordEvents).toHaveLength(1)
-      expect(detail.totalEvents).toBe(1)
-      expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
-
-      expect(result.status).toBe('success')
-      expect(result.cachePrimeEventEmitted).toBe(true)
-    })
-
-    test('should throw error when SPARQL update fails', async () => {
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error'
-      })
-
-      await expect(publisher(mockEvent)).rejects.toThrow('Failed to execute publish update: 500 Internal Server Error')
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
-        'Failed to execute publish update: 500 Internal Server Error'
-      )
-    })
-
-    test('should return partial_success when EventBridge emit fails', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
-
-      const result = await publisher(mockEvent)
-
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(result).toEqual({
-        status: 'partial_success',
-        versionName: 'v1.0.0',
-        publishDate: mockEvent.detail.publishDate,
-        published: true,
-        keywordChangesDetected: 0,
-        keywordEventsGenerated: 0,
-        keywordEventsPublished: 0,
-        keywordEventPublishFailures: 0,
-        cachePrimeEventEmitted: false,
-        keywordEventsCount: 0,
-        postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
-      })
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[publisher] Publish completed, but failed to emit cache-prime event')
-      )
-    })
-
-    test('should return partial_success when EventBridge emit fails after SNS publish succeeds', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-      sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
-
-      const result = await publisher(mockEvent)
-
-      expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
-      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
-      expect(result).toEqual({
-        status: 'partial_success',
-        versionName: 'v1.0.0',
-        publishDate: mockEvent.detail.publishDate,
-        published: true,
-        keywordChangesDetected: 1,
-        keywordEventsGenerated: 1,
-        keywordEventsPublished: 1,
-        keywordEventPublishFailures: 0,
-        cachePrimeEventEmitted: false,
-        keywordEventsCount: 1,
-        postPublishFailures: ['Publish completed, but failed to emit cache-prime event']
-      })
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[publisher] Publish completed, but failed to emit cache-prime event')
-      )
-    })
-
-    test('should throw error when versionName is missing', async () => {
-      const invalidEvent = { detail: {} }
-
-      await expect(publisher(invalidEvent)).rejects.toThrow('versionName is required in event.detail')
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
-        'versionName is required in event.detail'
-      )
-    })
-
-    test('should throw error when event.detail is missing', async () => {
-      await expect(publisher({})).rejects.toThrow('versionName is required in event.detail')
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
-        'versionName is required in event.detail'
-      )
-    })
-
-    test('should throw error when publishDate is missing', async () => {
-      const invalidEvent = { detail: { versionName: 'v1.0.0' } }
-
-      await expect(publisher(invalidEvent)).rejects.toThrow('publishDate is required in event.detail')
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringMatching(/Error in publisher handler after \d+\.\d{2} seconds:/),
-        'publishDate is required in event.detail'
-      )
-    })
-
-    test('should create keyword events before the SPARQL publish and publish them to SNS only after cache preparation succeeds', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const callOrder = []
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-      getPublishUpdateQuery.mockImplementation(() => {
-        callOrder.push('build-publish-query')
-
-        return 'mock query'
-      })
-
-      sparqlRequest.mockImplementation(async () => {
-        callOrder.push('execute-publish')
-
-        return { ok: true }
-      })
-
-      exportPublishSchemeCsvToS3.mockImplementation(async () => {
-        callOrder.push('export-published-csv')
-
-        return { cacheReady: true }
-      })
-
-      buildHistoricalConceptCache.mockImplementation(async () => {
-        callOrder.push('build-historical-cache')
-
-        return { cacheReady: true }
-      })
-
-      publishKeywordEvent.mockImplementation(async () => {
-        callOrder.push('publish-keyword-event')
-
-        return {
-          messageId: 'message-1',
-          message: '{}',
-          topicArn: 'arn:aws:sns:us-east-1:123456789012:keyword-events'
-        }
-      })
-
-      await publisher(mockEvent)
-
-      expect(callOrder).toEqual([
-        'build-publish-query',
-        'execute-publish',
-        'export-published-csv',
-        'build-historical-cache',
-        'publish-keyword-event'
-      ])
-    })
-
-    test('should return partial_success when SNS publish retries are exhausted and continue with remaining events', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map([
-          ['uuid1', {
-            oldPath: undefined,
-            newPath: 'PATH 1'
-          }],
-          ['uuid2', {
-            oldPath: undefined,
-            newPath: 'PATH 2'
-          }]
-        ]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 2,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      publishKeywordEvent
-        .mockRejectedValueOnce(new Error('SNS unavailable'))
-        .mockRejectedValueOnce(new Error('SNS unavailable'))
-        .mockRejectedValueOnce(new Error('SNS unavailable'))
-        .mockRejectedValueOnce(new Error('SNS unavailable'))
-        .mockResolvedValueOnce({
-          messageId: 'message-2',
-          message: '{}',
-          topicArn: 'arn:aws:sns:us-east-1:123456789012:keyword-events'
-        })
-
-      const result = await publisher(mockEvent)
-
-      expect(publishKeywordEvent).toHaveBeenCalledTimes(5)
-      expect(publishKeywordEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ UUID: 'uuid1' }))
-      expect(publishKeywordEvent).toHaveBeenNthCalledWith(5, expect.objectContaining({ UUID: 'uuid2' }))
-      expect(sparqlRequest).toHaveBeenCalledTimes(1)
-      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
-      expect(result).toEqual({
-        status: 'partial_success',
-        versionName: 'v1.0.0',
-        publishDate: mockEvent.detail.publishDate,
-        published: true,
-        keywordChangesDetected: 2,
-        keywordEventsGenerated: 2,
-        keywordEventsPublished: 1,
-        keywordEventPublishFailures: 1,
-        cachePrimeEventEmitted: true,
-        keywordEventsCount: 2,
-        postPublishFailures: ['Publish completed, but 1 keyword event publishes failed after retries']
-      })
-
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('[publisher] Retrying keyword event publish (attempt 2/4) uuid=uuid1 type=INSERTED')
-      )
-
-      expect(logger.error).toHaveBeenCalledWith(
-        '[publisher] Keyword event publish exhausted retries',
-        expect.objectContaining({
-          uuid: 'uuid1',
-          scheme: 'sciencekeywords',
-          eventType: 'INSERTED',
-          oldKeywordPath: undefined,
-          newKeywordPath: 'PATH 1',
-          attempts: 4,
-          error: 'SNS unavailable'
-        })
-      )
-
-      expect(logger.info).toHaveBeenCalledWith(
-        '[publisher] Keyword event publish summary attempted=2 published=1 failed=1'
-      )
-
-      expect(emitPublisherMetrics).toHaveBeenLastCalledWith({
-        metrics: [
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_CHANGES_DETECTED,
-            value: 2
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_GENERATED,
-            value: 2
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENTS_PUBLISHED,
-            value: 1
-          },
-          {
-            metricName: PUBLISHER_METRIC_NAMES.KEYWORD_EVENT_PUBLISH_FAILURES,
-            value: 1
-          }
-        ]
-      })
-    })
-
-    test('should log the number of published keyword events when SNS publish succeeds for all generated events', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map([
-          ['uuid1', {
-            oldPath: undefined,
-            newPath: 'PATH 1'
-          }],
-          ['uuid2', {
-            oldPath: undefined,
-            newPath: 'PATH 2'
-          }]
-        ]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 2,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(publishKeywordEvent).toHaveBeenCalledTimes(2)
-      expect(result.status).toBe('success')
-      expect(result.keywordChangesDetected).toBe(2)
-      expect(result.keywordEventsGenerated).toBe(2)
-      expect(result.keywordEventsPublished).toBe(2)
-      expect(result.keywordEventPublishFailures).toBe(0)
-      expect(logger.info).toHaveBeenCalledWith(
-        '[publisher] Keyword event publish summary attempted=2 published=2 failed=0'
-      )
-    })
-
-    test('should log metric emission failures without failing publish', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-      emitPublisherMetrics.mockRejectedValue(new Error('CloudWatch unavailable'))
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(result.status).toBe('success')
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[publisher] Failed to emit keyword sync metrics for keyword sync summary.')
-      )
-    })
-
-    test('should not publish keyword events to SNS when the SPARQL publish update fails', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-
-      CsvComparator.mockImplementation(() => mockComparator)
-      sparqlRequest.mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error'
-      })
-
-      await expect(publisher(mockEvent)).rejects.toThrow('Failed to execute publish update: 500 Internal Server Error')
-
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(sendEventBridgeMock).not.toHaveBeenCalled()
-    })
-
-    test('should build UUID cache after successful S3 export', async () => {
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      await publisher(mockEvent)
-
-      expect(buildHistoricalConceptCache).toHaveBeenCalledWith('kms-rdf-backup-sit')
-      expect(logger.info).toHaveBeenCalledWith('[publisher] Successfully built Historical Concept cache from S3 bucket [kms-rdf-backup-sit].')
-    })
-
-    test('should handle UUID cache build failures gracefully', async () => {
-      const cacheBuildError = new Error('Cache build failed')
-      buildHistoricalConceptCache.mockRejectedValue(cacheBuildError)
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(result.status).toBe('partial_success')
-      expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
-      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to build Historical Concept cache from S3: Cache build failed')
-    })
-
-    test('should skip keyword event publish when CSV export fails and caches are not ready', async () => {
-      const csvExportError = new Error('S3 CSV export failed')
-      exportPublishSchemeCsvToS3.mockRejectedValue(csvExportError)
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(result.status).toBe('partial_success')
-      expect(result.keywordEventsGenerated).toBe(1)
-      expect(result.keywordEventsPublished).toBe(0)
-      expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
-      expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
-      expect(result.postPublishFailures).toContain('Skipped keyword event publish because keyword caches were not fully prepared')
-      expect(logger.warn).toHaveBeenCalledWith('[publisher] Skipped keyword event publish because keyword caches were not fully prepared')
-    })
-
-    test('should skip keyword event publish when historical cache build fails and caches are not ready', async () => {
-      const cacheBuildError = new Error('Cache build failed')
-      buildHistoricalConceptCache.mockRejectedValue(cacheBuildError)
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-      const mockComparison = {
-        addedKeywords: new Map([['uuid1', {
-          oldPath: undefined,
-          newPath: 'PATH'
-        }]]),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 1,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      expect(publishKeywordEvent).not.toHaveBeenCalled()
-      expect(result.status).toBe('partial_success')
-      expect(result.keywordEventsGenerated).toBe(1)
-      expect(result.keywordEventsPublished).toBe(0)
-      expect(result.postPublishFailures).toContain('Failed to build Historical Concept cache from S3: Cache build failed')
-      expect(result.postPublishFailures).toContain('Skipped keyword event publish because keyword caches were not fully prepared')
-      expect(logger.warn).toHaveBeenCalledWith('[publisher] Skipped keyword event publish because keyword caches were not fully prepared')
-    })
-
-    test('should skip cache build when CSV export fails to prevent stale data', async () => {
-      const csvExportError = new Error('S3 CSV export failed')
-      exportPublishSchemeCsvToS3.mockRejectedValue(csvExportError)
-      const mockSchemes = [{ notation: 'sciencekeywords' }]
-      getConceptSchemeDetails.mockResolvedValue(mockSchemes)
-      downloadConcepts.mockResolvedValue('csv content')
-      const mockComparison = {
-        addedKeywords: new Map(),
-        removedKeywords: new Map(),
-        changedKeywords: new Map()
-      }
-      const mockComparator = {
-        compare: vi.fn().mockReturnValue(mockComparison),
-        getSummary: vi.fn().mockReturnValue({
-          addedCount: 0,
-          removedCount: 0,
-          changedCount: 0
-        })
-      }
-      CsvComparator.mockImplementation(() => mockComparator)
-
-      const result = await publisher(mockEvent)
-
-      // Cache build should be skipped
-      expect(buildHistoricalConceptCache).not.toHaveBeenCalled()
-
-      // Should have partial success status
-      expect(result.status).toBe('partial_success')
-
-      // Should include both the CSV export failure and the skip message
-      expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
-      expect(result.postPublishFailures).toContain('Skipped Historical Concept cache build because CSV export failed')
-
-      // Should log the warning
-      expect(logger.warn).toHaveBeenCalledWith('[publisher] Skipped Historical Concept cache build because CSV export failed')
-      expect(logger.error).toHaveBeenCalledWith('[publisher] Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
-    })
+    })).rejects.toThrow('publishDate is required in event.detail')
+  })
+
+  test('returns partial_success when published RDF export fails', async () => {
+    exportRdfToS3
+      .mockRejectedValueOnce(new Error('published rdf failed'))
+      .mockResolvedValueOnce({ s3Key: 'draft/rdf.xml' })
+
+    const result = await publisher(mockEvent)
+
+    expect(result.status).toBe('partial_success')
+    expect(result.postPublishFailures).toContain(
+      'Failed to export Published RDF to S3: published rdf failed'
+    )
+  })
+
+  test('returns partial_success when draft RDF export fails', async () => {
+    exportRdfToS3
+      .mockResolvedValueOnce({ s3Key: 'published/rdf.xml' })
+      .mockRejectedValueOnce(new Error('draft rdf failed'))
+
+    const result = await publisher(mockEvent)
+
+    expect(result.status).toBe('partial_success')
+    expect(result.postPublishFailures).toContain(
+      'Failed to export Draft RDF to S3: draft rdf failed'
+    )
+  })
+
+  test('logs and continues when publisher metrics emission fails', async () => {
+    emitPublisherMetrics.mockRejectedValue(new Error('metrics offline'))
+
+    const result = await publisher(mockEvent)
+
+    expect(result.status).toBe('success')
+    expect(logger.error).toHaveBeenCalledWith(
+      '[publisher] Failed to emit keyword sync metrics for keyword sync summary. Error: metrics offline'
+    )
   })
 })

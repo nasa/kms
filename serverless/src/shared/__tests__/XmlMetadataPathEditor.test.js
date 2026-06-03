@@ -6,6 +6,36 @@ import {
 
 import { sequentialValueReplace, XmlMetadataPathEditor } from '../XmlMetadataPathEditor'
 
+const CRYOSPHERE_SNOW_ICE_KEYWORD = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'CRYOSPHERE',
+  Term: '',
+  VariableLevel1: 'SNOW/ICE',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const CRYOSPHERE_SNOW_ICE_TERM_KEYWORD = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'CRYOSPHERE',
+  Term: 'SNOW/ICE',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const CRYOSPHERE_SNOW_ICE_RENAMED_TERM_KEYWORD = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'CRYOSPHERE',
+  Term: 'SNOW/ICE - chris v5',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
 describe('when using XmlMetadataPathEditor object helpers', () => {
   test('should build sequential value mappings for ordered field paths', () => {
     expect(sequentialValueReplace(['Category', 'Topic', 'Term'])).toEqual([
@@ -44,11 +74,11 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     expect(editor.getElementChildren(undefined)).toEqual([])
   })
 
-  test('should build node path segments with default options', () => {
+  test('should build ordered node field values with default options', () => {
     const editor = new XmlMetadataPathEditor('<DIF><Node><A>one</A><B></B></Node></DIF>')
     const node = editor.selectNodes('//DIF/Node')[0]
 
-    expect(editor.getNodePathSegments(node, ['A', 'B'])).toEqual(['one', ''])
+    expect(editor.getNodeFieldValues(node, ['A', 'B'])).toEqual(['one', ''])
   })
 
   test('should remove direct nested elements and ignore detached nodes', () => {
@@ -116,14 +146,60 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
 
     expect(editor.getReplacementValue(
       {
-        scheme: 'sciencekeywords',
-        newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE >  > SNOW/ICE >  >  > '
+        newKeywordObject: CRYOSPHERE_SNOW_ICE_KEYWORD
       },
       {
         type: 'value',
         key: 'VariableLevel1'
       }
     )).toBe('SNOW/ICE')
+  })
+
+  test('should fall back to fieldPaths and empty scalar keyword text when optional values are absent', () => {
+    const editor = new XmlMetadataPathEditor(`
+      <DIF>
+        <Node>
+          <A>one</A>
+          <B>two</B>
+        </Node>
+      </DIF>
+    `)
+
+    expect(editor.resolveNodeByFind({
+      oldKeywordObject: {}
+    }, {
+      nodeXPath: '//DIF/Node',
+      find: {
+        fieldPaths: ['A', 'B']
+      }
+    })).toBeNull()
+
+    expect(editor.updateScalarNode({
+      action: 'replace'
+    }, {
+      nodeXPath: '//DIF/Missing',
+      tagName: 'Missing'
+    })).toBe(false)
+  })
+
+  test('should fall back to the first non-empty object value for scalar replacements', () => {
+    const editor = new XmlMetadataPathEditor(`
+      <DIF>
+        <Product_Level_Id>Legacy</Product_Level_Id>
+      </DIF>
+    `)
+
+    expect(editor.updateScalarNode({
+      action: 'replace',
+      newKeywordObject: {
+        Alias: 'Level 1A'
+      }
+    }, {
+      nodeXPath: '//DIF/Product_Level_Id',
+      tagName: 'Product_Level_Id'
+    })).toBe(true)
+
+    expect(editor.getElementText(editor.selectNodes('//DIF/Product_Level_Id')[0])).toBe('Level 1A')
   })
 })
 
@@ -141,9 +217,6 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateBlockNode({
       action: 'replace',
-      scheme: 'sciencekeywords',
-      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
-      newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS',
       oldKeywordObject: {
         Category: 'EARTH SCIENCE',
         Topic: 'ATMOSPHERE',
@@ -224,9 +297,8 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateBlockNode({
       action: 'replace',
-      scheme: 'sciencekeywords',
-      oldKeywordPath: 'EARTH SCIENCE > CRYOSPHERE > SNOW/ICE >  >  >  > ',
-      newKeywordPath: 'EARTH SCIENCE > CRYOSPHERE > SNOW/ICE - chris v5 >  >  >  > '
+      oldKeywordObject: CRYOSPHERE_SNOW_ICE_TERM_KEYWORD,
+      newKeywordObject: CRYOSPHERE_SNOW_ICE_RENAMED_TERM_KEYWORD
     }, {
       nodeXPath: '//DIF/Science_Keywords',
       find: {
@@ -337,13 +409,15 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
     expect(editor.serialize()).toContain('<Short_Name>TWO</Short_Name>')
   })
 
-  test('should replace leaf node text with an empty string when the new keyword path is not a string', () => {
+  test('should replace leaf node text with an empty string when the new keyword object has no scalar value', () => {
     const editor = new XmlMetadataPathEditor('<DIF><Leaf>OLD</Leaf></DIF>')
 
     const isUpdated = editor.updateLeafNode({
       action: 'replace',
-      oldKeywordPath: 'OLD',
-      newKeywordPath: null
+      oldKeywordObject: {
+        Value: 'OLD'
+      },
+      newKeywordObject: {}
     }, {
       nodeXPath: '//DIF/Leaf'
     })
@@ -357,7 +431,9 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     const isUpdated = editor.updateScalarNode({
       action: 'replace',
-      newKeywordPath: '1A'
+      newKeywordObject: {
+        Value: '1A'
+      }
     }, {
       nodeXPath: '//DIF/Product_Level_Id',
       tagName: 'Product_Level_Id'

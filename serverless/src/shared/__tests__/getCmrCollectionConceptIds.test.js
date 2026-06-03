@@ -19,6 +19,19 @@ vi.mock('../logger', () => ({
 }))
 
 describe('getCmrCollectionConceptIds', () => {
+  const SCIENCE_KEYWORD_OBJECT = {
+    Category: 'EARTH SCIENCE',
+    Topic: 'ATMOSPHERE',
+    Term: 'ATMOSPHERIC WINDS'
+  }
+  const PROJECT_KEYWORD_OBJECT = {
+    ShortName: 'FedEO'
+  }
+  const LOCATION_KEYWORD_OBJECT = {
+    Category: 'CONTINENT',
+    Type: 'ANTARCTICA'
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -50,7 +63,7 @@ describe('getCmrCollectionConceptIds', () => {
     const result = await getCmrCollectionConceptIds({
       scheme: 'sciencekeywords',
       uuid: '1234-5678-9ABC-DEF0',
-      keywordPath: 'EARTH SCIENCE > ATMOSPHERE > ATMOSPHERIC WINDS'
+      keywordObject: SCIENCE_KEYWORD_OBJECT
     })
 
     expect(result).toEqual([
@@ -80,7 +93,7 @@ describe('getCmrCollectionConceptIds', () => {
     const result = await getCmrCollectionConceptIds({
       scheme: 'projects',
       uuid: 'DATA-CENTER-UUID',
-      keywordPath: 'Projects > FedEO'
+      keywordObject: PROJECT_KEYWORD_OBJECT
     })
 
     expect(result).toEqual([
@@ -120,7 +133,7 @@ describe('getCmrCollectionConceptIds', () => {
     const result = await getCmrCollectionConceptIds({
       scheme: 'sciencekeywords',
       uuid: '1234-5678-9ABC-DEF0',
-      keywordPath: 'EARTH SCIENCE > ATMOSPHERE > ATMOSPHERIC WINDS'
+      keywordObject: SCIENCE_KEYWORD_OBJECT
     })
 
     expect(cmrGetRequest).toHaveBeenNthCalledWith(1, expect.objectContaining({
@@ -187,11 +200,11 @@ describe('getCmrCollectionConceptIds', () => {
     await getCmrCollectionConceptIds({
       scheme: 'locations',
       uuid: 'UUID-1234',
-      keywordPath: 'CONTINENT > ANTARCTICA'
+      keywordObject: LOCATION_KEYWORD_OBJECT
     })
 
     expect(logger.info).toHaveBeenCalledWith(
-      'Found CMR collection concept ids: scheme=locations uuid=UUID-1234 keywordPath=CONTINENT > ANTARCTICA count=1 totalHits=1 totalPages=1'
+      `Found CMR collection concept ids: scheme=locations uuid=UUID-1234 keywordObject=${JSON.stringify(LOCATION_KEYWORD_OBJECT)} count=1 totalHits=1 totalPages=1`
     )
   })
 
@@ -210,7 +223,7 @@ describe('getCmrCollectionConceptIds', () => {
     })).resolves.toEqual([])
 
     expect(logger.info).toHaveBeenCalledWith(
-      'Found CMR collection concept ids: scheme=sciencekeywords uuid=UUID-EMPTY keywordPath=n/a count=0 totalHits=0 totalPages=1'
+      'Found CMR collection concept ids: scheme=sciencekeywords uuid=UUID-EMPTY keywordObject=n/a count=0 totalHits=0 totalPages=1'
     )
   })
 
@@ -244,7 +257,7 @@ describe('getCmrCollectionConceptIds', () => {
     await expect(getCmrCollectionConceptIds({
       scheme: 'sciencekeywords',
       uuid: 'UUID-HITS',
-      keywordPath: 'EARTH SCIENCE > ATMOSPHERE > ATMOSPHERIC WINDS'
+      keywordObject: SCIENCE_KEYWORD_OBJECT
     })).resolves.toEqual([
       'C1000000000-PROV',
       'C2000000000-PROV'

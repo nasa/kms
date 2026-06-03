@@ -26,8 +26,8 @@ const normalizeLimit = (limit) => {
  * collection it targeted, the resolved keyword UUID/path information, the delegate/native format
  * used, and the triggering event metadata when present.
  *
- * These audit rows intentionally expose only the canonical UUID/path audit fields. Optional
- * delegate-only metadata such as historical/current long names is not currently stored here.
+ * These audit rows expose the canonical UUID plus the derived human-readable keyword paths.
+ * Keyword objects themselves are intentionally not stored in the audit graph.
  *
  * @param {object} [filters={}] - Optional query filters.
  * @param {string} [filters.collectionConceptId] - Filter by collection concept id.
@@ -45,8 +45,8 @@ const normalizeLimit = (limit) => {
  *   keywordConceptUuid: string | undefined,
  *   scheme: string | undefined,
  *   action: string | undefined,
- *   oldKeywordPath: string | undefined,
- *   newKeywordPath: string | undefined,
+ *   oldKeywordPath?: string | undefined,
+ *   newKeywordPath?: string | undefined,
  *   nativeFormat: string | undefined,
  *   delegateName: string | undefined,
  *   status: string | undefined,
@@ -100,11 +100,11 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
                 gcmd:keywordConceptUuid ?keywordConceptUuid ;
                 gcmd:scheme ?scheme ;
                 gcmd:action ?action ;
-                gcmd:oldKeywordPath ?oldKeywordPath ;
-                gcmd:newKeywordPath ?newKeywordPath ;
                 gcmd:nativeFormat ?nativeFormat ;
                 gcmd:delegateName ?delegateName ;
                 gcmd:status ?status .
+        OPTIONAL { ?record gcmd:oldKeywordPath ?oldKeywordPath }
+        OPTIONAL { ?record gcmd:newKeywordPath ?newKeywordPath }
         OPTIONAL { ?record gcmd:triggerScheme ?triggerScheme }
         OPTIONAL { ?record gcmd:triggerKeywordUuid ?triggerKeywordUuid }
       }

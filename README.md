@@ -276,9 +276,8 @@ At a high level, the flow is:
 
 Internally, the correction flow is now object-first:
 
-- `keywordPaths.js` owns canonical keyword object <-> path conversion rules
-- `redisPathStore.js` is the boundary that converts normalized keyword objects into Redis lookup
-  keys
+- `redisPathStore.js` owns canonical keyword object <-> path conversion rules and Redis lookup
+  key construction
 - XML and UMM delegates work from `oldKeywordObject` / `newKeywordObject`
 - joined `oldKeywordPath` / `newKeywordPath` strings are now primarily boundary values for Redis,
   logs, and audit records

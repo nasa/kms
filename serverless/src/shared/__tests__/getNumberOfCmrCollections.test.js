@@ -216,6 +216,66 @@ describe('getNumberOfCmrCollections', () => {
     expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
   })
 
+  test('should parse a single XML error message from CMR', async () => {
+    const parse = vi.fn().mockReturnValue({
+      errors: {
+        error: 'Single XML error'
+      }
+    })
+    XMLParser.mockImplementation(() => ({ parse }))
+
+    cmrPostRequest.mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: vi.fn().mockResolvedValue('<?xml version="1.0"?><errors><error>Single XML error</error></errors>')
+    })
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(logger.error.mock.calls[0][1].message).toBe('Single XML error')
+  })
+
+  test('falls back to the HTTP status message when XML errors are missing', async () => {
+    const parse = vi.fn().mockReturnValue({
+      errors: {}
+    })
+    XMLParser.mockImplementation(() => ({ parse }))
+
+    cmrPostRequest.mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: vi.fn().mockResolvedValue('<?xml version="1.0"?><errors></errors>')
+    })
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(logger.error.mock.calls[0][1].message).toBe('HTTP error! status: 502')
+  })
+
+  test('falls back to the HTTP status message when a failed response body is empty', async () => {
+    cmrPostRequest.mockResolvedValue({
+      ok: false,
+      status: 503,
+      text: vi.fn().mockResolvedValue('')
+    })
+
+    const result = await getNumberOfCmrCollections({
+      scheme: 'sciencekeywords',
+      uuid: '1234-5678-9ABC-DEF0'
+    })
+
+    expect(result).toBeNull()
+    expect(logger.error.mock.calls[0][1].message).toBe('HTTP error! status: 503')
+  })
+
   test('should handle instruments scheme correctly', async () => {
     const mockResponse = {
       ok: true,

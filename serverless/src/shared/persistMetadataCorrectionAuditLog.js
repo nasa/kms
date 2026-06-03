@@ -6,7 +6,7 @@ import {
   escapeSparqlLiteral,
   METADATA_CORRECTION_AUDIT_GRAPH
 } from '@/shared/metadataCorrectionAudit'
-import { buildKeywordPathFromKeywordObject } from '@/shared/redisPathStore'
+import { redisPathStore } from '@/shared/redisPathStore'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -21,7 +21,8 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * are applied during the same run.
  *
  * The delegate correction contract can now carry optional long-name metadata for some short-name
- * schemes, but the audit log intentionally persists only the canonical UUID/path fields for now.
+ * schemes. The audit log does not persist those keyword objects directly. Instead, it derives and
+ * stores only the human-readable keyword paths needed for audit inspection.
  */
 
 // Emits a triple only when the optional value is present so audit rows stay compact.
@@ -32,6 +33,16 @@ const optionalLiteralTriple = (subject, predicate, value) => {
 
   return `      <${subject}> ${predicate} "${escapeSparqlLiteral(value)}" .\n`
 }
+
+// Reconstructs a human-readable keyword path from the normalized keyword object when the object
+// contains enough non-blank values to form a meaningful path.
+const buildAuditKeywordPath = ({
+  scheme,
+  keywordObject
+}) => redisPathStore.getKeywordPathFromKeywordObject({
+  scheme,
+  keywordObject
+}) || ''
 
 /**
  * Persists append-only metadata-correction audit rows to a dedicated RDF4J graph.
@@ -49,8 +60,8 @@ const optionalLiteralTriple = (subject, predicate, value) => {
  *   keywordConceptUuid: string,
  *   oldKeywordObject: Record<string, string>,
  *   newKeywordObject?: Record<string, string>
- * }>} params.corrections - Fully resolved corrections to persist. This audit shape is narrower
- * than the delegate handoff shape and intentionally excludes optional long-name fields.
+ * }>} params.corrections - Fully resolved corrections to persist. Audit rows store only the
+ * derived keyword paths, not the original keyword objects.
  * @param {string} [params.status='pending'] - Audit lifecycle status.
  * @param {string} [params.timestamp] - ISO timestamp override for tests.
  * @returns {Promise<{ insertedCount: number, publishedVersionName: string, status: string }>}
@@ -91,11 +102,11 @@ export const persistMetadataCorrectionAuditLog = async ({
 
   const triples = corrections.map((correction) => {
     const recordUri = createMetadataCorrectionAuditRecordUri(uuidv4())
-    const oldKeywordPath = buildKeywordPathFromKeywordObject({
+    const oldKeywordPath = buildAuditKeywordPath({
       scheme: correction.scheme,
       keywordObject: correction.oldKeywordObject
     })
-    const newKeywordPath = buildKeywordPathFromKeywordObject({
+    const newKeywordPath = buildAuditKeywordPath({
       scheme: correction.scheme,
       keywordObject: correction.newKeywordObject
     })
@@ -108,8 +119,8 @@ export const persistMetadataCorrectionAuditLog = async ({
       `      <${recordUri}> gcmd:keywordConceptUuid "${escapeSparqlLiteral(correction.keywordConceptUuid)}" .`,
       `      <${recordUri}> gcmd:scheme "${escapeSparqlLiteral(correction.scheme)}" .`,
       `      <${recordUri}> gcmd:action "${escapeSparqlLiteral(keywordEvent.eventType || 'UNKNOWN')}" .`,
-      `      <${recordUri}> gcmd:oldKeywordPath "${escapeSparqlLiteral(oldKeywordPath)}" .`,
-      `      <${recordUri}> gcmd:newKeywordPath "${escapeSparqlLiteral(newKeywordPath)}" .`,
+      optionalLiteralTriple(recordUri, 'gcmd:oldKeywordPath', oldKeywordPath),
+      optionalLiteralTriple(recordUri, 'gcmd:newKeywordPath', newKeywordPath),
       `      <${recordUri}> gcmd:nativeFormat "${escapeSparqlLiteral(nativeFormat)}" .`,
       `      <${recordUri}> gcmd:delegateName "${escapeSparqlLiteral(delegateName)}" .`,
       `      <${recordUri}> gcmd:status "${escapeSparqlLiteral(status)}" .`,

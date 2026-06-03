@@ -47,7 +47,97 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })).resolves.toEqual({ delegateName: 'umm' })
 
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
-      collectionConceptId: 'C1'
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+  })
+
+  test('normalizes correction keyword objects before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          oldKeywordObject: 'not-an-object',
+          newKeywordObject: null
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
+    })
+  })
+
+  test('normalizes array keyword objects to plain empty objects before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          oldKeywordObject: [],
+          newKeywordObject: []
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
+    })
+  })
+
+  test('treats non-array corrections as an empty correction list', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: {
+        scheme: 'sciencekeywords'
+      }
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+  })
+
+  test('normalizes undefined correction entries to empty keyword objects', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [undefined]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
     })
   })
 

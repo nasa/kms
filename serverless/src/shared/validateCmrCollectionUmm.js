@@ -16,10 +16,9 @@
  * without needing to care whether validation came from CMR or from the published cache.
  */
 import { extractKeywordValue } from './extractKeywordValue'
-import { buildKeywordLookupObject, normalizeKeywordScheme } from './keywordPaths'
 import { logger } from './logger'
 import { getRedisClient } from './redisCacheStore'
-import { getPublishedConceptByKeyword } from './redisPathStore'
+import { redisPathStore } from './redisPathStore'
 
 const VALIDATION_MESSAGES = {
   sciencekeywords: 'Science keyword was not a valid keyword combination.',
@@ -46,7 +45,7 @@ const createValidationError = ({
   path
 }) => ({
   path,
-  errors: [VALIDATION_MESSAGES[scheme] || 'Keyword was not a valid keyword.']
+  errors: [VALIDATION_MESSAGES[scheme]]
 })
 
 // Appends one supported keyword candidate to the validation work list.
@@ -62,7 +61,7 @@ const pushKeywordCandidate = ({
 }
 
 // Walks the supported UMM-C keyword fields and records the validation paths we should check.
-const extractKeywordCandidatesFromUmm = (umm = {}) => {
+const extractKeywordCandidatesFromUmm = (umm) => {
   const candidates = [];
   (umm.ScienceKeywords || []).forEach((keyword, index) => {
     if (keyword) {
@@ -248,27 +247,16 @@ const validatePublishedKeywordCandidate = async ({
   path,
   umm
 }) => {
-  const normalizedScheme = normalizeKeywordScheme(scheme)
+  const normalizedScheme = String(scheme).toLowerCase()
   const keywordValue = extractKeywordValue({
     scheme,
     path,
     umm
   })
-  const keywordObject = buildKeywordLookupObject({
-    scheme,
-    keywordValue
-  })
 
-  if (Object.keys(keywordObject).length === 0) {
-    return createValidationError({
-      scheme: normalizedScheme,
-      path
-    })
-  }
-
-  const publishedConcept = await getPublishedConceptByKeyword({
+  const publishedConcept = await redisPathStore.getPublishedConceptByKeyword({
     scheme: normalizedScheme,
-    keywordObject
+    keywordValue
   })
 
   return publishedConcept

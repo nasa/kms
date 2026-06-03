@@ -9,7 +9,11 @@ import {
 } from 'vitest'
 import xpath from 'xpath'
 
-import { applyDif10MetadataCorrections } from '../applyDif10MetadataCorrections'
+import {
+  applyDif10MetadataCorrections as applyDif10MetadataCorrectionsRaw
+} from '../applyDif10MetadataCorrections'
+
+const applyDif10MetadataCorrections = (params = {}) => applyDif10MetadataCorrectionsRaw(params)
 
 const mockDif10 = `
 <DIF>
@@ -184,14 +188,40 @@ describe('when applying DIF10 metadata corrections', () => {
       {
         scheme: 'sciencekeywords',
         action: 'replace',
-        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
-        newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+        oldKeywordObject: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'ATMOSPHERE',
+          Term: 'AEROSOLS',
+          VariableLevel1: '',
+          VariableLevel2: '',
+          VariableLevel3: '',
+          DetailedVariable: ''
+        },
+        newKeywordObject: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'OCEANS',
+          Term: 'MARINE SEDIMENTS',
+          VariableLevel1: '',
+          VariableLevel2: '',
+          VariableLevel3: '',
+          DetailedVariable: ''
+        }
       },
       {
         scheme: 'platforms',
         action: 'replace',
-        oldKeywordPath: 'In Situ Land-based Platforms >  >  > GROUND STATIONS',
-        newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > C-130'
+        oldKeywordObject: {
+          Category: '',
+          Class: 'In Situ Land-based Platforms',
+          Type: '',
+          ShortName: 'GROUND STATIONS'
+        },
+        newKeywordObject: {
+          Category: '',
+          Class: 'Space-based Platforms',
+          Type: 'Earth Observation Satellites',
+          ShortName: 'C-130'
+        }
       }
     ]
 
@@ -214,7 +244,9 @@ describe('when applying DIF10 metadata corrections', () => {
       {
         scheme: 'invalid_scheme',
         action: 'replace',
-        newKeywordPath: 'Should Not Apply'
+        newKeywordObject: {
+          Value: 'Should Not Apply'
+        }
       }
     ]
 
@@ -233,7 +265,9 @@ describe('when applying DIF10 metadata corrections', () => {
     const corrections = [
       {
         action: 'replace',
-        newKeywordPath: 'Should Not Apply'
+        newKeywordObject: {
+          Value: 'Should Not Apply'
+        }
       }
     ]
 
@@ -252,7 +286,14 @@ describe('when applying DIF10 metadata corrections', () => {
       {
         scheme: 'locations',
         action: 'delete',
-        oldKeywordPath: 'GEOGRAPHIC REGION > ARCTIC'
+        oldKeywordObject: {
+          Category: 'GEOGRAPHIC REGION',
+          Type: 'ARCTIC',
+          Subregion1: '',
+          Subregion2: '',
+          Subregion3: '',
+          DetailedLocation: ''
+        }
       }
     ]
 
@@ -287,59 +328,153 @@ describe('when correcting a DIF10 record', () => {
     const corrections = [
       {
         scheme: 'chronounits',
-        oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
-        newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > '
+        oldKeywordObject: {
+          Eon: 'PHANEROZOIC',
+          Era: 'CENOZOIC',
+          Period: 'QUATERNARY',
+          Epoch: 'HOLOCENE',
+          Age: '',
+          SubAge: ''
+        },
+        newKeywordObject: {
+          Eon: 'PHANEROZOIC',
+          Era: 'CENOZOIC',
+          Period: 'QUATERNARY',
+          Epoch: 'PLEISTOCENE',
+          Age: '',
+          SubAge: ''
+        }
       },
       {
         scheme: 'platforms',
         action: 'replace',
-        oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-        newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED',
+        oldKeywordObject: {
+          Category: '',
+          Class: 'Space-based Platforms',
+          Type: 'Earth Observation Satellites',
+          ShortName: 'SPOT-4'
+        },
+        newKeywordObject: {
+          Category: '',
+          Class: 'Space-based Platforms',
+          Type: 'Earth Observation Satellites',
+          ShortName: 'SPOT-4-UPDATED'
+        },
         newLongName: 'Systeme Observation de la Terre-4 Updated'
       },
       {
         scheme: 'instruments',
         action: 'replace',
-        oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES',
-        newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES-UPDATED',
+        oldKeywordObject: {
+          Category: 'Imaging Spectrometers/Radiometers',
+          Class: '',
+          Subclass: '',
+          ShortName: 'GEOPHONES'
+        },
+        newKeywordObject: {
+          Category: 'Imaging Spectrometers/Radiometers',
+          Class: '',
+          Subclass: '',
+          ShortName: 'GEOPHONES-UPDATED'
+        },
         newLongName: 'Updated Geophone Array'
       },
       {
         scheme: 'locations',
         action: 'replace',
-        oldKeywordPath: 'CONTINENT > ANTARCTICA >  >  >  > ',
-        newKeywordPath: 'CONTINENT > SOUTH AMERICA >  >  >  > '
+        oldKeywordObject: {
+          Category: 'CONTINENT',
+          Type: 'ANTARCTICA',
+          Subregion1: '',
+          Subregion2: '',
+          Subregion3: '',
+          DetailedLocation: ''
+        },
+        newKeywordObject: {
+          Category: 'CONTINENT',
+          Type: 'SOUTH AMERICA',
+          Subregion1: '',
+          Subregion2: '',
+          Subregion3: '',
+          DetailedLocation: ''
+        }
       },
       {
         scheme: 'projects',
-        oldKeywordPath: 'A - C > ALIENS',
-        newKeywordPath: 'A - C > ALIENS-UPDATED',
+        oldKeywordObject: {
+          Category: 'A - C',
+          ShortName: 'ALIENS'
+        },
+        newKeywordObject: {
+          Category: 'A - C',
+          ShortName: 'ALIENS-UPDATED'
+        },
         newLongName: 'Aliens in Antarctica Updated'
       },
       {
         scheme: 'providers',
         action: 'replace',
-        oldKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ',
-        newKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ-UPDATED',
+        oldKeywordObject: {
+          BucketLevel0: 'ARCHIVER',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'NZ/NZAI/ANZ'
+        },
+        newKeywordObject: {
+          BucketLevel0: 'ARCHIVER',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'NZ/NZAI/ANZ-UPDATED'
+        },
         newLongName: 'Antarctica New Zealand Updated'
       },
       {
         scheme: 'rucontenttype',
         action: 'replace',
-        oldKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
-        newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OGC WMS'
+        oldKeywordObject: {
+          URLContentType: 'DistributionURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'OpenSearch'
+        },
+        newKeywordObject: {
+          URLContentType: 'DistributionURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'OGC WMS'
+        }
       },
       {
         scheme: 'sciencekeywords',
         action: 'replace',
-        oldKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > SEDIMENTARY STRUCTURES',
-        newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS > SEDIMENT TRANSPORT'
+        oldKeywordObject: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'OCEANS',
+          Term: 'MARINE SEDIMENTS',
+          VariableLevel1: 'SEDIMENTARY STRUCTURES',
+          VariableLevel2: '',
+          VariableLevel3: '',
+          DetailedVariable: ''
+        },
+        newKeywordObject: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'OCEANS',
+          Term: 'MARINE SEDIMENTS',
+          VariableLevel1: 'SEDIMENT TRANSPORT',
+          VariableLevel2: '',
+          VariableLevel3: '',
+          DetailedVariable: ''
+        }
       },
       {
         scheme: 'ProductLevelId',
         action: 'replace',
-        oldKeywordPath: 'NA',
-        newKeywordPath: '1A'
+        oldKeywordObject: {
+          Value: 'NA'
+        },
+        newKeywordObject: {
+          Value: '1A'
+        }
       }
     ]
 
@@ -423,85 +558,183 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
         {
           scheme: 'sciencekeywords',
           action: 'replace',
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS',
-          newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'OCEANS',
+            Term: 'MARINE SEDIMENTS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         },
         {
           scheme: 'locations',
           action: 'delete',
-          oldKeywordPath: 'CONTINENT > ANTARCTICA >  >  >  > MCMURDO SOUND'
+          oldKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'ANTARCTICA',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: 'MCMURDO SOUND'
+          }
         },
         {
           scheme: 'chronounits',
           action: 'replace',
-          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
-          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > '
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'HOLOCENE',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'PLEISTOCENE',
+            Age: '',
+            SubAge: ''
+          }
         },
         {
           scheme: 'platforms',
           action: 'replace',
-          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED',
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-4-UPDATED'
+          },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
         },
         {
           scheme: 'instruments',
           action: 'delete',
-          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES'
+          oldKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'GEOPHONES'
+          }
         },
         {
           scheme: 'projects',
           action: 'replace',
-          oldKeywordPath: 'A - C > ALIENS',
-          newKeywordPath: 'A - C > ALIENS-UPDATED',
+          oldKeywordObject: {
+            Category: 'A - C',
+            ShortName: 'ALIENS'
+          },
+          newKeywordObject: {
+            Category: 'A - C',
+            ShortName: 'ALIENS-UPDATED'
+          },
           newLongName: 'Aliens in Antarctica Updated'
         },
         {
           scheme: 'providers',
           action: 'replace',
-          oldKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ',
-          newKeywordPath: 'ARCHIVER >  >  >  > NZ/NZAI/ANZ-UPDATED',
+          oldKeywordObject: {
+            BucketLevel0: 'ARCHIVER',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'NZ/NZAI/ANZ'
+          },
+          newKeywordObject: {
+            BucketLevel0: 'ARCHIVER',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'NZ/NZAI/ANZ-UPDATED'
+          },
           newLongName: 'Antarctica New Zealand Updated'
         },
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OpenSearch',
-          newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > OGC WMS'
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'VIEW RELATED INFORMATION',
+            Subtype: 'OpenSearch'
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'VIEW RELATED INFORMATION',
+            Subtype: 'OGC WMS'
+          }
         },
         {
           scheme: 'idnnode',
           action: 'delete',
-          oldKeywordPath: 'CEOS'
+          oldKeywordObject: {
+            ShortName: 'CEOS'
+          }
         },
         {
           scheme: 'isotopiccategory',
           action: 'replace',
-          oldKeywordPath: 'GEOSCIENTIFIC INFORMATION',
-          newKeywordPath: 'OCEANS'
+          oldKeywordObject: {
+            Value: 'GEOSCIENTIFIC INFORMATION'
+          },
+          newKeywordObject: {
+            Value: 'OCEANS'
+          }
         },
         {
           scheme: 'temporalresolutionrange',
           action: 'delete',
-          oldKeywordPath: 'Hourly'
+          oldKeywordObject: {
+            Value: 'Hourly'
+          }
         },
         {
           scheme: 'verticalresolutionrange',
           action: 'replace',
-          oldKeywordPath: '5 meters',
-          newKeywordPath: '50 meters'
+          oldKeywordObject: {
+            Value: '5 meters'
+          },
+          newKeywordObject: {
+            Value: '50 meters'
+          }
         },
         {
           scheme: 'horizontalresolutionrange',
           action: 'replace',
-          oldKeywordPath: '10 meters',
-          newKeywordPath: '100 meters'
+          oldKeywordObject: {
+            Value: '10 meters'
+          },
+          newKeywordObject: {
+            Value: '100 meters'
+          }
         },
         {
           scheme: 'productlevelid',
           action: 'replace',
-          oldKeywordPath: 'NA',
-          newKeywordPath: '1A'
+          oldKeywordObject: {
+            Value: 'NA'
+          },
+          newKeywordObject: {
+            Value: '1A'
+          }
         }
       ]
     })
@@ -595,8 +828,22 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'replace',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
-          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > '
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'HOLOCENE',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'PLEISTOCENE',
+            Age: '',
+            SubAge: ''
+          }
         }
       ]
     })
@@ -625,8 +872,22 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'replace',
           ummPath: ['Chronostratigraphic_Unit', 1],
-          oldKeywordPath: 'PHANEROZOIC > MESOZOIC > CRETACEOUS >  >  > ',
-          newKeywordPath: 'PHANEROZOIC > PALEOZOIC > PERMIAN > LOPINGIAN >  > '
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'MESOZOIC',
+            Period: 'CRETACEOUS',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'PALEOZOIC',
+            Period: 'PERMIAN',
+            Epoch: 'LOPINGIAN',
+            Age: '',
+            SubAge: ''
+          }
         }
       ]
     })
@@ -654,8 +915,22 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'replace',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ',
-          newKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > GREENLANDIAN > EARLY HOLOCENE'
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'HOLOCENE',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'HOLOCENE',
+            Age: 'GREENLANDIAN',
+            SubAge: 'EARLY HOLOCENE'
+          }
         }
       ]
     })
@@ -678,8 +953,15 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'delete',
           ummPath: ['Chronostratigraphic_Unit', 1],
-          oldKeywordPath: 'PHANEROZOIC > MESOZOIC > CRETACEOUS >  >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'MESOZOIC',
+            Period: 'CRETACEOUS',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -715,13 +997,27 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'delete',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'EON1 >  >  >  >  > '
+          oldKeywordObject: {
+            Eon: 'EON1',
+            Era: '',
+            Period: '',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          }
         },
         {
           scheme: 'chronounits',
           action: 'delete',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'EON2 >  >  >  >  > '
+          oldKeywordObject: {
+            Eon: 'EON2',
+            Era: '',
+            Period: '',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          }
         }
       ]
     })
@@ -749,8 +1045,22 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'replace',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'PHANEROZOIC > CENOZOIC >  >  >  > ',
-          newKeywordPath: 'PHANEROZOIC > MESOZOIC >  >  >  > '
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: '',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'MESOZOIC',
+            Period: '',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          }
         }
       ]
     })
@@ -783,8 +1093,15 @@ describe('when applying chronounits DIF10 corrections', () => {
           scheme: 'chronounits',
           action: 'delete',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'PHANEROZOIC >  >  >  >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: '',
+            Period: '',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -803,7 +1120,14 @@ describe('when chronounits guard clauses prevent a correction', () => {
         scheme: 'chronounits',
         action: 'replace',
         ummPath: ['Chronostratigraphic_Unit'], // Missing numeric index
-        newKeywordPath: 'EON > ERA > PERIOD > EPOCH >  > '
+        newKeywordObject: {
+          Eon: 'EON',
+          Era: 'ERA',
+          Period: 'PERIOD',
+          Epoch: 'EPOCH',
+          Age: '',
+          SubAge: ''
+        }
       }]
     })
 
@@ -820,7 +1144,14 @@ describe('when chronounits guard clauses prevent a correction', () => {
         scheme: 'chronounits',
         action: 'replace',
         ummPath: ['Chronostratigraphic_Unit', 0],
-        newKeywordPath: 'EON > ERA > PERIOD > EPOCH >  > '
+        newKeywordObject: {
+          Eon: 'EON',
+          Era: 'ERA',
+          Period: 'PERIOD',
+          Epoch: 'EPOCH',
+          Age: '',
+          SubAge: ''
+        }
       }]
     })
 
@@ -834,7 +1165,14 @@ describe('when chronounits guard clauses prevent a correction', () => {
         scheme: 'chronounits',
         action: 'replace',
         ummPath: ['Chronostratigraphic_Unit', 99], // Index out of range
-        newKeywordPath: 'EON > ERA > PERIOD > EPOCH >  > '
+        newKeywordObject: {
+          Eon: 'EON',
+          Era: 'ERA',
+          Period: 'PERIOD',
+          Epoch: 'EPOCH',
+          Age: '',
+          SubAge: ''
+        }
       }]
     })
 
@@ -878,8 +1216,22 @@ describe('when chronounits guard clauses prevent a correction', () => {
           scheme: 'chronounits',
           action: 'replace',
           ummPath: ['Chronostratigraphic_Unit', 0],
-          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY >  >  > ',
-          newKeywordPath: 'PHANEROZOIC > CENOZOIC > NEOGENE >  >  > '
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          },
+          newKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'NEOGENE',
+            Epoch: '',
+            Age: '',
+            SubAge: ''
+          }
         }
       ]
     })
@@ -899,7 +1251,14 @@ describe('when chronounits guard clauses prevent a correction', () => {
         {
           scheme: 'chronounits',
           action: 'unsupported_action_type', // Neither 'replace' nor 'delete'
-          oldKeywordPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > '
+          oldKeywordObject: {
+            Eon: 'PHANEROZOIC',
+            Era: 'CENOZOIC',
+            Period: 'QUATERNARY',
+            Epoch: 'HOLOCENE',
+            Age: '',
+            SubAge: ''
+          }
         }
       ]
     })
@@ -926,8 +1285,12 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           scheme: 'horizontalresolutionrange',
           action: 'replace',
           ummPath: ['HorizontalResolutionRanges', 1],
-          oldKeywordPath: '1 - 10 meters',
-          newKeywordPath: 'Updated Range'
+          oldKeywordObject: {
+            Value: '1 - 10 meters'
+          },
+          newKeywordObject: {
+            Value: 'Updated Range'
+          }
         }]
       })
 
@@ -944,8 +1307,12 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           scheme: 'horizontalresolutionrange',
           action: 'replace',
           ummPath: ['HorizontalResolutionRanges', 0],
-          oldKeywordPath: 'Old',
-          newKeywordPath: 'New'
+          oldKeywordObject: {
+            Value: 'Old'
+          },
+          newKeywordObject: {
+            Value: 'New'
+          }
         }]
       })
 
@@ -962,7 +1329,9 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           scheme: 'horizontalresolutionrange',
           action: 'delete',
           ummPath: ['HorizontalResolutionRanges', 0],
-          oldKeywordPath: '0 - 1 meter'
+          oldKeywordObject: {
+            Value: '0 - 1 meter'
+          }
         }]
       })
 
@@ -984,8 +1353,10 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'horizontalresolutionrange',
           action: 'delete',
-          oldKeywordPath: '1 - 10 meters',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Value: '1 - 10 meters'
+          },
+          newKeywordObject: {}
         }]
       })
 
@@ -1012,13 +1383,17 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
             scheme: 'horizontalresolutionrange',
             action: 'delete',
             ummPath: ['HorizontalResolutionRanges', 0],
-            oldKeywordPath: 'Range 1'
+            oldKeywordObject: {
+              Value: 'Range 1'
+            }
           },
           {
             scheme: 'horizontalresolutionrange',
             action: 'delete',
             ummPath: ['HorizontalResolutionRanges', 0],
-            oldKeywordPath: 'Range 2'
+            oldKeywordObject: {
+              Value: 'Range 2'
+            }
           }
         ]
       })
@@ -1051,8 +1426,12 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'horizontalresolutionrange',
           action: 'invalid_action_name', // This bypasses both 'delete' and 'replace' blocks
-          oldKeywordPath: '0 - 1 meter',
-          newKeywordPath: 'New Value'
+          oldKeywordObject: {
+            Value: '0 - 1 meter'
+          },
+          newKeywordObject: {
+            Value: 'New Value'
+          }
         }]
       })
 
@@ -1085,8 +1464,12 @@ describe('when applying idnnode DIF10 corrections', () => {
         {
           scheme: 'idnnode',
           action: 'replace',
-          oldKeywordPath: 'ARCTIC',
-          newKeywordPath: 'NEW-ARCTIC', // The Short_Name
+          oldKeywordObject: {
+            ShortName: 'ARCTIC'
+          },
+          newKeywordObject: {
+            ShortName: 'NEW-ARCTIC'
+          }, // The Short_Name
           newLongName: 'Updated Arctic Council' // The Long_Name
         }
       ]
@@ -1106,8 +1489,12 @@ describe('when applying idnnode DIF10 corrections', () => {
         {
           scheme: 'idnnode',
           action: 'replace',
-          oldKeywordPath: 'USA/NASA',
-          newKeywordPath: 'NASA-UPDATED',
+          oldKeywordObject: {
+            ShortName: 'USA/NASA'
+          },
+          newKeywordObject: {
+            ShortName: 'NASA-UPDATED'
+          },
           newLongName: '' // Triggers the delete branch for Long_Name
         }
       ]
@@ -1128,7 +1515,9 @@ describe('when applying idnnode DIF10 corrections', () => {
         {
           scheme: 'idnnode',
           action: 'delete',
-          oldKeywordPath: 'ARCTIC'
+          oldKeywordObject: {
+            ShortName: 'ARCTIC'
+          }
         }
       ]
     })
@@ -1147,7 +1536,9 @@ describe('when applying idnnode DIF10 corrections', () => {
         {
           scheme: 'idnnode',
           action: 'delete',
-          oldKeywordPath: 'ONLY-ONE'
+          oldKeywordObject: {
+            ShortName: 'ONLY-ONE'
+          }
         }
       ]
     })
@@ -1165,12 +1556,16 @@ describe('when applying idnnode DIF10 corrections', () => {
         {
           scheme: 'idnnode',
           action: 'delete',
-          oldKeywordPath: 'ARCTIC'
+          oldKeywordObject: {
+            ShortName: 'ARCTIC'
+          }
         },
         {
           scheme: 'idnnode',
           action: 'delete',
-          oldKeywordPath: 'USA/NASA'
+          oldKeywordObject: {
+            ShortName: 'USA/NASA'
+          }
         }
       ]
     })
@@ -1181,13 +1576,15 @@ describe('when applying idnnode DIF10 corrections', () => {
   })
 
   describe('when guard clauses prevent a correction', () => {
-    test('should return false when oldKeywordPath is missing', async () => {
+    test('should return false when oldKeywordObject is missing', async () => {
       const result = await applyDif10MetadataCorrections({
         metadataPayload: mockDif10WithIdnNodes,
         corrections: [{
           scheme: 'idnnode',
           action: 'replace',
-          newKeywordPath: 'A > B'
+          newKeywordObject: {
+            ShortName: 'A > B'
+          }
         }]
       })
       expect(result.correctionCount).toBe(0)
@@ -1200,7 +1597,9 @@ describe('when applying idnnode DIF10 corrections', () => {
         corrections: [{
           scheme: 'idnnode',
           action: 'replace',
-          newKeywordPath: 'A > B'
+          newKeywordObject: {
+            ShortName: 'A > B'
+          }
         }]
       })
       expect(result.correctionCount).toBe(0)
@@ -1225,7 +1624,9 @@ describe('when applying idnnode DIF10 corrections', () => {
         corrections: [{
           scheme: 'idnnode',
           action: 'delete',
-          oldKeywordPath: 'ONLY'
+          oldKeywordObject: {
+            ShortName: 'ONLY'
+          }
         }]
       })
       expect(result.correctionCount).toBe(1)
@@ -1271,8 +1672,18 @@ describe('when applying instrument DIF10 corrections', () => {
         {
           scheme: 'instruments',
           action: 'replace',
-          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
-          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
+          oldKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS'
+          },
+          newKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS'
+          },
           newLongName: 'Updated Infrared Multispectral Scanner'
         }
       ]
@@ -1301,8 +1712,18 @@ describe('when applying instrument DIF10 corrections', () => {
       corrections: [
         {
           scheme: 'instruments',
-          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > LISS-II',
-          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > LISSUPDATE-II',
+          oldKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'LISS-II'
+          },
+          newKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'LISSUPDATE-II'
+          },
           newLongName: 'Linear Imaging Self Scanning Sensor II Updated'
         }
       ]
@@ -1329,8 +1750,13 @@ describe('when applying instrument DIF10 corrections', () => {
         {
           scheme: 'instruments',
           action: 'delete',
-          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS'
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -1359,12 +1785,22 @@ describe('when applying instrument DIF10 corrections', () => {
         {
           scheme: 'instruments',
           action: 'delete',
-          oldKeywordPath: 'Instrument >  >  >  > I1'
+          oldKeywordObject: {
+            Category: 'Instrument',
+            Class: '',
+            Subclass: '',
+            ShortName: 'I1'
+          }
         },
         {
           scheme: 'instruments',
           action: 'delete',
-          oldKeywordPath: 'Instrument >  >  >  > I2'
+          oldKeywordObject: {
+            Category: 'Instrument',
+            Class: '',
+            Subclass: '',
+            ShortName: 'I2'
+          }
         }
       ]
     })
@@ -1388,7 +1824,12 @@ describe('when applying instrument DIF10 corrections', () => {
         {
           scheme: 'instruments',
           action: 'delete',
-          oldKeywordPath: 'Instrument >  >  >  > I1'
+          oldKeywordObject: {
+            Category: 'Instrument',
+            Class: '',
+            Subclass: '',
+            ShortName: 'I1'
+          }
         }
       ]
     })
@@ -1414,8 +1855,18 @@ describe('when applying instrument DIF10 corrections', () => {
         {
           scheme: 'instruments',
           action: 'replace',
-          oldKeywordPath: 'Instrument >  >  >  > OLD-SHORT',
-          newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT',
+          oldKeywordObject: {
+            Category: 'Instrument',
+            Class: '',
+            Subclass: '',
+            ShortName: 'OLD-SHORT'
+          },
+          newKeywordObject: {
+            Category: 'Category',
+            Class: 'Topic',
+            Subclass: 'Term',
+            ShortName: 'NEW-SHORT'
+          },
           newLongName: '' // Triggers delete target['Long_Name']
         }
       ]
@@ -1447,8 +1898,18 @@ describe('when applying instrument DIF10 corrections', () => {
         {
           scheme: 'instruments',
           action: 'replace',
-          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
-          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS1'
+          oldKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS'
+          },
+          newKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS1'
+          }
         }
       ]
     })
@@ -1468,8 +1929,18 @@ describe('when applying instrument DIF10 corrections', () => {
           scheme: 'instruments',
           action: 'replace',
           ummPath: ['Platform', 10, 'Instrument', 0],
-          oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS',
-          newKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > IRMSS1',
+          oldKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS'
+          },
+          newKeywordObject: {
+            Category: 'Imaging Spectrometers/Radiometers',
+            Class: '',
+            Subclass: '',
+            ShortName: 'IRMSS1'
+          },
           newLongName: 'Infrared Multispectral Scanner Updated'
         }
       ]
@@ -1481,13 +1952,18 @@ describe('when applying instrument DIF10 corrections', () => {
 })
 
 describe('when instrument guard clauses prevent a correction', () => {
-  test('should return false when oldKeywordPath is missing', async () => {
+  test('should return false when oldKeywordObject is missing', async () => {
     const result = await applyDif10MetadataCorrections({
       metadataPayload: mockDif10WithInstruments,
       corrections: [{
         scheme: 'instruments',
         action: 'replace',
-        newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT'
+        newKeywordObject: {
+          Category: 'Category',
+          Class: 'Topic',
+          Subclass: 'Term',
+          ShortName: 'NEW-SHORT'
+        }
       }]
     })
 
@@ -1502,7 +1978,12 @@ describe('when instrument guard clauses prevent a correction', () => {
       corrections: [{
         scheme: 'instruments',
         action: 'replace',
-        newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT'
+        newKeywordObject: {
+          Category: 'Category',
+          Class: 'Topic',
+          Subclass: 'Term',
+          ShortName: 'NEW-SHORT'
+        }
       }]
     })
 
@@ -1515,8 +1996,18 @@ describe('when instrument guard clauses prevent a correction', () => {
       corrections: [{
         scheme: 'instruments',
         action: 'replace',
-        oldKeywordPath: 'Imaging Spectrometers/Radiometers >  >  >  > NOT-REAL',
-        newKeywordPath: 'Category > Topic > Term > Variable > NEW-SHORT'
+        oldKeywordObject: {
+          Category: 'Imaging Spectrometers/Radiometers',
+          Class: '',
+          Subclass: '',
+          ShortName: 'NOT-REAL'
+        },
+        newKeywordObject: {
+          Category: 'Category',
+          Class: 'Topic',
+          Subclass: 'Term',
+          ShortName: 'NEW-SHORT'
+        }
       }]
     })
 
@@ -1549,8 +2040,12 @@ describe('when applying ISO topic category DIF10 corrections', () => {
         corrections: [{
           scheme: 'isotopiccategory',
           action: 'replace',
-          oldKeywordPath: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE',
-          newKeywordPath: 'FARMING'
+          oldKeywordObject: {
+            Value: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+          },
+          newKeywordObject: {
+            Value: 'FARMING'
+          }
         }]
       })
 
@@ -1567,8 +2062,12 @@ describe('when applying ISO topic category DIF10 corrections', () => {
         corrections: [{
           scheme: 'isotopiccategory',
           action: 'replace',
-          oldKeywordPath: 'OLD_CAT',
-          newKeywordPath: 'NEW_CAT'
+          oldKeywordObject: {
+            Value: 'OLD_CAT'
+          },
+          newKeywordObject: {
+            Value: 'NEW_CAT'
+          }
         }]
       })
 
@@ -1584,7 +2083,9 @@ describe('when applying ISO topic category DIF10 corrections', () => {
         corrections: [{
           scheme: 'isotopiccategory',
           action: 'delete',
-          oldKeywordPath: 'BIOTA'
+          oldKeywordObject: {
+            Value: 'BIOTA'
+          }
         }]
       })
 
@@ -1600,7 +2101,9 @@ describe('when applying ISO topic category DIF10 corrections', () => {
         corrections: [{
           scheme: 'isotopiccategory',
           action: 'delete',
-          oldKeywordPath: 'LAST_ONE'
+          oldKeywordObject: {
+            Value: 'LAST_ONE'
+          }
         }]
       })
 
@@ -1615,7 +2118,9 @@ describe('when applying ISO topic category DIF10 corrections', () => {
         corrections: [{
           scheme: 'isotopiccategory',
           action: 'delete',
-          oldKeywordPath: 'SINGLE_STRING'
+          oldKeywordObject: {
+            Value: 'SINGLE_STRING'
+          }
         }]
       })
 
@@ -1631,12 +2136,16 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           {
             scheme: 'isotopiccategory',
             action: 'delete',
-            oldKeywordPath: 'BIOTA'
+            oldKeywordObject: {
+              Value: 'BIOTA'
+            }
           },
           {
             scheme: 'isotopiccategory',
             action: 'delete',
-            oldKeywordPath: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+            oldKeywordObject: {
+              Value: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+            }
           }
         ]
       })
@@ -1648,7 +2157,7 @@ describe('when applying ISO topic category DIF10 corrections', () => {
   })
 
   describe('when guard clauses prevent a correction', () => {
-    test('should return false if oldKeywordPath is missing', async () => {
+    test('should return false if oldKeywordObject is missing', async () => {
       const result = await applyDif10MetadataCorrections({
         metadataPayload: mockDif10WithCategories,
         corrections: [{
@@ -1688,8 +2197,12 @@ describe('when applying ISO topic category DIF10 corrections', () => {
         corrections: [{
           scheme: 'isotopiccategory',
           action: 'replace',
-          oldKeywordPath: 'NOT_REAL',
-          newKeywordPath: 'FAIL'
+          oldKeywordObject: {
+            Value: 'NOT_REAL'
+          },
+          newKeywordObject: {
+            Value: 'FAIL'
+          }
         }]
       })
       expect(result.correctionCount).toBe(0)
@@ -1730,8 +2243,22 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'replace',
           ummPath: ['Locations', 0],
-          oldKeywordPath: 'CONTINENT > NORTH AMERICA >  >  >  > ',
-          newKeywordPath: 'CONTINENT > SOUTH AMERICA >  >  >  > '
+          oldKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'SOUTH AMERICA',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1761,8 +2288,22 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'replace',
           ummPath: ['Locations', 2],
-          oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA >  >  > ',
-          newKeywordPath: 'CONTINENT > NORTH AMERICA > CANADA >  >  > '
+          oldKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: 'UNITED STATES OF AMERICA',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: 'CANADA',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1785,8 +2326,22 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'replace',
           ummPath: ['Locations', 2],
-          oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA >  >  > ',
-          newKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA > CALIFORNIA > LOS ANGELES > '
+          oldKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: 'UNITED STATES OF AMERICA',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: 'UNITED STATES OF AMERICA',
+            Subregion2: 'CALIFORNIA',
+            Subregion3: 'LOS ANGELES',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1809,8 +2364,22 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'replace',
           ummPath: ['Locations', 2],
-          oldKeywordPath: 'CONTINENT > NORTH AMERICA > UNITED STATES OF AMERICA  >  >  > ',
-          newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+          oldKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: 'UNITED STATES OF AMERICA',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'CONTINENT',
+            Type: 'EUROPE',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1832,8 +2401,15 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'delete',
           ummPath: ['Locations', 1],
-          oldKeywordPath: 'OCEAN > PACIFIC OCEAN >  >  >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'OCEAN',
+            Type: 'PACIFIC OCEAN',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -1863,13 +2439,27 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'delete',
           ummPath: ['Locations', 0],
-          oldKeywordPath: 'A >  >  >  >  > '
+          oldKeywordObject: {
+            Category: 'A',
+            Type: '',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         },
         {
           scheme: 'locations',
           action: 'delete',
           ummPath: ['Locations', 0],
-          oldKeywordPath: 'B >  >  >  >  > '
+          oldKeywordObject: {
+            Category: 'B',
+            Type: '',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1899,8 +2489,22 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'replace',
           ummPath: ['Locations', 0],
-          oldKeywordPath: 'OCEAN > ATLANTIC OCEAN >  >  >  > ',
-          newKeywordPath: 'OCEAN > INDIAN OCEAN >  >  >  > '
+          oldKeywordObject: {
+            Category: 'OCEAN',
+            Type: 'ATLANTIC OCEAN',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'OCEAN',
+            Type: 'INDIAN OCEAN',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1927,8 +2531,22 @@ describe('when applying location DIF10 corrections', () => {
           scheme: 'locations',
           action: 'replace',
           ummPath: ['Locations', 0],
-          oldKeywordPath: 'OCEAN > ATLANTIC OCEAN >  >  >  > ',
-          newKeywordPath: 'OCEAN > PACIFIC OCEAN >  >  >  > '
+          oldKeywordObject: {
+            Category: 'OCEAN',
+            Type: 'ATLANTIC OCEAN',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'OCEAN',
+            Type: 'PACIFIC OCEAN',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -1946,7 +2564,14 @@ describe('when location guard clauses prevent a correction', () => {
         scheme: 'locations',
         action: 'replace',
         ummPath: ['Locations', 'first'], // String instead of Number
-        newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+        newKeywordObject: {
+          Category: 'CONTINENT',
+          Type: 'EUROPE',
+          Subregion1: '',
+          Subregion2: '',
+          Subregion3: '',
+          DetailedLocation: ''
+        }
       }]
     })
 
@@ -1960,7 +2585,14 @@ describe('when location guard clauses prevent a correction', () => {
         scheme: 'locations',
         action: 'replace',
         ummPath: ['Locations', 99], // Index does not exist
-        newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+        newKeywordObject: {
+          Category: 'CONTINENT',
+          Type: 'EUROPE',
+          Subregion1: '',
+          Subregion2: '',
+          Subregion3: '',
+          DetailedLocation: ''
+        }
       }]
     })
 
@@ -1974,7 +2606,14 @@ describe('when location guard clauses prevent a correction', () => {
         scheme: 'locations',
         action: 'invalid_action', // Not replace or delete
         ummPath: ['Locations', 0],
-        newKeywordPath: 'CONTINENT > EUROPE >  >  >  > '
+        newKeywordObject: {
+          Category: 'CONTINENT',
+          Type: 'EUROPE',
+          Subregion1: '',
+          Subregion2: '',
+          Subregion3: '',
+          DetailedLocation: ''
+        }
       }]
     })
 
@@ -1995,8 +2634,22 @@ describe('when location guard clauses prevent a correction', () => {
         {
           scheme: 'locations',
           action: 'replace',
-          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > ',
-          newKeywordPath: 'GEOGRAPHIC REGION > CONTINENT >  >  > '
+          oldKeywordObject: {
+            Category: 'GEOGRAPHIC REGION',
+            Type: 'GLOBAL',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          },
+          newKeywordObject: {
+            Category: 'GEOGRAPHIC REGION',
+            Type: 'CONTINENT',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -2019,7 +2672,14 @@ describe('when location guard clauses prevent a correction', () => {
         {
           scheme: 'locations',
           action: 'unsupported_action_type',
-          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > '
+          oldKeywordObject: {
+            Category: 'GEOGRAPHIC REGION',
+            Type: 'GLOBAL',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -2048,7 +2708,14 @@ describe('when location guard clauses prevent a correction', () => {
         {
           scheme: 'locations',
           action: 'delete',
-          oldKeywordPath: 'GEOGRAPHIC REGION > GLOBAL >  >  > '
+          oldKeywordObject: {
+            Category: 'GEOGRAPHIC REGION',
+            Type: 'GLOBAL',
+            Subregion1: '',
+            Subregion2: '',
+            Subregion3: '',
+            DetailedLocation: ''
+          }
         }
       ]
     })
@@ -2101,8 +2768,18 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'replace',
-          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-4'
+          },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
         }
       ]
@@ -2135,8 +2812,18 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'replace',
-          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-5',
-          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-7-New',
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-5'
+          },
+          newKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-7-New'
+          },
           newLongName: 'Systeme Observation de la Terre-5 Updated'
         }
       ]
@@ -2175,8 +2862,18 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'replace',
-          oldKeywordPath: 'In Situ Land-based Platforms >  >  > GROUND STATIONS',
-          newKeywordPath: 'In Situ Land-based Platforms > Aircraft >  > C-130',
+          oldKeywordObject: {
+            Category: '',
+            Class: 'In Situ Land-based Platforms',
+            Type: '',
+            ShortName: 'GROUND STATIONS'
+          },
+          newKeywordObject: {
+            Category: '',
+            Class: 'In Situ Land-based Platforms',
+            Type: 'Aircraft',
+            ShortName: 'C-130'
+          },
           newLongName: 'Lockheed C-130 Hercules'
         }
       ]
@@ -2210,12 +2907,22 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'delete',
-          oldKeywordPath: 'Aircraft >  >  > A1'
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Aircraft',
+            Type: '',
+            ShortName: 'A1'
+          }
         },
         {
           scheme: 'platforms',
           action: 'delete',
-          oldKeywordPath: 'Aircraft >  >  > A2'
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Aircraft',
+            Type: '',
+            ShortName: 'A2'
+          }
         }
       ]
     })
@@ -2236,8 +2943,13 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'delete',
-          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-4',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -2260,7 +2972,12 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'not_an_action', // Triggers the final return false
-          newKeywordPath: 'A > B > C > '
+          newKeywordObject: {
+            Category: '',
+            Class: 'A',
+            Type: 'B',
+            ShortName: 'C'
+          }
         }
       ]
     })
@@ -2285,7 +3002,12 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'delete',
-          oldKeywordPath: 'Aircraft >  >  > A1'
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Aircraft',
+            Type: '',
+            ShortName: 'A1'
+          }
         }
       ]
     })
@@ -2311,9 +3033,19 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'replace',
-          oldKeywordPath: 'Aircraft >  >  > OLD-SHORT',
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Aircraft',
+            Type: '',
+            ShortName: 'OLD-SHORT'
+          },
           // Providing only one segment forces the Long_Name field to hit the 'else { delete }' branch
-          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > NEW-SHORT',
+          newKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'NEW-SHORT'
+          },
           newLongName: ''
         }
       ]
@@ -2345,8 +3077,18 @@ describe('when applying platform DIF10 corrections', () => {
         {
           scheme: 'platforms',
           action: 'replace',
-          oldKeywordPath: 'Earth Observation planes > SPOT-5 >  > ',
-          newKeywordPath: 'Earth Observation rockets > SPOT-7 >  > '
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Earth Observation planes',
+            Type: '',
+            ShortName: 'SPOT-5'
+          },
+          newKeywordObject: {
+            Category: '',
+            Class: 'Earth Observation rockets',
+            Type: '',
+            ShortName: 'SPOT-7'
+          }
         }
       ]
     })
@@ -2366,8 +3108,18 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           ummPath: ['Platform', 10],
-          oldKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-5',
-          newKeywordPath: 'Space-based Platforms > Earth Observation Satellites >  > SPOT-7'
+          oldKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-5'
+          },
+          newKeywordObject: {
+            Category: '',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
+            ShortName: 'SPOT-7'
+          }
         }
       ]
     })
@@ -2389,7 +3141,9 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
         corrections: [{
           scheme: 'productlevelid',
           action: 'replace',
-          newKeywordPath: 'Level 2'
+          newKeywordObject: {
+            Value: 'Level 2'
+          }
         }]
       })
 
@@ -2403,7 +3157,9 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
         metadataPayload: mockDif10WithProductLevel,
         corrections: [{
           scheme: 'productlevelid',
-          newKeywordPath: 'Level 3'
+          newKeywordObject: {
+            Value: 'Level 3'
+          }
         }]
       })
 
@@ -2411,13 +3167,13 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
       expect(result.correctedMetadata).toContain('<Product_Level_Id>Level 3</Product_Level_Id>')
     })
 
-    test('should return false and not modify the field if newKeywordPath is empty or invalid', async () => {
+    test('should return false and not modify the field if newKeywordObject is empty or invalid', async () => {
       const result = await applyDif10MetadataCorrections({
         metadataPayload: mockDif10WithProductLevel,
         corrections: [{
           scheme: 'productlevelid',
           action: 'replace',
-          newKeywordPath: '   ' // Empty spaces
+          newKeywordObject: {} // Empty spaces
         }]
       })
 
@@ -2461,7 +3217,9 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
         corrections: [{
           scheme: 'productlevelid',
           action: 'replace',
-          newKeywordPath: 'Level 4'
+          newKeywordObject: {
+            Value: 'Level 4'
+          }
         }]
       })
 
@@ -2476,7 +3234,9 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
         corrections: [{
           scheme: 'productlevelid',
           action: 'replace',
-          newKeywordPath: 'Level 4'
+          newKeywordObject: {
+            Value: 'Level 4'
+          }
         }]
       })
 
@@ -2489,7 +3249,9 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
         corrections: [{
           scheme: 'productlevelid',
           action: 'invalid_action_type',
-          newKeywordPath: 'Level 2'
+          newKeywordObject: {
+            Value: 'Level 2'
+          }
         }]
       })
 
@@ -2526,8 +3288,14 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'replace',
-          oldKeywordPath: 'D - F > ESIP',
-          newKeywordPath: 'D - F > ESIP',
+          oldKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          },
+          newKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          },
           newLongName: 'Updated Earth Science Information Partners Program'
         }
       ]
@@ -2554,8 +3322,14 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'replace',
-          oldKeywordPath: 'A - C > ALIENS',
-          newKeywordPath: 'A - C > ALIENS UP',
+          oldKeywordObject: {
+            Category: 'A - C',
+            ShortName: 'ALIENS'
+          },
+          newKeywordObject: {
+            Category: 'A - C',
+            ShortName: 'ALIENS UP'
+          },
           newLongName: 'Aliens research in Antarctica'
         }
       ]
@@ -2582,8 +3356,11 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'delete',
-          oldKeywordPath: 'D - F > ESIP',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -2605,12 +3382,18 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'delete',
-          oldKeywordPath: 'D - F > ESIP'
+          oldKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          }
         },
         {
           scheme: 'projects',
           action: 'delete',
-          oldKeywordPath: 'A - C > ALIENS'
+          oldKeywordObject: {
+            Category: 'A - C',
+            ShortName: 'ALIENS'
+          }
         }
       ]
     })
@@ -2636,7 +3419,10 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'delete',
-          oldKeywordPath: 'S - U > SINGLE-PROJ'
+          oldKeywordObject: {
+            Category: 'S - U',
+            ShortName: 'SINGLE-PROJ'
+          }
         }
       ]
     })
@@ -2663,7 +3449,10 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'delete',
-          oldKeywordPath: 'S - U > SINGLE-PROJ'
+          oldKeywordObject: {
+            Category: 'S - U',
+            ShortName: 'SINGLE-PROJ'
+          }
         }
       ]
     })
@@ -2691,8 +3480,14 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'replace',
-          oldKeywordPath: 'D - F > ESIP',
-          newKeywordPath: 'D - F > ESIP-7'
+          oldKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          },
+          newKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP-7'
+          }
         }
       ]
     })
@@ -2708,10 +3503,16 @@ describe('when applying project DIF10 corrections', () => {
         {
           scheme: 'projects',
           action: 'replace',
-          oldKeywordPath: 'D - F > ESIP',
+          oldKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          },
           // Providing a single segment and NO newLongName
           // results in normalizedSegments[1] (Long_Name) being undefined
-          newKeywordPath: 'M - O > ONLY_SHORT'
+          newKeywordObject: {
+            Category: 'M - O',
+            ShortName: 'ONLY_SHORT'
+          }
         }
       ]
     })
@@ -2739,8 +3540,14 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           ummPath: ['Project', 10],
-          oldKeywordPath: 'D - F > ESIP',
-          newKeywordPath: 'D - F > ESIP-7',
+          oldKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP'
+          },
+          newKeywordObject: {
+            Category: 'D - F',
+            ShortName: 'ESIP-7'
+          },
           newLongName: 'Updated Earth Science Information Partners Program'
         }
       ]
@@ -2751,7 +3558,7 @@ describe('when applying project DIF10 corrections', () => {
   })
 
   describe('when guard clauses prevent a correction', () => {
-    test('should return false if oldKeywordPath is missing', async () => {
+    test('should return false if oldKeywordObject is missing', async () => {
       const result = await applyDif10MetadataCorrections({
         metadataPayload: mockDif10WithProjects,
         corrections: [{
@@ -2779,7 +3586,10 @@ describe('when applying project DIF10 corrections', () => {
         metadataPayload: mockDif10WithProjects,
         corrections: [{
           scheme: 'projects',
-          oldKeywordPath: 'S - U > NOT-REAL'
+          oldKeywordObject: {
+            Category: 'S - U',
+            ShortName: 'NOT-REAL'
+          }
         }]
       })
 
@@ -2851,8 +3661,20 @@ describe('when applying provider DIF10 corrections', () => {
         {
           scheme: 'providers',
           action: 'replace',
-          oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
-          newKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
+          oldKeywordObject: {
+            BucketLevel0: 'ACADEMIC',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'BROWN/GEO'
+          },
+          newKeywordObject: {
+            BucketLevel0: 'ACADEMIC',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'BROWN/GEO'
+          },
           newLongName: 'Department of Geological Sciences, Brown University East'
         }
       ]
@@ -2882,8 +3704,20 @@ describe('when applying provider DIF10 corrections', () => {
         {
           scheme: 'providers',
           action: 'replace',
-          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
-          newKeywordPath: 'COMMERCIAL >  >  >  > ESRI2-CANADA',
+          oldKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI-CANADA'
+          },
+          newKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI2-CANADA'
+          },
           newLongName: 'Environmental Systems Research Institute 2, Inc. - Canada'
         }
       ]
@@ -2910,8 +3744,14 @@ describe('when applying provider DIF10 corrections', () => {
         {
           scheme: 'providers',
           action: 'delete',
-          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI-CANADA'
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -2946,8 +3786,20 @@ describe('when applying provider DIF10 corrections', () => {
         {
           scheme: 'providers',
           action: 'replace',
-          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
-          newKeywordPath: 'COMMERCIAL >  >  >  > ESRI2-CANADA'
+          oldKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI-CANADA'
+          },
+          newKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI2-CANADA'
+          }
         }
       ]
     })
@@ -2967,8 +3819,20 @@ describe('when applying provider DIF10 corrections', () => {
           scheme: 'providers',
           action: 'replace',
           ummPath: ['Organization_Name', 10],
-          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA',
-          newKeywordPath: 'COMMERCIAL >  >  >  > ESRI2-CANADA',
+          oldKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI-CANADA'
+          },
+          newKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI2-CANADA'
+          },
           newLongName: 'Environmental Systems Research Institute 2, Inc. - Canada'
         }
       ]
@@ -2991,8 +3855,20 @@ describe('when applying provider DIF10 corrections', () => {
       corrections: [{
         scheme: 'providers',
         action: 'replace',
-        oldKeywordPath: 'ARCHIVER >  >  >  > MISSING',
-        newKeywordPath: ' >  >  >  >  > SHORT',
+        oldKeywordObject: {
+          BucketLevel0: 'ARCHIVER',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'MISSING'
+        },
+        newKeywordObject: {
+          BucketLevel0: '',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'SHORT'
+        },
         newLongName: 'LONG'
       }]
     })
@@ -3008,12 +3884,24 @@ describe('when applying provider DIF10 corrections', () => {
         {
           scheme: 'providers',
           action: 'delete',
-          oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO'
+          oldKeywordObject: {
+            BucketLevel0: 'ACADEMIC',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'BROWN/GEO'
+          }
         },
         {
           scheme: 'providers',
           action: 'delete',
-          oldKeywordPath: 'COMMERCIAL >  >  >  > ESRI-CANADA'
+          oldKeywordObject: {
+            BucketLevel0: 'COMMERCIAL',
+            BucketLevel1: '',
+            BucketLevel2: '',
+            BucketLevel3: '',
+            ShortName: 'ESRI-CANADA'
+          }
         }
       ]
     })
@@ -3030,7 +3918,13 @@ describe('when applying provider DIF10 corrections', () => {
       corrections: [{
         scheme: 'providers',
         action: 'delete',
-        oldKeywordPath: 'ORG >  >  >  > O'
+        oldKeywordObject: {
+          BucketLevel0: 'ORG',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'O'
+        }
       }]
     })
 
@@ -3044,9 +3938,21 @@ describe('when applying provider DIF10 corrections', () => {
       corrections: [{
         scheme: 'providers',
         action: 'replace',
-        oldKeywordPath: 'ACADEMIC >  >  >  > BROWN/GEO',
+        oldKeywordObject: {
+          BucketLevel0: 'ACADEMIC',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'BROWN/GEO'
+        },
         // Providing only one segment and no newLongName should prune the existing Long_Name field.
-        newKeywordPath: ' >  >  >  >  > ONLY_SHORT'
+        newKeywordObject: {
+          BucketLevel0: '',
+          BucketLevel1: '',
+          BucketLevel2: '',
+          BucketLevel3: '',
+          ShortName: 'ONLY_SHORT'
+        }
       }]
     })
 
@@ -3109,8 +4015,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > GET DATA > ', // Last 2 segments: 'GET DATA' and ''
-          newKeywordPath: 'DistributionURL > GET SERVICE > '
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          }, // Last 2 segments: 'GET DATA' and ''
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET SERVICE',
+            Subtype: ''
+          }
         }
       ]
     })
@@ -3137,8 +4051,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch', // Last 2 segments: 'GET CAPABILITIES' and 'OpenSearch'
-          newKeywordPath: 'DistributionURL > GET CAPABILITIES > OGC WMS'
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET CAPABILITIES',
+            Subtype: 'OpenSearch'
+          }, // Last 2 segments: 'GET CAPABILITIES' and 'OpenSearch'
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET CAPABILITIES',
+            Subtype: 'OGC WMS'
+          }
         }
       ]
     })
@@ -3163,8 +4085,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > GET DATA > ',
-          newKeywordPath: 'DistributionURL > GET DATA > DIRECT DOWNLOAD'
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: 'DIRECT DOWNLOAD'
+          }
         }
       ]
     })
@@ -3185,8 +4115,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > USE SERVICE API > REST',
-          newKeywordPath: 'DistributionURL > GET DATA > '
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'USE SERVICE API',
+            Subtype: 'REST'
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          }
         }
       ]
     })
@@ -3211,8 +4149,12 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'delete',
-          oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET CAPABILITIES',
+            Subtype: 'OpenSearch'
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -3252,8 +4194,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > VIEW PROJECT HOME PAGE > ',
-          newKeywordPath: 'DistributionURL > VIEW RELATED INFORMATION > '
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'VIEW PROJECT HOME PAGE',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'VIEW RELATED INFORMATION',
+            Subtype: ''
+          }
         }
       ]
     })
@@ -3279,8 +4229,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > GET DATA > ',
-          newKeywordPath: 'DistributionURL > GET SERVICE > '
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET SERVICE',
+            Subtype: ''
+          }
         }
       ]
     })
@@ -3295,8 +4253,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
       corrections: [{
         scheme: 'rucontenttype',
         action: 'replace',
-        oldKeywordPath: 'DistributionURL > GET CAPABILITIES > OpenSearch',
-        newKeywordPath: ' > JUST_A_TYPE > ' // Last 2 segments: 'JUST_A_TYPE' and ''
+        oldKeywordObject: {
+          URLContentType: 'DistributionURL',
+          Type: 'GET CAPABILITIES',
+          Subtype: 'OpenSearch'
+        },
+        newKeywordObject: {
+          URLContentType: '',
+          Type: 'JUST_A_TYPE',
+          Subtype: ''
+        } // Last 2 segments: 'JUST_A_TYPE' and ''
       }]
     })
 
@@ -3318,7 +4284,11 @@ describe('when applying related URL content type DIF10 corrections', () => {
       corrections: [{
         scheme: 'rucontenttype',
         action: 'unsupported_action',
-        oldKeywordPath: 'DistributionURL > GET DATA > '
+        oldKeywordObject: {
+          URLContentType: 'DistributionURL',
+          Type: 'GET DATA',
+          Subtype: ''
+        }
       }]
     })
 
@@ -3331,8 +4301,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
       corrections: [{
         scheme: 'rucontenttype',
         action: 'replace',
-        oldKeywordPath: 'DistributionURL > GET DATA > ',
-        newKeywordPath: ' > ' // Last 2 segments: '' and ''
+        oldKeywordObject: {
+          URLContentType: 'DistributionURL',
+          Type: 'GET DATA',
+          Subtype: ''
+        },
+        newKeywordObject: {
+          URLContentType: '',
+          Type: '',
+          Subtype: ''
+        } // Last 2 segments: '' and ''
       }]
     })
 
@@ -3350,7 +4328,7 @@ describe('when applying related URL content type DIF10 corrections', () => {
     expect(result.correctedMetadata).toContain('<Type>USE SERVICE API</Type>')
   })
 
-  test('should return false when oldKeywordPath does not match any current elements', async () => {
+  test('should return false when oldKeywordObject does not match any current elements', async () => {
     const result = await applyDif10MetadataCorrections({
       collectionConceptId: 'C1',
       providerId: 'PROV',
@@ -3360,8 +4338,16 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'DistributionURL > NOT_REAL_TYPE > ', // Will not find a value match
-          newKeywordPath: 'DistributionURL > GET SERVICE > '
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'NOT_REAL_TYPE',
+            Subtype: ''
+          }, // Will not find a value match
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET SERVICE',
+            Subtype: ''
+          }
         }
       ]
     })
@@ -3386,8 +4372,6 @@ describe('when applying related URL content type DIF10 corrections', () => {
         {
           scheme: 'rucontenttype',
           action: 'replace',
-          oldKeywordPath: 'GET DATA > ',
-          newKeywordPath: 'GET SERVICE > ',
           oldKeywordObject: {
             Type: 'GET DATA',
             Subtype: ''
@@ -3458,8 +4442,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > AEROSOLS RENAMED >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'AEROSOLS RENAMED',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3488,8 +4488,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > AIR QUALITY > AEROSOLS > LEGACY AEROSOLS >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'AIR QUALITY',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3517,8 +4533,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
-          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > ELEVATION > TERRAIN FEATURES > DIGITAL ELEVATION MODEL >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'LANDFORMS',
+            VariableLevel2: 'DEM',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'ELEVATION',
+            VariableLevel1: 'TERRAIN FEATURES',
+            VariableLevel2: 'DIGITAL ELEVATION MODEL',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3550,8 +4582,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 1],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
-          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > ELEVATION DATA > DIGITAL ELEVATION DATA >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'TERRAIN ELEVATION',
+            VariableLevel2: 'DIGITAL TERRAIN MODEL',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'ELEVATION DATA',
+            VariableLevel2: 'DIGITAL ELEVATION DATA',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3582,8 +4630,16 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'LANDFORMS',
+            VariableLevel2: 'DEM',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -3611,8 +4667,16 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: ['Science_Keywords', 1],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'TERRAIN ELEVATION',
+            VariableLevel2: 'DIGITAL TERRAIN MODEL',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -3650,13 +4714,29 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: ['ScienceKeywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         },
         {
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: ['ScienceKeywords', 1],
-          oldKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS >  >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'OCEANS',
+            Term: 'MARINE SEDIMENTS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3683,8 +4763,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'invalid_action_type', // Neither 'replace' nor 'delete'
           ummPath: ['ScienceKeywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > OCEANS > MARINE SEDIMENTS'
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'OCEANS',
+            Term: 'MARINE SEDIMENTS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3705,15 +4801,47 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
-          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DIGITAL ELEVATION MODEL >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'LANDFORMS',
+            VariableLevel2: 'DEM',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'LANDFORMS',
+            VariableLevel2: 'DIGITAL ELEVATION MODEL',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         },
         {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 1],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
-          newKeywordPath: 'EARTH SCIENCE > TERRESTRIAL HYDROSPHERE > SURFACE WATER > ELEVATION > DTM >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'TERRAIN ELEVATION',
+            VariableLevel2: 'DIGITAL TERRAIN MODEL',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'TERRESTRIAL HYDROSPHERE',
+            Term: 'SURFACE WATER',
+            VariableLevel1: 'ELEVATION',
+            VariableLevel2: 'DTM',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3743,8 +4871,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > LANDFORMS > DEM >  > ',
-          newKeywordPath: 'EARTH SCIENCE > LAND SURFACE > SURFACE TOPOGRAPHY > LANDFORMS > DEM >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'LANDFORMS',
+            VariableLevel2: 'DEM',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'SURFACE TOPOGRAPHY',
+            VariableLevel1: 'LANDFORMS',
+            VariableLevel2: 'DEM',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3772,8 +4916,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE SERVICES > DATA ANALYSIS AND VISUALIZATION > AEROSOL ANALYSIS > LEGACY AEROSOLS >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE SERVICES',
+            Topic: 'DATA ANALYSIS AND VISUALIZATION',
+            Term: 'AEROSOL ANALYSIS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3813,8 +4973,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUDS >  >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUD PROPERTIES >  >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'CLOUDS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'CLOUD PROPERTIES',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3845,8 +5021,16 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE >  >  >  >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: '',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -3868,8 +5052,16 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: ['Science_Keywords', 1],
-          oldKeywordPath: 'EARTH SCIENCE > LAND SURFACE > TOPOGRAPHY > TERRAIN ELEVATION > DIGITAL TERRAIN MODEL >  > ',
-          newKeywordPath: ''
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'LAND SURFACE',
+            Term: 'TOPOGRAPHY',
+            VariableLevel1: 'TERRAIN ELEVATION',
+            VariableLevel2: 'DIGITAL TERRAIN MODEL',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {}
         }
       ]
     })
@@ -3897,8 +5089,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
           // This path does not exist in mockSimpleDif10Xml, so lookup fails
-          oldKeywordPath: 'EARTH SCIENCE > NON_EXISTENT_TOPIC > AEROSOLS >  >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > AIR QUALITY > AEROSOLS >  >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'NON_EXISTENT_TOPIC',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'AIR QUALITY',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3927,8 +5135,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           scheme: 'sciencekeywords',
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE >  >  >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > AIR QUALITY >  >  >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: '',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'AIR QUALITY',
+            Term: '',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3962,8 +5186,24 @@ describe('when applying science keyword DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Science_Keywords', 0],
           // This should match despite <Category> being parsed as an object internally
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUDS >  >  >  > ',
-          newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > CLOUD PROPERTIES >  >  >  > '
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'CLOUDS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'CLOUD PROPERTIES',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
         }
       ]
     })
@@ -3992,8 +5232,12 @@ describe('when applying temporal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'temporalresolutionrange',
           action: 'replace',
-          oldKeywordPath: 'Daily',
-          newKeywordPath: 'Hourly'
+          oldKeywordObject: {
+            Value: 'Daily'
+          },
+          newKeywordObject: {
+            Value: 'Hourly'
+          }
         }]
       })
 
@@ -4010,8 +5254,12 @@ describe('when applying temporal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'temporalresolutionrange',
           action: 'replace',
-          oldKeywordPath: 'Weekly',
-          newKeywordPath: 'Yearly'
+          oldKeywordObject: {
+            Value: 'Weekly'
+          },
+          newKeywordObject: {
+            Value: 'Yearly'
+          }
         }]
       })
 
@@ -4027,7 +5275,9 @@ describe('when applying temporal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'temporalresolutionrange',
           action: 'delete',
-          oldKeywordPath: 'Monthly'
+          oldKeywordObject: {
+            Value: 'Monthly'
+          }
         }]
       })
 
@@ -4044,7 +5294,9 @@ describe('when applying temporal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'temporalresolutionrange',
           action: 'delete',
-          oldKeywordPath: 'One-Off'
+          oldKeywordObject: {
+            Value: 'One-Off'
+          }
         }]
       })
 
@@ -4070,12 +5322,16 @@ describe('when applying temporal resolution DIF10 corrections', () => {
           {
             scheme: 'verticalresolutionrange',
             action: 'delete',
-            oldKeywordPath: 'Range 1'
+            oldKeywordObject: {
+              Value: 'Range 1'
+            }
           },
           {
             scheme: 'verticalresolutionrange',
             action: 'delete',
-            oldKeywordPath: 'Range 2'
+            oldKeywordObject: {
+              Value: 'Range 2'
+            }
           }
         ]
       })
@@ -4103,7 +5359,9 @@ describe('when applying temporal resolution DIF10 corrections', () => {
         corrections: [{
           scheme: 'temporalresolutionrange',
           action: 'delete',
-          oldKeywordPath: 'Weekly'
+          oldKeywordObject: {
+            Value: 'Weekly'
+          }
         }]
       })
 
@@ -4119,7 +5377,7 @@ describe('when applying temporal resolution DIF10 corrections', () => {
   })
 
   describe('when guard clauses prevent a correction', () => {
-    test('should return false if oldKeywordPath is missing', async () => {
+    test('should return false if oldKeywordObject is missing', async () => {
       const result = await applyDif10MetadataCorrections({
         metadataPayload: mockDif10WithTemporalResolution,
         corrections: [{
@@ -4180,8 +5438,12 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           scheme: 'verticalresolutionrange',
           action: 'replace',
           ummPath: ['VerticalResolutionRanges', 1],
-          newKeywordPath: 'Updated Range',
-          oldKeywordPath: '10 - 50 meters'
+          newKeywordObject: {
+            Value: 'Updated Range'
+          },
+          oldKeywordObject: {
+            Value: '10 - 50 meters'
+          }
         }]
       })
 
@@ -4198,8 +5460,12 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           scheme: 'verticalresolutionrange',
           action: 'replace',
           ummPath: ['VerticalResolutionRanges', 0],
-          newKeywordPath: 'New Range',
-          oldKeywordPath: 'Old Range'
+          newKeywordObject: {
+            Value: 'New Range'
+          },
+          oldKeywordObject: {
+            Value: 'Old Range'
+          }
         }]
       })
 
@@ -4216,7 +5482,9 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           scheme: 'verticalresolutionrange',
           action: 'delete',
           ummPath: ['VerticalResolutionRanges', 0],
-          oldKeywordPath: '1 - 10 meters'
+          oldKeywordObject: {
+            Value: '1 - 10 meters'
+          }
         }]
       })
 
@@ -4233,7 +5501,9 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           scheme: 'verticalresolutionrange',
           action: 'delete',
           ummPath: ['VerticalResolutionRanges', 0],
-          oldKeywordPath: 'Final Range'
+          oldKeywordObject: {
+            Value: 'Final Range'
+          }
         }]
       })
 
@@ -4260,13 +5530,17 @@ describe('when applying vertical resolution DIF10 corrections', () => {
             scheme: 'verticalresolutionrange',
             action: 'delete',
             ummPath: ['VerticalResolutionRanges', 0],
-            oldKeywordPath: 'Range 1'
+            oldKeywordObject: {
+              Value: 'Range 1'
+            }
           },
           {
             scheme: 'verticalresolutionrange',
             action: 'delete',
             ummPath: ['VerticalResolutionRanges', 0],
-            oldKeywordPath: 'Range 2'
+            oldKeywordObject: {
+              Value: 'Range 2'
+            }
           }
         ]
       })
@@ -4324,7 +5598,9 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           scheme: 'verticalresolutionrange',
           action: 'unsupported_action',
           ummPath: ['VerticalResolutionRanges', 0],
-          oldKeywordPath: '1 - 10 meters'
+          oldKeywordObject: {
+            Value: '1 - 10 meters'
+          }
         }]
       })
       expect(result.correctionCount).toBe(0)

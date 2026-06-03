@@ -61,7 +61,6 @@ describe('persistMetadataCorrectionAuditLog', () => {
             DetailedVariable: ''
           },
           newKeywordObject: {
-            PathSegments: ['Science Keywords', 'EARTH SCIENCE', 'ATMOSPHERE', 'AEROSOLS'],
             Category: 'EARTH SCIENCE',
             Topic: 'ATMOSPHERE',
             Term: 'AEROSOLS',
@@ -100,7 +99,9 @@ describe('persistMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).toContain('gcmd:triggerScheme "sciencekeywords"')
     expect(sparqlCall.body).toContain('gcmd:triggerKeywordUuid "2e5a401b-1507-4f57-82b8-36557c13b154"')
     expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > "')
-    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS"')
+    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > "')
+    expect(sparqlCall.body).not.toContain('gcmd:oldKeywordObject')
+    expect(sparqlCall.body).not.toContain('gcmd:newKeywordObject')
     expect(sparqlCall.body).toContain('metadata-correction-audit/audit-record-123')
   })
 
@@ -159,11 +160,15 @@ describe('persistMetadataCorrectionAuditLog', () => {
           scheme: 'platforms',
           keywordConceptUuid: 'uuid-optional',
           oldKeywordObject: {
-            PathSegments: ['OLD PLATFORM'],
+            Category: 'Platforms',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
             ShortName: 'OLD PLATFORM'
           },
           newKeywordObject: {
-            PathSegments: ['NEW PLATFORM'],
+            Category: 'Platforms',
+            Class: 'Space-based Platforms',
+            Type: 'Earth Observation Satellites',
             ShortName: 'NEW PLATFORM'
           }
         }
@@ -175,10 +180,32 @@ describe('persistMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).toContain('gcmd:action "UNKNOWN"')
     expect(sparqlCall.body).toContain('gcmd:delegateName "dif10"')
     expect(sparqlCall.body).toContain('gcmd:nativeFormat "DIF10"')
-    expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "OLD PLATFORM"')
-    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "NEW PLATFORM"')
+    expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "Platforms > Space-based Platforms > Earth Observation Satellites > OLD PLATFORM"')
+    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "Platforms > Space-based Platforms > Earth Observation Satellites > NEW PLATFORM"')
+    expect(sparqlCall.body).not.toContain('gcmd:oldKeywordObject')
+    expect(sparqlCall.body).not.toContain('gcmd:newKeywordObject')
     expect(sparqlCall.body).toContain('^^xsd:dateTime')
     expect(sparqlCall.body).not.toContain('gcmd:triggerScheme')
     expect(sparqlCall.body).not.toContain('gcmd:triggerKeywordUuid')
+  })
+
+  test('omits keyword-path triples when the correction objects do not produce meaningful paths', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C3333333333-LOCAL',
+      nativeFormat: 'UMM',
+      delegateName: 'umm',
+      corrections: [
+        {
+          scheme: 'platforms',
+          keywordConceptUuid: 'uuid-empty-paths',
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
+    })
+
+    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
+    expect(sparqlCall.body).not.toContain('gcmd:oldKeywordPath')
+    expect(sparqlCall.body).not.toContain('gcmd:newKeywordPath')
   })
 })

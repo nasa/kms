@@ -1,4 +1,5 @@
 import { cmrGetRequest } from './cmrGetRequest'
+import { formatKeywordObjectForLog } from './formatKeywordObjectForLog'
 import { logger } from './logger'
 
 /**
@@ -50,20 +51,20 @@ const createCmrLookupError = async (response) => {
  * @param {string} [params.scheme] - Keyword scheme from the keyword event. This is kept for
  *   logging and caller compatibility, but the CMR lookup itself is now UUID-driven.
  * @param {string} params.uuid - Keyword UUID from the keyword event.
- * @param {string} [params.keywordPath] - Human-readable keyword path from the event, logged to
- *   make CloudWatch fanout lookups easier to trace.
+ * @param {Record<string, unknown>} [params.keywordObject] - Human-readable keyword object from
+ *   the event, logged to make CloudWatch fanout lookups easier to trace.
  * @returns {Promise<string[]>} Unique CMR collection concept ids.
  * @throws {Error} If the UUID is missing or CMR returns a failed response.
  */
 export const getCmrCollectionConceptIds = async ({
   scheme,
   uuid,
-  keywordPath
+  keywordObject
 }) => {
   logger.debug('getCmrCollectionConceptIds called with params:', {
     scheme,
     uuid,
-    keywordPath
+    keywordObject
   })
 
   if (!uuid) {
@@ -73,7 +74,7 @@ export const getCmrCollectionConceptIds = async ({
   logger.debug('Using keyword UUID GET lookup for CMR collection concept ids:', {
     scheme,
     uuid,
-    keywordPath
+    keywordObject
   })
 
   // Request one page of concept ids and keep the raw response for pagination headers.
@@ -114,7 +115,7 @@ export const getCmrCollectionConceptIds = async ({
     'Found CMR collection concept ids: '
     + `scheme=${scheme} `
     + `uuid=${uuid} `
-    + `keywordPath=${keywordPath || 'n/a'} `
+    + `keywordObject=${formatKeywordObjectForLog(keywordObject)} `
     + `count=${conceptIds.length} `
     + `totalHits=${totalHits} `
     + `totalPages=${totalPages}`

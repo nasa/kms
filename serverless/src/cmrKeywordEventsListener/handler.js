@@ -1,7 +1,8 @@
+import { formatKeywordObjectForLog } from '@/shared/formatKeywordObjectForLog'
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
+import { hasMeaningfulKeywordObject } from '@/shared/hasMeaningfulKeywordObject'
 import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
-import { buildKeywordObjectFromPath } from '@/shared/redisPathStore'
 
 /**
  * Metadata-correction fanout listener for KMS keyword events.
@@ -33,8 +34,8 @@ const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
     EventType: eventType,
     Scheme: scheme,
     UUID: uuid,
-    OldKeywordPath: oldKeywordPath,
-    NewKeywordPath: newKeywordPath,
+    OldKeywordObject: oldKeywordObject,
+    NewKeywordObject: newKeywordObject,
     Timestamp: timestamp
   } = keywordEvent
 
@@ -45,14 +46,8 @@ const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
       eventType,
       scheme,
       uuid,
-      oldKeywordObject: buildKeywordObjectFromPath({
-        scheme,
-        keywordPath: oldKeywordPath
-      }),
-      newKeywordObject: buildKeywordObjectFromPath({
-        scheme,
-        keywordPath: newKeywordPath
-      }),
+      oldKeywordObject,
+      newKeywordObject,
       timestamp
     }
   }
@@ -88,16 +83,24 @@ const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
 ])
 
 /**
- * Chooses the keyword path best suited for collection lookup logging and CMR search.
+ * Chooses the keyword object used for listener logging and lookup tracing.
  *
- * Updated events prefer the new path, while deleted events fall back to the old path.
+ * This does not drive delete detection or the actual CMR collection lookup. The lookup itself is
+ * UUID-driven; this keyword object is only carried through logs and lookup tracing so CloudWatch
+ * output is easier to follow.
+ *
+ * Deleted events use the old keyword object, while other events use the new keyword object.
  *
  * @param {Record<string, unknown>|null|undefined} keywordEvent - Parsed KMS keyword event.
- * @returns {string|undefined} Preferred lookup path, if present.
+ * @returns {Record<string, unknown>|undefined} Preferred logging keyword object, if present.
  */
-const getLookupKeywordPath = (keywordEvent) => (
-  keywordEvent?.NewKeywordPath || keywordEvent?.OldKeywordPath
-)
+const getLookupKeywordObject = (keywordEvent) => {
+  const normalizedEventType = String(keywordEvent?.EventType || '').toUpperCase()
+
+  return normalizedEventType === 'DELETED'
+    ? keywordEvent?.OldKeywordObject
+    : keywordEvent?.NewKeywordObject
+}
 
 /**
  * Narrows an arbitrary thrown value into a logger-safe error payload.
@@ -140,7 +143,7 @@ export const cmrKeywordEventsListener = async (event) => {
     let eventType
     let scheme
     let uuid
-    let keywordPath
+    let keywordObject
 
     try {
       // Unwrap the SNS envelope first, then parse the original KMS keyword event payload.
@@ -154,7 +157,7 @@ export const cmrKeywordEventsListener = async (event) => {
       eventType = keywordEvent?.EventType
       scheme = keywordEvent?.Scheme
       uuid = keywordEvent?.UUID
-      keywordPath = getLookupKeywordPath(keywordEvent)
+      keywordObject = getLookupKeywordObject(keywordEvent)
 
       const keywordEventType = String(eventType || '').toUpperCase()
 
@@ -164,7 +167,7 @@ export const cmrKeywordEventsListener = async (event) => {
         + `eventType=${eventType || 'n/a'} `
         + `scheme=${scheme || 'n/a'} `
         + `uuid=${uuid || 'n/a'} `
-        + `keywordPath=${keywordPath || 'n/a'}`
+        + `keywordObject=${formatKeywordObjectForLog(keywordObject)}`
       )
 
       if (keywordEvent && LOOKUP_ELIGIBLE_EVENT_TYPES.has(keywordEventType)) {
@@ -173,14 +176,14 @@ export const cmrKeywordEventsListener = async (event) => {
         const collectionConceptIds = await getCmrCollectionConceptIds({
           scheme,
           uuid,
-          keywordPath
+          keywordObject
         })
 
         logger.info(
           '[consumer] Found collection concept ids for metadata correction '
           + `scheme=${scheme} `
           + `uuid=${uuid} `
-          + `keywordPath=${keywordPath || 'n/a'} `
+          + `keywordObject=${formatKeywordObjectForLog(keywordObject)} `
           + `count=${collectionConceptIds.length}`
         )
 
@@ -189,7 +192,7 @@ export const cmrKeywordEventsListener = async (event) => {
             '[consumer] No affected collection concept ids found for keyword event '
             + `scheme=${scheme} `
             + `uuid=${uuid} `
-            + `keywordPath=${keywordPath || 'n/a'}`
+            + `keywordObject=${formatKeywordObjectForLog(keywordObject)}`
           )
         }
 
@@ -202,7 +205,7 @@ export const cmrKeywordEventsListener = async (event) => {
           + `eventType=${eventType || 'n/a'} `
           + `scheme=${scheme || 'n/a'} `
           + `uuid=${uuid || 'n/a'} `
-          + `keywordPath=${keywordPath || 'n/a'}`
+          + `keywordObject=${formatKeywordObjectForLog(keywordObject)}`
         )
       }
     } catch (error) {
@@ -212,7 +215,7 @@ export const cmrKeywordEventsListener = async (event) => {
         eventType: eventType || 'n/a',
         scheme: scheme || 'n/a',
         uuid: uuid || 'n/a',
-        keywordPath: keywordPath || 'n/a',
+        keywordObject: hasMeaningfulKeywordObject(keywordObject) ? keywordObject : 'n/a',
         error: serializeError(error)
       })
 

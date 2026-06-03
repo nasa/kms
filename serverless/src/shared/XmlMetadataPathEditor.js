@@ -1,8 +1,6 @@
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import xpath from 'xpath'
 
-import { ensureCorrectionKeywordObjects } from './redisPathStore'
-
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 const ELEMENT_NODE = 1
 
@@ -22,7 +20,7 @@ const trimString = (value) => ((typeof value === 'string') ? value.trim() : '')
  * hasAnyObjectValue({ Type: '', ShortName: 'SPOT-4' })
  * // true
  */
-const hasAnyObjectValue = (keywordObject = {}) => Object.values(keywordObject)
+const hasAnyObjectValue = (keywordObject) => Object.values(keywordObject || {})
   .some((value) => trimString(value).length > 0)
 
 /**
@@ -264,20 +262,20 @@ export class XmlMetadataPathEditor {
   }
 
   /**
-   * Builds a keyword-style segment array from the configured fields on a node.
+   * Reads ordered field values from a candidate metadata node.
    *
    * @param {Node} node Candidate metadata node.
    * @param {string[]} fieldPaths Ordered XML field paths.
    * @returns {string[]} Segment values extracted from the node.
    *
    * @example
-   * const segments = editor.getNodePathSegments(platformNode, [
+   * const values = editor.getNodeFieldValues(platformNode, [
    *   'Type',
    *   'Short_Name'
    * ])
    * // ['Earth Observation Satellites', 'SPOT-4']
    */
-  getNodePathSegments(node, fieldPaths) {
+  getNodeFieldValues(node, fieldPaths) {
     return fieldPaths.map((fieldPath) => this.getNestedText(node, fieldPath))
   }
 
@@ -461,14 +459,12 @@ export class XmlMetadataPathEditor {
    * // 'Systeme Observation de la Terre-4 Updated'
    */
   getReplacementValue(correction, sourceConfig = {}) {
-    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
-
     if (sourceConfig.type === 'param') {
-      return trimString(normalizedCorrection[sourceConfig.key])
+      return trimString(correction?.[sourceConfig.key])
     }
 
     if (sourceConfig.type === 'value') {
-      return trimString(normalizedCorrection.newKeywordObject?.[sourceConfig.key])
+      return trimString(correction?.newKeywordObject?.[sourceConfig.key])
     }
 
     return ''
@@ -497,7 +493,6 @@ export class XmlMetadataPathEditor {
    * // targetNode
    */
   resolveNodeByFind(correction, config) {
-    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const nodes = this.selectNodes(config.nodeXPath)
     if (nodes.length === 0) {
       return null
@@ -509,7 +504,7 @@ export class XmlMetadataPathEditor {
         : config.find.fieldPaths
       const findValueObject = valueKeys.reduce((keywordObject, valueKey) => ({
         ...keywordObject,
-        [valueKey]: trimString(normalizedCorrection.oldKeywordObject?.[valueKey])
+        [valueKey]: trimString(correction?.oldKeywordObject?.[valueKey])
       }), {})
 
       if (hasAnyObjectValue(findValueObject)) {
@@ -538,7 +533,7 @@ export class XmlMetadataPathEditor {
     }
 
     if (!config.find) {
-      const findText = getScalarKeywordText(normalizedCorrection.oldKeywordObject)
+      const findText = getScalarKeywordText(correction?.oldKeywordObject)
       if (findText.length > 0) {
         const matchedNode = nodes.find((node) => this.getElementText(node) === findText)
 
@@ -640,9 +635,8 @@ export class XmlMetadataPathEditor {
    * // true
    */
   updateLeafNode(correction, config) {
-    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const action = trimString(String(correction.action || 'replace')).toLowerCase()
-    const targetNode = this.resolveNodeByFind(normalizedCorrection, config)
+    const targetNode = this.resolveNodeByFind(correction, config)
     if (!targetNode) {
       return false
     }
@@ -659,7 +653,7 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      const value = getScalarKeywordText(normalizedCorrection.newKeywordObject)
+      const value = getScalarKeywordText(correction?.newKeywordObject)
       this.setElementText(targetNode, value)
 
       return true
@@ -672,7 +666,7 @@ export class XmlMetadataPathEditor {
    * Applies a replace/delete correction to a single scalar XML field.
    *
    * Scalar fields are different from block and leaf updates: they do not locate a target by
-   * `oldKeywordPath`. Instead, they operate on the single field selected by `nodeXPath`, or
+   * `oldKeywordObject`. Instead, they operate on the single field selected by `nodeXPath`, or
    * create that field under the DIF root when `replace` is requested and the field is absent.
    *
    * @param {Object} correction Correction descriptor being applied.
@@ -692,7 +686,6 @@ export class XmlMetadataPathEditor {
    * // true
    */
   updateScalarNode(correction, config) {
-    const normalizedCorrection = ensureCorrectionKeywordObjects(correction)
     const action = trimString(String(correction.action || 'replace')).toLowerCase()
     const targetNode = this.selectNodes(config.nodeXPath)[0] || null
 
@@ -707,7 +700,7 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      const value = getScalarKeywordText(normalizedCorrection.newKeywordObject)
+      const value = getScalarKeywordText(correction?.newKeywordObject)
       if (value.length === 0) {
         return false
       }

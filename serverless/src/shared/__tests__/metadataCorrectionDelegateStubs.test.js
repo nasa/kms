@@ -11,6 +11,52 @@ import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrecti
 import { applyUmmMetadataCorrections } from '../applyUmmMetadataCorrections'
 import { ingestCorrectedMetadataStub } from '../ingestCorrectedMetadataStub'
 
+const LEGACY_AEROSOLS_KEYWORD = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'ATMOSPHERE',
+  Term: 'AEROSOLS',
+  VariableLevel1: 'LEGACY AEROSOLS',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const AEROSOLS_KEYWORD = {
+  Category: 'EARTH SCIENCE',
+  Topic: 'ATMOSPHERE',
+  Term: 'AEROSOLS',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const AQUA_LEGACY_PLATFORM_KEYWORD = {
+  Category: 'Platforms',
+  Class: 'Space-based Platforms',
+  Type: 'Earth Observation Satellites',
+  ShortName: 'Aqua Legacy'
+}
+
+const AQUA_PLATFORM_KEYWORD = {
+  Category: 'Platforms',
+  Class: 'Space-based Platforms',
+  Type: 'Earth Observation Satellites',
+  ShortName: 'Aqua'
+}
+
+const LEGACY_CLIMATE_STUDY_PROJECT_KEYWORD = {
+  Category: 'Projects',
+  ShortName: 'Legacy Climate Study'
+}
+
+const HU25A_PLATFORM_KEYWORD = {
+  Category: 'Platforms',
+  Class: 'Space-based Platforms',
+  Type: 'Earth Observation Satellites',
+  ShortName: 'HU-25A'
+}
+
 describe('metadata correction delegate stubs', () => {
   test('returns the expected UMM delegate stub shape', async () => {
     await expect(applyUmmMetadataCorrections({
@@ -60,14 +106,14 @@ describe('metadata correction delegate stubs', () => {
         {
           scheme: 'sciencekeywords',
           ummPath: ['ScienceKeywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
-          newKeywordPath: 'Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+          oldKeywordObject: LEGACY_AEROSOLS_KEYWORD,
+          newKeywordObject: AEROSOLS_KEYWORD
         },
         {
           scheme: 'platforms',
           ummPath: ['Platforms', 0],
-          oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy',
-          newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+          oldKeywordObject: AQUA_LEGACY_PLATFORM_KEYWORD,
+          newKeywordObject: AQUA_PLATFORM_KEYWORD
         }
       ]
     })).resolves.toMatchObject({
@@ -96,14 +142,14 @@ describe('metadata correction delegate stubs', () => {
         {
           scheme: 'sciencekeywords',
           ummPath: ['ScienceKeywords', 0],
-          oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS',
-          newKeywordPath: 'Science Keywords > EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+          oldKeywordObject: LEGACY_AEROSOLS_KEYWORD,
+          newKeywordObject: AEROSOLS_KEYWORD
         },
         {
           scheme: 'platforms',
           ummPath: ['Platforms', 0],
-          oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy',
-          newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+          oldKeywordObject: AQUA_LEGACY_PLATFORM_KEYWORD,
+          newKeywordObject: AQUA_PLATFORM_KEYWORD
         }
       ],
       stubbed: true
@@ -128,8 +174,8 @@ describe('metadata correction delegate stubs', () => {
           scheme: 'projects',
           action: 'delete',
           ummPath: ['Projects', 0],
-          oldKeywordPath: 'Projects > Legacy Climate Study',
-          newKeywordPath: ''
+          oldKeywordObject: LEGACY_CLIMATE_STUDY_PROJECT_KEYWORD,
+          newKeywordObject: {}
         }
       ]
     })).resolves.toMatchObject({
@@ -148,8 +194,8 @@ describe('metadata correction delegate stubs', () => {
           scheme: 'projects',
           action: 'delete',
           ummPath: ['Projects', 0],
-          oldKeywordPath: 'Projects > Legacy Climate Study',
-          newKeywordPath: ''
+          oldKeywordObject: LEGACY_CLIMATE_STUDY_PROJECT_KEYWORD,
+          newKeywordObject: {}
         }
       ],
       stubbed: true
@@ -231,8 +277,8 @@ describe('metadata correction delegate stubs', () => {
           scheme: 'platforms',
           action: 'replace',
           keywordConceptUuid: 'uuid-5',
-          oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > HU-25A',
-          newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > HU-25A',
+          oldKeywordObject: HU25A_PLATFORM_KEYWORD,
+          newKeywordObject: HU25A_PLATFORM_KEYWORD,
           oldLongName: 'Dassault HU-25A Guardian Legacy',
           newLongName: 'Dassault HU-25A Guardian'
         }

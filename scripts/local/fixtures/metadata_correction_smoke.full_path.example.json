@@ -56,25 +56,50 @@
       "EventType": "UPDATED",
       "Scheme": "sciencekeywords",
       "UUID": "2e5a401b-1507-4f57-82b8-36557c13b154",
-      "OldKeywordPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS",
-      "NewKeywordPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
-      "Timestamp": "2026-05-06T00:00:00.000Z"
+      "Timestamp": "2026-05-06T00:00:00.000Z",
+      "OldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS",
+        "VariableLevel1": "LEGACY AEROSOLS",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      },
+      "NewKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
     },
     {
       "EventType": "UPDATED",
       "Scheme": "platforms",
       "UUID": "ea7fd15d-190d-43f3-bdd3-75f5d88dc3f8",
-      "OldKeywordPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy",
-      "NewKeywordPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua",
-      "Timestamp": "2026-05-06T00:00:00.000Z"
+      "Timestamp": "2026-05-06T00:00:00.000Z",
+      "OldKeywordObject": {
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "Aqua Legacy"
+      },
+      "NewKeywordObject": {
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "Aqua"
+      }
     },
     {
       "EventType": "DELETED",
       "Scheme": "instruments",
       "UUID": "deleted-instrument-uuid",
-      "OldKeywordPath": "Platforms > Space-based Platforms > Earth Observation Satellites > Aqua Legacy > Legacy MODIS",
-      "NewKeywordPath": "",
-      "Timestamp": "2026-05-06T00:00:00.000Z"
+      "Timestamp": "2026-05-06T00:00:00.000Z",
+      "OldKeywordObject": {
+        "ShortName": "Legacy MODIS"
+      }
     }
   ],
   "cmr": {

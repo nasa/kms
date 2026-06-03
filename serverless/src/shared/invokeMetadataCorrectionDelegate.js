@@ -4,6 +4,24 @@ import { applyIso19115MetadataCorrections } from './applyIso19115MetadataCorrect
 import { applyIsoSmapMetadataCorrections } from './applyIsoSmapMetadataCorrections'
 import { applyUmmMetadataCorrections } from './applyUmmMetadataCorrections'
 
+const normalizeKeywordObject = (keywordObject) => (
+  keywordObject
+  && typeof keywordObject === 'object'
+  && !Array.isArray(keywordObject)
+    ? keywordObject
+    : {}
+)
+
+const normalizeCorrections = (corrections = []) => (
+  Array.isArray(corrections)
+    ? corrections.map((correction = {}) => ({
+      ...correction,
+      oldKeywordObject: normalizeKeywordObject(correction.oldKeywordObject),
+      newKeywordObject: normalizeKeywordObject(correction.newKeywordObject)
+    }))
+    : []
+)
+
 /**
  * Routes correction plans to the appropriate native-format delegate.
  *
@@ -28,17 +46,22 @@ export const invokeMetadataCorrectionDelegate = async ({
   nativeFormat,
   ...delegateParams
 }) => {
+  const normalizedDelegateParams = {
+    ...delegateParams,
+    corrections: normalizeCorrections(delegateParams.corrections)
+  }
+
   switch (nativeFormat) {
     case 'UMM':
-      return applyUmmMetadataCorrections(delegateParams)
+      return applyUmmMetadataCorrections(normalizedDelegateParams)
     case 'ISO19115':
-      return applyIso19115MetadataCorrections(delegateParams)
+      return applyIso19115MetadataCorrections(normalizedDelegateParams)
     case 'ISO_SMAP':
-      return applyIsoSmapMetadataCorrections(delegateParams)
+      return applyIsoSmapMetadataCorrections(normalizedDelegateParams)
     case 'ECHO10':
-      return applyEcho10MetadataCorrections(delegateParams)
+      return applyEcho10MetadataCorrections(normalizedDelegateParams)
     case 'DIF10':
-      return applyDif10MetadataCorrections(delegateParams)
+      return applyDif10MetadataCorrections(normalizedDelegateParams)
     default:
       throw new Error(`Unsupported native metadata format for delegate selection: ${nativeFormat}`)
   }

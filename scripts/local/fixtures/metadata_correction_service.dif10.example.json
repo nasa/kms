@@ -6,85 +6,183 @@
     {
       "scheme": "sciencekeywords",
       "action": "replace",
-      "oldKeywordPath": "EARTH SCIENCE > ATMOSPHERE > AEROSOLS",
-      "newKeywordPath": "EARTH SCIENCE > OCEANS > MARINE SEDIMENTS"
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "OCEANS",
+        "Term": "MARINE SEDIMENTS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
     },
     {
       "scheme": "locations",
       "action": "delete",
-      "oldKeywordPath": "CONTINENT > ANTARCTICA >  >  >  > MCMURDO SOUND"
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "ANTARCTICA",
+        "Subregion1": "",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": "MCMURDO SOUND"
+      }
     },
     {
       "scheme": "chronounits",
       "action": "replace",
-      "oldKeywordPath": "PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE >  > ",
-      "newKeywordPath": "PHANEROZOIC > CENOZOIC > QUATERNARY > PLEISTOCENE >  > "
+      "oldKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE",
+        "Age": "",
+        "SubAge": ""
+      },
+      "newKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "PLEISTOCENE",
+        "Age": "",
+        "SubAge": ""
+      }
     },
     {
       "scheme": "platforms",
       "action": "replace",
-      "oldKeywordPath": "Space-based Platforms > Earth Observation Satellites >  > SPOT-4",
-      "newKeywordPath": "Space-based Platforms > Earth Observation Satellites >  > SPOT-4-UPDATED",
-      "newLongName": "Systeme Observation de la Terre-4 Updated"
+      "newLongName": "Systeme Observation de la Terre-4 Updated",
+      "oldKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "SPOT-4"
+      },
+      "newKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "SPOT-4-UPDATED"
+      }
     },
     {
       "scheme": "instruments",
       "action": "delete",
-      "oldKeywordPath": "Imaging Spectrometers/Radiometers >  >  >  > GEOPHONES"
+      "oldKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "GEOPHONES"
+      }
     },
     {
       "scheme": "projects",
       "action": "replace",
-      "oldKeywordPath": "A - C > ALIENS",
-      "newKeywordPath": "A - C > ALIENS-UPDATED",
-      "newLongName": "Aliens in Antarctica Updated"
+      "newLongName": "Aliens in Antarctica Updated",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "ALIENS"
+      },
+      "newKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "ALIENS-UPDATED"
+      }
     },
     {
       "scheme": "providers",
       "action": "replace",
-      "oldKeywordPath": "ARCHIVER >  >  >  > NZ/NZAI/ANZ",
-      "newKeywordPath": "ARCHIVER >  >  >  > NZ/NZAI/ANZ-UPDATED",
-      "newLongName": "Antarctica New Zealand Updated"
+      "newLongName": "Antarctica New Zealand Updated",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NZ/NZAI/ANZ"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NZ/NZAI/ANZ-UPDATED"
+      }
     },
     {
       "scheme": "rucontenttype",
       "action": "replace",
-      "oldKeywordPath": "DistributionURL > VIEW RELATED INFORMATION > OpenSearch",
-      "newKeywordPath": "DistributionURL > VIEW RELATED INFORMATION > OGC WMS"
+      "oldKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "OpenSearch"
+      },
+      "newKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "OGC WMS"
+      }
     },
     {
       "scheme": "idnnode",
       "action": "delete",
-      "oldKeywordPath": "CEOS"
+      "oldKeywordObject": {
+        "ShortName": "CEOS"
+      }
     },
     {
       "scheme": "isotopiccategory",
       "action": "replace",
-      "oldKeywordPath": "GEOSCIENTIFIC INFORMATION",
-      "newKeywordPath": "OCEANS"
+      "oldKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION"
+      },
+      "newKeywordObject": {
+        "Value": "OCEANS"
+      }
     },
     {
       "scheme": "temporalresolutionrange",
       "action": "delete",
-      "oldKeywordPath": "Hourly"
+      "oldKeywordObject": {
+        "Value": "Hourly"
+      }
     },
     {
       "scheme": "verticalresolutionrange",
       "action": "replace",
-      "oldKeywordPath": "5 meters",
-      "newKeywordPath": "50 meters"
+      "oldKeywordObject": {
+        "Value": "5 meters"
+      },
+      "newKeywordObject": {
+        "Value": "50 meters"
+      }
     },
     {
       "scheme": "horizontalresolutionrange",
       "action": "replace",
-      "oldKeywordPath": "10 meters",
-      "newKeywordPath": "100 meters"
+      "oldKeywordObject": {
+        "Value": "10 meters"
+      },
+      "newKeywordObject": {
+        "Value": "100 meters"
+      }
     },
     {
       "scheme": "productlevelid",
       "action": "replace",
-      "oldKeywordPath": "NA",
-      "newKeywordPath": "1A"
+      "oldKeywordObject": {
+        "Value": "NA"
+      },
+      "newKeywordObject": {
+        "Value": "1A"
+      }
     }
   ]
 }
