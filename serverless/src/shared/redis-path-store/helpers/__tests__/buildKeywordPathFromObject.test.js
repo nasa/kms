@@ -22,6 +22,16 @@ describe('buildKeywordPathFromObject', () => {
         ShortName: 'Aqua'
       }
     })).toEqual('Space-based Platforms > Earth Observation Satellites > Aqua')
+
+    expect(buildKeywordPathFromObject({
+      scheme: 'platforms',
+      keywordObject: {
+        Category: '',
+        Class: '',
+        Type: '',
+        ShortName: ''
+      }
+    })).toEqual(' >  >  > ')
   })
 
   test('flattens scalar objects for non-slotted schemes', () => {

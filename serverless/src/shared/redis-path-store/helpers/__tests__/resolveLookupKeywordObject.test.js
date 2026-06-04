@@ -39,6 +39,18 @@ describe('resolveLookupKeywordObject', () => {
       scheme: 'sciencekeywords',
       keywordValue: undefined
     })).toEqual({})
+
+    expect(buildKeywordLookupObject({
+      scheme: 'platforms',
+      keywordValue: {}
+    })).toEqual({})
+
+    expect(buildKeywordLookupObject({
+      scheme: 'unknownscheme',
+      keywordValue: {
+        Value: 'P1D'
+      }
+    })).toEqual({})
   })
 
   test('extractShortNameLookupValue and buildShortNameLookupValue handle scalar and object values', () => {
@@ -54,6 +66,17 @@ describe('resolveLookupKeywordObject', () => {
     })).toBe('netCDF-4')
 
     expect(buildShortNameLookupValue(undefined)).toBeUndefined()
+
+    expect(buildShortNameLookupValue(42)).toBe('42')
+  })
+
+  test('buildKeywordLookupObject falls back to scalar full-path values for non-slotted full-path schemes', () => {
+    expect(buildKeywordLookupObject({
+      scheme: 'temporalresolutionrange',
+      keywordValue: 'P1D'
+    })).toEqual({
+      Value: 'P1D'
+    })
   })
 
   test('resolveLookupKeywordObject prefers explicit keyword objects when they contain values', () => {
@@ -67,6 +90,18 @@ describe('resolveLookupKeywordObject', () => {
       }
     })).toEqual({
       ShortName: 'AQUA'
+    })
+  })
+
+  test('resolveLookupKeywordObject falls back to keywordValue when the explicit keyword object is empty', () => {
+    expect(resolveLookupKeywordObject({
+      scheme: 'platforms',
+      keywordObject: {},
+      keywordValue: {
+        ShortName: 'TERRA'
+      }
+    })).toEqual({
+      ShortName: 'TERRA'
     })
   })
 })

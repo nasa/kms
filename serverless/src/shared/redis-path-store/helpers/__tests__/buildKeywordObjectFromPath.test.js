@@ -17,6 +17,19 @@ describe('buildKeywordObjectFromPath', () => {
       VariableLevel3: '',
       DetailedVariable: ''
     })
+
+    expect(buildKeywordPathObjectFromPath({
+      scheme: 'sciencekeywords',
+      keywordPath: 'EARTH SCIENCE > ATMOSPHERE'
+    })).toEqual({
+      Category: 'EARTH SCIENCE',
+      Topic: 'ATMOSPHERE',
+      Term: '',
+      VariableLevel1: '',
+      VariableLevel2: '',
+      VariableLevel3: '',
+      DetailedVariable: ''
+    })
   })
 
   test('reconstructs platforms short-name paths into keyword objects', () => {
@@ -149,6 +162,19 @@ describe('buildKeywordObjectFromPath', () => {
     expect(buildKeywordObjectFromPath({
       scheme: 'sciencekeywords',
       keywordPath: 'Science Keywords > EARTH SCIENCE > OCEANS >  >  >  >  > '
+    })).toEqual({
+      Category: 'EARTH SCIENCE',
+      Topic: 'OCEANS',
+      Term: '',
+      VariableLevel1: '',
+      VariableLevel2: '',
+      VariableLevel3: '',
+      DetailedVariable: ''
+    })
+
+    expect(buildKeywordObjectFromPath({
+      scheme: 'sciencekeywords',
+      keywordPath: 'EARTH SCIENCE > OCEANS >  >  >  >  > '
     })).toEqual({
       Category: 'EARTH SCIENCE',
       Topic: 'OCEANS',

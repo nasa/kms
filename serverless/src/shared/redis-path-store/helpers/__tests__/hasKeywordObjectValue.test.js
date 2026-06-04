@@ -1,6 +1,10 @@
 import { hasKeywordObjectValue } from '../hasKeywordObjectValue'
 
 describe('hasKeywordObjectValue', () => {
+  test('treats a missing keyword object as empty', () => {
+    expect(hasKeywordObjectValue()).toBe(false)
+  })
+
   test('recognizes effectively empty keyword objects', () => {
     expect(hasKeywordObjectValue({
       Category: '',

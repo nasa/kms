@@ -124,6 +124,51 @@ describe('createCmrCollectionQuery', () => {
         }
       }
     })
+
+    expect(createCmrCollectionQuery({
+      scheme: 'platforms',
+      uuid: 'platform-uuid'
+    })).toMatchObject({
+      cmrScheme: 'platform',
+      queryType: 'uuid',
+      query: {
+        condition: {
+          platform: {
+            uuid: 'platform-uuid'
+          }
+        }
+      }
+    })
+
+    expect(createCmrCollectionQuery({
+      scheme: 'instruments',
+      uuid: 'instrument-uuid'
+    })).toMatchObject({
+      cmrScheme: 'instrument',
+      queryType: 'uuid',
+      query: {
+        condition: {
+          instrument: {
+            uuid: 'instrument-uuid'
+          }
+        }
+      }
+    })
+
+    expect(createCmrCollectionQuery({
+      scheme: 'locations',
+      uuid: 'location-uuid'
+    })).toMatchObject({
+      cmrScheme: 'location_keyword',
+      queryType: 'uuid',
+      query: {
+        condition: {
+          location_keyword: {
+            uuid: 'location-uuid'
+          }
+        }
+      }
+    })
   })
 
   test('creates prefLabel-backed CMR collection queries for project-like schemes', () => {
@@ -140,9 +185,33 @@ describe('createCmrCollectionQuery', () => {
         }
       }
     })
+
+    expect(createCmrCollectionQuery({
+      scheme: 'productlevelid',
+      prefLabel: '1A'
+    })).toEqual({
+      cmrScheme: 'processing_level_id',
+      method: 'POST',
+      queryType: 'prefLabel',
+      query: {
+        condition: {
+          processing_level_id: '1A'
+        }
+      }
+    })
   })
 
   test('falls back to query-string collection queries for scalar schemes', () => {
+    expect(createCmrCollectionQuery({
+      scheme: 'dataformat',
+      prefLabel: 'HDF5'
+    })).toEqual({
+      cmrScheme: 'granule_data_format',
+      method: 'GET',
+      queryType: 'queryString',
+      query: 'granule_data_format=HDF5'
+    })
+
     expect(createCmrCollectionQuery({
       scheme: 'granuledataformat',
       prefLabel: 'netCDF-4'

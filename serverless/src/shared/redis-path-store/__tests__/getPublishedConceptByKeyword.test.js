@@ -213,6 +213,13 @@ describe('getPublishedConceptByKeyword', () => {
       cachedJsonResponseReader
     })).resolves.toBeUndefined()
 
+    await expect(getPublishedConceptByKeyword({
+      scheme: 'unknownscheme',
+      keywordObject: {
+        Value: 'P1D'
+      }
+    })).resolves.toBeUndefined()
+
     expect(cachedJsonResponseReader).not.toHaveBeenCalled()
   })
 })
