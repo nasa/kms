@@ -148,13 +148,6 @@
       }
     },
     {
-      "scheme": "temporalresolutionrange",
-      "action": "delete",
-      "oldKeywordObject": {
-        "Value": "Hourly"
-      }
-    },
-    {
       "scheme": "verticalresolutionrange",
       "action": "replace",
       "oldKeywordObject": {

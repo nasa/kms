@@ -416,10 +416,6 @@ export const DIF10_SCHEME_EDITORS = {
   isotopiccategory: leafScheme({
     nodeXPath: '//DIF/ISO_Topic_Category'
   }),
-  temporalresolutionrange: leafScheme({
-    nodeXPath: '//DIF/Data_Resolution/Temporal_Resolution_Range',
-    removeEmptyParent: true
-  }),
   verticalresolutionrange: leafScheme({
     nodeXPath: '//DIF/Data_Resolution/Vertical_Resolution_Range',
     removeEmptyParent: true

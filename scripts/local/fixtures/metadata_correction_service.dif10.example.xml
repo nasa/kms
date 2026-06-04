@@ -58,7 +58,6 @@
     <Data_Resolution>
         <Horizontal_Resolution_Range>10 meters</Horizontal_Resolution_Range>
         <Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>
-        <Temporal_Resolution_Range>Hourly</Temporal_Resolution_Range>
     </Data_Resolution>
     <Location>
         <Location_Category>CONTINENT</Location_Category>

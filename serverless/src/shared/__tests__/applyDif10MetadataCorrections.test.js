@@ -96,7 +96,6 @@ const mockDif10ForMetadataPreservation = `<DIF>
     <Data_Resolution>
         <Horizontal_Resolution_Range>10 meters</Horizontal_Resolution_Range>
         <Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>
-        <Temporal_Resolution_Range>Hourly</Temporal_Resolution_Range>
     </Data_Resolution>
     <Location>
         <Location_Category>CONTINENT</Location_Category>
@@ -700,13 +699,6 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
           }
         },
         {
-          scheme: 'temporalresolutionrange',
-          action: 'delete',
-          oldKeywordObject: {
-            Value: 'Hourly'
-          }
-        },
-        {
           scheme: 'verticalresolutionrange',
           action: 'replace',
           oldKeywordObject: {
@@ -741,7 +733,7 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
 
     const updatedDocument = parseXml(result.correctedMetadata)
 
-    expect(result.correctionCount).toBe(14)
+    expect(result.correctionCount).toBe(13)
 
     expect(selectTexts(updatedDocument, '//Science_Keywords/Topic')).toContain('OCEANS')
     expect(selectTexts(updatedDocument, '//Science_Keywords/Term')).toContain('MARINE SEDIMENTS')
@@ -760,7 +752,6 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
     expect(selectTexts(updatedDocument, '//IDN_Node/Short_Name')).toContain('AMD/NZ')
     expect(selectTexts(updatedDocument, '//IDN_Node/Short_Name')).not.toContain('CEOS')
     expect(selectText(updatedDocument, '//ISO_Topic_Category')).toBe('OCEANS')
-    expect(selectTexts(updatedDocument, '//Data_Resolution/Temporal_Resolution_Range')).toEqual([])
     expect(selectText(updatedDocument, '//Data_Resolution/Vertical_Resolution_Range')).toBe('50 meters')
     expect(selectText(updatedDocument, '//Data_Resolution/Horizontal_Resolution_Range')).toBe('100 meters')
     expect(selectText(updatedDocument, '//Product_Level_Id')).toBe('1A')
@@ -5244,200 +5235,22 @@ const mockDif10WithTemporalResolution = `<DIF>
 </DIF>`
 
 describe('when applying temporal resolution DIF10 corrections', () => {
-  describe('when replacing values', () => {
-    test('should replace a specific temporal range in an array', async () => {
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: mockDif10WithTemporalResolution,
-        corrections: [{
-          scheme: 'temporalresolutionrange',
-          action: 'replace',
-          oldKeywordObject: {
-            Value: 'Daily'
-          },
-          newKeywordObject: {
-            Value: 'Hourly'
-          }
-        }]
-      })
-
-      expect(result.correctionCount).toBe(1)
-      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Hourly</Temporal_Resolution_Range>')
-      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Monthly</Temporal_Resolution_Range>')
-      expect(result.correctedMetadata).not.toContain('<Temporal_Resolution_Range>Daily</Temporal_Resolution_Range>')
+  test('should ignore temporal resolution corrections because DIF10 does not support that field mapping', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: mockDif10WithTemporalResolution,
+      corrections: [{
+        scheme: 'temporalresolutionrange',
+        action: 'delete',
+        oldKeywordObject: {
+          Value: 'Daily'
+        }
+      }]
     })
 
-    test('should replace a single temporal range value when it is not in an array', async () => {
-      const singleXml = '<DIF><Data_Resolution><Temporal_Resolution_Range>Weekly</Temporal_Resolution_Range></Data_Resolution></DIF>'
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: singleXml,
-        corrections: [{
-          scheme: 'temporalresolutionrange',
-          action: 'replace',
-          oldKeywordObject: {
-            Value: 'Weekly'
-          },
-          newKeywordObject: {
-            Value: 'Yearly'
-          }
-        }]
-      })
-
-      expect(result.correctionCount).toBe(1)
-      expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Yearly</Temporal_Resolution_Range>')
-    })
-  })
-
-  describe('when deleting values and cleaning up empty containers', () => {
-    test('should delete a range from an array and keep the parent when other fields exist', async () => {
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: mockDif10WithTemporalResolution,
-        corrections: [{
-          scheme: 'temporalresolutionrange',
-          action: 'delete',
-          oldKeywordObject: {
-            Value: 'Monthly'
-          }
-        }]
-      })
-
-      expect(result.correctionCount).toBe(1)
-      expect(result.correctedMetadata).not.toContain('Monthly')
-      expect(result.correctedMetadata).toContain('<Data_Resolution>')
-      expect(result.correctedMetadata).toContain('Daily')
-    })
-
-    test('should delete the Data_Resolution parent when the last range is removed', async () => {
-      const singleXml = '<DIF><Data_Resolution><Temporal_Resolution_Range>One-Off</Temporal_Resolution_Range></Data_Resolution></DIF>'
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: singleXml,
-        corrections: [{
-          scheme: 'temporalresolutionrange',
-          action: 'delete',
-          oldKeywordObject: {
-            Value: 'One-Off'
-          }
-        }]
-      })
-
-      expect(result.correctionCount).toBe(1)
-      // The parent element should be pruned if it has no more children
-      expect(result.correctedMetadata).not.toContain('<Temporal_Resolution_Range>')
-      expect(result.correctedMetadata).not.toContain('<Data_Resolution>')
-    })
-
-    test('should delete the target field when an array becomes empty but keeps Data_Resolution if other fields exist', async () => {
-      // XML with multiple ranges and an unrelated field in Data_Resolution
-      const multiFieldXml = `<DIF>
-          <Data_Resolution>
-              <Vertical_Resolution_Range>Range 1</Vertical_Resolution_Range>
-              <Vertical_Resolution_Range>Range 2</Vertical_Resolution_Range>
-              <Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>
-          </Data_Resolution>
-      </DIF>`
-
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: multiFieldXml,
-        corrections: [
-          {
-            scheme: 'verticalresolutionrange',
-            action: 'delete',
-            oldKeywordObject: {
-              Value: 'Range 1'
-            }
-          },
-          {
-            scheme: 'verticalresolutionrange',
-            action: 'delete',
-            oldKeywordObject: {
-              Value: 'Range 2'
-            }
-          }
-        ]
-      })
-
-      expect(result.correctionCount).toBe(2)
-      // This specifically covers: if (ranges.length === 0) { delete resolution[targetField] }
-      expect(result.correctedMetadata).not.toContain('<Vertical_Resolution_Range>')
-
-      // Ensure the parent Data_Resolution was NOT cleaned up because Horizontal_Resolution_Range remains
-      expect(result.correctedMetadata).toContain('<Data_Resolution>')
-      expect(result.correctedMetadata).toContain('<Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>')
-    })
-
-    test('should delete a single temporal range value (non-array branch)', async () => {
-      // XML with only one range tag, parsed as a single object/string
-      const singleXml = `<DIF>
-      <Data_Resolution>
-          <Temporal_Resolution_Range>Weekly</Temporal_Resolution_Range>
-          <Horizontal_Resolution_Range>Keep Me</Horizontal_Resolution_Range>
-      </Data_Resolution>
-  </DIF>`
-
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: singleXml,
-        corrections: [{
-          scheme: 'temporalresolutionrange',
-          action: 'delete',
-          oldKeywordObject: {
-            Value: 'Weekly'
-          }
-        }]
-      })
-
-      expect(result.correctionCount).toBe(1)
-
-      // The specific matched temporal range should be removed while sibling fields remain intact.
-      expect(result.correctedMetadata).not.toContain('<Temporal_Resolution_Range>')
-
-      // Ensure the parent Data_Resolution is preserved because Horizontal_Resolution_Range exists
-      expect(result.correctedMetadata).toContain('<Data_Resolution>')
-      expect(result.correctedMetadata).toContain('Keep Me')
-    })
-  })
-
-  describe('when guard clauses prevent a correction', () => {
-    test('should return false if oldKeywordObject is missing', async () => {
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: mockDif10WithTemporalResolution,
-        corrections: [{
-          scheme: 'temporalresolutionrange'
-        }]
-      })
-      expect(result.correctionCount).toBe(0)
-    })
-
-    test('should return false if Data_Resolution tag is missing', async () => {
-      const emptyXml = '<DIF><Entry_ID><Short_Name>TEST</Short_Name></Entry_ID></DIF>'
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: emptyXml,
-        corrections: [{
-          scheme: 'temporalresolutionrange'
-        }]
-      })
-      expect(result.correctionCount).toBe(0)
-    })
-
-    test('should return false if Temporal_Resolution_Range is missing', async () => {
-      const xmlNoRange = '<DIF><Data_Resolution><Some_Other_Field>Value</Some_Other_Field></Data_Resolution></DIF>'
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: xmlNoRange,
-        corrections: [{
-          scheme: 'temporalresolutionrange'
-        }]
-      })
-      expect(result.correctionCount).toBe(0)
-    })
-
-    test('should return false for unrecognized action', async () => {
-      const result = await applyDif10MetadataCorrections({
-        metadataPayload: mockDif10WithTemporalResolution,
-        corrections: [{
-          scheme: 'temporalresolutionrange',
-          action: 'unsupported'
-        }]
-      })
-      expect(result.correctionCount).toBe(0)
-    })
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toHaveLength(0)
+    expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Monthly</Temporal_Resolution_Range>')
+    expect(result.correctedMetadata).toContain('<Temporal_Resolution_Range>Daily</Temporal_Resolution_Range>')
   })
 })
 
