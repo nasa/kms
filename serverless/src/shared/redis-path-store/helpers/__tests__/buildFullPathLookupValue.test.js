@@ -1,7 +1,4 @@
-import {
-  buildFullPathLookupValue,
-  buildKeywordPathFromValue
-} from '../buildFullPathLookupValue'
+import { buildFullPathLookupValue, buildKeywordPathFromValue } from '../buildFullPathLookupValue'
 
 describe('buildFullPathLookupValue', () => {
   test('buildKeywordPathFromValue pads science keyword paths to the canonical slot count', () => {

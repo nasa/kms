@@ -43,7 +43,10 @@ const CRYOSPHERE_SNOW_ICE_RENAMED_TERM_KEYWORD = {
 describe('when using XmlMetadataPathEditor object helpers', () => {
   test('should treat missing keyword objects as having no meaningful values', () => {
     expect(hasAnyObjectValue(undefined)).toBe(false)
-    expect(hasAnyObjectValue({ Type: '', ShortName: 'SPOT-4' })).toBe(true)
+    expect(hasAnyObjectValue({
+      Type: '',
+      ShortName: 'SPOT-4'
+    })).toBe(true)
   })
 
   test('should build sequential value mappings for ordered field paths', () => {

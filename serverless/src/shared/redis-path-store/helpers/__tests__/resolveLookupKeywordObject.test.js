@@ -45,12 +45,14 @@ describe('resolveLookupKeywordObject', () => {
     expect(extractShortNameLookupValue({
       ShortName: 'SPOT-4'
     })).toBe('SPOT-4')
+
     expect(extractShortNameLookupValue('TERRA')).toBe('TERRA')
     expect(extractShortNameLookupValue(undefined)).toBe('')
 
     expect(buildShortNameLookupValue({
       Format: 'netCDF-4'
     })).toBe('netCDF-4')
+
     expect(buildShortNameLookupValue(undefined)).toBeUndefined()
   })
 
