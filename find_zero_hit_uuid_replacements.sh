@@ -17,34 +17,57 @@ if [[ ! -f "check_hits.sh" ]]; then
   exit 1
 fi
 
-python3 - <<'PY'
+CMR_BASE_URL="${CMR_BASE_URL:-https://cmr.uat.earthdata.nasa.gov}"
+
+python3 - "$CMR_BASE_URL" "$@" <<'PY'
 import csv
 import io
 import json
+import os
 import re
+import sys
 import urllib.request
 from pathlib import Path
+
+cmr_base_url = sys.argv[1].rstrip("/")
+requested_labels = sys.argv[2:]
 
 text = Path("check_hits.sh").read_text()
 match = re.search(r"^TOKEN=(.*)$", text, re.M)
 if not match:
     raise SystemExit("Unable to find TOKEN in check_hits.sh")
 
-token = match.group(1).strip()
-cases = [
-    ("temporal-keywords", "temporalresolutionrange"),
-    ("spatial-keywords (location)", "locations"),
-    ("concepts (idnnode)", "idnnode"),
-    ("iso-topic-categories", "isotopiccategory"),
-    ("related-urls", "rucontenttype"),
-    ("granule-data-format (1)", "granuledataformat"),
-]
+token = os.environ.get("TOKEN", "").strip() or match.group(1).strip()
+cases = {
+    "temporal-keywords": "temporalresolutionrange",
+    "spatial-keywords (location)": "locations",
+    "concepts (idnnode)": "idnnode",
+    "iso-topic-categories": "isotopiccategory",
+    "related-urls": "rucontenttype",
+    "granule-data-format (1)": "granuledataformat",
+    "granule-data-format (2)": "granuledataformat",
+    "mime-type (1)": "mimetype",
+    "mime-type (2)": "mimetype",
+    "instruments": "instruments",
+}
+
+unknown_labels = [label for label in requested_labels if label not in cases]
+if unknown_labels:
+    available = ", ".join(sorted(cases))
+    raise SystemExit(
+        "Unknown label(s): "
+        + ", ".join(unknown_labels)
+        + "\nAvailable labels: "
+        + available
+    )
+
+selected_labels = requested_labels or list(cases.keys())
 
 kms_url = (
     "https://cmr.earthdata.nasa.gov/kms/concepts/"
     "concept_scheme/{scheme}?format=csv&version=published"
 )
-cmr_url = "https://cmr.uat.earthdata.nasa.gov/search/collections.umm_json?keyword={uuid}"
+cmr_url = cmr_base_url + "/search/collections.umm_json?keyword={uuid}"
 headers = {"Authorization": f"Bearer {token}"} if token else {}
 
 print(
@@ -55,7 +78,8 @@ print(
 )
 print("-" * 100)
 
-for label, scheme in cases:
+for label in selected_labels:
+    scheme = cases[label]
     csv_text = urllib.request.urlopen(kms_url.format(scheme=scheme), timeout=60).read().decode("utf-8")
     rows = list(csv.reader(io.StringIO(csv_text)))
     uuid_idx = len(rows[1]) - 1
