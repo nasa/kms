@@ -1,5 +1,6 @@
 import { parse } from 'csv/sync'
 
+import { downloadConcepts } from '@/shared/downloadConcepts'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 
@@ -284,11 +285,6 @@ const getKeywordChangesForScheme = async ({
   inPublished,
   inDraft
 }) => {
-  // The downloader stays lazy here to avoid pulling the concept export handler into the module
-  // graph until the publish flow actually needs it.
-  // eslint-disable-next-line import/no-cycle
-  const { downloadConcepts } = await import('@/shared/downloadConcepts')
-
   if (inPublished && inDraft) {
     const [publishedCsv, draftCsv] = await Promise.all([
       downloadConcepts({

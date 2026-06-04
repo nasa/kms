@@ -1,6 +1,7 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 
 import { getS3Client } from '@/shared/awsClients'
+import { downloadConcepts } from '@/shared/downloadConcepts'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
@@ -176,8 +177,6 @@ const writePublishedConceptCachesToRedis = async (
     schemes
   }
 ) => {
-  // eslint-disable-next-line import/no-cycle
-  const { downloadConcepts } = await import('@/shared/downloadConcepts')
   const schemeResults = []
   const failedSchemes = []
   let cachedCount = 0

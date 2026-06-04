@@ -20,6 +20,7 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
+import { getCsvForScheme } from '@/shared/redis-path-store/getCsvForScheme'
 import { createConceptsResponseCacheKey } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
@@ -232,8 +233,6 @@ export const getConcepts = async (event, context) => {
 
       let csvResponse
       try {
-        // eslint-disable-next-line import/no-cycle
-        const { getCsvForScheme } = await import('@/shared/redis-path-store/getCsvForScheme')
         const csvContent = await getCsvForScheme({
           scheme: conceptScheme,
           version,
