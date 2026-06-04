@@ -1366,6 +1366,25 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
       expect(result.correctedMetadata).toContain('<Vertical_Resolution_Range>5 meters</Vertical_Resolution_Range>')
     })
 
+    test('should delete the Data_Resolution parent when the last horizontal range is removed', async () => {
+      const singleXml = '<DIF><Data_Resolution><Horizontal_Resolution_Range>Only Range</Horizontal_Resolution_Range></Data_Resolution></DIF>'
+
+      const result = await applyDif10MetadataCorrections({
+        metadataPayload: singleXml,
+        corrections: [{
+          scheme: 'horizontalresolutionrange',
+          action: 'delete',
+          oldKeywordObject: {
+            Value: 'Only Range'
+          }
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctedMetadata).not.toContain('<Horizontal_Resolution_Range>')
+      expect(result.correctedMetadata).not.toContain('<Data_Resolution>')
+    })
+
     test('should delete the target field when the last element of an array is removed', async () => {
       // Starting with two elements
       const twoElementsXml = `<DIF>

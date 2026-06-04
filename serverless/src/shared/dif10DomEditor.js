@@ -425,7 +425,8 @@ export const DIF10_SCHEME_EDITORS = {
     removeEmptyParent: true
   }),
   horizontalresolutionrange: leafScheme({
-    nodeXPath: '//DIF/Data_Resolution/Horizontal_Resolution_Range'
+    nodeXPath: '//DIF/Data_Resolution/Horizontal_Resolution_Range',
+    removeEmptyParent: true
   }),
   productlevelid: scalarScheme({
     // Example correction input:
