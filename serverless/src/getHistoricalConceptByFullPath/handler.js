@@ -1,7 +1,9 @@
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
-import { redisPathStore } from '@/shared/redisPathStore'
+import {
+  getHistoricalConceptByFullPath as getHistoricalConceptByFullPathFromStore
+} from '@/shared/redis-path-store/getHistoricalConceptByFullPath'
 
 /**
  * Retrieves a historical concept (UUID and fullPath) for a given fullPath from the cache. This handler ONLY checks the cache
@@ -72,7 +74,7 @@ export const getHistoricalConceptByFullPath = async (event, context) => {
 
   try {
     const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
-    const concept = await redisPathStore.getHistoricalConceptByFullPath({
+    const concept = await getHistoricalConceptByFullPathFromStore({
       fullPath: decode(fullPath).toLowerCase(),
       scheme,
       bypassCache

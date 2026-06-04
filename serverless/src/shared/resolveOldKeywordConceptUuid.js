@@ -1,4 +1,5 @@
-import { redisPathStore } from './redisPathStore'
+import { getHistoricalConceptByKeyword } from './redis-path-store/getHistoricalConceptByKeyword'
+import { getPublishedConceptByUuid } from './redis-path-store/getPublishedConceptByUuid'
 
 /**
  * Historical-to-published keyword resolution helper for metadata correction.
@@ -55,10 +56,10 @@ const isDeleteMatchForKeyword = ({
 const getCurrentPublishedKeywordConcept = async ({
   keywordConceptUuid,
   normalizedScheme
-}) => redisPathStore.getPublishedConceptByUuid({
-    uuid: keywordConceptUuid,
-    scheme: normalizedScheme
-  })
+}) => getPublishedConceptByUuid({
+  uuid: keywordConceptUuid,
+  scheme: normalizedScheme
+})
 
 const normalizeKeywordObject = (keywordObject) => (
   keywordObject
@@ -181,7 +182,7 @@ export const resolveOldKeywordConceptUuid = async ({
   }
 
   const normalizedScheme = String(scheme).toLowerCase()
-  const historicalConcept = await redisPathStore.getHistoricalConceptByKeyword({
+  const historicalConcept = await getHistoricalConceptByKeyword({
     scheme: normalizedScheme,
     keywordValue
   })

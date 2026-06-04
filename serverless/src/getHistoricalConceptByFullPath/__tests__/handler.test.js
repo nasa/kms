@@ -7,7 +7,9 @@ import {
 
 import { getHistoricalConceptByFullPath } from '@/getHistoricalConceptByFullPath/handler'
 import { logger } from '@/shared/logger'
-import { redisPathStore } from '@/shared/redisPathStore'
+import {
+  getHistoricalConceptByFullPath as getHistoricalConceptByFullPathFromStore
+} from '@/shared/redis-path-store/getHistoricalConceptByFullPath'
 
 const mockConfig = {
   defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' }
@@ -17,10 +19,8 @@ vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn(() => mockConfig)
 }))
 
-vi.mock('@/shared/redisPathStore', () => ({
-  redisPathStore: {
-    getHistoricalConceptByFullPath: vi.fn()
-  }
+vi.mock('@/shared/redis-path-store/getHistoricalConceptByFullPath', () => ({
+  getHistoricalConceptByFullPath: vi.fn()
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
@@ -45,7 +45,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('returns 404 for supported schemes when no cached concept is found', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByFullPath({
       pathParameters: { fullPath: 'any' },
@@ -53,7 +53,7 @@ describe('getHistoricalConceptByFullPath', () => {
     })
 
     expect(result.statusCode).toBe(404)
-    expect(redisPathStore.getHistoricalConceptByFullPath).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByFullPathFromStore).toHaveBeenCalledWith({
       fullPath: 'any',
       scheme: 'sciencekeywords',
       bypassCache: false
@@ -61,7 +61,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('returns 400 if the scheme is not supported for caching by fullPath', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockRejectedValue(
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockRejectedValue(
       new Error('Historical fullPath lookup is not supported for scheme=invalid-scheme')
     )
 
@@ -105,7 +105,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('returns the concept response when a historical concept is found', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockResolvedValue({
       uuid: 'mock-uuid-123',
       fullPath: 'EARTH SCIENCE > OCEANS'
     })
@@ -129,7 +129,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('passes bypassCache through to the store when requested', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByFullPath({
       pathParameters: { fullPath: 'EARTH SCIENCE > OCEANS' },
@@ -140,7 +140,7 @@ describe('getHistoricalConceptByFullPath', () => {
     })
 
     expect(result.statusCode).toBe(404)
-    expect(redisPathStore.getHistoricalConceptByFullPath).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByFullPathFromStore).toHaveBeenCalledWith({
       fullPath: 'earth science > oceans',
       scheme: 'sciencekeywords',
       bypassCache: true
@@ -148,7 +148,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('returns 404 if the concept is not found in the cache', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByFullPath({
       pathParameters: { fullPath: 'EARTH SCIENCE > ATMOSPHERE' },
@@ -160,14 +160,14 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('decodes URL-encoded fullPath before calling the store', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockResolvedValue(undefined)
 
     await getHistoricalConceptByFullPath({
       pathParameters: { fullPath: 'A%2FB%20%3E%20C' },
       queryStringParameters: { scheme: 'sciencekeywords' }
     })
 
-    expect(redisPathStore.getHistoricalConceptByFullPath).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByFullPathFromStore).toHaveBeenCalledWith({
       fullPath: 'a/b > c',
       scheme: 'sciencekeywords',
       bypassCache: false
@@ -175,7 +175,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('returns 500 for unexpected lookup errors', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockRejectedValue(
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockRejectedValue(
       new Error('cache failure')
     )
 
@@ -200,7 +200,7 @@ describe('getHistoricalConceptByFullPath', () => {
   })
 
   test('returns 500 when an unexpected lookup error has no message', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByFullPath).mockRejectedValue({})
+    vi.mocked(getHistoricalConceptByFullPathFromStore).mockRejectedValue({})
 
     const result = await getHistoricalConceptByFullPath({
       pathParameters: { fullPath: 'EARTH SCIENCE > ATMOSPHERE' },

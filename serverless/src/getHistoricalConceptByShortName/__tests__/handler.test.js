@@ -7,7 +7,9 @@ import {
 
 import { getHistoricalConceptByShortName } from '@/getHistoricalConceptByShortName/handler'
 import { logger } from '@/shared/logger'
-import { redisPathStore } from '@/shared/redisPathStore'
+import {
+  getHistoricalConceptByShortName as getHistoricalConceptByShortNameFromStore
+} from '@/shared/redis-path-store/getHistoricalConceptByShortName'
 
 const mockConfig = {
   defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' }
@@ -17,10 +19,8 @@ vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn(() => mockConfig)
 }))
 
-vi.mock('@/shared/redisPathStore', () => ({
-  redisPathStore: {
-    getHistoricalConceptByShortName: vi.fn()
-  }
+vi.mock('@/shared/redis-path-store/getHistoricalConceptByShortName', () => ({
+  getHistoricalConceptByShortName: vi.fn()
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
@@ -45,7 +45,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('returns 404 for supported schemes when no cached concept is found', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'any' },
@@ -53,7 +53,7 @@ describe('getHistoricalConceptByShortName', () => {
     })
 
     expect(result.statusCode).toBe(404)
-    expect(redisPathStore.getHistoricalConceptByShortName).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
       shortName: 'any',
       scheme: 'platforms',
       bypassCache: false
@@ -61,7 +61,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('accepts DataFormat regardless of case', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'any' },
@@ -69,7 +69,7 @@ describe('getHistoricalConceptByShortName', () => {
     })
 
     expect(result.statusCode).toBe(404)
-    expect(redisPathStore.getHistoricalConceptByShortName).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
       shortName: 'any',
       scheme: 'dataformat',
       bypassCache: false
@@ -77,7 +77,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('returns 400 if the scheme is not supported for caching by shortName', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockRejectedValue(
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockRejectedValue(
       new Error('Historical shortName lookup is not supported for scheme=invalid-scheme')
     )
 
@@ -121,7 +121,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('returns the concept response when a historical concept is found', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue({
       uuid: 'mock-uuid-123',
       fullPath: 'Platforms > Space-based Platforms > TERRA',
       longName: 'Terra (satellite)'
@@ -147,7 +147,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('passes bypassCache through to the store when requested', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'TERRA' },
@@ -158,7 +158,7 @@ describe('getHistoricalConceptByShortName', () => {
     })
 
     expect(result.statusCode).toBe(404)
-    expect(redisPathStore.getHistoricalConceptByShortName).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
       shortName: 'terra',
       scheme: 'platforms',
       bypassCache: true
@@ -166,7 +166,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('returns 404 if the concept is not found in the cache', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
     const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'AQUA' },
@@ -178,14 +178,14 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('decodes URL-encoded shortName before calling the store', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
     await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'A%2FB' },
       queryStringParameters: { scheme: 'platforms' }
     })
 
-    expect(redisPathStore.getHistoricalConceptByShortName).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
       shortName: 'a/b',
       scheme: 'platforms',
       bypassCache: false
@@ -193,7 +193,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('returns 500 for unexpected lookup errors', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockRejectedValue(
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockRejectedValue(
       new Error('cache failure')
     )
 
@@ -218,7 +218,7 @@ describe('getHistoricalConceptByShortName', () => {
   })
 
   test('returns 500 when an unexpected lookup error has no message', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByShortName).mockRejectedValue({})
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockRejectedValue({})
 
     const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'AQUA' },

@@ -11,7 +11,11 @@ import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
-import { redisPathStore } from '@/shared/redisPathStore'
+import { getPublishKeywordEvents } from '@/shared/redis-path-store/getPublishKeywordEvents'
+import {
+  rebuildHistoricalConceptCache
+} from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
+import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 import { publisher } from '../handler'
@@ -113,7 +117,7 @@ const buildPublishKeywordEventsResult = ({
 }
 
 const mockPublishKeywordEvents = (keywordEvents = []) => {
-  vi.mocked(redisPathStore.getPublishKeywordEvents).mockResolvedValue(
+  vi.mocked(getPublishKeywordEvents).mockResolvedValue(
     buildPublishKeywordEventsResult({
       keywordEvents
     })
@@ -124,6 +128,19 @@ vi.mock('@/shared/emitPublisherMetrics')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
+
+vi.mock('@/shared/redis-path-store/getPublishKeywordEvents', () => ({
+  getPublishKeywordEvents: vi.fn()
+}))
+
+vi.mock('@/shared/redis-path-store/rebuildHistoricalConceptCache', () => ({
+  rebuildHistoricalConceptCache: vi.fn()
+}))
+
+vi.mock('@/shared/redis-path-store/writePublishedConceptCaches', () => ({
+  writePublishedConceptCaches: vi.fn()
+}))
+
 vi.mock('@/shared/sparqlRequest')
 vi.mock('@aws-sdk/client-eventbridge', () => ({
   EventBridgeClient: vi.fn(() => ({
@@ -145,15 +162,15 @@ describe('publisher handler', () => {
 
     delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
 
-    vi.spyOn(redisPathStore, 'getPublishKeywordEvents').mockResolvedValue(
+    vi.mocked(getPublishKeywordEvents).mockResolvedValue(
       buildPublishKeywordEventsResult()
     )
 
-    vi.spyOn(redisPathStore, 'rebuildHistoricalConceptCache').mockResolvedValue({
+    vi.mocked(rebuildHistoricalConceptCache).mockResolvedValue({
       cacheReady: true
     })
 
-    vi.spyOn(redisPathStore, 'writePublishedConceptCaches').mockResolvedValue({
+    vi.mocked(writePublishedConceptCaches).mockResolvedValue({
       cacheReady: true
     })
 
@@ -193,8 +210,8 @@ describe('publisher handler', () => {
       body: 'mock query'
     })
 
-    expect(redisPathStore.writePublishedConceptCaches).toHaveBeenCalledTimes(1)
-    expect(redisPathStore.rebuildHistoricalConceptCache).toHaveBeenCalledTimes(1)
+    expect(writePublishedConceptCaches).toHaveBeenCalledTimes(1)
+    expect(rebuildHistoricalConceptCache).toHaveBeenCalledTimes(1)
     expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'published' })
     expect(exportRdfToS3).toHaveBeenCalledWith({ version: 'draft' })
     expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
@@ -244,7 +261,7 @@ describe('publisher handler', () => {
   })
 
   test('fails before publish when keyword event generation fails', async () => {
-    vi.mocked(redisPathStore.getPublishKeywordEvents).mockRejectedValue(
+    vi.mocked(getPublishKeywordEvents).mockRejectedValue(
       new Error('Scheme lookup failed')
     )
 
@@ -263,11 +280,11 @@ describe('publisher handler', () => {
       })
     ])
 
-    vi.mocked(redisPathStore.writePublishedConceptCaches).mockRejectedValue(new Error('S3 CSV export failed'))
+    vi.mocked(writePublishedConceptCaches).mockRejectedValue(new Error('S3 CSV export failed'))
 
     const result = await publisher(mockEvent)
 
-    expect(redisPathStore.rebuildHistoricalConceptCache).not.toHaveBeenCalled()
+    expect(rebuildHistoricalConceptCache).not.toHaveBeenCalled()
     expect(publishKeywordEvent).not.toHaveBeenCalled()
     expect(result.status).toBe('partial_success')
     expect(result.postPublishFailures).toContain('Failed to export Published Scheme CSVs to S3: S3 CSV export failed')
@@ -283,7 +300,7 @@ describe('publisher handler', () => {
       })
     ])
 
-    vi.mocked(redisPathStore.rebuildHistoricalConceptCache).mockRejectedValue(
+    vi.mocked(rebuildHistoricalConceptCache).mockRejectedValue(
       new Error('Cache build failed')
     )
 

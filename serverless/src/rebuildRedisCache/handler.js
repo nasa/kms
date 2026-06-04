@@ -5,8 +5,11 @@ import { getEventBridgeClient } from '@/shared/awsClients'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
+import {
+  rebuildHistoricalConceptCache
+} from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
+import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
 import { getRedisClient } from '@/shared/redisCacheStore'
-import { redisPathStore } from '@/shared/redisPathStore'
 
 const REBUILD_CACHE_EVENT_SOURCE = 'kms.cache'
 const REBUILD_CACHE_EVENT_DETAIL_TYPE = 'kms.redis.cache.rebuild.requested'
@@ -125,10 +128,10 @@ export const rebuildRedisCache = async () => {
     // if rebuild time grows materially we should split this into multiple async stages
     // instead of keeping all cache rebuild work in one worker invocation.
     logger.info('[cache-rebuild] Rebuilding published concept lookup cache and CSV snapshots')
-    const publishedCacheResult = await redisPathStore.writePublishedConceptCaches()
+    const publishedCacheResult = await writePublishedConceptCaches()
 
     logger.info('[cache-rebuild] Rebuilding historical concept cache from archived CSV snapshots')
-    const historicalCacheResult = await redisPathStore.rebuildHistoricalConceptCache()
+    const historicalCacheResult = await rebuildHistoricalConceptCache()
 
     logger.info('[cache-rebuild] Priming published API and tree response caches')
     const responseCacheResult = await primeConceptsCache()

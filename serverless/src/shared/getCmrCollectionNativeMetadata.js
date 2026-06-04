@@ -31,7 +31,10 @@ const createCollectionNativeMetadataError = async (response) => {
  * @param {object} params - Native metadata lookup parameters.
  * @param {string} params.collectionConceptId - Collection concept id to fetch.
  * @param {number} [params.revisionId] - Optional revision id for a stable concept revision fetch.
- * @returns {Promise<string>} Raw native metadata payload.
+ * JSON-native formats such as UMM are parsed into objects so downstream delegates can mutate the
+ * in-memory payload directly. Text/XML native formats are returned as raw strings.
+ *
+ * @returns {Promise<string|Record<string, unknown>>} Raw or parsed native metadata payload.
  * @throws {Error} If the concept id is missing, CMR returns a failed response, or the response
  * body is empty.
  */
@@ -54,17 +57,28 @@ export const getCmrCollectionNativeMetadata = async ({
     throw await createCollectionNativeMetadataError(response)
   }
 
-  const metadataPayload = await response.text()
+  const metadataPayloadText = await response.text()
 
-  if (!metadataPayload) {
+  if (!metadataPayloadText) {
     throw new Error(`Empty CMR native metadata response for collection concept id: ${collectionConceptId}`)
+  }
+
+  const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase()
+  let metadataPayload = metadataPayloadText
+
+  if (contentType.includes('json')) {
+    try {
+      metadataPayload = JSON.parse(metadataPayloadText)
+    } catch {
+      metadataPayload = metadataPayloadText
+    }
   }
 
   logger.info(
     '[metadata-correction] Fetched CMR native metadata payload '
     + `collectionConceptId=${collectionConceptId} `
     + `revisionId=${revisionId ?? 'latest'} `
-    + `payloadBytes=${Buffer.byteLength(metadataPayload, 'utf8')}`
+    + `payloadBytes=${Buffer.byteLength(metadataPayloadText, 'utf8')}`
   )
 
   return metadataPayload

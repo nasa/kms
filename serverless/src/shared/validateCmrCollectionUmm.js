@@ -17,8 +17,8 @@
  */
 import { extractKeywordValue } from './extractKeywordValue'
 import { logger } from './logger'
+import { getPublishedConceptByKeyword } from './redis-path-store/getPublishedConceptByKeyword'
 import { getRedisClient } from './redisCacheStore'
-import { redisPathStore } from './redisPathStore'
 
 const VALIDATION_MESSAGES = {
   sciencekeywords: 'Science keyword was not a valid keyword combination.',
@@ -254,7 +254,7 @@ const validatePublishedKeywordCandidate = async ({
     umm
   })
 
-  const publishedConcept = await redisPathStore.getPublishedConceptByKeyword({
+  const publishedConcept = await getPublishedConceptByKeyword({
     scheme: normalizedScheme,
     keywordValue
   })

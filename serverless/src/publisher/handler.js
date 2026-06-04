@@ -6,7 +6,11 @@ import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
-import { redisPathStore } from '@/shared/redisPathStore'
+import { getPublishKeywordEvents } from '@/shared/redis-path-store/getPublishKeywordEvents'
+import {
+  rebuildHistoricalConceptCache
+} from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
+import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -227,7 +231,7 @@ export const publisher = async (event) => {
     const {
       keywordEvents,
       keywordChangeCount
-    } = await redisPathStore.getPublishKeywordEvents({
+    } = await getPublishKeywordEvents({
       blockOnFailure: shouldBlockPublishOnKeywordDiffFailure()
     })
     const keywordChangesDetected = keywordChangeCount
@@ -265,7 +269,7 @@ export const publisher = async (event) => {
     let csvExportSucceeded = false
     let publishedCacheReady = false
     try {
-      const csvExportResult = await redisPathStore.writePublishedConceptCaches()
+      const csvExportResult = await writePublishedConceptCaches()
       processTimes.exportPublishedCsv = ((Date.now() - processStartTime) / 1000).toFixed(2)
       csvExportSucceeded = true
       publishedCacheReady = csvExportResult.cacheReady
@@ -289,7 +293,7 @@ export const publisher = async (event) => {
     if (csvExportSucceeded) {
       logger.info('[publisher] Starting Historical Concept cache build from S3.')
       try {
-        const historicalCacheResult = await redisPathStore.rebuildHistoricalConceptCache()
+        const historicalCacheResult = await rebuildHistoricalConceptCache()
         processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
         historicalCacheBuildSucceeded = true
         historicalCacheReady = historicalCacheResult.cacheReady

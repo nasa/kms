@@ -29,6 +29,9 @@ describe('getCmrCollectionNativeMetadata', () => {
   test('should fetch the latest native metadata payload for a collection concept id', async () => {
     vi.mocked(cmrGetRequest).mockResolvedValue({
       ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue('application/xml')
+      },
       text: vi.fn().mockResolvedValue('<DIF><Entry_ID/></DIF>')
     })
 
@@ -49,6 +52,9 @@ describe('getCmrCollectionNativeMetadata', () => {
   test('should fetch a stable revision when revision id is supplied', async () => {
     vi.mocked(cmrGetRequest).mockResolvedValue({
       ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue('application/xml')
+      },
       text: vi.fn().mockResolvedValue('<DIF><Entry_ID>2</Entry_ID></DIF>')
     })
 
@@ -87,9 +93,29 @@ describe('getCmrCollectionNativeMetadata', () => {
     })
   })
 
+  test('should fall back to the http status when a failed raw concept response has no error text', async () => {
+    vi.mocked(cmrGetRequest).mockResolvedValue({
+      ok: false,
+      status: 500,
+      url: 'https://cmr.example/search/concepts/C500',
+      text: vi.fn().mockResolvedValue('')
+    })
+
+    await expect(getCmrCollectionNativeMetadata({
+      collectionConceptId: 'C500'
+    })).rejects.toMatchObject({
+      message: 'HTTP error! status: 500',
+      status: 500,
+      url: 'https://cmr.example/search/concepts/C500'
+    })
+  })
+
   test('should reject empty native metadata responses', async () => {
     vi.mocked(cmrGetRequest).mockResolvedValue({
       ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue('application/xml')
+      },
       text: vi.fn().mockResolvedValue('')
     })
 
@@ -98,5 +124,49 @@ describe('getCmrCollectionNativeMetadata', () => {
     })).rejects.toThrow(
       'Empty CMR native metadata response for collection concept id: C123'
     )
+  })
+
+  test('should parse json-native metadata payloads into objects', async () => {
+    vi.mocked(cmrGetRequest).mockResolvedValue({
+      ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue('application/vnd.nasa.cmr.umm+json')
+      },
+      text: vi.fn().mockResolvedValue(JSON.stringify({
+        ShortName: 'LOCAL-SMOKE'
+      }))
+    })
+
+    await expect(getCmrCollectionNativeMetadata({
+      collectionConceptId: 'C1234567890-PROV'
+    })).resolves.toEqual({
+      ShortName: 'LOCAL-SMOKE'
+    })
+  })
+
+  test('should fall back to the raw payload when json-native metadata cannot be parsed', async () => {
+    vi.mocked(cmrGetRequest).mockResolvedValue({
+      ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue('application/vnd.nasa.cmr.umm+json')
+      },
+      text: vi.fn().mockResolvedValue('{not-valid-json}')
+    })
+
+    await expect(getCmrCollectionNativeMetadata({
+      collectionConceptId: 'C1234567890-PROV'
+    })).resolves.toBe('{not-valid-json}')
+  })
+
+  test('should treat missing content-type headers as a non-json native payload', async () => {
+    vi.mocked(cmrGetRequest).mockResolvedValue({
+      ok: true,
+      headers: undefined,
+      text: vi.fn().mockResolvedValue('<DIF><Entry_ID>no-header</Entry_ID></DIF>')
+    })
+
+    await expect(getCmrCollectionNativeMetadata({
+      collectionConceptId: 'C1234567890-PROV'
+    })).resolves.toBe('<DIF><Entry_ID>no-header</Entry_ID></DIF>')
   })
 })

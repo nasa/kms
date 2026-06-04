@@ -6,21 +6,17 @@ import {
   vi
 } from 'vitest'
 
-import { redisPathStore } from '../redisPathStore'
+import { getHistoricalConceptByKeyword } from '../redis-path-store/getHistoricalConceptByKeyword'
+import { getPublishedConceptByUuid } from '../redis-path-store/getPublishedConceptByUuid'
 import { resolveOldKeywordConceptUuid } from '../resolveOldKeywordConceptUuid'
 
-vi.mock('../redisPathStore', async (importOriginal) => {
-  const actual = await importOriginal()
-  const mockedRedisPathStore = {
-    getHistoricalConceptByKeyword: vi.fn(),
-    getPublishedConceptByUuid: vi.fn()
-  }
+vi.mock('../redis-path-store/getHistoricalConceptByKeyword', () => ({
+  getHistoricalConceptByKeyword: vi.fn()
+}))
 
-  return {
-    ...actual,
-    redisPathStore: mockedRedisPathStore
-  }
-})
+vi.mock('../redis-path-store/getPublishedConceptByUuid', () => ({
+  getPublishedConceptByUuid: vi.fn()
+}))
 
 const SCIENCE_KEYWORD_OBJECT = {
   Category: 'EARTH SCIENCE',
@@ -56,12 +52,12 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('routes hierarchy schemes to the full path stub using keywordValue', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-full-path',
       keywordObject: SCIENCE_KEYWORD_OBJECT
     })
 
-    vi.mocked(redisPathStore.getPublishedConceptByUuid).mockResolvedValue({
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
       uuid: 'resolved-full-path',
       keywordObject: SCIENCE_KEYWORD_OBJECT
     })
@@ -80,7 +76,7 @@ describe('resolveOldKeywordConceptUuid', () => {
       action: 'replace'
     })
 
-    expect(redisPathStore.getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
       keywordValue: {
         Category: 'EARTH SCIENCE',
         Topic: 'ATMOSPHERE',
@@ -89,14 +85,14 @@ describe('resolveOldKeywordConceptUuid', () => {
       scheme: 'sciencekeywords'
     })
 
-    expect(redisPathStore.getPublishedConceptByUuid).toHaveBeenCalledWith({
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
       uuid: 'resolved-full-path',
       scheme: 'sciencekeywords'
     })
   })
 
   test('preserves interior holes for full-path lookups when keywordValue has sparse levels', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -107,7 +103,7 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toBeUndefined()
 
-    expect(redisPathStore.getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
       keywordValue: {
         Category: 'EARTH SCIENCE',
         Topic: 'CRYOSPHERE',
@@ -118,13 +114,13 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('routes short-name schemes to the short-name stub', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-short-name',
       keywordObject: PLATFORM_KEYWORD_OBJECT,
       longName: 'Dassault HU-25A Guardian'
     })
 
-    vi.mocked(redisPathStore.getPublishedConceptByUuid).mockResolvedValue({
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
       uuid: 'resolved-short-name',
       keywordObject: PLATFORM_KEYWORD_OBJECT,
       longName: 'Dassault HU-25A Guardian'
@@ -145,7 +141,7 @@ describe('resolveOldKeywordConceptUuid', () => {
       action: 'replace'
     })
 
-    expect(redisPathStore.getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
       keywordValue: {
         ShortName: 'HU-25A',
         LongName: 'Dassault HU-25A Guardian'
@@ -153,24 +149,24 @@ describe('resolveOldKeywordConceptUuid', () => {
       scheme: 'platforms'
     })
 
-    expect(redisPathStore.getPublishedConceptByUuid).toHaveBeenCalledWith({
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
       uuid: 'resolved-short-name',
       scheme: 'platforms'
     })
   })
 
   test('requires keywordValue for full-path lookups', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords'
     })).resolves.toBeUndefined()
 
-    expect(redisPathStore.getHistoricalConceptByKeyword).not.toHaveBeenCalled()
+    expect(getHistoricalConceptByKeyword).not.toHaveBeenCalled()
   })
 
   test('returns undefined when the historical lookup misses', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue(undefined)
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -183,12 +179,12 @@ describe('resolveOldKeywordConceptUuid', () => {
   })
 
   test('returns undefined when the current published path cannot be built', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-full-path',
       keywordObject: SCIENCE_KEYWORD_OBJECT
     })
 
-    vi.mocked(redisPathStore.getPublishedConceptByUuid).mockResolvedValue(undefined)
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue(undefined)
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'sciencekeywords',
@@ -199,14 +195,14 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toBeUndefined()
 
-    expect(redisPathStore.getPublishedConceptByUuid).toHaveBeenCalledWith({
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
       uuid: 'resolved-full-path',
       scheme: 'sciencekeywords'
     })
   })
 
   test('returns undefined when the historical concept is missing a uuid', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       keywordObject: null
     })
 
@@ -219,11 +215,37 @@ describe('resolveOldKeywordConceptUuid', () => {
       }
     })).resolves.toBeUndefined()
 
-    expect(redisPathStore.getPublishedConceptByUuid).not.toHaveBeenCalled()
+    expect(getPublishedConceptByUuid).not.toHaveBeenCalled()
+  })
+
+  test('returns undefined when a published replacement keyword object is not a plain object', async () => {
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      keywordObject: SCIENCE_KEYWORD_OBJECT
+    })
+
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
+      uuid: 'resolved-full-path',
+      keywordObject: []
+    })
+
+    await expect(resolveOldKeywordConceptUuid({
+      scheme: 'sciencekeywords',
+      keywordValue: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS'
+      }
+    })).resolves.toBeUndefined()
+
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
+      uuid: 'resolved-full-path',
+      scheme: 'sciencekeywords'
+    })
   })
 
   test('returns a delete action when a delete event uuid matches the historical concept', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'deleted-project-uuid',
       keywordObject: PROJECT_KEYWORD_OBJECT
     })
@@ -245,11 +267,11 @@ describe('resolveOldKeywordConceptUuid', () => {
       action: 'delete'
     })
 
-    expect(redisPathStore.getPublishedConceptByUuid).not.toHaveBeenCalled()
+    expect(getPublishedConceptByUuid).not.toHaveBeenCalled()
   })
 
   test('returns a delete action for full-path schemes when the delete event matches the historical concept', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'deleted-science-uuid',
       keywordObject: SCIENCE_LEGACY_KEYWORD_OBJECT,
       longName: 'Legacy Aerosols'
@@ -276,16 +298,16 @@ describe('resolveOldKeywordConceptUuid', () => {
       action: 'delete'
     })
 
-    expect(redisPathStore.getPublishedConceptByUuid).not.toHaveBeenCalled()
+    expect(getPublishedConceptByUuid).not.toHaveBeenCalled()
   })
 
   test('returns undefined when the historical concept does not include a keyword object', async () => {
-    vi.mocked(redisPathStore.getHistoricalConceptByKeyword).mockResolvedValue({
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-full-path',
       fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
     })
 
-    vi.mocked(redisPathStore.getPublishedConceptByUuid).mockResolvedValue({
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
       uuid: 'resolved-full-path',
       keywordObject: SCIENCE_KEYWORD_OBJECT
     })

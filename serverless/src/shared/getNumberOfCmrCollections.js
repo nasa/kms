@@ -4,7 +4,7 @@ import { cmrGetRequest } from './cmrGetRequest'
 import { cmrPostRequest } from './cmrPostRequest'
 import { VALID_SCHEMES } from './constants/validSchemes'
 import { logger } from './logger'
-import { redisPathStore } from './redisPathStore'
+import { createCmrCollectionQuery } from './redis-path-store/createCmrCollectionQuery'
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -123,7 +123,7 @@ export const getNumberOfCmrCollections = async ({
       method,
       query,
       queryType
-    } = redisPathStore.createCmrCollectionQuery({
+    } = createCmrCollectionQuery({
       scheme,
       uuid,
       prefLabel,

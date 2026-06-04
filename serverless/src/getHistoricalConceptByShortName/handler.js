@@ -1,7 +1,9 @@
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
-import { redisPathStore } from '@/shared/redisPathStore'
+import {
+  getHistoricalConceptByShortName as getHistoricalConceptByShortNameFromStore
+} from '@/shared/redis-path-store/getHistoricalConceptByShortName'
 
 /**
  * Retrieves a historical concept (UUID, fullPath, and longName) for a given shortName from the cache. This handler ONLY checks the cache
@@ -76,7 +78,7 @@ export const getHistoricalConceptByShortName = async (event, context) => {
 
   try {
     const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
-    const concept = await redisPathStore.getHistoricalConceptByShortName({
+    const concept = await getHistoricalConceptByShortNameFromStore({
       shortName: decode(shortName).toLowerCase(),
       scheme,
       bypassCache

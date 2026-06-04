@@ -1,3 +1,11 @@
+import { ingestCorrectedMetadataStub } from './ingestCorrectedMetadataStub'
+
+const serializeCorrectedMetadata = (correctedMetadata) => (
+  typeof correctedMetadata === 'string'
+    ? correctedMetadata
+    : JSON.stringify(correctedMetadata ?? '')
+)
+
 /**
  * Stubbed CMR write seam for corrected native metadata.
  *
@@ -8,6 +16,8 @@
  *
  * @param {Object} params Write request details.
  * @param {string} [params.collectionConceptId] Collection concept id being corrected.
+ * @param {string} [params.providerId] Collection provider id for local mock writeback.
+ * @param {string} [params.nativeId] Collection native id for local mock writeback.
  * @param {string} [params.nativeFormat] Native metadata format identifier.
  * @param {string} [params.correctedMetadata] Corrected native metadata payload.
  * @param {number} [params.correctionCount] Number of corrections applied to the payload.
@@ -27,20 +37,37 @@
  */
 export const writeCorrectedMetadataToCmr = async ({
   collectionConceptId = null,
+  providerId = null,
+  nativeId = null,
   nativeFormat = null,
   correctedMetadata = '',
   correctionCount = 0,
   correctionsApplied = [],
   source = null
-} = {}) => ({
-  stubbed: true,
-  targetComponent: 'cmr-writeback',
-  collectionConceptId,
-  nativeFormat,
-  correctionCount: Number(correctionCount || 0),
-  correctionsAppliedCount: Array.isArray(correctionsApplied) ? correctionsApplied.length : 0,
-  correctedMetadataBytes: Buffer.byteLength(correctedMetadata, 'utf8'),
-  source
-})
+} = {}) => {
+  const serializedMetadata = serializeCorrectedMetadata(correctedMetadata)
+  const ingestResult = await ingestCorrectedMetadataStub({
+    collectionConceptId,
+    providerId,
+    nativeId,
+    nativeFormat,
+    correctionCount: Number(correctionCount || 0),
+    correctedMetadata
+  })
+
+  return {
+    stubbed: true,
+    targetComponent: 'cmr-writeback',
+    collectionConceptId,
+    providerId,
+    nativeId,
+    nativeFormat,
+    correctionCount: Number(correctionCount || 0),
+    correctionsAppliedCount: Array.isArray(correctionsApplied) ? correctionsApplied.length : 0,
+    correctedMetadataBytes: Buffer.byteLength(serializedMetadata, 'utf8'),
+    source,
+    ingestResult
+  }
+}
 
 export default writeCorrectedMetadataToCmr

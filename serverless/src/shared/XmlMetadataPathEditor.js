@@ -20,7 +20,7 @@ const trimString = (value) => ((typeof value === 'string') ? value.trim() : '')
  * hasAnyObjectValue({ Type: '', ShortName: 'SPOT-4' })
  * // true
  */
-const hasAnyObjectValue = (keywordObject) => Object.values(keywordObject || {})
+export const hasAnyObjectValue = (keywordObject) => Object.values(keywordObject || {})
   .some((value) => trimString(value).length > 0)
 
 /**

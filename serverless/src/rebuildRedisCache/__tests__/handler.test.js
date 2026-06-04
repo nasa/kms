@@ -11,8 +11,11 @@ import { rebuildRedisCache, requestRebuildRedisCache } from '@/rebuildRedisCache
 import { getEventBridgeClient } from '@/shared/awsClients'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
+import {
+  rebuildHistoricalConceptCache
+} from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
+import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
 import { getRedisClient } from '@/shared/redisCacheStore'
-import { redisPathStore } from '@/shared/redisPathStore'
 
 const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
   sendEventBridgeMock: vi.fn(),
@@ -25,11 +28,12 @@ vi.mock('@/shared/awsClients', () => ({
   }))
 }))
 
-vi.mock('@/shared/redisPathStore', () => ({
-  redisPathStore: {
-    rebuildHistoricalConceptCache: vi.fn(),
-    writePublishedConceptCaches: vi.fn()
-  }
+vi.mock('@/shared/redis-path-store/rebuildHistoricalConceptCache', () => ({
+  rebuildHistoricalConceptCache: vi.fn()
+}))
+
+vi.mock('@/shared/redis-path-store/writePublishedConceptCaches', () => ({
+  writePublishedConceptCaches: vi.fn()
 }))
 
 vi.mock('@/shared/getConfig', () => ({
@@ -171,7 +175,7 @@ describe('when rebuildRedisCache is invoked by the worker', () => {
         flushAll: vi.fn().mockResolvedValue('OK')
       })
 
-      vi.mocked(redisPathStore.rebuildHistoricalConceptCache)
+      vi.mocked(rebuildHistoricalConceptCache)
         .mockRejectedValue(new Error('RDF bucket name is required to rebuild the historical cache'))
 
       const response = await rebuildRedisCache(event, context)
@@ -236,10 +240,10 @@ describe('when rebuildRedisCache is invoked by the worker', () => {
         flushAll
       })
 
-      vi.mocked(redisPathStore.writePublishedConceptCaches)
+      vi.mocked(writePublishedConceptCaches)
         .mockResolvedValue(publishedCacheResult)
 
-      vi.mocked(redisPathStore.rebuildHistoricalConceptCache)
+      vi.mocked(rebuildHistoricalConceptCache)
         .mockResolvedValue(historicalCacheResult)
 
       vi.mocked(primeConceptsCache).mockResolvedValue(responseCacheResult)
@@ -247,8 +251,8 @@ describe('when rebuildRedisCache is invoked by the worker', () => {
       const response = await rebuildRedisCache(event, context)
 
       expect(flushAll).toHaveBeenCalledTimes(1)
-      expect(redisPathStore.writePublishedConceptCaches).toHaveBeenCalledTimes(1)
-      expect(redisPathStore.rebuildHistoricalConceptCache).toHaveBeenCalledTimes(1)
+      expect(writePublishedConceptCaches).toHaveBeenCalledTimes(1)
+      expect(rebuildHistoricalConceptCache).toHaveBeenCalledTimes(1)
 
       expect(primeConceptsCache).toHaveBeenCalledTimes(1)
       expect(logger.info).toHaveBeenCalledWith('[cache-rebuild] Completed Redis cache rebuild')

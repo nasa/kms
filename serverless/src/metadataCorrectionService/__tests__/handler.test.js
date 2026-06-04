@@ -296,6 +296,8 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith({
         collectionConceptId: 'C123-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
         nativeFormat: 'DIF10',
         correctedMetadata: '<DIF><Entry_ID>updated</Entry_ID></DIF>',
         correctionCount: 1,
@@ -400,6 +402,151 @@ describe('when the metadata correction service is invoked', () => {
         collectionConceptId: 'C999-DIF10',
         revisionId: 4
       })
+    })
+
+    test('should allow UMM requests when the detected native format has a registered delegate', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C123-UMM',
+        providerId: 'PROV',
+        nativeId: 'native-umm',
+        revisionId: 2,
+        format: 'application/vnd.nasa.cmr.umm+json',
+        umm: {
+          Platforms: [
+            {
+              ShortName: 'Aqua Legacy'
+            }
+          ]
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['Platforms', 0],
+            errors: ['Platform was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {
+          errors: [
+            {
+              path: ['Platforms', 0],
+              errors: ['Platform was not a valid keyword combination.']
+            }
+          ],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'platforms',
+          path: ['Platforms', 0],
+          oldKeyword: '[resolve old keyword from UMM-C value: Aqua Legacy]',
+          keywordValue: {
+            ShortName: 'Aqua Legacy'
+          },
+          errors: ['Platform was not a valid keyword combination.']
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'platform-uuid-1',
+        oldKeywordObject: {
+          ShortName: 'Aqua Legacy'
+        },
+        newKeywordObject: {
+          ShortName: 'Aqua'
+        },
+        action: 'replace'
+      })
+
+      vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue({
+        Platforms: [
+          {
+            ShortName: 'Aqua Legacy'
+          }
+        ]
+      })
+
+      vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+        nativeFormat: 'UMM',
+        delegateName: 'umm',
+        correctionCount: 1,
+        correctedMetadata: {
+          Platforms: [
+            {
+              ShortName: 'Aqua'
+            }
+          ]
+        },
+        correctionsApplied: [
+          {
+            scheme: 'platforms',
+            keywordConceptUuid: 'platform-uuid-1',
+            oldKeywordObject: {
+              ShortName: 'Aqua Legacy'
+            },
+            newKeywordObject: {
+              ShortName: 'Aqua'
+            },
+            action: 'replace',
+            ummPath: ['Platforms', 0]
+          }
+        ],
+        stubbed: true
+      })
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-umm-1',
+            body: JSON.stringify({
+              source: 'cmrKeywordEventsListener',
+              collectionConceptId: 'C123-UMM'
+            })
+          }
+        ]
+      })
+
+      expect(invokeMetadataCorrectionDelegate).toHaveBeenCalledWith({
+        collectionConceptId: 'C123-UMM',
+        providerId: 'PROV',
+        nativeId: 'native-umm',
+        nativeFormat: 'UMM',
+        metadataPayload: {
+          Platforms: [
+            {
+              ShortName: 'Aqua Legacy'
+            }
+          ]
+        },
+        corrections: [
+          {
+            scheme: 'platforms',
+            keywordConceptUuid: 'platform-uuid-1',
+            oldKeywordObject: {
+              ShortName: 'Aqua Legacy'
+            },
+            newKeywordObject: {
+              ShortName: 'Aqua'
+            },
+            action: 'replace',
+            ummPath: ['Platforms', 0]
+          }
+        ]
+      })
+
+      expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collectionConceptId: 'C123-UMM',
+          providerId: 'PROV',
+          nativeId: 'native-umm',
+          nativeFormat: 'UMM'
+        })
+      )
     })
 
     test('should stop cleanly when the collection request has no resolvable corrections', async () => {
@@ -566,12 +713,108 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith({
         collectionConceptId: 'C0000000001-KMS',
+        providerId: 'PROV',
+        nativeId: 'native-1',
         nativeFormat: 'DIF10',
         correctedMetadata: '',
         correctionCount: 0,
         correctionsApplied: [],
         source: 'metadataCorrectionService'
       })
+    })
+
+    test('should fall back to the normalized native format when the delegate does not return a delegate name', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C0000000002-KMS',
+        providerId: 'PROV',
+        nativeId: 'native-2',
+        revisionId: 5,
+        format: 'DIF+XML',
+        umm: {
+          ScienceKeywords: [
+            {
+              Category: 'EARTH SCIENCE',
+              Topic: 'ATMOSPHERE',
+              Term: 'LEGACY AEROSOLS'
+            }
+          ]
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['ScienceKeywords', 0],
+            errors: ['Science keyword was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {
+          errors: [
+            {
+              path: ['ScienceKeywords', 0],
+              errors: ['Science keyword was not a valid keyword combination.']
+            }
+          ],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'sciencekeywords',
+          path: ['ScienceKeywords', 0],
+          keywordValue: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'LEGACY AEROSOLS'
+          }
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'science-uuid-1',
+        oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+        newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
+        action: 'replace'
+      })
+
+      vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF><Entry_ID/></DIF>')
+
+      vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+        correctionCount: 1,
+        correctionsApplied: [
+          {
+            scheme: 'sciencekeywords',
+            keywordConceptUuid: 'science-uuid-1',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
+            action: 'replace',
+            ummPath: ['ScienceKeywords', 0]
+          }
+        ],
+        correctedMetadata: '<DIF><Entry_ID>updated</Entry_ID></DIF>'
+      })
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-fallback-delegate-name',
+            body: JSON.stringify({
+              collectionConceptId: 'C0000000002-KMS'
+            })
+          }
+        ]
+      })
+
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collectionConceptId: 'C0000000002-KMS',
+          nativeFormat: 'DIF10',
+          delegateName: 'dif10'
+        })
+      )
     })
 
     test('should acknowledge an empty batch', async () => {

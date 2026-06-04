@@ -233,8 +233,8 @@ export const getConcepts = async (event, context) => {
       let csvResponse
       try {
         // eslint-disable-next-line import/no-cycle
-        const { redisPathStore } = await import('@/shared/redisPathStore')
-        const csvContent = await redisPathStore.getCsvForScheme({
+        const { getCsvForScheme } = await import('@/shared/redis-path-store/getCsvForScheme')
+        const csvContent = await getCsvForScheme({
           scheme: conceptScheme,
           version,
           versionName: keywordVersion,

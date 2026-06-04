@@ -9,14 +9,15 @@ import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptU
 import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
 
-const SUPPORTED_NATIVE_FORMATS = ['DIF10']
+// Keep the service allowlist aligned with the delegates that are safe for the current flow.
+const SUPPORTED_NATIVE_FORMATS = ['DIF10', 'UMM']
 
 // Normalize request formats so the service can compare them consistently.
 const normalizeNativeFormat = (nativeFormat) => String(nativeFormat).trim().toUpperCase()
 
 // Accept only the collection identifier up front. Optional keyword-event context is used only
 // to safely prove delete actions for resolved keywords.
-const validateMetadataCorrectionRequest = (metadataCorrectionRequest = {}) => {
+const validateMetadataCorrectionRequest = (metadataCorrectionRequest) => {
   if (typeof metadataCorrectionRequest.collectionConceptId !== 'string'
     || metadataCorrectionRequest.collectionConceptId.trim().length === 0) {
     throw new Error('Incomplete metadata correction request: missing collectionConceptId')
@@ -202,6 +203,8 @@ export const metadataCorrectionService = async (event) => {
 
       const writeResult = await writeCorrectedMetadataToCmr({
         collectionConceptId,
+        providerId: collectionDetails.providerId,
+        nativeId: collectionDetails.nativeId,
         nativeFormat,
         correctedMetadata: correctionResult.correctedMetadata ?? '',
         correctionCount: correctionResult.correctionCount || 0,

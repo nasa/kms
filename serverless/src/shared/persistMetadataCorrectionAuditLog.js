@@ -6,7 +6,9 @@ import {
   escapeSparqlLiteral,
   METADATA_CORRECTION_AUDIT_GRAPH
 } from '@/shared/metadataCorrectionAudit'
-import { redisPathStore } from '@/shared/redisPathStore'
+import {
+  getKeywordPathFromKeywordObject
+} from '@/shared/redis-path-store/getKeywordPathFromKeywordObject'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -39,7 +41,7 @@ const optionalLiteralTriple = (subject, predicate, value) => {
 const buildAuditKeywordPath = ({
   scheme,
   keywordObject
-}) => redisPathStore.getKeywordPathFromKeywordObject({
+}) => getKeywordPathFromKeywordObject({
   scheme,
   keywordObject
 }) || ''
