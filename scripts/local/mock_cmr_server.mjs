@@ -55,6 +55,26 @@ const collectionsByConceptId = new Map(
   ])
 )
 
+// Return the native metadata payload the collection should expose through the `.native` route.
+const getNativeMetadataPayload = (collection) => {
+  if (collection.nativeMetadata !== undefined) {
+    return collection.nativeMetadata
+  }
+
+  if (String(collection.format || '').toLowerCase().includes('json')) {
+    return collection.umm || {}
+  }
+
+  return ''
+}
+
+// Infer a reasonable content type for the fixture-backed native metadata response.
+const getNativeMetadataContentType = (collection) => {
+  const format = String(collection.format || '').trim()
+
+  return format || 'application/octet-stream'
+}
+
 // Keep the concept-id index in sync after local updates.
 const updateCollectionIndexes = (collection) => {
   collectionsByConceptId.set(collection.conceptId, collection)
@@ -239,6 +259,46 @@ const handleCollectionLookupRequest = (url, response) => {
 }
 
 /**
+ * Handles raw native metadata lookups for a collection concept id, optionally pinned to a revision.
+ *
+ * @param {string} conceptId - Collection concept id from the request path.
+ * @param {string|undefined} revisionId - Optional revision id segment from the request path.
+ * @param {http.ServerResponse} response - The HTTP response to write to.
+ * @returns {void}
+ */
+const handleNativeCollectionLookupRequest = (conceptId, revisionId, response) => {
+  const collection = collectionsByConceptId.get(conceptId)
+
+  if (!collection) {
+    sendJson(response, 404, {
+      errors: [`Collection concept id not found in mock fixture: ${conceptId}`]
+    })
+
+    return
+  }
+
+  if (revisionId !== undefined && String(collection.revisionId) !== String(revisionId)) {
+    sendJson(response, 404, {
+      errors: [`Revision ${revisionId} not found for collection concept id: ${conceptId}`]
+    })
+
+    return
+  }
+
+  const nativeMetadata = getNativeMetadataPayload(collection)
+
+  response.writeHead(200, {
+    'Content-Type': getNativeMetadataContentType(collection)
+  })
+
+  response.end(
+    typeof nativeMetadata === 'string'
+      ? nativeMetadata
+      : JSON.stringify(nativeMetadata)
+  )
+}
+
+/**
  * Handles local-only collection updates so smoke tests can simulate post-correction ingest.
  *
  * @param {http.IncomingMessage} request - The incoming HTTP request.
@@ -260,6 +320,12 @@ const handleLocalCollectionUpdateRequest = async (request, response, conceptId) 
   const requestBody = await readJsonBody(request)
 
   collection.umm = requestBody.umm || collection.umm
+  if (requestBody.nativeMetadata !== undefined) {
+    collection.nativeMetadata = requestBody.nativeMetadata
+  } else if (String(collection.format || '').toLowerCase().includes('json')) {
+    collection.nativeMetadata = collection.umm
+  }
+
   collection.revisionId = Number(collection.revisionId || 0) + 1
 
   updateCollectionIndexes(collection)
@@ -299,6 +365,20 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'GET' && url.pathname === '/search/collections') {
       handleCollectionLookupRequest(url, response)
+
+      return
+    }
+
+    const nativeCollectionLookupMatch = request.method === 'GET'
+      && url.pathname.match(/^\/search\/concepts\/([^/]+)(?:\/([^/]+))?\.native$/)
+
+    if (nativeCollectionLookupMatch) {
+      const conceptId = decodeURIComponent(nativeCollectionLookupMatch[1])
+      const revisionId = nativeCollectionLookupMatch[2]
+        ? decodeURIComponent(nativeCollectionLookupMatch[2])
+        : undefined
+
+      handleNativeCollectionLookupRequest(conceptId, revisionId, response)
 
       return
     }

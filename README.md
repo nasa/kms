@@ -126,6 +126,43 @@ The script re-synthesizes `cdk/cdk.out/KmsStack.template.json` each run so local
 npm run prime-cache:invoke-local
 ```
 
+### Rebuild Redis cache with curl
+
+KMS also exposes a `POST /cache/rebuild` endpoint that kicks off a full Redis cache rebuild.
+This call is asynchronous:
+
+- the API returns `202 Accepted` as soon as it successfully emits the rebuild request event
+- the actual rebuild work happens in the background worker
+- the worker flushes Redis, rebuilds the published concept lookup cache, rebuilds the historical
+  concept lookup cache, and then primes the published API/tree response caches
+
+Local SAM example:
+
+```bash
+curl -X POST http://127.0.0.1:3013/cache/rebuild
+```
+
+Expected response:
+
+```json
+{"message":"Redis cache rebuild initiated"}
+```
+
+Deployed environment example:
+
+```bash
+curl -X POST "$KMS_API_BASE_URL/cache/rebuild" \
+  -H "Authorization: Bearer $EDL_LEVEL_5_TOKEN"
+```
+
+Notes:
+
+- the deployed route is protected, so use a valid auth token
+- a successful `202` means the rebuild was queued, not that the worker has already finished
+- to verify completion, check the logs from the `rebuildRedisCache` worker Lambda
+- if Redis is not configured, the background worker returns a `503` when it runs
+- if `RDF_BUCKET_NAME` is missing, the background worker returns a `500` when it runs
+
 ### Redis cache namespaces and lifecycle
 
 KMS uses Redis for two different jobs:
@@ -206,6 +243,186 @@ To run the test suite, run:
 ```
 npm run test
 ```
+
+### Metadata correction smoke test
+
+To run the local DIF10 metadata-correction smoke flow against the checked-in fixture:
+
+```bash
+npx vite-node --config vite.config.js scripts/local/run_metadata_correction_dif10_smoke.mjs
+```
+
+This:
+
+- loads `scripts/local/fixtures/metadata_correction_service.dif10.example.json`
+- applies the corrections locally through the DIF10 delegate
+- writes the corrected XML to `tmp/metadata_correction_smoke_output.xml`
+
+The final writeback step is still stubbed, so this is a local mutation/integration check rather
+than a live CMR ingest test.
+
+## XML Metadata Path Editor
+
+`serverless/src/shared/XmlMetadataPathEditor.js` is the shared XML mutation engine used by XML-native metadata delegates. It exists so we can make targeted keyword updates against a DOM instead of converting the whole XML document into a generic JavaScript object and rebuilding it from scratch. The first consumer is DIF10 through `serverless/src/shared/dif10DomEditor.js`, but the editor is intentionally format-agnostic so later XML formats can reuse the same matching and mutation primitives.
+
+At a high level, the flow is:
+
+1. A delegate creates an editor from the raw XML payload.
+2. A format-specific config chooses the right update mode for a scheme.
+3. The editor uses XPath to find candidate XML nodes.
+4. It matches the current XML content against the incoming normalized `oldKeywordObject`.
+5. It applies a targeted `replace` or `delete`.
+6. The delegate serializes the DOM back to XML once at the end.
+
+Internally, the correction flow is now object-first:
+
+- `redisPathStore.js` owns canonical keyword object <-> path conversion rules and Redis lookup
+  key construction
+- XML and UMM delegates work from `oldKeywordObject` / `newKeywordObject`
+- joined `oldKeywordPath` / `newKeywordPath` strings are now primarily boundary values for Redis,
+  logs, and audit records
+
+The important distinction is:
+
+- `oldKeywordObject` is the current value we expect to find in the metadata
+- `newKeywordObject` is the replacement value we want to write back
+- delete-style corrections usually match on `oldKeywordObject` and remove the target node without
+  needing `newKeywordObject`
+
+### Reading An Existing Config
+
+If you are trying to understand a config file like `serverless/src/shared/dif10DomEditor.js`, the easiest way to read it is from the outside in:
+
+1. Start with the wrapper:
+   - `blockScheme(...)`: repeated XML blocks such as `Science_Keywords`, `Location`, `Platform`, or `Organization`
+   - `leafScheme(...)`: simple text nodes where the whole node value is the keyword
+   - `scalarScheme(...)`: one-off root fields such as `Product_Level_Id`
+2. Look at `nodeXPath`:
+   - this tells you which XML nodes are candidates for the correction
+3. Look at `find`:
+   - `fieldPaths` says which XML fields are read from the candidate node
+   - `valueKeys` says which `oldKeywordObject` keys those XML values are compared against
+   - `find` is always about matching the current XML content to the correction's old/current value
+4. Look at `replace`:
+   - each entry says which XML field gets written
+   - `sequentialValueReplace(...)` is the compact “XML field order on the left, keyword-object key order on the right” helper
+   - `source.type: 'value'` means “take this value from `newKeywordObject`”
+   - `source.type: 'param'` means “take this value from another correction property such as `newLongName`”
+   - `replace` is always about writing the correction's new/replacement value, not re-reading the old one
+5. Look for cleanup hooks:
+   - `removeNodeIfEmptyAfterReplace` removes the matched block if a replace clears all of its child fields
+   - `removeEmptyParent` prunes an otherwise-empty parent container after a leaf delete
+   - `afterReplace` and `afterDelete` are only for small format-specific cleanup steps after the main write/remove operation
+
+Example, simplified from the DIF10 `platforms` config:
+
+```js
+platforms: blockScheme({
+  nodeXPath: '//DIF/Platform',
+  find: {
+    fieldPaths: ['Short_Name'],
+    valueKeys: ['ShortName']
+  },
+  replace: [
+    {
+      fieldPath: 'Type',
+      source: { type: 'value', key: 'Type' }
+    },
+    {
+      fieldPath: 'Short_Name',
+      source: { type: 'value', key: 'ShortName' }
+    },
+    {
+      fieldPath: 'Long_Name',
+      source: { type: 'param', key: 'newLongName' }
+    }
+  ]
+})
+```
+
+That reads as:
+
+- search all `<Platform>` nodes
+- match the one whose current `Short_Name` matches `oldKeywordObject.ShortName`
+- on replace, write:
+  - `newKeywordObject.Type` into `<Type>`
+  - `newKeywordObject.ShortName` into `<Short_Name>`
+  - `newLongName` into `<Long_Name>`
+
+### Writing A New Config For Another XML Format
+
+If you are creating a new format-specific config, treat `XmlMetadataPathEditor` as the reusable engine and keep the new file as a thin mapping layer.
+
+Recommended approach:
+
+1. Create a small format adapter file, similar to `dif10DomEditor.js`.
+2. Keep matching object-based:
+   - prefer matching by the current XML value compared to `oldKeywordObject`
+   - do not rely on mutable positional indices inside the source XML
+3. Choose the simplest update mode that fits:
+   - repeated block: `blockScheme`
+   - single text node: `leafScheme`
+   - root scalar field: `scalarScheme`
+4. Define `find.fieldPaths` in the XML order you want to read and `find.valueKeys` in the `oldKeywordObject` order you want to compare.
+5. Define `replace` so each XML field clearly states where its new value comes from:
+   - a `newKeywordObject` value
+   - or a named correction parameter such as `newLongName`
+6. Keep delete behavior conservative:
+   - remove only the XML node that truly represents the controlled keyword value
+   - avoid broader container deletes unless the format requires it
+7. Add strong tests with the new config:
+   - successful replace
+   - successful delete
+   - missing target is a no-op
+   - optional field behavior
+   - no-op preservation where unrelated XML content remains intact
+
+Good rule of thumb:
+
+- put reusable DOM/XPath behavior in `XmlMetadataPathEditor`
+- put format-specific field mappings in the format adapter
+- keep delegates thin, so adding the next XML format mostly means writing config and tests rather than building another XML engine
+
+## Metadata Correction Service Contract
+
+`serverless/src/metadataCorrectionService/handler.js` expects a collection-scoped correction request:
+
+- `collectionConceptId`
+- optional `keywordEvent`
+
+When `keywordEvent` is present, it is now normalized into object form before it reaches the
+service flow. In practice the useful event fields are:
+
+- `eventType`
+- `scheme`
+- `uuid`
+- `oldKeywordObject`
+- `newKeywordObject`
+- `timestamp`
+
+The service then:
+
+1. fetches the collection UMM/native metadata details from CMR
+2. validates the collection against the published Redis cache
+3. extracts invalid keyword values from UMM-C and normalizes them into keyword objects
+4. resolves concrete corrections through `redisPathStore`, which converts keyword objects into the canonical Redis lookup keys
+5. fetches the raw native metadata payload
+6. invokes the native-format delegate
+7. calls `serverless/src/shared/writeCorrectedMetadataToCmr.js`
+
+`keywordEvent` is now optional and is used only as extra delete proof. Without delete-specific
+event context, unresolved cache lookups are skipped rather than inferred as delete actions. At the
+moment, runtime native-format support remains limited to `DIF10`.
+
+Resolved corrections are also object-first now:
+
+- `oldKeywordObject`
+- `newKeywordObject`
+- scheme-specific extras such as `newLongName`
+
+Audit logging still derives `oldKeywordPath` / `newKeywordPath` strings for readability, but the
+runtime correction and delegate flow works from normalized keyword objects.
+
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.
 ### Prerequisites

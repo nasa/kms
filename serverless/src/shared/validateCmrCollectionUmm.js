@@ -17,33 +17,8 @@
  */
 import { extractKeywordValue } from './extractKeywordValue'
 import { logger } from './logger'
-import {
-  createPublishedConceptResponseCacheKeyByFullPath,
-  createPublishedConceptResponseCacheKeyByShortName
-} from './redisCacheKeys'
-import { getCachedJsonResponse, getRedisClient } from './redisCacheStore'
-
-const FULL_PATH_SCHEMES = new Set([
-  'sciencekeywords',
-  'locations',
-  'chronounits',
-  'rucontenttype',
-  'isotopiccategory',
-  'temporalresolutionrange',
-  'horizontalresolutionrange',
-  'verticalresolutionrange',
-  'productlevelid'
-])
-
-const SHORT_NAME_SCHEMES = new Set([
-  'providers',
-  'platforms',
-  'instruments',
-  'projects',
-  'idnnode',
-  'dataformat',
-  'granuledataformat'
-])
+import { getPublishedConceptByKeyword } from './redis-path-store/getPublishedConceptByKeyword'
+import { getRedisClient } from './redisCacheStore'
 
 const VALIDATION_MESSAGES = {
   sciencekeywords: 'Science keyword was not a valid keyword combination.',
@@ -64,101 +39,13 @@ const VALIDATION_MESSAGES = {
   rucontenttype: 'Related URL Content Type was not a valid set together.'
 }
 
-const LOOKUP_PATH_SEPARATOR = ' > '
-
-// Flattens nested keyword objects/arrays into a simple list of string values.
-const flattenKeywordValues = (keywordValue) => {
-  if (keywordValue === undefined || keywordValue === null) {
-    return []
-  }
-
-  if (Array.isArray(keywordValue)) {
-    return keywordValue.flatMap(flattenKeywordValues)
-  }
-
-  if (typeof keywordValue === 'object') {
-    return Object.values(keywordValue).flatMap(flattenKeywordValues)
-  }
-
-  return [String(keywordValue)]
-}
-
-// Converts a scheme-specific UMM keyword value into the published-cache lookup value.
-const getKeywordLookupValue = ({
-  scheme,
-  keywordValue
-}) => {
-  const normalizedScheme = String(scheme).toLowerCase()
-
-  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
-    if (keywordValue?.ShortName) {
-      return String(keywordValue.ShortName)
-    }
-
-    return flattenKeywordValues(keywordValue)[0]
-  }
-
-  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
-    const pathSegments = flattenKeywordValues(keywordValue)
-
-    return pathSegments.length > 0
-      ? pathSegments.join(LOOKUP_PATH_SEPARATOR)
-      : undefined
-  }
-
-  /* istanbul ignore next -- unsupported schemes are filtered before this helper is used */
-  return undefined
-}
-
-// Reads a published concept from Redis using the normalized full-path lookup key.
-const getPublishedConceptByFullPath = async ({
-  fullPath,
-  scheme
-}) => {
-  const cacheKey = createPublishedConceptResponseCacheKeyByFullPath({
-    fullPath: fullPath.toLowerCase(),
-    scheme: scheme.toLowerCase()
-  })
-  const cachedResponse = await getCachedJsonResponse({
-    cacheKey,
-    entityLabel: 'Published Concept by fullPath'
-  })
-
-  if (!cachedResponse?.body) {
-    return undefined
-  }
-
-  return JSON.parse(cachedResponse.body)
-}
-
-// Reads a published concept from Redis using the normalized short-name lookup key.
-const getPublishedConceptByShortName = async ({
-  shortName,
-  scheme
-}) => {
-  const cacheKey = createPublishedConceptResponseCacheKeyByShortName({
-    shortName: shortName.toLowerCase(),
-    scheme: scheme.toLowerCase()
-  })
-  const cachedResponse = await getCachedJsonResponse({
-    cacheKey,
-    entityLabel: 'Published Concept by shortName'
-  })
-
-  if (!cachedResponse?.body) {
-    return undefined
-  }
-
-  return JSON.parse(cachedResponse.body)
-}
-
 // Builds the CMR-like validation error shape expected by downstream correction logic.
 const createValidationError = ({
   scheme,
   path
 }) => ({
   path,
-  errors: [VALIDATION_MESSAGES[scheme] || 'Keyword was not a valid keyword.']
+  errors: [VALIDATION_MESSAGES[scheme]]
 })
 
 // Appends one supported keyword candidate to the validation work list.
@@ -174,7 +61,7 @@ const pushKeywordCandidate = ({
 }
 
 // Walks the supported UMM-C keyword fields and records the validation paths we should check.
-const extractKeywordCandidatesFromUmm = (umm = {}) => {
+const extractKeywordCandidatesFromUmm = (umm) => {
   const candidates = [];
   (umm.ScienceKeywords || []).forEach((keyword, index) => {
     if (keyword) {
@@ -366,48 +253,18 @@ const validatePublishedKeywordCandidate = async ({
     path,
     umm
   })
-  const lookupValue = getKeywordLookupValue({
-    scheme,
+
+  const publishedConcept = await getPublishedConceptByKeyword({
+    scheme: normalizedScheme,
     keywordValue
   })
 
-  if (!lookupValue) {
-    return createValidationError({
+  return publishedConcept
+    ? undefined
+    : createValidationError({
       scheme: normalizedScheme,
       path
     })
-  }
-
-  if (FULL_PATH_SCHEMES.has(normalizedScheme)) {
-    const publishedConcept = await getPublishedConceptByFullPath({
-      fullPath: lookupValue,
-      scheme: normalizedScheme
-    })
-
-    return publishedConcept
-      ? undefined
-      : createValidationError({
-        scheme: normalizedScheme,
-        path
-      })
-  }
-
-  if (SHORT_NAME_SCHEMES.has(normalizedScheme)) {
-    const publishedConcept = await getPublishedConceptByShortName({
-      shortName: lookupValue,
-      scheme: normalizedScheme
-    })
-
-    return publishedConcept
-      ? undefined
-      : createValidationError({
-        scheme: normalizedScheme,
-        path
-      })
-  }
-
-  /* istanbul ignore next -- unsupported schemes are filtered before validation reaches this branch */
-  return undefined
 }
 
 // Validates the collection's supported keywords against the published cache and returns a CMR-like result.

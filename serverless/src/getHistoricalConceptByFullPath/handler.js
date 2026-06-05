@@ -1,11 +1,9 @@
-import {
-  HISTORICAL_CONCEPT_FULL_PATH_SCHEMES
-} from '@/shared/constants/fullPathForHistoricalConceptSchemes'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
-import { createConceptResponseCacheKeyByFullPath } from '@/shared/redisCacheKeys'
-import { getCachedJsonResponse } from '@/shared/redisCacheStore'
+import {
+  getHistoricalConceptByFullPath as getHistoricalConceptByFullPathFromStore
+} from '@/shared/redis-path-store/getHistoricalConceptByFullPath'
 
 /**
  * Retrieves a historical concept (UUID and fullPath) for a given fullPath from the cache. This handler ONLY checks the cache
@@ -37,10 +35,6 @@ import { getCachedJsonResponse } from '@/shared/redisCacheStore'
  */
 export const getHistoricalConceptByFullPath = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
-
-  const schemesForHistoricalConceptByFullPath = HISTORICAL_CONCEPT_FULL_PATH_SCHEMES.map(
-    (s) => s.toLowerCase()
-  )
 
   logAnalyticsData({
     event,
@@ -78,35 +72,23 @@ export const getHistoricalConceptByFullPath = async (event, context) => {
     }
   }
 
-  if (!schemesForHistoricalConceptByFullPath.includes(scheme)) {
-    return {
-      statusCode: 400,
-      headers: {
-        ...defaultResponseHeaders,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ error: `Caching by fullPath is not supported for the '${rawScheme}' scheme` })
-    }
-  }
-
   try {
     const decode = (str) => decodeURIComponent(str.replace(/\+/g, ' '))
-    const decodedFullPath = decode(fullPath).toLowerCase()
-
-    const cacheKey = createConceptResponseCacheKeyByFullPath({
-      fullPath: decodedFullPath,
-      scheme
-    })
-
-    const cachedResponse = await getCachedJsonResponse({
-      cacheKey,
-      entityLabel: 'Historical Concept by fullPath',
+    const concept = await getHistoricalConceptByFullPathFromStore({
+      fullPath: decode(fullPath).toLowerCase(),
+      scheme,
       bypassCache
     })
 
-    if (cachedResponse) {
-      // Return the entire cached response, which is already in the correct format.
-      return cachedResponse
+    if (concept) {
+      return {
+        statusCode: 200,
+        headers: {
+          ...defaultResponseHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(concept)
+      }
     }
 
     // If not in cache, we cannot proceed because this handler's job is only to check the cache.
@@ -119,6 +101,17 @@ export const getHistoricalConceptByFullPath = async (event, context) => {
       body: JSON.stringify({ error: 'Cached Concept not found for the given fullPath' })
     }
   } catch (error) {
+    if (String(error.message || '').includes('Historical fullPath lookup is not supported')) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...defaultResponseHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ error: `Caching by fullPath is not supported for the '${rawScheme}' scheme` })
+      }
+    }
+
     logger.error(`Error retrieving historical concept, error=${error.toString()}`)
 
     return {

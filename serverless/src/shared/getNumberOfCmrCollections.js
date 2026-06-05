@@ -4,6 +4,7 @@ import { cmrGetRequest } from './cmrGetRequest'
 import { cmrPostRequest } from './cmrPostRequest'
 import { VALID_SCHEMES } from './constants/validSchemes'
 import { logger } from './logger'
+import { createCmrCollectionQuery } from './redis-path-store/createCmrCollectionQuery'
 
 /**
  * Gets the number of CMR collections based on the provided parameters
@@ -116,135 +117,33 @@ export const getNumberOfCmrCollections = async ({
     return cmrHits
   }
 
-  const getJsonQueryForKeywordHierarchy = ({
-    schemeParam,
-    hierarchyFields,
-    keywordList,
-    prefLabelField,
-    prefLabelParam
-  }) => {
-    const sb = []
-
-    for (let i = 0; i < Math.min(hierarchyFields.length, keywordList.length); i += 1) {
-      const name = hierarchyFields[i]
-      const value = keywordList[i]
-
-      if (value != null && value !== '') {
-        sb.push(`"${name}":"${value}"`)
-      }
-    }
-
-    if (prefLabel != null) {
-      sb.push(`"${prefLabelField}":"${prefLabelParam}"`)
-    }
-
-    // Always add ignore_case
-    sb.push('"ignore_case":false')
-
-    const query = `{"condition":{"${schemeParam}":{${sb.join(', ')}}}}`
-    logger.debug('Generated JSON query:', query)
-
-    return JSON.parse(query)
-  }
-
-  // Map the input scheme to the corresponding CMR scheme
-  let cmrScheme
-  switch (scheme.toLowerCase()) {
-    case 'sciencekeywords':
-      cmrScheme = 'science_keywords'
-      break
-    case 'platforms':
-      cmrScheme = 'platform'
-      break
-    case 'instruments':
-      cmrScheme = 'instrument'
-      break
-    case 'locations':
-      cmrScheme = 'location_keyword'
-      break
-    case 'projects':
-      cmrScheme = 'project'
-      break
-    case 'providers':
-      cmrScheme = 'data_center'
-      break
-    case 'productlevelid':
-      cmrScheme = 'processing_level_id'
-      break
-    case 'dataformat':
-    case 'granuledataformat':
-      cmrScheme = 'granule_data_format'
-      break
-    // Add more cases as needed
-    default:
-      cmrScheme = scheme // Use the original value if no match is found
-  }
-
-  logger.debug('Mapped CMR scheme:', cmrScheme)
-
   try {
-    let numberOfCollections
+    const {
+      cmrScheme,
+      method,
+      query,
+      queryType
+    } = createCmrCollectionQuery({
+      scheme,
+      uuid,
+      prefLabel,
+      fullPath,
+      isLeaf
+    })
 
-    // Handle schemes that use UUID
-    if (['science_keywords', 'platform', 'instrument', 'location_keyword'].includes(cmrScheme)) {
-      const jsonQuery = {
-        condition: {
-          [cmrScheme]: {
-            uuid
-          }
-        }
-      }
-      logger.debug('Using UUID-based query:', JSON.stringify(jsonQuery))
-      numberOfCollections = await doRequest('POST', jsonQuery)
-    // Handle schemes that use prefLabel
-    } else if (['project', 'ProductLevelId'].includes(cmrScheme)) {
-      const jsonQuery = {
-        condition: {
-          [cmrScheme]: prefLabel
-        }
-      }
-      logger.debug('Using prefLabel-based query:', JSON.stringify(jsonQuery))
-      numberOfCollections = await doRequest('POST', jsonQuery)
-    } else if (['data_center'].includes(cmrScheme)) {
-      const hierarchyFields = ['level_0', 'level_1', 'level_2', 'level_3']
-      let keywordList = fullPath.split('|')
-      logger.debug('Data center keyword list:', keywordList)
-      let jsonQuery
-      if (isLeaf) {
-        if (keywordList.length > 1) {
-          keywordList = keywordList.slice(0, -1)
-        }
+    logger.debug('Mapped CMR scheme:', cmrScheme)
 
-        const prefLabelField = 'short_name'
-        jsonQuery = getJsonQueryForKeywordHierarchy({
-          schemeParam: cmrScheme,
-          hierarchyFields,
-          keywordList,
-          prefLabelField,
-          prefLabelParam: prefLabel
-        })
-      } else {
-        jsonQuery = getJsonQueryForKeywordHierarchy({
-          schemeParam: cmrScheme,
-          hierarchyFields,
-          keywordList,
-          prefLabelField: null,
-          prefLabelParam: null
-        })
-      }
-
-      logger.debug('Using data center query:', JSON.stringify(jsonQuery))
-      numberOfCollections = await doRequest('POST', jsonQuery)
-    } else if (['processing_level_id'].includes(cmrScheme)) {
-      const query = `{"condition":{"${cmrScheme}":"${prefLabel}"}}`
-      logger.debug('Using processing_level_id query:', query)
-      numberOfCollections = await doRequest('POST', JSON.parse(query))
-    // Handle all other schemes
+    if (queryType === 'uuid') {
+      logger.debug('Using UUID-based query:', JSON.stringify(query))
+    } else if (queryType === 'prefLabel') {
+      logger.debug('Using prefLabel-based query:', JSON.stringify(query))
+    } else if (queryType === 'hierarchy') {
+      logger.debug('Using data center query:', JSON.stringify(query))
     } else {
-      const queryString = `${cmrScheme}=${encodeURIComponent(prefLabel)}`
-      logger.debug('Using GET request with query string:', queryString)
-      numberOfCollections = await doRequest('GET', queryString)
+      logger.debug('Using GET request with query string:', query)
     }
+
+    const numberOfCollections = await doRequest(method, query)
 
     logger.info('Number of collections found:', numberOfCollections)
 

@@ -12,6 +12,37 @@ import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrec
 
 import { cmrKeywordEventsListener } from '../handler'
 
+const OLD_SCIENCE_KEYWORD_OBJECT = {
+  Category: 'Old',
+  Topic: 'Keyword',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const NEW_SCIENCE_KEYWORD_OBJECT = {
+  Category: 'New',
+  Topic: 'Keyword',
+  Term: '',
+  VariableLevel1: '',
+  VariableLevel2: '',
+  VariableLevel3: '',
+  DetailedVariable: ''
+}
+
+const NEW_SCIENCE_KEYWORD_OBJECT_LOG = JSON.stringify(NEW_SCIENCE_KEYWORD_OBJECT)
+const OLD_PROJECT_KEYWORD_OBJECT = {
+  ShortName: 'Legacy Climate Study'
+}
+const OLD_PROJECT_KEYWORD_OBJECT_LOG = JSON.stringify(OLD_PROJECT_KEYWORD_OBJECT)
+const SHORT_NAME_FALLBACK_KEYWORD_OBJECT = {
+  Aliases: ['   '],
+  ShortName: 'Fallback Short Name'
+}
+const SHORT_NAME_FALLBACK_KEYWORD_OBJECT_LOG = JSON.stringify(SHORT_NAME_FALLBACK_KEYWORD_OBJECT)
+
 vi.mock('@/shared/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -55,8 +86,8 @@ describe('when the CMR keyword events processor is invoked', () => {
                   EventType: 'UPDATED',
                   Scheme: 'sciencekeywords',
                   UUID: '1234',
-                  OldKeywordPath: 'Old > Keyword',
-                  NewKeywordPath: 'New > Keyword',
+                  OldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+                  NewKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
                   Timestamp: '2026-04-21T00:00:00.000Z'
                 })
               })
@@ -67,7 +98,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         expect(getCmrCollectionConceptIds).toHaveBeenCalledWith({
           scheme: 'sciencekeywords',
           uuid: '1234',
-          keywordPath: 'New > Keyword'
+          keywordObject: NEW_SCIENCE_KEYWORD_OBJECT
         })
 
         expect(logger.info).toHaveBeenCalledWith(
@@ -93,7 +124,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
 
         expect(logger.info).toHaveBeenCalledWith(
-          expect.stringContaining('keywordPath=New > Keyword')
+          expect.stringContaining(`keywordObject=${NEW_SCIENCE_KEYWORD_OBJECT_LOG}`)
         )
 
         expect(logger.info).toHaveBeenCalledWith(
@@ -111,8 +142,8 @@ describe('when the CMR keyword events processor is invoked', () => {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',
             uuid: '1234',
-            oldKeywordPath: 'Old > Keyword',
-            newKeywordPath: 'New > Keyword',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             timestamp: '2026-04-21T00:00:00.000Z'
           }
         })
@@ -124,8 +155,8 @@ describe('when the CMR keyword events processor is invoked', () => {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',
             uuid: '1234',
-            oldKeywordPath: 'Old > Keyword',
-            newKeywordPath: 'New > Keyword',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
             timestamp: '2026-04-21T00:00:00.000Z'
           }
         })
@@ -179,7 +210,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
 
         expect(logger.info).toHaveBeenCalledWith(
-          expect.stringContaining('keywordPath=n/a')
+          expect.stringContaining('keywordObject=n/a')
         )
 
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
@@ -199,7 +230,7 @@ describe('when the CMR keyword events processor is invoked', () => {
                   EventType: 'INSERTED',
                   Scheme: 'sciencekeywords',
                   UUID: '1234',
-                  NewKeywordPath: 'New > Keyword'
+                  NewKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT
                 })
               })
             }
@@ -215,11 +246,128 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
 
         expect(logger.info).toHaveBeenCalledWith(
-          expect.stringContaining('keywordPath=New > Keyword')
+          expect.stringContaining(`keywordObject=${NEW_SCIENCE_KEYWORD_OBJECT_LOG}`)
         )
 
         expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should prefer the old keyword object for deleted events when no replacement object exists', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockResolvedValue(['C1000000000-PROV'])
+
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-delete-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'DELETED',
+                  Scheme: 'projects',
+                  UUID: 'project-1234',
+                  OldKeywordObject: OLD_PROJECT_KEYWORD_OBJECT,
+                  Timestamp: '2026-04-22T00:00:00.000Z'
+                })
+              })
+            }
+          ]
+        })
+
+        expect(getCmrCollectionConceptIds).toHaveBeenCalledWith({
+          scheme: 'projects',
+          uuid: 'project-1234',
+          keywordObject: OLD_PROJECT_KEYWORD_OBJECT
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining(`keywordObject=${OLD_PROJECT_KEYWORD_OBJECT_LOG}`)
+        )
+
+        expect(publishMetadataCorrectionRequest).toHaveBeenCalledWith({
+          source: 'cmrKeywordEventsListener',
+          collectionConceptId: 'C1000000000-PROV',
+          keywordEvent: {
+            eventType: 'DELETED',
+            scheme: 'projects',
+            uuid: 'project-1234',
+            oldKeywordObject: OLD_PROJECT_KEYWORD_OBJECT,
+            newKeywordObject: undefined,
+            timestamp: '2026-04-22T00:00:00.000Z'
+          }
+        })
+
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should treat a scalar keyword field as meaningful even when another array field is blank', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockResolvedValue(['C1000000000-PROV'])
+
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'projects',
+                  UUID: 'project-5678',
+                  NewKeywordObject: SHORT_NAME_FALLBACK_KEYWORD_OBJECT
+                })
+              })
+            }
+          ]
+        })
+
+        expect(getCmrCollectionConceptIds).toHaveBeenCalledWith({
+          scheme: 'projects',
+          uuid: 'project-5678',
+          keywordObject: SHORT_NAME_FALLBACK_KEYWORD_OBJECT
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining(`keywordObject=${SHORT_NAME_FALLBACK_KEYWORD_OBJECT_LOG}`)
+        )
+
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should not fall back to the old keyword object for updated events', async () => {
+        vi.mocked(getCmrCollectionConceptIds).mockResolvedValue(['C1000000000-PROV'])
+
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'projects',
+                  UUID: 'project-9012',
+                  OldKeywordObject: OLD_PROJECT_KEYWORD_OBJECT
+                })
+              })
+            }
+          ]
+        })
+
+        expect(getCmrCollectionConceptIds).toHaveBeenCalledWith({
+          scheme: 'projects',
+          uuid: 'project-9012',
+          keywordObject: undefined
+        })
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('keywordObject=n/a')
+        )
+
         expect(result).toEqual({
           batchItemFailures: []
         })
@@ -266,7 +414,7 @@ describe('when the CMR keyword events processor is invoked', () => {
                   EventType: 'UPDATED',
                   Scheme: 'sciencekeywords',
                   UUID: '1234',
-                  NewKeywordPath: 'New > Keyword'
+                  NewKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT
                 })
               })
             }
@@ -278,7 +426,7 @@ describe('when the CMR keyword events processor is invoked', () => {
           eventType: 'UPDATED',
           scheme: 'sciencekeywords',
           uuid: '1234',
-          keywordPath: 'New > Keyword',
+          keywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
           error: undefined
         })
       })
@@ -308,7 +456,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
 
         expect(logger.info).toHaveBeenCalledWith(
-          expect.stringContaining('keywordPath=n/a')
+          expect.stringContaining('keywordObject=n/a')
         )
 
         expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
@@ -391,6 +539,25 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(logger.error).toHaveBeenCalled()
       })
+
+      test('should log n/a as the message id when parsing fails before a message id is available', async () => {
+        await expect(cmrKeywordEventsListener({
+          Records: [
+            {
+              body: 'not-json'
+            }
+          ]
+        })).rejects.toThrow()
+
+        expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
+          messageId: 'n/a',
+          eventType: 'n/a',
+          scheme: 'n/a',
+          uuid: 'n/a',
+          keywordObject: 'n/a',
+          error: expect.any(Object)
+        })
+      })
     })
 
     describe('when concept-id lookup fails', () => {
@@ -437,7 +604,7 @@ describe('when the CMR keyword events processor is invoked', () => {
           eventType: 'UPDATED',
           scheme: 'sciencekeywords',
           uuid: '1234',
-          keywordPath: 'n/a',
+          keywordObject: 'n/a',
           error: expect.objectContaining({
             name: 'TypeError',
             message: 'fetch failed',

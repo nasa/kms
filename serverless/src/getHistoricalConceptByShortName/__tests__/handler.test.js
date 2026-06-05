@@ -6,10 +6,11 @@ import {
 } from 'vitest'
 
 import { getHistoricalConceptByShortName } from '@/getHistoricalConceptByShortName/handler'
-import { createConceptResponseCacheKeyByShortName } from '@/shared/redisCacheKeys'
-import { getCachedJsonResponse } from '@/shared/redisCacheStore'
+import { logger } from '@/shared/logger'
+import {
+  getHistoricalConceptByShortName as getHistoricalConceptByShortNameFromStore
+} from '@/shared/redis-path-store/getHistoricalConceptByShortName'
 
-// Mock shared modules
 const mockConfig = {
   defaultResponseHeaders: { 'Access-Control-Allow-Origin': '*' }
 }
@@ -18,195 +19,213 @@ vi.mock('@/shared/getConfig', () => ({
   getApplicationConfig: vi.fn(() => mockConfig)
 }))
 
-vi.mock('@/shared/redisCacheStore', () => ({
-  getCachedJsonResponse: vi.fn()
-}))
-
-vi.mock('@/shared/redisCacheKeys', () => ({
-  createConceptResponseCacheKeyByShortName: vi.fn(
-    ({ shortName, scheme }) => `kms:${scheme}:historical_concept:short_name:${shortName}`
-  )
-}))
-
-vi.mock('@/shared/constants/shortNameForHistoricalConceptSchemes', () => ({
-  HISTORICAL_CONCEPT_SHORT_NAME_SCHEMES: ['providers', 'platforms', 'instruments', 'projects', 'idnnode', 'DataFormat']
+vi.mock('@/shared/redis-path-store/getHistoricalConceptByShortName', () => ({
+  getHistoricalConceptByShortName: vi.fn()
 }))
 
 vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
 }))
 
+vi.mock('@/shared/logger', () => ({
+  logger: {
+    error: vi.fn()
+  }
+}))
+
 describe('getHistoricalConceptByShortName', () => {
-  test('should return 400 if shortName is not provided', async () => {
-    const event = {
+  test('returns 400 if shortName is not provided', async () => {
+    const result = await getHistoricalConceptByShortName({
       pathParameters: {},
       queryStringParameters: { scheme: 'platforms' }
-    }
-    const result = await getHistoricalConceptByShortName(event)
+    })
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('shortName is required')
   })
 
-  test('should pass if the scheme is supported, ignoring case', async () => {
-    getCachedJsonResponse.mockResolvedValue(null)
+  test('returns 404 for supported schemes when no cached concept is found', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
-    const event = {
+    const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'any' },
-      queryStringParameters: { scheme: 'Platforms' } // Mixed case
-    }
-    const result = await getHistoricalConceptByShortName(event)
-    // Should return 404 (not found) rather than 400 (unsupported scheme)
+      queryStringParameters: { scheme: 'Platforms' }
+    })
+
     expect(result.statusCode).toBe(404)
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
+      shortName: 'any',
+      scheme: 'platforms',
+      bypassCache: false
+    })
   })
 
-  test('should pass if the scheme is DataFormat, ignoring case', async () => {
-    getCachedJsonResponse.mockResolvedValue(null)
+  test('accepts DataFormat regardless of case', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
-    const event = {
+    const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'any' },
-      queryStringParameters: { scheme: 'DataFormat' } // Exact case from default list
-    }
-    const result = await getHistoricalConceptByShortName(event)
-    // Should return 404 (not found) rather than 400 (unsupported scheme)
+      queryStringParameters: { scheme: 'DataFormat' }
+    })
+
     expect(result.statusCode).toBe(404)
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
+      shortName: 'any',
+      scheme: 'dataformat',
+      bypassCache: false
+    })
   })
 
-  test('should return 400 if the scheme is not supported for caching by shortName', async () => {
-    const event = {
+  test('returns 400 if the scheme is not supported for caching by shortName', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockRejectedValue(
+      new Error('Historical shortName lookup is not supported for scheme=invalid-scheme')
+    )
+
+    const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'any' },
       queryStringParameters: { scheme: 'invalid-scheme' }
-    }
-    const result = await getHistoricalConceptByShortName(event)
+    })
 
     expect(result.statusCode).toBe(400)
-    const expectedError = `Caching by shortName is not supported for the '${'invalid-scheme'}' scheme`
-    expect(JSON.parse(result.body).error).toBe(expectedError)
+    expect(JSON.parse(result.body).error)
+      .toBe("Caching by shortName is not supported for the 'invalid-scheme' scheme")
   })
 
-  test('should return 400 if scheme is not provided', async () => {
-    const event = {
+  test('returns 400 if scheme is not provided', async () => {
+    const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'any' },
       queryStringParameters: {}
-    }
-    const result = await getHistoricalConceptByShortName(event)
+    })
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('scheme is required')
   })
 
-  test('should return 400 if pathParameters is null', async () => {
-    const event = {
+  test('returns 400 if queryStringParameters is missing', async () => {
+    const result = await getHistoricalConceptByShortName({
+      pathParameters: { shortName: 'any' }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body).error).toBe('scheme is required')
+  })
+
+  test('returns 400 if pathParameters is null', async () => {
+    const result = await getHistoricalConceptByShortName({
       pathParameters: null,
       queryStringParameters: { scheme: 'platforms' }
-    }
-    const result = await getHistoricalConceptByShortName(event)
+    })
 
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).error).toBe('shortName is required')
   })
 
-  test('should return the cached response if a UUID is found', async () => {
-    const shortName = 'TERRA'
-    const scheme = 'platforms'
-    const mockResponse = {
+  test('returns the concept response when a historical concept is found', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue({
+      uuid: 'mock-uuid-123',
+      fullPath: 'Platforms > Space-based Platforms > TERRA',
+      longName: 'Terra (satellite)'
+    })
+
+    const result = await getHistoricalConceptByShortName({
+      pathParameters: { shortName: 'TERRA' },
+      queryStringParameters: { scheme: 'platforms' }
+    })
+
+    expect(result).toEqual({
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         uuid: 'mock-uuid-123',
-        fullPath: 'Space-based Platforms > TERRA',
+        fullPath: 'Platforms > Space-based Platforms > TERRA',
         longName: 'Terra (satellite)'
       })
-    }
-    getCachedJsonResponse.mockResolvedValue(mockResponse)
-
-    const event = {
-      pathParameters: { shortName },
-      queryStringParameters: { scheme }
-    }
-    const result = await getHistoricalConceptByShortName(event)
-
-    expect(createConceptResponseCacheKeyByShortName).toHaveBeenCalledWith({
-      shortName: shortName.toLowerCase(),
-      scheme
     })
-
-    expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:platforms:historical_concept:short_name:terra',
-      entityLabel: 'Historical Concept by shortName',
-      bypassCache: false
-    })
-
-    expect(result).toEqual(mockResponse)
   })
 
-  test('should pass bypassCache through to the shared cache helper when requested', async () => {
-    getCachedJsonResponse.mockResolvedValue(null)
+  test('passes bypassCache through to the store when requested', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
-    const event = {
+    const result = await getHistoricalConceptByShortName({
       pathParameters: { shortName: 'TERRA' },
       queryStringParameters: {
         scheme: 'platforms',
         bypassCache: 'true'
       }
-    }
-
-    const result = await getHistoricalConceptByShortName(event)
+    })
 
     expect(result.statusCode).toBe(404)
-    expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:platforms:historical_concept:short_name:terra',
-      entityLabel: 'Historical Concept by shortName',
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
+      shortName: 'terra',
+      scheme: 'platforms',
       bypassCache: true
     })
   })
 
-  test('should return 404 if the UUID is not found in the cache', async () => {
-    const shortName = 'AQUA'
-    const scheme = 'platforms'
-    getCachedJsonResponse.mockResolvedValue(null)
+  test('returns 404 if the concept is not found in the cache', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
-    const event = {
-      pathParameters: { shortName },
-      queryStringParameters: { scheme }
-    }
-    const result = await getHistoricalConceptByShortName(event)
+    const result = await getHistoricalConceptByShortName({
+      pathParameters: { shortName: 'AQUA' },
+      queryStringParameters: { scheme: 'platforms' }
+    })
 
     expect(result.statusCode).toBe(404)
     expect(JSON.parse(result.body).error).toBe('Cached Concept not found for the given shortName')
   })
 
-  test('should return 500 if an error occurs during cache retrieval', async () => {
-    const shortName = 'ERROR'
-    const scheme = 'platforms'
-    const error = new Error('Redis connection failed')
-    getCachedJsonResponse.mockRejectedValue(error)
+  test('decodes URL-encoded shortName before calling the store', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockResolvedValue(undefined)
 
-    const event = {
-      pathParameters: { shortName },
-      queryStringParameters: { scheme }
-    }
-    const result = await getHistoricalConceptByShortName(event)
+    await getHistoricalConceptByShortName({
+      pathParameters: { shortName: 'A%2FB' },
+      queryStringParameters: { scheme: 'platforms' }
+    })
 
-    expect(result.statusCode).toBe(500)
-    expect(JSON.parse(result.body).error).toBe(error.toString())
+    expect(getHistoricalConceptByShortNameFromStore).toHaveBeenCalledWith({
+      shortName: 'a/b',
+      scheme: 'platforms',
+      bypassCache: false
+    })
   })
 
-  test('should handle URL-encoded shortName correctly', async () => {
-    const shortName = 'A%2FB-C' // 'A/B-C'
-    const scheme = 'platforms'
-    getCachedJsonResponse.mockResolvedValue(null) // It doesn't need to find it for this test
+  test('returns 500 for unexpected lookup errors', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockRejectedValue(
+      new Error('cache failure')
+    )
 
-    const event = {
-      pathParameters: { shortName },
-      queryStringParameters: { scheme }
-    }
-    await getHistoricalConceptByShortName(event)
-
-    // Verify it was decoded and lowercased before creating the cache key
-    expect(createConceptResponseCacheKeyByShortName).toHaveBeenCalledWith({
-      shortName: 'a/b-c',
-      scheme
+    const result = await getHistoricalConceptByShortName({
+      pathParameters: { shortName: 'AQUA' },
+      queryStringParameters: { scheme: 'platforms' }
     })
+
+    expect(result).toEqual({
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      },
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Error: cache failure'
+      })
+    })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error retrieving historical concept, error=Error: cache failure'
+    )
+  })
+
+  test('returns 500 when an unexpected lookup error has no message', async () => {
+    vi.mocked(getHistoricalConceptByShortNameFromStore).mockRejectedValue({})
+
+    const result = await getHistoricalConceptByShortName({
+      pathParameters: { shortName: 'AQUA' },
+      queryStringParameters: { scheme: 'platforms' }
+    })
+
+    expect(result.statusCode).toBe(500)
+    expect(JSON.parse(result.body).error).toBe('[object Object]')
   })
 })

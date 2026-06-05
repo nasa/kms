@@ -33,6 +33,17 @@ vi.mock('../applyDif10MetadataCorrections', () => ({
   applyDif10MetadataCorrections: vi.fn()
 }))
 
+const createExpectedCorrection = (correction = {}) => ({
+  scheme: correction.scheme,
+  action: correction.action,
+  keywordConceptUuid: correction.keywordConceptUuid,
+  oldKeywordObject: correction.oldKeywordObject ?? {},
+  newKeywordObject: correction.newKeywordObject ?? {},
+  ummPath: correction.ummPath,
+  oldLongName: correction.oldLongName,
+  newLongName: correction.newLongName
+})
+
 describe('invokeMetadataCorrectionDelegate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -47,7 +58,219 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })).resolves.toEqual({ delegateName: 'umm' })
 
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
-      collectionConceptId: 'C1'
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+  })
+
+  test('normalizes correction keyword objects before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          oldKeywordObject: 'not-an-object',
+          newKeywordObject: null
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          scheme: 'sciencekeywords',
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        })
+      ]
+    })
+  })
+
+  test('preserves plain-object keyword objects before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          oldKeywordObject: {
+            ShortName: 'Aqua'
+          },
+          newKeywordObject: {
+            ShortName: 'Terra'
+          }
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          oldKeywordObject: {
+            ShortName: 'Aqua'
+          },
+          newKeywordObject: {
+            ShortName: 'Terra'
+          }
+        })
+      ]
+    })
+  })
+
+  test('preserves non-keyword-object correction fields before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: [
+            'ScienceKeywords',
+            0
+          ],
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: [
+            'ScienceKeywords',
+            0
+          ],
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        })
+      ]
+    })
+  })
+
+  test('normalizes array keyword objects to plain empty objects before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          oldKeywordObject: [],
+          newKeywordObject: []
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        })
+      ]
+    })
+  })
+
+  test('treats non-array corrections as an empty correction list', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: {
+        scheme: 'sciencekeywords'
+      }
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+  })
+
+  test('normalizes undefined correction entries to empty keyword objects', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [undefined]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        })
+      ]
+    })
+  })
+
+  test('drops unknown correction fields while preserving the normalized contract', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            ShortName: 'SPOT-4-UPDATED'
+          },
+          ummPath: [
+            'Platforms',
+            0
+          ],
+          oldLongName: 'Systeme Observation de la Terre-4',
+          newLongName: 'Systeme Observation de la Terre-4 Updated',
+          ignoredExtraField: 'ignored'
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          scheme: 'platforms',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            ShortName: 'SPOT-4-UPDATED'
+          },
+          ummPath: [
+            'Platforms',
+            0
+          ],
+          oldLongName: 'Systeme Observation de la Terre-4',
+          newLongName: 'Systeme Observation de la Terre-4 Updated'
+        })
+      ]
     })
   })
 

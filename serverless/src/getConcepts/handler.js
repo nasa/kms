@@ -9,7 +9,6 @@ import { createConceptSchemeMap } from '@/shared/createConceptSchemeMap'
 import {
   createConceptToConceptSchemeShortNameMap
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
-import { createCsvForScheme } from '@/shared/createCsvForScheme'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
@@ -21,6 +20,7 @@ import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
+import { createCsvForScheme } from '@/shared/redis-path-store/createCsvForScheme'
 import { createConceptsResponseCacheKey } from '@/shared/redisCacheKeys'
 import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
@@ -231,12 +231,35 @@ export const getConcepts = async (event, context) => {
         }
       }
 
-      const csvResponse = await createCsvForScheme({
-        scheme: conceptScheme,
-        version,
-        versionName: keywordVersion,
-        versionCreationDate
-      })
+      let csvResponse
+      try {
+        const csvContent = await createCsvForScheme({
+          scheme: conceptScheme,
+          version,
+          versionName: keywordVersion,
+          versionCreationDate
+        })
+
+        csvResponse = {
+          statusCode: 200,
+          body: csvContent,
+          headers: {
+            ...defaultResponseHeaders,
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename=${conceptScheme}.csv`
+          }
+        }
+      } catch (error) {
+        logger.error(`Error creating CSV for scheme=${conceptScheme}, error=${error.toString()}`)
+
+        csvResponse = {
+          headers: defaultResponseHeaders,
+          statusCode: 500,
+          body: JSON.stringify({
+            error: error.toString()
+          })
+        }
+      }
 
       if (csvResponse.statusCode === 200) {
         try {

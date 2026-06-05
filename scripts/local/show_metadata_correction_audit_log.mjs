@@ -80,9 +80,9 @@ const getAuditRows = async () => {
                 gcmd:collectionConceptId ?collectionConceptId ;
                 gcmd:scheme ?scheme ;
                 gcmd:action ?action ;
-                gcmd:oldKeywordPath ?oldKeywordPath ;
-                gcmd:newKeywordPath ?newKeywordPath ;
                 gcmd:status ?status .
+        OPTIONAL { ?record gcmd:oldKeywordPath ?oldKeywordPath }
+        OPTIONAL { ?record gcmd:newKeywordPath ?newKeywordPath }
         FILTER(?collectionConceptId = "${collectionConceptId}")
       }
     }
@@ -96,8 +96,8 @@ const getAuditRows = async () => {
     scheme: row.scheme,
     action: row.action,
     status: row.status,
-    oldPath: row.oldKeywordPath,
-    newPath: row.newKeywordPath
+    oldKeywordPath: row.oldKeywordPath,
+    newKeywordPath: row.newKeywordPath
   }))
 }
 

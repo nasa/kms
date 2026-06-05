@@ -1,17 +1,16 @@
 import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
 import { getEventBridgeClient } from '@/shared/awsClients'
-import { buildHistoricalConceptCache } from '@/shared/buildHistoricalConceptCache'
-import { CsvComparator } from '@/shared/csvComparator'
-import { downloadConcepts } from '@/shared/downloadConcepts'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
-import { exportPublishSchemeCsvToS3 } from '@/shared/exportPublishSchemeCsvToS3'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
-import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
-import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
+import { getPublishKeywordEvents } from '@/shared/redis-path-store/getPublishKeywordEvents'
+import {
+  rebuildHistoricalConceptCache
+} from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
+import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -60,20 +59,6 @@ const shouldBlockPublishOnKeywordDiffFailure = () => (
 )
 
 /**
- * Counts the total number of added, removed, and changed keywords across all schemes.
- *
- * @param {Map<string, Object>} keywordChangesMap - Per-scheme comparison results.
- * @returns {number} Total keyword changes detected for the publish run.
- */
-const countKeywordChanges = (keywordChangesMap) => Array.from(keywordChangesMap.values()).reduce(
-  (total, { addedKeywords, removedKeywords, changedKeywords }) => total
-    + addedKeywords.size
-    + removedKeywords.size
-    + changedKeywords.size,
-  0
-)
-
-/**
  * Emits publisher metrics without failing the overall publish flow on metric errors.
  *
  * Metrics are observability-only for this path, so failed emission is logged for
@@ -92,288 +77,6 @@ const emitPublisherMetricsSafely = async (metrics, context) => {
       + `Error: ${metricError.message}`
     )
   }
-}
-
-/**
- * Transform keyword changes map into a list of keyword events conforming to the schema.
- *
- * @async
- * @function createKeywordEvents
- * @param {Map<string, Object>} keywordChangesMap - Map where key is scheme notation and value contains addedKeywords, removedKeywords, and changedKeywords Maps
- * @returns {Array<Object>} Array of keyword event objects conforming to the keyword-event-json-schema
- *
- * @example
- * const keywordChangesMap = new Map([
- *   ['sciencekeywords', {
- *     addedKeywords: Map([['uuid1', { oldPath: undefined, newPath: 'EARTH SCIENCE > ATMOSPHERE' }]]),
- *     removedKeywords: Map([['uuid2', { oldPath: 'OLD PATH', newPath: undefined }]]),
- *     changedKeywords: Map([['uuid3', { oldPath: 'OLD PATH', newPath: 'NEW PATH' }]])
- *   }]
- * ]);
- * const events = createKeywordEvents(keywordChangesMap);
- * // [
- * //   { EventType: 'INSERTED', Scheme: 'sciencekeywords', UUID: 'uuid1', NewKeywordPath: 'EARTH SCIENCE > ATMOSPHERE', ... },
- * //   { EventType: 'DELETED', Scheme: 'sciencekeywords', UUID: 'uuid2', OldKeywordPath: 'OLD PATH', ... },
- * //   { EventType: 'UPDATED', Scheme: 'sciencekeywords', UUID: 'uuid3', OldKeywordPath: 'OLD PATH', NewKeywordPath: 'NEW PATH', ... }
- * // ]
- */
-export const createKeywordEvents = (keywordChangesMap) => {
-  const timestamp = new Date().toISOString()
-  const metadataSpecification = {
-    URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
-    Name: 'Kms-Keyword-Event',
-    Version: '1.0'
-  }
-
-  const keywordEvents = []
-
-  // Process each scheme in the map
-  keywordChangesMap.forEach((changes, scheme) => {
-    const { addedKeywords, removedKeywords, changedKeywords } = changes
-
-    // Process added keywords (INSERTED events)
-    addedKeywords.forEach((pathInfo, uuid) => {
-      keywordEvents.push({
-        EventType: 'INSERTED',
-        Scheme: scheme,
-        UUID: uuid,
-        NewKeywordPath: pathInfo.newPath,
-        Timestamp: timestamp,
-        MetadataSpecification: metadataSpecification
-      })
-    })
-
-    // Process removed keywords (DELETED events)
-    removedKeywords.forEach((pathInfo, uuid) => {
-      keywordEvents.push({
-        EventType: 'DELETED',
-        Scheme: scheme,
-        UUID: uuid,
-        OldKeywordPath: pathInfo.oldPath,
-        Timestamp: timestamp,
-        MetadataSpecification: metadataSpecification
-      })
-    })
-
-    // Process changed keywords (UPDATED events)
-    changedKeywords.forEach((pathInfo, uuid) => {
-      keywordEvents.push({
-        EventType: 'UPDATED',
-        Scheme: scheme,
-        UUID: uuid,
-        OldKeywordPath: pathInfo.oldPath,
-        NewKeywordPath: pathInfo.newPath,
-        Timestamp: timestamp,
-        MetadataSpecification: metadataSpecification
-      })
-    })
-  })
-
-  return keywordEvents
-}
-
-/**
- * Get keyword changes for all concept schemes by comparing draft and published versions.
- *
- * This function:
- * 1. Fetches concept schemes from both 'published' and 'draft' versions
- * 2. For each scheme, downloads CSV data for both versions
- * 3. Compares the two versions and identifies added, removed, and changed keywords
- * 4. Handles three cases:
- *    - Schemes in both versions: normal comparison
- *    - Schemes only in published: all keywords marked as DELETED
- *    - Schemes only in draft: all keywords marked as INSERTED
- *
- * @async
- * @function getKeywordChanges
- * @returns {Promise<Map<string, Object>>} A Map where:
- *   - key: concept scheme notation (e.g., 'sciencekeywords', 'platforms')
- *   - value: comparison result object containing addedKeywords, removedKeywords, and changedKeywords Maps
- * @throws {Error} If there's an error fetching concept schemes or downloading concepts
- *
- * @example
- * const keywordChanges = await getKeywordChanges();
- * // Map {
- * //   'sciencekeywords' => { addedKeywords: Map, removedKeywords: Map, changedKeywords: Map },
- * //   'platforms' => { addedKeywords: Map, removedKeywords: Map, changedKeywords: Map },
- * //   ...
- * // }
- */
-export const getKeywordChanges = async () => {
-  logger.info('Starting keyword changes detection')
-
-  // Get concept schemes from both versions
-  const [publishedSchemes, draftSchemes] = await Promise.all([
-    getConceptSchemeDetails({ version: 'published' }),
-    getConceptSchemeDetails({ version: 'draft' })
-  ])
-
-  const publishedNotations = new Set((publishedSchemes || []).map((s) => s.notation))
-  const draftNotations = new Set((draftSchemes || []).map((s) => s.notation))
-
-  // Get all unique scheme notations from both versions
-  const allNotations = new Set([...publishedNotations, ...draftNotations])
-
-  if (allNotations.size === 0) {
-    logger.warn('No concept schemes found in either version')
-
-    return new Map()
-  }
-
-  // Initialize CSV comparator
-  const csvComparator = new CsvComparator()
-  const failedSchemes = []
-  // Process each scheme sequentially to avoid overwhelming local RDF4J with many
-  // concurrent CSV/SPARQL requests at once.
-  const results = await Array.from(allNotations).reduce(async (resultsPromise, notation) => {
-    const sequentialResults = await resultsPromise
-    const result = await (async () => {
-      const inPublished = publishedNotations.has(notation)
-      const inDraft = draftNotations.has(notation)
-      let comparison
-      let lastError
-      const maxRetries = 3 // 4 total attempts (initial + 3 retries)
-
-      /* eslint-disable no-await-in-loop */
-      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-        try {
-          if (inPublished && inDraft) {
-          // Normal case: scheme exists in both versions
-            const [publishedCsv, draftCsv] = await Promise.all([
-              downloadConcepts({
-                conceptScheme: notation,
-                format: 'csv',
-                version: 'published',
-                bypassCache: true
-              }),
-              downloadConcepts({
-                conceptScheme: notation,
-                format: 'csv',
-                version: 'draft',
-                bypassCache: true
-              })
-            ])
-
-            comparison = csvComparator.compare(publishedCsv, draftCsv)
-          } else if (inPublished && !inDraft) {
-          // Scheme removed: all keywords marked as DELETED
-            const publishedCsv = await downloadConcepts({
-              conceptScheme: notation,
-              format: 'csv',
-              version: 'published',
-              bypassCache: true
-            })
-
-            // Compare with empty string to mark all as deleted
-            comparison = csvComparator.compare(publishedCsv, '')
-          } else {
-          // All notations come from the union of published and draft scheme sets,
-          // so reaching this branch means the scheme only exists in draft.
-            const draftCsv = await downloadConcepts({
-              conceptScheme: notation,
-              format: 'csv',
-              version: 'draft',
-              bypassCache: true
-            })
-
-            // Compare empty string with draft to mark all as added
-            comparison = csvComparator.compare('', draftCsv)
-          }
-
-          const summary = csvComparator.getSummary(comparison)
-
-          return {
-            notation,
-            summary,
-            comparison
-          }
-        } catch (error) {
-          lastError = error
-          logger.warn(`Error processing ${notation} on attempt ${attempt + 1}: ${error.message}`)
-
-          // If this was the last retry, don't wait - exit loop and return null
-          if (attempt === maxRetries) {
-            break
-          }
-
-          // Wait before retrying (exponential backoff: 1s, 2s, 4s)
-          const delayMs = 2 ** attempt * 1000
-          await new Promise((resolve) => {
-            setTimeout(resolve, delayMs)
-          })
-        }
-      }
-
-      // All retries exhausted
-      logger.error(`Failed ${notation}: exhausted all ${maxRetries + 1} attempts - ${lastError?.message}`)
-      failedSchemes.push({
-        notation,
-        error: lastError?.message || 'Unknown error'
-      })
-
-      return null
-    })()
-
-    sequentialResults.push(result)
-
-    return sequentialResults
-  }, Promise.resolve([]))
-
-  if (failedSchemes.length > 0) {
-    const failedSchemeSummary = failedSchemes
-      .map(({ notation, error }) => `${notation}: ${error}`)
-      .join('; ')
-
-    const failureMessage = (
-      `Keyword changes detection failed for ${failedSchemes.length} `
-      + `scheme(s): ${failedSchemeSummary}`
-    )
-
-    if (shouldBlockPublishOnKeywordDiffFailure()) {
-      throw new Error(failureMessage)
-    }
-
-    logger.warn(
-      `[publisher] ${failureMessage}. `
-      + 'Continuing with publish because BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE is disabled.'
-    )
-  }
-
-  // Failed schemes return null placeholders while retries/summary are being tracked. When
-  // blocking is disabled, continue with only the successful scheme comparisons.
-  const keywordChangesMap = new Map(
-    results
-      .filter((result) => result !== null)
-      .map((result) => [result.notation, result.comparison])
-  )
-
-  const keywordChangeSummary = results.reduce((summary, result) => {
-    if (!result) {
-      return summary
-    }
-
-    return {
-      addedCount: summary.addedCount + result.summary.addedCount,
-      removedCount: summary.removedCount + result.summary.removedCount,
-      changedCount: summary.changedCount + result.summary.changedCount
-    }
-  }, {
-    addedCount: 0,
-    removedCount: 0,
-    changedCount: 0
-  })
-
-  logger.info(
-    '[publisher] Keyword changes summary '
-    + `schemes=${allNotations.size} `
-    + `processed=${keywordChangesMap.size} `
-    + `failed=${failedSchemes.length} `
-    + `added=${keywordChangeSummary.addedCount} `
-    + `removed=${keywordChangeSummary.removedCount} `
-    + `changed=${keywordChangeSummary.changedCount}`
-  )
-
-  return keywordChangesMap
 }
 
 /**
@@ -441,6 +144,7 @@ const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
           )
         }
 
+        // eslint-disable-next-line no-await-in-loop
         await publishKeywordEvent(keywordEvent)
         summary.publishedCount += 1
         lastError = undefined
@@ -524,10 +228,13 @@ export const publisher = async (event) => {
 
     // 1. Detect keyword changes and create keyword change events
     let processStartTime = Date.now()
-    const keywordChanges = await getKeywordChanges()
-    const keywordChangesDetected = countKeywordChanges(keywordChanges)
-
-    const keywordEvents = createKeywordEvents(keywordChanges)
+    const {
+      keywordEvents,
+      keywordChangeCount
+    } = await getPublishKeywordEvents({
+      blockOnFailure: shouldBlockPublishOnKeywordDiffFailure()
+    })
+    const keywordChangesDetected = keywordChangeCount
     const keywordEventsGenerated = keywordEvents.length
     processTimes.keywordChangesDetection = ((Date.now() - processStartTime) / 1000).toFixed(2)
 
@@ -562,7 +269,7 @@ export const publisher = async (event) => {
     let csvExportSucceeded = false
     let publishedCacheReady = false
     try {
-      const csvExportResult = await exportPublishSchemeCsvToS3()
+      const csvExportResult = await writePublishedConceptCaches()
       processTimes.exportPublishedCsv = ((Date.now() - processStartTime) / 1000).toFixed(2)
       csvExportSucceeded = true
       publishedCacheReady = csvExportResult.cacheReady
@@ -576,7 +283,7 @@ export const publisher = async (event) => {
 
     // 4. Build the historical concept cache for all versions
     // Only rebuild cache if CSV export succeeded to avoid serving stale data.
-    // Note: buildHistoricalConceptCache now fails fast on any listing or processing errors
+    // Note: redisPathStore.rebuildHistoricalConceptCache now fails fast on any listing or processing errors
     // to ensure cache completeness. We catch these errors here to allow the publish to
     // complete (since the SPARQL update has already succeeded), but report partial_success
     // so operators know the cache rebuild failed and no keyword events were emitted.
@@ -586,13 +293,11 @@ export const publisher = async (event) => {
     if (csvExportSucceeded) {
       logger.info('[publisher] Starting Historical Concept cache build from S3.')
       try {
-        const { env } = getApplicationConfig()
-        const bucketName = `kms-rdf-backup-${env}`
-        const historicalCacheResult = await buildHistoricalConceptCache(bucketName)
+        const historicalCacheResult = await rebuildHistoricalConceptCache()
         processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
         historicalCacheBuildSucceeded = true
         historicalCacheReady = historicalCacheResult.cacheReady
-        logger.info(`[publisher] Successfully built Historical Concept cache from S3 bucket [${bucketName}].`)
+        logger.info('[publisher] Successfully built Historical Concept cache from S3.')
       } catch (cacheBuildError) {
         processTimes.buildHistoricalCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
         const failureMessage = `Failed to build Historical Concept cache from S3: ${cacheBuildError.message}`
@@ -638,8 +343,8 @@ export const publisher = async (event) => {
                 uuid: keywordEvent.UUID,
                 scheme: keywordEvent.Scheme,
                 eventType: keywordEvent.EventType,
-                oldKeywordPath: keywordEvent.OldKeywordPath,
-                newKeywordPath: keywordEvent.NewKeywordPath,
+                oldKeywordObject: keywordEvent.OldKeywordObject,
+                newKeywordObject: keywordEvent.NewKeywordObject,
                 attempts,
                 error
               }
