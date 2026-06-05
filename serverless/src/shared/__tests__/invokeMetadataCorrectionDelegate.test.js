@@ -33,6 +33,17 @@ vi.mock('../applyDif10MetadataCorrections', () => ({
   applyDif10MetadataCorrections: vi.fn()
 }))
 
+const createExpectedCorrection = (correction = {}) => ({
+  scheme: correction.scheme,
+  action: correction.action,
+  keywordConceptUuid: correction.keywordConceptUuid,
+  oldKeywordObject: correction.oldKeywordObject ?? {},
+  newKeywordObject: correction.newKeywordObject ?? {},
+  ummPath: correction.ummPath,
+  oldLongName: correction.oldLongName,
+  newLongName: correction.newLongName
+})
+
 describe('invokeMetadataCorrectionDelegate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -70,11 +81,11 @@ describe('invokeMetadataCorrectionDelegate', () => {
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
-        {
+        createExpectedCorrection({
           scheme: 'sciencekeywords',
           oldKeywordObject: {},
           newKeywordObject: {}
-        }
+        })
       ]
     })
   })
@@ -100,14 +111,14 @@ describe('invokeMetadataCorrectionDelegate', () => {
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
-        {
+        createExpectedCorrection({
           oldKeywordObject: {
             ShortName: 'Aqua'
           },
           newKeywordObject: {
             ShortName: 'Terra'
           }
-        }
+        })
       ]
     })
   })
@@ -135,7 +146,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
-        {
+        createExpectedCorrection({
           scheme: 'sciencekeywords',
           action: 'delete',
           ummPath: [
@@ -144,7 +155,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
           ],
           oldKeywordObject: {},
           newKeywordObject: {}
-        }
+        })
       ]
     })
   })
@@ -166,10 +177,10 @@ describe('invokeMetadataCorrectionDelegate', () => {
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
-        {
+        createExpectedCorrection({
           oldKeywordObject: {},
           newKeywordObject: {}
-        }
+        })
       ]
     })
   })
@@ -203,10 +214,62 @@ describe('invokeMetadataCorrectionDelegate', () => {
     expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
-        {
+        createExpectedCorrection({
           oldKeywordObject: {},
           newKeywordObject: {}
+        })
+      ]
+    })
+  })
+
+  test('drops unknown correction fields while preserving the normalized contract', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            ShortName: 'SPOT-4-UPDATED'
+          },
+          ummPath: [
+            'Platforms',
+            0
+          ],
+          oldLongName: 'Systeme Observation de la Terre-4',
+          newLongName: 'Systeme Observation de la Terre-4 Updated',
+          ignoredExtraField: 'ignored'
         }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          scheme: 'platforms',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            ShortName: 'SPOT-4-UPDATED'
+          },
+          ummPath: [
+            'Platforms',
+            0
+          ],
+          oldLongName: 'Systeme Observation de la Terre-4',
+          newLongName: 'Systeme Observation de la Terre-4 Updated'
+        })
       ]
     })
   })

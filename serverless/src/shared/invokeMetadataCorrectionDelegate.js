@@ -12,13 +12,20 @@ const normalizeKeywordObject = (keywordObject) => (
     : {}
 )
 
+const normalizeCorrection = (correction = {}) => ({
+  scheme: correction.scheme,
+  action: correction.action,
+  keywordConceptUuid: correction.keywordConceptUuid,
+  oldKeywordObject: normalizeKeywordObject(correction.oldKeywordObject),
+  newKeywordObject: normalizeKeywordObject(correction.newKeywordObject),
+  ummPath: correction.ummPath,
+  oldLongName: correction.oldLongName,
+  newLongName: correction.newLongName
+})
+
 const normalizeCorrections = (corrections = []) => (
   Array.isArray(corrections)
-    ? corrections.map((correction = {}) => ({
-      ...correction,
-      oldKeywordObject: normalizeKeywordObject(correction.oldKeywordObject),
-      newKeywordObject: normalizeKeywordObject(correction.newKeywordObject)
-    }))
+    ? corrections.map((correction = {}) => normalizeCorrection(correction))
     : []
 )
 
@@ -33,6 +40,10 @@ const normalizeCorrections = (corrections = []) => (
  * The remaining job is format-specific mutation. This helper provides that dispatch seam by
  * selecting the delegate that understands the collection's normalized native format and handing
  * it the correction plan plus any format-specific metadata payload it needs.
+ *
+ * Each correction is normalized into one shared contract before delegation so every native-format
+ * handler receives the same correction fields, even when only a subset is meaningful for that
+ * format. Unknown correction fields are intentionally dropped at this seam.
  *
  * That keeps the orchestration layer format-agnostic while allowing each delegate to own the
  * mechanics of mutating UMM, ISO19115, ISO SMAP, ECHO10, or DIF10 metadata.
