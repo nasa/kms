@@ -10,7 +10,7 @@ import { getProviderUrlsMap } from '../../getProviderUrlsMap'
 import { getRootConceptForScheme } from '../../getRootConceptForScheme'
 import { isCsvLongNameFlag } from '../../isCsvLongNameFlag'
 import { isCsvProviderUrlFlag } from '../../isCsvProviderUrlFlag'
-import { formatKeywordCsvPath, getCsvForScheme } from '../getCsvForScheme'
+import { createCsvForScheme, formatKeywordCsvPath } from '../createCsvForScheme'
 
 vi.mock('../../createCsv', () => ({
   createCsv: vi.fn()
@@ -60,7 +60,7 @@ vi.mock('../../isCsvProviderUrlFlag', () => ({
   isCsvProviderUrlFlag: vi.fn()
 }))
 
-describe('getCsvForScheme', () => {
+describe('createCsvForScheme', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(createCsvMetadata).mockReturnValue(['mocked metadata'])
@@ -178,7 +178,7 @@ describe('getCsvForScheme', () => {
       return []
     })
 
-    await expect(getCsvForScheme({
+    await expect(createCsvForScheme({
       scheme: 'testScheme',
       version: 'draft',
       versionName: 'Test Version',
@@ -230,7 +230,7 @@ describe('getCsvForScheme', () => {
       return []
     })
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'testScheme',
       version: 'draft',
       versionName: 'Test Version',
@@ -283,7 +283,7 @@ describe('getCsvForScheme', () => {
       return []
     })
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'platforms',
       version: 'published',
       versionName: 'Keyword Version',
@@ -330,7 +330,7 @@ describe('getCsvForScheme', () => {
       return []
     })
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'platforms',
       version: 'published',
       versionName: 'Keyword Version',
@@ -382,7 +382,7 @@ describe('getCsvForScheme', () => {
       return []
     })
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'providers',
       version: 'published',
       versionName: 'Keyword Version',
@@ -432,7 +432,7 @@ describe('getCsvForScheme', () => {
       return []
     })
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'providers',
       version: 'published',
       versionName: 'Keyword Version',
@@ -461,7 +461,7 @@ describe('getCsvForScheme', () => {
     vi.mocked(getMaxLengthOfSubArray).mockReturnValue(0)
     vi.mocked(generateCsvHeaders).mockResolvedValue(['Header1', 'UUID'])
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'testScheme',
       version: 'published',
       versionName: 'Keyword Version',
@@ -481,7 +481,7 @@ describe('getCsvForScheme', () => {
     vi.mocked(getCsvHeaders).mockResolvedValue(['Header1', 'UUID'])
     vi.mocked(getRootConceptForScheme).mockResolvedValue(null)
 
-    await getCsvForScheme({
+    await createCsvForScheme({
       scheme: 'testScheme',
       version: 'published',
       versionName: 'Keyword Version',

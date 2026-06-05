@@ -236,7 +236,7 @@ const sortCsvRows = (paths) => {
  *
  * @example
  * // Request
- * const csvContent = await getCsvForScheme({
+ * const csvContent = await createCsvForScheme({
  *   scheme: 'sciencekeywords',
  *   version: 'published',
  *   versionName: '23.3',
@@ -246,7 +246,7 @@ const sortCsvRows = (paths) => {
  * // Response
  * // '"Version","23.3"\n"Category","Topic","Term","UUID"\n"EARTH SCIENCE","ATMOSPHERE","AEROSOLS","2e5a401b-1507-4f57-82b8-36557c13b154"'
  */
-export const getCsvForScheme = async ({
+export const createCsvForScheme = async ({
   scheme,
   version,
   versionName,

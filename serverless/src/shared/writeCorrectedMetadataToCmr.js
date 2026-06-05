@@ -6,6 +6,16 @@ const serializeCorrectedMetadata = (correctedMetadata) => (
     : JSON.stringify(correctedMetadata ?? '')
 )
 
+const getCorrectedMetadataByteLength = (correctedMetadata) => {
+  try {
+    const serializedMetadata = serializeCorrectedMetadata(correctedMetadata)
+
+    return Buffer.byteLength(serializedMetadata, 'utf8')
+  } catch {
+    return 0
+  }
+}
+
 /**
  * Stubbed CMR write seam for corrected native metadata.
  *
@@ -45,7 +55,6 @@ export const writeCorrectedMetadataToCmr = async ({
   correctionsApplied = [],
   source = null
 } = {}) => {
-  const serializedMetadata = serializeCorrectedMetadata(correctedMetadata)
   const ingestResult = await ingestCorrectedMetadataStub({
     collectionConceptId,
     providerId,
@@ -64,7 +73,7 @@ export const writeCorrectedMetadataToCmr = async ({
     nativeFormat,
     correctionCount: Number(correctionCount || 0),
     correctionsAppliedCount: Array.isArray(correctionsApplied) ? correctionsApplied.length : 0,
-    correctedMetadataBytes: Buffer.byteLength(serializedMetadata, 'utf8'),
+    correctedMetadataBytes: getCorrectedMetadataByteLength(correctedMetadata),
     source,
     ingestResult
   }

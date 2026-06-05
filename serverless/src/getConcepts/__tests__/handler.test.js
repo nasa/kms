@@ -23,7 +23,7 @@ import { getTotalConceptCount } from '@/shared/getTotalConceptCount'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { processTriples } from '@/shared/processTriples'
-import { getCsvForScheme } from '@/shared/redis-path-store/getCsvForScheme'
+import { createCsvForScheme } from '@/shared/redis-path-store/createCsvForScheme'
 import { getCachedJsonResponse, setCachedJsonResponse } from '@/shared/redisCacheStore'
 import { toLegacyJSON } from '@/shared/toLegacyJSON'
 import { toSkosJson } from '@/shared/toSkosJson'
@@ -41,8 +41,8 @@ vi.mock('@/shared/createConceptSchemeMap')
 vi.mock('@/shared/createConceptToConceptSchemeShortNameMap')
 vi.mock('@/shared/toLegacyJSON')
 vi.mock('@/shared/getVersionMetadata')
-vi.mock('@/shared/redis-path-store/getCsvForScheme', () => ({
-  getCsvForScheme: vi.fn()
+vi.mock('@/shared/redis-path-store/createCsvForScheme', () => ({
+  createCsvForScheme: vi.fn()
 }))
 
 vi.mock('@/shared/redisCacheStore', async () => {
@@ -71,7 +71,7 @@ describe('getConcepts', () => {
       maxTotalConceptsLimit: 50000
     })
 
-    vi.mocked(getCsvForScheme).mockReset()
+    vi.mocked(createCsvForScheme).mockReset()
     createPrefLabelMap.mockResolvedValue(new Map())
     createConceptSchemeMap.mockResolvedValue(new Map())
     createConceptToConceptSchemeShortNameMap.mockResolvedValue(new Map())
@@ -315,7 +315,7 @@ describe('getConcepts', () => {
 
     test('passes a draft cache key to the cache helpers for successful draft csv responses', async () => {
       getConceptSchemeDetails.mockResolvedValue({})
-      vi.mocked(getCsvForScheme).mockResolvedValue('uuid,prefLabel\n123,Draft Keyword')
+      vi.mocked(createCsvForScheme).mockResolvedValue('uuid,prefLabel\n123,Draft Keyword')
 
       const event = {
         resource: '/concepts/concept_scheme/{conceptScheme}',
@@ -510,10 +510,10 @@ describe('getConcepts', () => {
 
       expect(result.statusCode).toBe(200)
       expect(result.body).toBe('cached,csv')
-      expect(getCsvForScheme).not.toHaveBeenCalled()
+      expect(createCsvForScheme).not.toHaveBeenCalled()
     })
 
-    test('calls redisPathStore.getCsvForScheme when format is csv and conceptScheme is provided', async () => {
+    test('calls createCsvForScheme when format is csv and conceptScheme is provided', async () => {
       getFilteredTriples.mockResolvedValue([])
       processTriples.mockReturnValue({
         bNodeMap: {},
@@ -521,7 +521,7 @@ describe('getConcepts', () => {
         conceptURIs: []
       })
 
-      vi.mocked(getCsvForScheme).mockResolvedValue('csv data')
+      vi.mocked(createCsvForScheme).mockResolvedValue('csv data')
 
       getVersionMetadata.mockResolvedValue({
         versionName: '21.0',
@@ -539,7 +539,7 @@ describe('getConcepts', () => {
 
       const result = await getConcepts(event)
 
-      expect(getCsvForScheme).toHaveBeenCalledWith({
+      expect(createCsvForScheme).toHaveBeenCalledWith({
         scheme: 'testScheme',
         version: 'published',
         versionName: '21.0',
@@ -571,7 +571,7 @@ describe('getConcepts', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
       setCachedJsonResponse.mockRejectedValue(new Error('cache write failed'))
 
-      vi.mocked(getCsvForScheme).mockResolvedValue('csv data')
+      vi.mocked(createCsvForScheme).mockResolvedValue('csv data')
 
       getVersionMetadata.mockResolvedValue({
         versionName: '21.0',
@@ -601,7 +601,7 @@ describe('getConcepts', () => {
     })
 
     test('returns 500 CSV response and skips cache write when store generation throws', async () => {
-      vi.mocked(getCsvForScheme).mockRejectedValue(new Error('csv failed'))
+      vi.mocked(createCsvForScheme).mockRejectedValue(new Error('csv failed'))
 
       getVersionMetadata.mockResolvedValue({
         versionName: '21.0',

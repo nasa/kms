@@ -112,6 +112,43 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
+  test('preserves non-keyword-object correction fields before delegating', async () => {
+    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'UMM',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: [
+            'ScienceKeywords',
+            0
+          ],
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
+    })
+
+    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'delete',
+          ummPath: [
+            'ScienceKeywords',
+            0
+          ],
+          oldKeywordObject: {},
+          newKeywordObject: {}
+        }
+      ]
+    })
+  })
+
   test('normalizes array keyword objects to plain empty objects before delegating', async () => {
     vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 

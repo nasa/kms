@@ -178,4 +178,25 @@ describe('when writing corrected metadata to cmr', () => {
       correctedMetadata: null
     })
   })
+
+  test('should fall back to zero bytes when corrected metadata cannot be serialized', async () => {
+    const correctedMetadata = {}
+    correctedMetadata.self = correctedMetadata
+
+    const result = await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      correctedMetadata
+    })
+
+    expect(result.correctedMetadataBytes).toBe(0)
+
+    expect(ingestCorrectedMetadataStub).toHaveBeenCalledWith({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: null,
+      nativeId: null,
+      nativeFormat: null,
+      correctionCount: 0,
+      correctedMetadata
+    })
+  })
 })

@@ -1,32 +1,10 @@
+import { buildKeywordPathObjectFromSegments } from './buildKeywordPathObjectFromSegments'
 import { FULL_PATH_VALUE_FIELDS, SHORT_NAME_OBJECT_FIELDS } from './constants'
 import { isLookupShortNameScheme } from './isLookupShortNameScheme'
 import { joinKeywordPath } from './joinKeywordPath'
 import { normalizeKeywordScheme } from './normalizeKeywordScheme'
 import { splitKeywordPath } from './splitKeywordPath'
 import { trimKeywordPathSegment } from './trimKeywordPathSegment'
-
-function buildKeywordPathObjectFromSegments({
-  scheme,
-  segments
-}) {
-  const slotFields = FULL_PATH_VALUE_FIELDS[normalizeKeywordScheme(scheme)]
-
-  if (!Array.isArray(slotFields)) {
-    return {}
-  }
-
-  const normalizedSegments = segments.map((segment) => trimKeywordPathSegment(segment))
-  const paddedSegments = normalizedSegments.slice()
-
-  while (paddedSegments.length < slotFields.length) {
-    paddedSegments.push('')
-  }
-
-  return slotFields.reduce((keywordPathObject, fieldName, index) => ({
-    ...keywordPathObject,
-    [fieldName]: paddedSegments[index] || ''
-  }), {})
-}
 
 /**
  * Builds a slotted keyword-path object from a canonical keyword path string.
