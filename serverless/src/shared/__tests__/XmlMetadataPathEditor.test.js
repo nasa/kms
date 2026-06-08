@@ -167,6 +167,13 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     )).toBe('SNOW/ICE')
   })
 
+  test('should preserve an existing XML declaration without duplicating it', () => {
+    const xml = "<?xml version='1.0' encoding='UTF-8'?><DIF><Node>value</Node></DIF>"
+    const editor = new XmlMetadataPathEditor(xml)
+
+    expect(editor.serialize()).toBe(xml)
+  })
+
   test('should fall back to fieldPaths and empty scalar keyword text when optional values are absent', () => {
     const editor = new XmlMetadataPathEditor(`
       <DIF>

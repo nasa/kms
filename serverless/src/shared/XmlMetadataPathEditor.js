@@ -163,7 +163,13 @@ export class XmlMetadataPathEditor {
    * // '<?xml version="1.0" encoding="UTF-8"?>\\n<DIF><Node>value</Node></DIF>'
    */
   serialize() {
-    return `${XML_DECLARATION}\n${new XMLSerializer().serializeToString(this.document)}`
+    const serializedXml = new XMLSerializer().serializeToString(this.document)
+
+    if (serializedXml.startsWith('<?xml')) {
+      return serializedXml
+    }
+
+    return `${XML_DECLARATION}\n${serializedXml}`
   }
 
   /**
