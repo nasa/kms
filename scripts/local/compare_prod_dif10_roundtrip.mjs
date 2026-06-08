@@ -46,10 +46,13 @@ const rootDir = path.resolve(import.meta.dirname, '../..')
 const outputDir = path.resolve(rootDir, 'tmp/dif10-roundtrip')
 
 const isTrue = (value = '') => ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase())
+const normalizeCmrBaseUrl = (value = '') => String(value)
+  .replace(/\/+$/, '')
+  .replace(/\/search$/, '')
 
 // Override these with env vars when you want to target a different record or CMR environment.
 const conceptId = process.env.CONCEPT_ID || 'C2244302458-AMD_KOPRI'
-const cmrBaseUrl = process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov'
+const cmrBaseUrl = normalizeCmrBaseUrl(process.env.CMR_BASE_URL || 'https://cmr.earthdata.nasa.gov')
 const action = String(process.env.ACTION || 'compare').toLowerCase()
 const bearerToken = process.env.CMR_TOKEN || process.env.TOKEN || ''
 const explicitAuthorization = process.env.CMR_AUTHORIZATION || ''
@@ -227,6 +230,8 @@ const firstDifferenceIndex = getFirstDifference(originalXml, correctedXml)
 const exactMatch = originalXml === correctedXml
 let validateResult = null
 let ingestResult = null
+let validateUrl = null
+let ingestUrl = null
 
 // Use git's no-index diff mode because it produces an easy-to-read XML diff without requiring
 // these temp files to be tracked in the repository.
@@ -246,7 +251,8 @@ const diffResult = spawnSync(
 
 if (action === 'validate' || action === 'ingest') {
   const validatePath = `/search/providers/${encodeURIComponent(providerId)}/validate/collection/${encodeURIComponent(nativeId)}`
-  const validateResponse = await fetch(`${cmrBaseUrl}${validatePath}`, {
+  validateUrl = `${cmrBaseUrl}${validatePath}`
+  const validateResponse = await fetch(validateUrl, {
     method: 'POST',
     headers: createRequestHeaders({
       contentType: format || 'application/xml',
@@ -267,7 +273,8 @@ if (action === 'validate' || action === 'ingest') {
 if (action === 'ingest') {
   // CMR ingest docs: PUT /search/providers/<provider-id>/collections/<native-id>
   const ingestPath = `/search/providers/${encodeURIComponent(providerId)}/collections/${encodeURIComponent(nativeId)}`
-  const ingestResponse = await fetch(`${cmrBaseUrl}${ingestPath}`, {
+  ingestUrl = `${cmrBaseUrl}${ingestPath}`
+  const ingestResponse = await fetch(ingestUrl, {
     method: 'PUT',
     headers: createRequestHeaders({
       contentType: format || 'application/xml',
@@ -294,6 +301,8 @@ console.log(JSON.stringify({
   nativeId,
   format,
   nativeUrl,
+  validateUrl,
+  ingestUrl,
   collectionMetadata,
   originalPath,
   correctedPath,
