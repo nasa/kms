@@ -2,7 +2,7 @@ import { applyDif10MetadataCorrections } from './applyDif10MetadataCorrections'
 import { applyEcho10MetadataCorrections } from './applyEcho10MetadataCorrections'
 import { applyIso19115MetadataCorrections } from './applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from './applyIsoSmapMetadataCorrections'
-import { applyUmmMetadataCorrections } from './applyUmmMetadataCorrections'
+import { applyUmmcMetadataCorrections } from './applyUmmcMetadataCorrections'
 
 const normalizeKeywordObject = (keywordObject) => (
   keywordObject
@@ -64,7 +64,7 @@ export const invokeMetadataCorrectionDelegate = async ({
 
   switch (nativeFormat) {
     case 'UMM':
-      return applyUmmMetadataCorrections(normalizedDelegateParams)
+      return applyUmmcMetadataCorrections(normalizedDelegateParams)
     case 'ISO19115':
       return applyIso19115MetadataCorrections(normalizedDelegateParams)
     case 'ISO_SMAP':

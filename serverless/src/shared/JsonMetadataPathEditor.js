@@ -506,6 +506,10 @@ export class JsonMetadataPathEditor {
         }
       }
 
+      if (typeof config.afterDelete === 'function') {
+        config.afterDelete(this, targetEntry.node)
+      }
+
       return true
     }
 
@@ -541,6 +545,10 @@ export class JsonMetadataPathEditor {
       }
 
       this.removeEntry(targetEntry)
+
+      if (typeof config.afterDelete === 'function') {
+        config.afterDelete(this, targetEntry.node)
+      }
 
       return true
     }
