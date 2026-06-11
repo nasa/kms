@@ -20,6 +20,35 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
 const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode(correction, config)
 
 /**
+ * Generic utility for array cleanup
+ */
+const cleanupEmptyArray = (doc, key) => {
+  if (Array.isArray(doc[key]) && doc[key].length === 0) {
+    // eslint-disable-next-line no-param-reassign
+    delete doc[key]
+  }
+}
+
+/**
+ * Generic utility for nested array cleanup
+ */
+const cleanupNestedArray = (doc, parentKey, childKey) => {
+  if (!doc[parentKey]) return
+
+  const filtered = doc[parentKey].filter(
+    (item) => item[childKey] && item[childKey].length > 0
+  )
+
+  if (filtered.length === 0) {
+    // eslint-disable-next-line no-param-reassign
+    delete doc[parentKey]
+  } else {
+    // eslint-disable-next-line no-param-reassign
+    doc[parentKey] = filtered
+  }
+}
+
+/**
  * UMM-C scheme configuration for the shared JSON path editor.
  *
  * The object keys here are the incoming KMS scheme names from `correction.scheme`
@@ -38,11 +67,7 @@ export const UMMC_SCHEME_EDITORS = {
   sciencekeywords: unifiedBlockScheme({
     nodePath: '//ScienceKeywords',
     afterDelete: (editor) => {
-      const keywords = editor.document.ScienceKeywords
-      if (Array.isArray(keywords) && keywords.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.ScienceKeywords
-      }
+      cleanupEmptyArray(editor.document, 'ScienceKeywords')
     },
     find: {
       fieldPaths: [
@@ -66,27 +91,6 @@ export const UMMC_SCHEME_EDITORS = {
         'DetailedVariable'
       ]
     },
-    // Example correction input:
-    // {
-    //   scheme: 'sciencekeywords',
-    //   action: 'replace',
-    //   oldKeywordObject: {
-    //     Category: 'EARTH SCIENCE',
-    //     Topic: 'ATMOSPHERE',
-    //     Term: 'AEROSOLS'
-    //   },
-    //   newKeywordObject: {
-    //     Category: 'EARTH SCIENCE',
-    //     Topic: 'OCEANS',
-    //     Term: 'MARINE SEDIMENTS'
-    //   }
-    // }
-    //
-    // sequentialValueReplace(...) maps the canonical keyword-object values back into the
-    // ordered UMM-C JSON fields:
-    // - Category <- 'EARTH SCIENCE'
-    // - Topic <- 'OCEANS'
-    // - Term <- 'MARINE SEDIMENTS'
     replace: sequentialValueReplace(
       [
         // JSON fields to write to
@@ -113,11 +117,7 @@ export const UMMC_SCHEME_EDITORS = {
   locations: unifiedBlockScheme({
     nodePath: '//LocationKeywords',
     afterDelete: (editor) => {
-      const keywords = editor.document.LocationKeywords
-      if (Array.isArray(keywords) && keywords.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.LocationKeywords
-      }
+      cleanupEmptyArray(editor.document, 'LocationKeywords')
     },
     find: {
       fieldPaths: [
@@ -215,42 +215,14 @@ export const UMMC_SCHEME_EDITORS = {
         }
       }
     ],
-    // In ummcDomEditor.js
-    afterDelete: (editorInstance) => {
-      // 1. Create a local reference to the object you need to clean
-      const doc = editorInstance.document
-
-      if (doc.PaleoTemporalCoverages) {
-        const pCoverages = doc.PaleoTemporalCoverages
-
-        // 2. Perform the logic using the local reference
-        const filtered = pCoverages.filter((pc) => pc.ChronostratigraphicUnits
-         && pc.ChronostratigraphicUnits.length > 0)
-
-        // 3. Mutate the property via the local reference (this is safe)
-        if (filtered.length === 0) {
-          delete doc.PaleoTemporalCoverages
-        } else {
-          doc.PaleoTemporalCoverages = filtered
-        }
-      }
+    afterDelete: (editor) => {
+      cleanupNestedArray(editor.document, 'PaleoTemporalCoverages', 'ChronostratigraphicUnits')
     }
   }),
   platforms: unifiedBlockScheme({
-    // Platform corrections are normalized into an object that can carry:
-    // - Class: the GCMD platform class, for example "Space-based Platforms"
-    // - Type: UMM-C Type
-    // - ShortName: UMM-C ShortName
-    //
-    // UMM-C Platform only persists `Type` and `ShortName`, so those are the
-    // only object fields written back into the JSON.
     nodePath: '//Platforms',
     afterDelete: (editor) => {
-      const platforms = editor.document.Platforms
-      if (Array.isArray(platforms) && platforms.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.Platforms
-      }
+      cleanupEmptyArray(editor.document, 'Platforms')
     },
     find: {
       fieldPaths: [
@@ -285,26 +257,6 @@ export const UMMC_SCHEME_EDITORS = {
         // JSON field to write to
         fieldPath: 'LongName',
         source: {
-          // Example correction input:
-          // {
-          //   scheme: 'platforms',
-          //   action: 'replace',
-          //   oldKeywordObject: {
-          //     Class: 'Space-based Platforms',
-          //     Type: 'Earth Observation Satellites',
-          //     ShortName: 'SPOT-4'
-          //   },
-          //   newKeywordObject: {
-          //     Class: 'Space-based Platforms',
-          //     Type: 'Earth Observation Satellites',
-          //     ShortName: 'SPOT-4-UPDATED'
-          //   },
-          //   newLongName: 'Systeme Observation de la Terre-4 Updated'
-          // }
-          //
-          // This reads the replacement value directly from correction.newLongName
-          // instead of taking it from the normalized keyword object.
-          // Correction param to read from
           type: 'param',
           key: 'newLongName'
         }
@@ -338,11 +290,7 @@ export const UMMC_SCHEME_EDITORS = {
   projects: unifiedBlockScheme({
     nodePath: '//Projects',
     afterDelete: (editor) => {
-      const projects = editor.document.Projects
-      if (Array.isArray(projects) && projects.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.Projects
-      }
+      cleanupEmptyArray(editor.document, 'Projects')
     },
     find: {
       fieldPaths: [
@@ -378,11 +326,7 @@ export const UMMC_SCHEME_EDITORS = {
   providers: unifiedBlockScheme({
     nodePath: '//DataCenters',
     afterDelete: (editor) => {
-      const dataCenters = editor.document.DataCenters
-      if (Array.isArray(dataCenters) && dataCenters.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.DataCenters
-      }
+      cleanupEmptyArray(editor.document, 'DataCenters')
     },
     find: {
       fieldPaths: [
@@ -418,11 +362,7 @@ export const UMMC_SCHEME_EDITORS = {
   rucontenttype: unifiedBlockScheme({
     nodePath: '//RelatedUrls',
     afterDelete: (editor) => {
-      const relatedUrls = editor.document.RelatedUrls
-      if (Array.isArray(relatedUrls) && relatedUrls.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.RelatedUrls
-      }
+      cleanupEmptyArray(editor.document, 'RelatedUrls')
     },
     find: {
       fieldPaths: [
@@ -449,11 +389,7 @@ export const UMMC_SCHEME_EDITORS = {
   idnnode: unifiedBlockScheme({
     nodePath: '//DirectoryNames',
     afterDelete: (editor) => {
-      const directoryNames = editor.document.DirectoryNames
-      if (Array.isArray(directoryNames) && directoryNames.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.DirectoryNames
-      }
+      cleanupEmptyArray(editor.document, 'DirectoryNames')
     },
     find: {
       fieldPaths: [
@@ -470,22 +406,6 @@ export const UMMC_SCHEME_EDITORS = {
         // JSON field to write to
         fieldPath: 'ShortName',
         source: {
-          // Example correction input:
-          // {
-          //   scheme: 'idnnode',
-          //   action: 'replace',
-          //   oldKeywordObject: {
-          //     ShortName: 'CEOS'
-          //   },
-          //   newKeywordObject: {
-          //     ShortName: 'AMD/NZ'
-          //   },
-          //   newLongName: 'Antarctic Master Directory/New Zealand'
-          // }
-          //
-          // IDN nodes are modeled as a single free-form keyword value, so the normalized
-          // correction object carries the replacement in `newKeywordObject.ShortName`.
-          // Key from newKeywordObject to read from
           type: 'value',
           key: 'ShortName'
         }
@@ -504,29 +424,10 @@ export const UMMC_SCHEME_EDITORS = {
   isotopiccategory: leafScheme({
     nodePath: '//ISOTopicCategories',
     afterDelete: (editor) => {
-      const categories = editor.document.ISOTopicCategories
-      if (Array.isArray(categories) && categories.length === 0) {
-        // eslint-disable-next-line no-param-reassign
-        delete editor.document.ISOTopicCategories
-      }
+      cleanupEmptyArray(editor.document, 'ISOTopicCategories')
     }
   }),
   productlevelid: scalarScheme({
-    // Example correction input:
-    // {
-    //   scheme: 'productlevelid',
-    //   action: 'replace',
-    //   oldKeywordObject: {
-    //     Value: 'NA'
-    //   },
-    //   newKeywordObject: {
-    //     Value: '1A'
-    //   }
-    // }
-    //
-    // Scalar schemes ignore block/path matching and update the one target field
-    // selected by nodePath. `fieldName` is only used when that field is missing
-    // and the editor needs to create the scalar element under the UMM-C root.
     nodePath: '//ProcessingLevel/Id',
     fieldName: 'Id',
     afterDelete: (editor) => {
