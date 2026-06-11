@@ -1,4 +1,5 @@
 import JsonMetadataPathEditor, { sequentialValueReplace } from './JsonMetadataPathEditor'
+import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
 
 /**
  * A unified scheme creator that selects the appropriate
@@ -70,49 +71,10 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupEmptyArray(editor.document, 'ScienceKeywords')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ]
+      fieldPaths: FULL_PATH_VALUE_FIELDS.sciencekeywords,
+      valueKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords
     },
-    replace: sequentialValueReplace(
-      [
-        // JSON fields to write to
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ],
-      [
-        // Keys from newKeywordObject to read from
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ]
-    )
+    replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.sciencekeywords)
   }),
   locations: unifiedBlockScheme({
     nodePath: '//LocationKeywords',
@@ -120,45 +82,10 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupEmptyArray(editor.document, 'LocationKeywords')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from
-        'Category',
-        'Type',
-        'Subregion1',
-        'Subregion2',
-        'Subregion3',
-        'DetailedLocation'
-      ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'Category',
-        'Type',
-        'Subregion1',
-        'Subregion2',
-        'Subregion3',
-        'DetailedLocation'
-      ]
+      fieldPaths: FULL_PATH_VALUE_FIELDS.locations,
+      valueKeys: FULL_PATH_VALUE_FIELDS.locations
     },
-    replace: sequentialValueReplace(
-      [
-        // JSON fields to write to
-        'Category',
-        'Type',
-        'Subregion1',
-        'Subregion2',
-        'Subregion3',
-        'DetailedLocation'
-      ],
-      [
-        // Keys from newKeywordObject to read from
-        'Category',
-        'Type',
-        'Subregion1',
-        'Subregion2',
-        'Subregion3',
-        'DetailedLocation'
-      ]
-    )
+    replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.locations)
   }),
   chronounits: unifiedBlockScheme({
     // 1. Path to the parent container
@@ -168,7 +95,7 @@ export const UMMC_SCHEME_EDITORS = {
     // 3. Match using all relevant hierarchy fields
     find: {
       fieldPaths: ['Eon', 'Era', 'Period', 'Epoch', 'Stage', 'DetailedClassification'],
-      valueKeys: ['Eon', 'Era', 'Period', 'Epoch', 'Age', 'SubAge']
+      valueKeys: FULL_PATH_VALUE_FIELDS.chronounits
     },
     // 4. Map the replacement values
     replace: [
@@ -365,26 +292,10 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupEmptyArray(editor.document, 'RelatedUrls')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from (in schema order: URLContentType, Type, Subtype)
-        'URLContentType',
-        'Type',
-        'Subtype'
-      ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'URLContentType',
-        'Type',
-        'Subtype'
-      ]
+      fieldPaths: FULL_PATH_VALUE_FIELDS.rucontenttype,
+      valueKeys: FULL_PATH_VALUE_FIELDS.rucontenttype
     },
-    replace: sequentialValueReplace([
-      // JSON fields to write to and keys from newKeywordObject to read from (in schema order)
-      'URLContentType',
-      'Type',
-      'Subtype'
-    ]),
-    removeNodeIfEmptyAfterReplace: true
+    replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.rucontenttype)
   }),
   idnnode: unifiedBlockScheme({
     nodePath: '//DirectoryNames',
