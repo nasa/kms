@@ -703,16 +703,16 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: 'CENOZOIC',
             Period: 'QUATERNARY',
             Epoch: 'HOLOCENE',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           },
           newKeywordObject: {
             Eon: 'PHANEROZOIC',
             Era: 'CENOZOIC',
             Period: 'QUATERNARY',
             Epoch: 'PLEISTOCENE',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           }
         }
       ]
@@ -737,16 +737,16 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: 'MESOZOIC',
             Period: 'CRETACEOUS',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           },
           newKeywordObject: {
             Eon: 'PHANEROZOIC',
             Era: 'PALEOZOIC',
             Period: 'PERMIAN',
             Epoch: 'LOPINGIAN',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           }
         }
       ]
@@ -772,16 +772,16 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: 'CENOZOIC',
             Period: 'QUATERNARY',
             Epoch: 'HOLOCENE',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           },
           newKeywordObject: {
             Eon: 'PHANEROZOIC',
             Era: 'CENOZOIC',
             Period: 'QUATERNARY',
             Epoch: 'HOLOCENE',
-            Stage: 'GREENLANDIAN',
-            DetailedClassification: 'EARLY HOLOCENE'
+            Age: 'GREENLANDIAN',
+            SubAge: 'EARLY HOLOCENE'
           }
         }
       ]
@@ -806,8 +806,8 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: 'MESOZOIC',
             Period: 'CRETACEOUS',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           }
         }
       ]
@@ -845,8 +845,8 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: '',
             Period: '',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           }
         }
       ]
@@ -875,16 +875,16 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: 'CENOZOIC',
             Period: '',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           },
           newKeywordObject: {
             Eon: 'PHANEROZOIC',
             Era: 'MESOZOIC',
             Period: '',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           }
         }
       ]
@@ -950,16 +950,16 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: '',
             Period: '',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           },
           newKeywordObject: {
             Eon: 'PHANEROZOIC',
             Era: '',
             Period: '',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           }
         }
       ]
@@ -995,8 +995,8 @@ describe('when applying chronounits UMM-C corrections', () => {
             Era: 'MESOZOIC',
             Period: '',
             Epoch: '',
-            Stage: '',
-            DetailedClassification: ''
+            Age: '',
+            SubAge: ''
           },
           newKeywordObject: {}
         }

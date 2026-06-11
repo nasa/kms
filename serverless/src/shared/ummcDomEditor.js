@@ -1,7 +1,19 @@
 import JsonMetadataPathEditor, { sequentialValueReplace } from './JsonMetadataPathEditor'
 
-// Wrap a block-style scheme config in the shared editor contract used by the UMM-C delegate.
-const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
+/**
+ * A unified scheme creator that selects the appropriate
+ * editor method based on the configuration keys.
+ */
+const unifiedBlockScheme = (config) => (editor, correction) => {
+  // If a containerPath exists, it's a nested node
+  if (config.containerPath) {
+    return editor.updateNestedBlockNode(correction, config)
+  }
+
+  // Otherwise, treat it as a standard block node
+  return editor.updateBlockNode(correction, config)
+}
+
 // Wrap a leaf-value scheme config in the shared editor contract used by the UMM-C delegate.
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
 // Wrap a scalar/root-field scheme config in the shared editor contract used by the UMM-C delegate.
@@ -23,7 +35,7 @@ const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode
  * @type {Object.<string, Function>}
  */
 export const UMMC_SCHEME_EDITORS = {
-  sciencekeywords: blockScheme({
+  sciencekeywords: unifiedBlockScheme({
     nodePath: '//ScienceKeywords',
     afterDelete: (editor) => {
       const keywords = editor.document.ScienceKeywords
@@ -98,7 +110,7 @@ export const UMMC_SCHEME_EDITORS = {
       ]
     )
   }),
-  locations: blockScheme({
+  locations: unifiedBlockScheme({
     nodePath: '//LocationKeywords',
     afterDelete: (editor) => {
       const keywords = editor.document.LocationKeywords
@@ -148,82 +160,83 @@ export const UMMC_SCHEME_EDITORS = {
       ]
     )
   }),
-  chronounits: (editor, correction) => {
-    const action = String(correction.action || 'replace').toLowerCase()
-    const paleoTemporalCoverages = editor.selectNodes('//PaleoTemporalCoverages')
-
-    if (!Array.isArray(paleoTemporalCoverages) || paleoTemporalCoverages.length === 0) {
-      return false
-    }
-
-    const fields = ['Eon', 'Era', 'Period', 'Epoch', 'Stage', 'DetailedClassification']
-    const oldKeyword = correction?.oldKeywordObject
-
-    if (!oldKeyword) {
-      return false
-    }
-
-    // Search through all PaleoTemporalCoverages for matching chronounit
-    const result = paleoTemporalCoverages.some((coverage) => {
-      if (!Array.isArray(coverage?.ChronostratigraphicUnits)) {
-        return false
-      }
-
-      const unitIndex = coverage.ChronostratigraphicUnits
-        .findIndex((unit) => fields.every((field) => {
-          const oldVal = String(oldKeyword[field] || '').trim()
-          const unitVal = String(unit?.[field] || '').trim()
-
-          return oldVal === unitVal
-        }))
-
-      if (unitIndex === -1) {
-        return false
-      }
-
-      if (action === 'delete') {
-        // eslint-disable-next-line no-param-reassign
-        coverage.ChronostratigraphicUnits.splice(unitIndex, 1)
-        if (coverage.ChronostratigraphicUnits.length === 0) {
-          // Remove the entire PaleoTemporalCoverages entry if it's now empty
-          const { document } = editor
-          const coverageIndex = paleoTemporalCoverages.indexOf(coverage)
-          const allCoverages = document.PaleoTemporalCoverages
-          if (Array.isArray(allCoverages)) {
-            allCoverages.splice(coverageIndex, 1)
-            if (allCoverages.length === 0) {
-              delete document.PaleoTemporalCoverages
-            }
-          }
+  chronounits: unifiedBlockScheme({
+    // 1. Path to the parent container
+    containerPath: '//PaleoTemporalCoverages',
+    // 2. The key containing the target array
+    childKey: 'ChronostratigraphicUnits',
+    // 3. Match using all relevant hierarchy fields
+    find: {
+      fieldPaths: ['Eon', 'Era', 'Period', 'Epoch', 'Stage', 'DetailedClassification'],
+      valueKeys: ['Eon', 'Era', 'Period', 'Epoch', 'Age', 'SubAge']
+    },
+    // 4. Map the replacement values
+    replace: [
+      {
+        fieldPath: 'Eon',
+        source: {
+          type: 'value',
+          key: 'Eon'
         }
-
-        return true
+      },
+      {
+        fieldPath: 'Era',
+        source: {
+          type: 'value',
+          key: 'Era'
+        }
+      },
+      {
+        fieldPath: 'Period',
+        source: {
+          type: 'value',
+          key: 'Period'
+        }
+      },
+      {
+        fieldPath: 'Epoch',
+        source: {
+          type: 'value',
+          key: 'Epoch'
+        }
+      },
+      {
+        fieldPath: 'Stage',
+        source: {
+          type: 'value',
+          key: 'Age'
+        }
+      },
+      {
+        fieldPath: 'DetailedClassification',
+        source: {
+          type: 'value',
+          key: 'SubAge'
+        }
       }
+    ],
+    // In ummcDomEditor.js
+    afterDelete: (editorInstance) => {
+      // 1. Create a local reference to the object you need to clean
+      const doc = editorInstance.document
 
-      if (action === 'replace') {
-        const unit = coverage.ChronostratigraphicUnits[unitIndex]
-        const newKeyword = correction?.newKeywordObject
+      if (doc.PaleoTemporalCoverages) {
+        const pCoverages = doc.PaleoTemporalCoverages
 
-        fields.forEach((field) => {
-          const newVal = newKeyword?.[field]
-          if (newVal) {
-            // eslint-disable-next-line no-param-reassign
-            unit[field] = newVal
-          } else if (newVal === '') {
-            // eslint-disable-next-line no-param-reassign
-            delete unit[field]
-          }
-        })
+        // 2. Perform the logic using the local reference
+        const filtered = pCoverages.filter((pc) => pc.ChronostratigraphicUnits
+         && pc.ChronostratigraphicUnits.length > 0)
 
-        return true
+        // 3. Mutate the property via the local reference (this is safe)
+        if (filtered.length === 0) {
+          delete doc.PaleoTemporalCoverages
+        } else {
+          doc.PaleoTemporalCoverages = filtered
+        }
       }
-
-      return false
-    })
-
-    return result
-  },
-  platforms: blockScheme({
+    }
+  }),
+  platforms: unifiedBlockScheme({
     // Platform corrections are normalized into an object that can carry:
     // - Class: the GCMD platform class, for example "Space-based Platforms"
     // - Type: UMM-C Type
@@ -298,76 +311,31 @@ export const UMMC_SCHEME_EDITORS = {
       }
     ]
   }),
-  instruments: (editor, correction) => {
-    const action = String(correction.action || 'replace').toLowerCase()
-    const platforms = editor.selectNodes('//Platforms')
-
-    if (!Array.isArray(platforms) || platforms.length === 0) {
-      return false
-    }
-
-    const oldShortName = correction?.oldKeywordObject?.ShortName
-    if (!oldShortName) {
-      return false
-    }
-
-    // Search through all platforms for the matching instrument
-    const result = platforms.some((platform) => {
-      if (!Array.isArray(platform?.Instruments)) {
-        return false
-      }
-
-      const instrumentIndex = platform.Instruments.findIndex(
-        (inst) => inst?.ShortName === oldShortName
-      )
-
-      if (instrumentIndex === -1) {
-        return false
-      }
-
-      if (action === 'delete') {
-        // eslint-disable-next-line no-param-reassign
-        platform.Instruments.splice(instrumentIndex, 1)
-        if (platform.Instruments.length === 0) {
-          // eslint-disable-next-line no-param-reassign
-          delete platform.Instruments
+  instruments: unifiedBlockScheme({
+    containerPath: '//Platforms',
+    childKey: 'Instruments',
+    find: {
+      fieldPaths: ['ShortName'],
+      valueKeys: ['ShortName']
+    },
+    replace: [
+      {
+        fieldPath: 'ShortName',
+        source: {
+          type: 'value',
+          key: 'ShortName'
         }
-
-        return true
-      }
-
-      if (action === 'replace') {
-        const instrument = platform.Instruments[instrumentIndex]
-        const newShortName = correction?.newKeywordObject?.ShortName
-        const newLongName = correction?.newLongName
-
-        if (newShortName) {
-          // eslint-disable-next-line no-param-reassign
-          instrument.ShortName = newShortName
+      },
+      {
+        fieldPath: 'LongName',
+        source: {
+          type: 'param',
+          key: 'newLongName'
         }
-
-        if (newLongName) {
-          // eslint-disable-next-line no-param-reassign
-          instrument.LongName = newLongName
-        } else if (newLongName === '') {
-          // eslint-disable-next-line no-param-reassign
-          delete instrument.LongName
-        }
-
-        return true
       }
-
-      return false
-    })
-
-    return result
-  },
-  //   Replace: [
-  //     { fieldPath: 'ShortName', source: { type: 'value', key: 'ShortName' } },
-  //     { fieldPath: 'LongName', source: { type: 'param', key: 'newLongName' } }
-  //   ]
-  // }),
-  projects: blockScheme({
+    ]
+  }),
+  projects: unifiedBlockScheme({
     nodePath: '//Projects',
     afterDelete: (editor) => {
       const projects = editor.document.Projects
@@ -407,7 +375,7 @@ export const UMMC_SCHEME_EDITORS = {
       }
     ]
   }),
-  providers: blockScheme({
+  providers: unifiedBlockScheme({
     nodePath: '//DataCenters',
     afterDelete: (editor) => {
       const dataCenters = editor.document.DataCenters
@@ -447,7 +415,7 @@ export const UMMC_SCHEME_EDITORS = {
       }
     ]
   }),
-  rucontenttype: blockScheme({
+  rucontenttype: unifiedBlockScheme({
     nodePath: '//RelatedUrls',
     afterDelete: (editor) => {
       const relatedUrls = editor.document.RelatedUrls
@@ -478,7 +446,7 @@ export const UMMC_SCHEME_EDITORS = {
     ]),
     removeNodeIfEmptyAfterReplace: true
   }),
-  idnnode: blockScheme({
+  idnnode: unifiedBlockScheme({
     nodePath: '//DirectoryNames',
     afterDelete: (editor) => {
       const directoryNames = editor.document.DirectoryNames

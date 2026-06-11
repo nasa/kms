@@ -479,6 +479,85 @@ export class JsonMetadataPathEditor {
     return false
   }
 
+  deleteProperty(obj, key) {
+  // eslint-disable-next-line no-param-reassign
+    delete obj[key]
+  }
+
+  /**
+   * Updates a nested block node (e.g., Instruments inside Platforms).
+   * @param {Object} correction The correction object containing action and data.
+   * @param {Object} config Configuration for traversal and matching.
+   */
+  updateNestedBlockNode(correction, config) {
+    const {
+      containerPath, childKey, find, replace, afterDelete
+    } = config
+    const action = String(correction.action || 'replace').toLowerCase()
+
+    // 1. Validate supported actions
+    if (action !== 'replace' && action !== 'delete') {
+      return false
+    }
+
+    const containers = this.selectNodes(containerPath)
+    if (!Array.isArray(containers) || containers.length === 0) return false
+
+    let found = false
+
+    containers.some((container) => {
+      const childList = container[childKey]
+      if (!Array.isArray(childList)) return false
+
+      // 1. Guard against missing oldKeywordObject
+      if (!correction.oldKeywordObject) {
+        return false
+      }
+
+      // Use fieldPaths (document) and valueKeys (correction object) to match
+      const index = childList.findIndex((item) => find.fieldPaths.every((fieldPath, i) => {
+        const valueKey = find.valueKeys[i]
+
+        // Normalize both sides
+        const docValue = String(item[fieldPath] || '').trim()
+        const corrValue = String(correction.oldKeywordObject[valueKey] || '').trim()
+
+        return docValue === corrValue
+      }))
+
+      if (index === -1) return false
+
+      found = true
+
+      if (action === 'delete') {
+        childList.splice(index, 1)
+        if (childList.length === 0) this.deleteProperty(container, childKey)
+      } else if (action === 'replace') {
+        const item = childList[index]
+        replace.forEach(({ fieldPath, source }) => {
+          let newValue
+          if (source.type === 'value') {
+            newValue = correction.newKeywordObject[source.key]
+          } else if (source.type === 'param') {
+            newValue = correction[source.key]
+          }
+
+          if (newValue === undefined || newValue === '' || newValue === null) {
+            delete item[fieldPath]
+          } else {
+            item[fieldPath] = newValue
+          }
+        })
+      }
+
+      return true
+    })
+
+    if (found && afterDelete) afterDelete(this)
+
+    return found
+  }
+
   /**
    * Applies a replace/delete correction to a simple leaf JSON node.
    *
