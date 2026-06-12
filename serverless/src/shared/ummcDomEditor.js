@@ -98,50 +98,10 @@ export const UMMC_SCHEME_EDITORS = {
       valueKeys: FULL_PATH_VALUE_FIELDS.chronounits
     },
     // 4. Map the replacement values
-    replace: [
-      {
-        fieldPath: 'Eon',
-        source: {
-          type: 'value',
-          key: 'Eon'
-        }
-      },
-      {
-        fieldPath: 'Era',
-        source: {
-          type: 'value',
-          key: 'Era'
-        }
-      },
-      {
-        fieldPath: 'Period',
-        source: {
-          type: 'value',
-          key: 'Period'
-        }
-      },
-      {
-        fieldPath: 'Epoch',
-        source: {
-          type: 'value',
-          key: 'Epoch'
-        }
-      },
-      {
-        fieldPath: 'Stage',
-        source: {
-          type: 'value',
-          key: 'Age'
-        }
-      },
-      {
-        fieldPath: 'DetailedClassification',
-        source: {
-          type: 'value',
-          key: 'SubAge'
-        }
-      }
-    ],
+    replace: sequentialValueReplace(
+      ['Eon', 'Era', 'Period', 'Epoch', 'Stage', 'DetailedClassification'],
+      FULL_PATH_VALUE_FIELDS.chronounits
+    ),
     afterDelete: (editor) => {
       cleanupNestedArray(editor.document, 'PaleoTemporalCoverages', 'ChronostratigraphicUnits')
     }
