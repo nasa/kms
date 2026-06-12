@@ -27,7 +27,13 @@ export const applyUmmcMetadataCorrections = async (params) => {
     }
   }
 
-  const editor = createUmmcEditor(metadataPayload)
+  let jsonMetadataPayload = metadataPayload
+
+  if (typeof metadataPayload === 'string') {
+    jsonMetadataPayload = JSON.parse(metadataPayload)
+  }
+
+  const editor = createUmmcEditor(jsonMetadataPayload)
   const applied = corrections.reduce((acc, correction) => {
     const scheme = String(correction.scheme || '').toLowerCase()
     const delegate = UMMC_SCHEME_EDITORS[scheme]

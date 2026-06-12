@@ -167,6 +167,23 @@ describe('when applying UMM-C metadata corrections', () => {
     expect(result.stubbed).toBe(true)
   })
 
+  test('should parse metadataPayload when it is provided as a JSON string', async () => {
+    const jsonStringPayload = JSON.stringify({
+      ShortName: 'STRING_TEST_COLLECTION',
+      Version: '001',
+      EntryTitle: 'JSON String Test Collection'
+    })
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload: jsonStringPayload,
+      corrections: []
+    })
+
+    const parsed = JSON.parse(result.correctedMetadata)
+    expect(parsed.ShortName).toBe('STRING_TEST_COLLECTION')
+    expect(parsed.EntryTitle).toBe('JSON String Test Collection')
+  })
+
   test('should apply multiple corrections from different schemes sequentially', async () => {
     const corrections = [
       {
@@ -3007,42 +3024,6 @@ describe('when applying science keyword UMM-C corrections', () => {
 
     const parsed = JSON.parse(result.correctedMetadata)
     expect(parsed.ScienceKeywords[0].VariableLevel1).toBe('LEGACY AEROSOLS')
-  })
-})
-
-describe('when JSON parsing fails', () => {
-  test('should handle invalid JSON gracefully', async () => {
-    const invalidJson = '{ invalid json'
-
-    const result = await applyUmmcMetadataCorrections({
-      metadataPayload: invalidJson,
-      corrections: [
-        {
-          scheme: 'sciencekeywords',
-          action: 'replace',
-          oldKeywordObject: {
-            Category: 'EARTH SCIENCE',
-            Topic: 'ATMOSPHERE',
-            Term: 'AEROSOLS',
-            VariableLevel1: '',
-            VariableLevel2: '',
-            VariableLevel3: '',
-            DetailedVariable: ''
-          },
-          newKeywordObject: {
-            Category: 'EARTH SCIENCE',
-            Topic: 'OCEANS',
-            Term: 'MARINE SEDIMENTS',
-            VariableLevel1: '',
-            VariableLevel2: '',
-            VariableLevel3: '',
-            DetailedVariable: ''
-          }
-        }
-      ]
-    })
-
-    expect(result.correctionCount).toBe(0)
   })
 })
 

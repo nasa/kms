@@ -1,0 +1,159 @@
+{
+  "collectionConceptId": "C1234567855-LOCAL",
+  "nativeFormat": "UMM",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "ATMOSPHERIC TEMPERATURE",
+        "VariableLevel1": "UPPER AIR TEMPERATURE",
+        "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+        "VariableLevel3": "BOUNDARY LAYER TEMPERATURE PROFILES",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "ATMOSPHERIC TEMPERATURE",
+        "VariableLevel1": "UPPER AIR TEMPERATURE",
+        "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+        "VariableLevel3": "BOUNDARY LAYER TEMPERATURE GRADIENT",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category" : "OCEAN",
+        "Type" : "ATLANTIC OCEAN",
+        "Subregion1" : "SOUTH ATLANTIC OCEAN",
+        "Subregion2" : "SOUTH GEORGIA ISLAND",
+        "Subregion3" : "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "chronounits",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Eon" : "PHANEROZOIC",
+        "Era" : "CENOZOIC",
+        "Period" : "QUATERNARY",
+        "Epoch" : "HOLOCENE",
+        "Age": "",
+        "SubAge": ""
+      },
+      "newKeywordObject": {
+        "Eon" : "PHANEROZOIC",
+        "Era" : "CENOZOIC",
+        "Period" : "QUATERNARY",
+        "Epoch" : "PLEISTOCENE ",
+        "Age": "",
+        "SubAge": ""
+      }
+    },
+    {                                     
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Helicopter AS350-B3 UPDATE",
+      "oldKeywordObject": {
+        "Class": "Air-based Platforms",
+        "Type": "Rotorcraft/Helicopter",
+        "ShortName": "AS350-B3"
+      },
+      "newKeywordObject": {
+        "Class": "Air-based Platforms",
+        "Type": "Rotorcraft/Helicopter",
+        "ShortName": "AS350-B3U"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "SSALT"
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Aliens in Antarctica Updated",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "CASERTZ"
+      },
+      "newKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "CASERTZ-UPDATED"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "newLongName": "Earth System Science Education Alliance",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DRSC"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "ESSEA"
+      }
+    },                                    
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "GET DATA",
+        "Subtype": "VIRTUAL COLLECTION"
+      },
+      "newKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "OGC WMS"
+      }
+    },
+    {
+      "scheme": "idnnode",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "CEOS"
+      }
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION"
+      },
+      "newKeywordObject": {
+        "Value": "OCEANS"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "2"
+      },
+      "newKeywordObject": {
+        "Value": "3"
+      }
+    }
+  ]
+}

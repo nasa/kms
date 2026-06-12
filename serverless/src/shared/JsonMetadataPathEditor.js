@@ -501,6 +501,7 @@ export class JsonMetadataPathEditor {
     }
 
     const containers = this.selectNodes(containerPath)
+
     if (!Array.isArray(containers) || containers.length === 0) return false
 
     let found = false
