@@ -212,7 +212,25 @@ export const metadataCorrectionService = async (event) => {
         source: metadataCorrectionRequest.source || 'metadataCorrectionService'
       })
 
-      logger.info('[metadata-correction] Stubbed corrected metadata write to CMR', {
+      if (correctionsForAudit.length > 0 && writeResult?.ingestResult?.updated === true) {
+        const appliedAuditResult = await persistMetadataCorrectionAuditLog({
+          collectionConceptId,
+          keywordEvent,
+          nativeFormat,
+          delegateName: correctionResult.delegateName || nativeFormat.toLowerCase(),
+          corrections: correctionsForAudit,
+          status: 'applied'
+        })
+
+        logger.info('[metadata-correction] Persisted applied metadata correction audit log', {
+          collectionConceptId,
+          messageId: record.messageId,
+          nativeFormat,
+          auditResult: appliedAuditResult
+        })
+      }
+
+      logger.info('[metadata-correction] Completed corrected metadata write to CMR', {
         collectionConceptId,
         messageId: record.messageId,
         nativeFormat,

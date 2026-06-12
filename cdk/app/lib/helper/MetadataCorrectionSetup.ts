@@ -16,6 +16,9 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
+  cmrSystemToken?: string
+  cmrSystemTokenSecretName?: string
+  cmrWritebackProviders?: string
   prefix: string
   redisEnabled?: string
   redisHost?: string
@@ -61,6 +64,9 @@ export class MetadataCorrectionSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrSystemToken,
+      cmrSystemTokenSecretName,
+      cmrWritebackProviders,
       prefix,
       redisEnabled,
       redisHost,
@@ -125,6 +131,11 @@ export class MetadataCorrectionSetup extends Construct {
         memorySize: 1024,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
+          ...(cmrSystemToken ? { CMR_SYSTEM_TOKEN: cmrSystemToken } : {}),
+          ...(cmrSystemTokenSecretName
+            ? { CMR_SYSTEM_TOKEN_SECRET_NAME: cmrSystemTokenSecretName }
+            : {}),
+          ...(cmrWritebackProviders ? { CMR_WRITEBACK_PROVIDERS: cmrWritebackProviders } : {}),
           ...(redisEnabled ? { REDIS_ENABLED: redisEnabled } : {}),
           ...(redisHost ? { REDIS_HOST: redisHost } : {}),
           ...(redisPort ? { REDIS_PORT: redisPort } : {}),

@@ -215,6 +215,9 @@ async function main() {
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
+    cmrSystemToken: process.env.CMR_SYSTEM_TOKEN || '',
+    cmrSystemTokenSecretName: process.env.CMR_SYSTEM_TOKEN_SECRET_NAME || '',
+    cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     env,
     prefix,
     redisEnabled: redisEnabledValue,
