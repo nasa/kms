@@ -820,6 +820,142 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
       expect(editor.serialize()).toContain('"CollectionDataType": "NSIDC"')
     })
 
+    test('use case #2 should update only the owned top-level center field when role and current value match', () => {
+      const editor = new JsonMetadataPathEditor({
+        DataCenters: [
+          {
+            ShortName: 'KPDC',
+            LongName: 'Korea Polar Data Center, KOPRI'
+          }
+        ],
+        ProcessingCenter: 'KPDC',
+        ArchiveCenter: 'ARCHIVE-OWNER'
+      })
+
+      const isUpdated = editor.updateBlockNode({
+        action: 'replace',
+        oldKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
+          ShortName: 'KPDC'
+        },
+        newKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
+          ShortName: 'NSIDC'
+        },
+        newLongName: 'National Snow and Ice Data Center'
+      }, {
+        nodePath: '//DataCenters',
+        find: {
+          fieldPaths: ['ShortName'],
+          valueKeys: ['ShortName']
+        },
+        replace: [
+          {
+            fieldPath: 'ShortName',
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          },
+          {
+            fieldPath: 'LongName',
+            source: {
+              type: 'param',
+              key: 'newLongName'
+            }
+          },
+          {
+            fieldPath: '//ProcessingCenter',
+            condition: ({ correction, editor: currentEditor }) => (
+              correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
+              && currentEditor.getNestedText(null, '//ProcessingCenter')
+                === correction.oldKeywordObject?.ShortName
+            ),
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          },
+          {
+            fieldPath: '//ArchiveCenter',
+            condition: ({ correction, editor: currentEditor }) => (
+              correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
+              && currentEditor.getNestedText(null, '//ArchiveCenter')
+                === correction.oldKeywordObject?.ShortName
+            ),
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          }
+        ]
+      })
+
+      expect(isUpdated).toBe(true)
+      expect(editor.serialize()).toContain('"ShortName": "NSIDC"')
+      expect(editor.serialize()).toContain('"LongName": "National Snow and Ice Data Center"')
+      expect(editor.serialize()).toContain('"ProcessingCenter": "NSIDC"')
+      expect(editor.serialize()).toContain('"ArchiveCenter": "ARCHIVE-OWNER"')
+    })
+
+    test('use case #2 should leave top-level center fields alone when the current value no longer matches the old short name', () => {
+      const editor = new JsonMetadataPathEditor({
+        DataCenters: [
+          {
+            ShortName: 'KPDC',
+            LongName: 'Korea Polar Data Center, KOPRI'
+          }
+        ],
+        ProcessingCenter: 'SOMEONE-ELSE',
+        ArchiveCenter: 'KPDC'
+      })
+
+      const isUpdated = editor.updateBlockNode({
+        action: 'replace',
+        oldKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
+          ShortName: 'KPDC'
+        },
+        newKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
+          ShortName: 'NSIDC'
+        },
+        newLongName: 'National Snow and Ice Data Center'
+      }, {
+        nodePath: '//DataCenters',
+        find: {
+          fieldPaths: ['ShortName'],
+          valueKeys: ['ShortName']
+        },
+        replace: [
+          {
+            fieldPath: 'ShortName',
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          },
+          {
+            fieldPath: '//ProcessingCenter',
+            condition: ({ correction, editor: currentEditor }) => (
+              correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
+              && currentEditor.getNestedText(null, '//ProcessingCenter')
+                === correction.oldKeywordObject?.ShortName
+            ),
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          }
+        ]
+      })
+
+      expect(isUpdated).toBe(true)
+      expect(editor.serialize()).toContain('"ShortName": "NSIDC"')
+      expect(editor.serialize()).toContain('"ProcessingCenter": "SOMEONE-ELSE"')
+      expect(editor.serialize()).toContain('"ArchiveCenter": "KPDC"')
+    })
+
     test('use case #3 should support computed find and replacement values for composed block fields', () => {
       let seenCurrentCombinedValue = null
       const editor = new JsonMetadataPathEditor({
@@ -893,6 +1029,42 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
   })
 
   describe('outside cases', () => {
+    test('should default field conditions to true and honor condition callbacks when provided', () => {
+      const editor = new JsonMetadataPathEditor({
+        Projects: [
+          {
+            ShortName: 'ONE'
+          }
+        ]
+      })
+      const targetNode = editor.selectNodes('//Projects')[0]
+      let seenTargetShortName = null
+      let sawNullTargetNode = false
+
+      expect(editor.shouldApplyFieldCondition({}, undefined, targetNode)).toBe(true)
+
+      expect(editor.shouldApplyFieldCondition({
+        oldKeywordObject: {
+          ShortName: 'ONE'
+        }
+      }, ({ correction, editor: currentEditor, targetNode: currentTargetNode }) => {
+        seenTargetShortName = currentTargetNode.ShortName
+
+        return correction.oldKeywordObject?.ShortName === 'ONE'
+          && currentEditor === editor
+      }, targetNode)).toBe(true)
+
+      expect(seenTargetShortName).toBe('ONE')
+      expect(editor.shouldApplyFieldCondition({}, ({ targetNode: currentTargetNode }) => {
+        sawNullTargetNode = currentTargetNode === null
+
+        return true
+      })).toBe(true)
+
+      expect(sawNullTargetNode).toBe(true)
+      expect(editor.shouldApplyFieldCondition({}, () => false, targetNode)).toBe(false)
+    })
+
     test('should invoke afterDelete callbacks for block nodes', () => {
       let callbackNodeName = null
       const editor = new JsonMetadataPathEditor({

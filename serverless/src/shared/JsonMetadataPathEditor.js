@@ -414,6 +414,30 @@ export class JsonMetadataPathEditor {
   }
 
   /**
+   * Evaluates an optional replace-field condition against the current correction and target node.
+   *
+   * Conditions are only used to decide whether one configured field write should run; they do not
+   * affect node matching. This mirrors the XML editor's conditional sibling-write support for
+   * cases where a matched JSON block may own one root-level field but not another.
+   *
+   * @param {Object} correction Correction descriptor being applied.
+   * @param {Function|undefined} condition Optional condition callback.
+   * @param {unknown} [targetNode=null] Matched JSON node being updated.
+   * @returns {boolean} Whether the field write should be applied.
+   */
+  shouldApplyFieldCondition(correction, condition, targetNode) {
+    if (typeof condition !== 'function') {
+      return true
+    }
+
+    return Boolean(condition({
+      correction,
+      editor: this,
+      targetNode: targetNode ?? null
+    }))
+  }
+
+  /**
    * Locates the JSON node that corresponds to the current keyword value being corrected.
    *
    * If no explicit `find` config is provided and the resolved path yields exactly one candidate,
@@ -452,7 +476,11 @@ export class JsonMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      config.replace.forEach(({ fieldPath, source }) => {
+      config.replace.forEach(({ fieldPath, source, condition }) => {
+        if (!this.shouldApplyFieldCondition(correction, condition, targetEntry.node)) {
+          return
+        }
+
         const value = this.getReplacementValue(correction, source, targetEntry.node)
 
         if (value.length > 0) {
