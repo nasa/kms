@@ -325,7 +325,35 @@ export class XmlMetadataPathEditor {
    * // 'SPOT-4'
    */
   getNestedText(node, fieldPath) {
+    if (this.isAbsoluteFieldPath(fieldPath)) {
+      return this.getElementText(this.resolveAbsoluteFieldElement(fieldPath))
+    }
+
     return this.getElementText(this.getNestedElement(node, fieldPath))
+  }
+
+  /**
+   * Evaluates an optional replace-field condition against the current correction and target node.
+   *
+   * Conditions are only used to decide whether one configured field write should run; they do not
+   * affect node matching. This is useful for ECHO10-style sibling updates where a matched contact
+   * may own `ProcessingCenter` but not `ArchiveCenter`.
+   *
+   * @param {Object} correction Correction descriptor being applied.
+   * @param {Function|undefined} condition Optional condition callback.
+   * @param {Element|null} [targetNode=null] Matched XML node being updated.
+   * @returns {boolean} Whether the field write should be applied.
+   */
+  shouldApplyFieldCondition(correction, condition, targetNode) {
+    if (typeof condition !== 'function') {
+      return true
+    }
+
+    return Boolean(condition({
+      correction,
+      editor: this,
+      targetNode: targetNode ?? null
+    }))
   }
 
   /**
@@ -708,7 +736,11 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      config.replace.forEach(({ fieldPath, source }) => {
+      config.replace.forEach(({ fieldPath, source, condition }) => {
+        if (!this.shouldApplyFieldCondition(correction, condition, targetNode)) {
+          return
+        }
+
         const value = this.getReplacementValue(correction, source, targetNode)
 
         if (value.length > 0) {

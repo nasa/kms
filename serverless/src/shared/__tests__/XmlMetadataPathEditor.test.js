@@ -141,47 +141,6 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     )).toBe('SNOW/ICE')
   })
 
-  describe('for the ECHO10 use cases called out in review', () => {
-    test('use case #1 should support absolute document paths for sibling updates', () => {
-      const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
-      const node = editor.selectNodes('//DIF/Node')[0]
-
-      editor.setNestedText(node, '//DIF/ProcessingCenter', 'NSIDC')
-      expect(editor.serialize()).toContain('<ProcessingCenter>NSIDC</ProcessingCenter>')
-
-      editor.removeNestedElement(node, '//DIF/ProcessingCenter')
-      expect(editor.selectNodes('//DIF/ProcessingCenter')).toEqual([])
-
-      editor.setNestedText(node, '//Collection/ProcessingCenter', 'NSIDC')
-      expect(editor.serialize()).not.toContain('<Collection>')
-    })
-
-    test('use case #3 should derive replacement values for composed field writes', () => {
-      const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
-      const targetNode = editor.selectNodes('//DIF/Node')[0]
-
-      expect(editor.getReplacementValue(
-        {
-          newKeywordObject: {
-            URLContentType: 'DistributionURL',
-            Type: 'GET DATA',
-            Subtype: 'EARTHDATA SEARCH'
-          }
-        },
-        {
-          type: 'computed',
-          getValue: ({ correction, editor: currentEditor, targetNode: currentTargetNode }) => [
-            correction.newKeywordObject.URLContentType,
-            correction.newKeywordObject.Type,
-            correction.newKeywordObject.Subtype,
-            currentEditor.getElementText(currentTargetNode)
-          ].filter(Boolean).join(' : ')
-        },
-        targetNode
-      )).toBe('DistributionURL : GET DATA : EARTHDATA SEARCH')
-    })
-  })
-
   describe('outside cases', () => {
     test('should return no child elements for an undefined node', () => {
       const editor = new XmlMetadataPathEditor('<DIF><Node><A>one</A></Node></DIF>')
@@ -482,7 +441,21 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
   })
 
   describe('for the ECHO10 use cases called out in review', () => {
-    test('use case #1 should support absolute replace field paths outside the matched block node', () => {
+    test('use case #1 should support absolute document paths for sibling updates', () => {
+      const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
+      const node = editor.selectNodes('//DIF/Node')[0]
+
+      editor.setNestedText(node, '//DIF/ProcessingCenter', 'NSIDC')
+      expect(editor.serialize()).toContain('<ProcessingCenter>NSIDC</ProcessingCenter>')
+
+      editor.removeNestedElement(node, '//DIF/ProcessingCenter')
+      expect(editor.selectNodes('//DIF/ProcessingCenter')).toEqual([])
+
+      editor.setNestedText(node, '//Collection/ProcessingCenter', 'NSIDC')
+      expect(editor.serialize()).not.toContain('<Collection>')
+    })
+
+    test('use case #2 should update only the owned top-level center field when role and current value match', () => {
       const editor = new XmlMetadataPathEditor(`
         <DIF>
           <Organization>
@@ -492,16 +465,18 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
             </Organization_Name>
           </Organization>
           <ProcessingCenter>KPDC</ProcessingCenter>
-          <ArchiveCenter>KPDC</ArchiveCenter>
+          <ArchiveCenter>ARCHIVE-OWNER</ArchiveCenter>
         </DIF>
       `)
 
       const isUpdated = editor.updateBlockNode({
         action: 'replace',
         oldKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
           ShortName: 'KPDC'
         },
         newKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
           ShortName: 'NSIDC'
         },
         newLongName: 'National Snow and Ice Data Center'
@@ -528,6 +503,11 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
           },
           {
             fieldPath: '//DIF/ProcessingCenter',
+            condition: ({ correction, editor: currentEditor }) => (
+              correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
+              && currentEditor.getNestedText(null, '//DIF/ProcessingCenter')
+              === correction.oldKeywordObject?.ShortName
+            ),
             source: {
               type: 'value',
               key: 'ShortName'
@@ -535,6 +515,11 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
           },
           {
             fieldPath: '//DIF/ArchiveCenter',
+            condition: ({ correction, editor: currentEditor }) => (
+              correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
+              && currentEditor.getNestedText(null, '//DIF/ArchiveCenter')
+              === correction.oldKeywordObject?.ShortName
+            ),
             source: {
               type: 'value',
               key: 'ShortName'
@@ -547,7 +532,92 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       expect(editor.serialize()).toContain('<Short_Name>NSIDC</Short_Name>')
       expect(editor.serialize()).toContain('<Long_Name>National Snow and Ice Data Center</Long_Name>')
       expect(editor.serialize()).toContain('<ProcessingCenter>NSIDC</ProcessingCenter>')
-      expect(editor.serialize()).toContain('<ArchiveCenter>NSIDC</ArchiveCenter>')
+      expect(editor.serialize()).toContain('<ArchiveCenter>ARCHIVE-OWNER</ArchiveCenter>')
+    })
+
+    test('use case #2 should leave top-level center fields alone when the current value no longer matches the old short name', () => {
+      const editor = new XmlMetadataPathEditor(`
+        <DIF>
+          <Organization>
+            <Organization_Name>
+              <Short_Name>KPDC</Short_Name>
+              <Long_Name>Korea Polar Data Center, KOPRI</Long_Name>
+            </Organization_Name>
+          </Organization>
+          <ProcessingCenter>SOMEONE-ELSE</ProcessingCenter>
+          <ArchiveCenter>KPDC</ArchiveCenter>
+        </DIF>
+      `)
+
+      const isUpdated = editor.updateBlockNode({
+        action: 'replace',
+        oldKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
+          ShortName: 'KPDC'
+        },
+        newKeywordObject: {
+          BucketLevel0: 'PROCESSOR',
+          ShortName: 'NSIDC'
+        },
+        newLongName: 'National Snow and Ice Data Center'
+      }, {
+        nodeXPath: '//DIF/Organization',
+        find: {
+          fieldPaths: ['Organization_Name/Short_Name'],
+          valueKeys: ['ShortName']
+        },
+        replace: [
+          {
+            fieldPath: 'Organization_Name/Short_Name',
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          },
+          {
+            fieldPath: '//DIF/ProcessingCenter',
+            condition: ({ correction, editor: currentEditor }) => (
+              correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
+              && currentEditor.getNestedText(null, '//DIF/ProcessingCenter')
+              === correction.oldKeywordObject?.ShortName
+            ),
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          }
+        ]
+      })
+
+      expect(isUpdated).toBe(true)
+      expect(editor.serialize()).toContain('<Short_Name>NSIDC</Short_Name>')
+      expect(editor.serialize()).toContain('<ProcessingCenter>SOMEONE-ELSE</ProcessingCenter>')
+      expect(editor.serialize()).toContain('<ArchiveCenter>KPDC</ArchiveCenter>')
+    })
+
+    test('use case #3 should derive replacement values for composed field writes', () => {
+      const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
+      const targetNode = editor.selectNodes('//DIF/Node')[0]
+
+      expect(editor.getReplacementValue(
+        {
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: 'EARTHDATA SEARCH'
+          }
+        },
+        {
+          type: 'computed',
+          getValue: ({ correction, editor: currentEditor, targetNode: currentTargetNode }) => [
+            correction.newKeywordObject.URLContentType,
+            correction.newKeywordObject.Type,
+            correction.newKeywordObject.Subtype,
+            currentEditor.getElementText(currentTargetNode)
+          ].filter(Boolean).join(' : ')
+        },
+        targetNode
+      )).toBe('DistributionURL : GET DATA : EARTHDATA SEARCH')
     })
 
     test('use case #3 should support computed find and replacement values for composed block fields', () => {
@@ -623,6 +693,36 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
   })
 
   describe('outside cases', () => {
+    test('should default field conditions to true and honor condition callbacks when provided', () => {
+      const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
+      const targetNode = editor.selectNodes('//DIF/Node')[0]
+      let seenTargetNodeName = null
+      let sawNullTargetNode = false
+
+      expect(editor.shouldApplyFieldCondition({}, undefined, targetNode)).toBe(true)
+
+      expect(editor.shouldApplyFieldCondition({
+        oldKeywordObject: {
+          ShortName: 'KPDC'
+        }
+      }, ({ correction, editor: currentEditor, targetNode: currentTargetNode }) => {
+        seenTargetNodeName = currentTargetNode.nodeName
+
+        return correction.oldKeywordObject?.ShortName === 'KPDC'
+          && currentEditor === editor
+      }, targetNode)).toBe(true)
+
+      expect(seenTargetNodeName).toBe('Node')
+      expect(editor.shouldApplyFieldCondition({}, ({ targetNode: currentTargetNode }) => {
+        sawNullTargetNode = currentTargetNode === null
+
+        return true
+      })).toBe(true)
+
+      expect(sawNullTargetNode).toBe(true)
+      expect(editor.shouldApplyFieldCondition({}, () => false, targetNode)).toBe(false)
+    })
+
     test('should invoke afterDelete callbacks for block nodes', () => {
       let callbackNodeName = null
       const editor = new XmlMetadataPathEditor('<DIF><Block><Short_Name>ONE</Short_Name></Block></DIF>')

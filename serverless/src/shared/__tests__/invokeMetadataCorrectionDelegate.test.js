@@ -12,6 +12,7 @@ import { applyIso19115MetadataCorrections } from '../applyIso19115MetadataCorrec
 import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrections'
 import { applyUmmMetadataCorrections } from '../applyUmmMetadataCorrections'
 import { invokeMetadataCorrectionDelegate } from '../invokeMetadataCorrectionDelegate'
+import { logger } from '../logger'
 
 vi.mock('../applyUmmMetadataCorrections', () => ({
   applyUmmMetadataCorrections: vi.fn()
@@ -31,6 +32,12 @@ vi.mock('../applyEcho10MetadataCorrections', () => ({
 
 vi.mock('../applyDif10MetadataCorrections', () => ({
   applyDif10MetadataCorrections: vi.fn()
+}))
+
+vi.mock('../logger', () => ({
+  logger: {
+    error: vi.fn()
+  }
 }))
 
 const createExpectedCorrection = (correction = {}) => ({
@@ -272,6 +279,204 @@ describe('invokeMetadataCorrectionDelegate', () => {
         })
       ]
     })
+  })
+
+  test('skips replace corrections when the replacement object is empty', async () => {
+    vi.mocked(applyEcho10MetadataCorrections).mockResolvedValue({ delegateName: 'echo10' })
+
+    await expect(invokeMetadataCorrectionDelegate({
+      nativeFormat: 'ECHO10',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {}
+        }
+      ]
+    })).resolves.toEqual({ delegateName: 'echo10' })
+
+    expect(applyEcho10MetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Skipping invalid replacement correction payload',
+      expect.objectContaining({
+        scheme: 'rucontenttype',
+        action: 'replace',
+        keywordConceptUuid: 'uuid-1'
+      })
+    )
+  })
+
+  test('skips whitespace-only replace corrections when the replacement object has no meaningful values', async () => {
+    vi.mocked(applyEcho10MetadataCorrections).mockResolvedValue({ delegateName: 'echo10' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'ECHO10',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            URLContentType: '',
+            Type: '   ',
+            Subtype: ''
+          }
+        }
+      ]
+    })
+
+    expect(applyEcho10MetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Skipping invalid replacement correction payload',
+      expect.objectContaining({
+        scheme: 'rucontenttype',
+        action: 'replace',
+        keywordConceptUuid: 'uuid-1'
+      })
+    )
+  })
+
+  test('preserves rucontenttype delete corrections even when the replacement object is empty', async () => {
+    vi.mocked(applyEcho10MetadataCorrections).mockResolvedValue({ delegateName: 'echo10' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'ECHO10',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'delete',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {}
+        }
+      ]
+    })
+
+    expect(applyEcho10MetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          scheme: 'rucontenttype',
+          action: 'delete',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {}
+        })
+      ]
+    })
+  })
+
+  test('preserves rucontenttype replacements when the replacement object contains a meaningful value', async () => {
+    vi.mocked(applyEcho10MetadataCorrections).mockResolvedValue({ delegateName: 'echo10' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'ECHO10',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'rucontenttype',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: 'EARTHDATA SEARCH'
+          }
+        }
+      ]
+    })
+
+    expect(applyEcho10MetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: [
+        createExpectedCorrection({
+          scheme: 'rucontenttype',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: ''
+          },
+          newKeywordObject: {
+            URLContentType: 'DistributionURL',
+            Type: 'GET DATA',
+            Subtype: 'EARTHDATA SEARCH'
+          }
+        })
+      ]
+    })
+
+    expect(logger.error).not.toHaveBeenCalled()
+  })
+
+  test('skips empty replacements for other schemes as well', async () => {
+    vi.mocked(applyEcho10MetadataCorrections).mockResolvedValue({ delegateName: 'echo10' })
+
+    await invokeMetadataCorrectionDelegate({
+      nativeFormat: 'ECHO10',
+      collectionConceptId: 'C1',
+      corrections: [
+        {
+          scheme: 'providers',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-2',
+          oldKeywordObject: {
+            ShortName: 'NSIDC'
+          },
+          newKeywordObject: {}
+        }
+      ]
+    })
+
+    expect(applyEcho10MetadataCorrections).toHaveBeenCalledWith({
+      collectionConceptId: 'C1',
+      corrections: []
+    })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Skipping invalid replacement correction payload',
+      expect.objectContaining({
+        scheme: 'providers',
+        action: 'replace',
+        keywordConceptUuid: 'uuid-2'
+      })
+    )
   })
 
   test('routes ISO19115 to the ISO19115 delegate', async () => {
