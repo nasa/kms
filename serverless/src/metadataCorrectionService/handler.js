@@ -10,7 +10,7 @@ import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
 
 // Keep the service allowlist aligned with the delegates that are safe for the current flow.
-const SUPPORTED_NATIVE_FORMATS = ['DIF10', 'UMM']
+const SUPPORTED_NATIVE_FORMATS = ['DIF10', 'ECHO10', 'UMM']
 
 // Normalize request formats so the service can compare them consistently.
 const normalizeNativeFormat = (nativeFormat) => String(nativeFormat).trim().toUpperCase()

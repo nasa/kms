@@ -726,7 +726,12 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'delete') {
+      const { parentNode } = targetNode
       this.removeNode(targetNode)
+
+      if (config.removeEmptyParent) {
+        this.removeNodeIfNoElementChildren(parentNode)
+      }
 
       if (typeof config.afterDelete === 'function') {
         config.afterDelete(this, targetNode)
