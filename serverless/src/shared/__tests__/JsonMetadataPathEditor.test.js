@@ -56,12 +56,12 @@ const verifyJsonOnlyTraversalCoverage = () => {
 
   expect(editor.selectNodes({})).toEqual([])
   expect(editor.selectNodes('')).toEqual([editor.document])
-  expect(editor.selectNodes('//Missing')).toEqual([])
+  expect(editor.selectNodes('//Collection/Missing')).toEqual([])
   expect(editor.selectNodes(['Platforms', '0', 'ShortName'])).toEqual([])
-  expect(editor.selectNodes('//Platforms/0/ShortName')).toEqual(['Aqua'])
+  expect(editor.selectNodes('//Collection/Platforms/0/ShortName')).toEqual(['Aqua'])
   expect(editor.resolveNodeEntryByPath('')).toBeNull()
   expect(editor.resolveNodeEntryByPath(['Platforms', 0])).toBeNull()
-  expect(new JsonMetadataPathEditor(undefined).selectNodeEntries('//Missing')).toEqual([])
+  expect(new JsonMetadataPathEditor(undefined).selectNodeEntries('//Collection/Missing')).toEqual([])
 
   expect(editor.getElementChildren(editor.document.Platforms)).toEqual([
     {
@@ -79,26 +79,26 @@ const verifyJsonOnlyTraversalCoverage = () => {
   expect(editor.getElementText(editor.document.MetadataSpecification.Count)).toBe('7')
   expect(editor.getElementText(editor.document.MetadataSpecification)).toBe('')
   expect(editor.getNestedElement(editor.document, ['Platforms', 0, 'ShortName'])).toBeNull()
-  expect(editor.getNestedElement(editor.document, '//Platforms/0/ShortName')).toBe('Aqua')
+  expect(editor.getNestedElement(editor.document, '//Collection/Platforms/0/ShortName')).toBe('Aqua')
   expect(editor.getNestedText(editor.document, 'Platforms/0/ShortName')).toBe('Aqua')
-  expect(editor.resolveNodeEntryByPath('//CollectionDataType/Extra')).toBeNull()
-  expect(editor.resolveNodeEntryByPath('//Platforms/5')).toBeNull()
+  expect(editor.resolveNodeEntryByPath('//Collection/CollectionDataType/Extra')).toBeNull()
+  expect(editor.resolveNodeEntryByPath('//Collection/Platforms/5')).toBeNull()
 
   expect(editor.resolveAbsoluteFieldEntry('//')).toBeNull()
-  expect(editor.resolveAbsoluteFieldEntry('//Platforms')).toMatchObject({
+  expect(editor.resolveAbsoluteFieldEntry('//Collection/Platforms')).toMatchObject({
     node: editor.document.Platforms,
     key: 'Platforms'
   })
 
-  expect(editor.resolveAbsoluteFieldEntry('//Platforms/0/ShortName')).toMatchObject({
+  expect(editor.resolveAbsoluteFieldEntry('//Collection/Platforms/0/ShortName')).toMatchObject({
     node: 'Aqua',
     parent: editor.document.Platforms[0],
     key: 'ShortName'
   })
 
-  expect(editor.resolveAbsoluteFieldEntry('//ProcessingLevel/Id')).toBeNull()
+  expect(editor.resolveAbsoluteFieldEntry('//Collection/ProcessingLevel/Id')).toBeNull()
   expect(editor.resolveAbsoluteFieldEntry('//Collection/ProcessingLevel/Id', { createIfMissing: true })).toBeNull()
-  expect(new JsonMetadataPathEditor(undefined).resolveNodeEntryByPath('//Missing')).toBeNull()
+  expect(new JsonMetadataPathEditor(undefined).resolveNodeEntryByPath('//Collection/Missing')).toBeNull()
 }
 
 const verifyJsonOnlyMutationCoverage = () => {
@@ -135,16 +135,14 @@ const verifyJsonOnlyMutationCoverage = () => {
   expect(editor.document.CollectionDataType).toBe('legacy')
 
   expect(editor.resolveNodeByFind({}, {
-    nodePath: '//Platforms/0'
+    nodePath: '//Collection/Platforms/0'
   })).toEqual({
     ShortName: 'Aqua'
   })
 
   expect(editor.resolveNodeByFind({
-    ummPath: '//Platforms/0'
-  }, {})).toEqual({
-    ShortName: 'Aqua'
-  })
+    ummPath: '//Collection/Platforms/0'
+  }, {})).toBeNull()
 
   expect(editor.resolveNodeByFind({
     ummPath: ['Platforms', 0]
@@ -283,7 +281,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
         }
       ]
     })
-    const node = editor.selectNodes('//Platforms')[0]
+    const node = editor.selectNodes('//Collection/Platforms')[0]
 
     expect(editor.getNodeFieldValues(node, ['Type', 'ShortName'])).toEqual([
       'Space-based Platforms',
@@ -299,7 +297,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
         }
       ]
     })
-    const targetNode = editor.selectNodes('//RelatedUrls')[0]
+    const targetNode = editor.selectNodes('//Collection/RelatedUrls')[0]
 
     expect(editor.getReplacementValue(
       { newLongName: 'Long Name' },
@@ -386,16 +384,16 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Id: 'L1'
         }
       })
-      const node = editor.selectNodes('//Platforms')[0]
-
-      editor.setNestedText(node, '//ProcessingLevel/Id', 'L2')
-      expect(editor.selectNodes('//ProcessingLevel/Id')).toEqual(['L2'])
-
-      editor.removeNestedElement(node, '//ProcessingLevel/Id')
-      expect(editor.selectNodes('//ProcessingLevel/Id')).toEqual([])
+      const node = editor.selectNodes('//Collection/Platforms')[0]
 
       editor.setNestedText(node, '//Collection/ProcessingLevel/Id', 'L2')
+      expect(editor.selectNodes('//Collection/ProcessingLevel/Id')).toEqual(['L2'])
+
+      editor.removeNestedElement(node, '//Collection/ProcessingLevel/Id')
       expect(editor.selectNodes('//Collection/ProcessingLevel/Id')).toEqual([])
+
+      editor.setNestedText(node, '//Collection/ProcessingLevel/Id', 'L2')
+      expect(editor.selectNodes('//Collection/ProcessingLevel/Id')).toEqual(['L2'])
     })
 
     test('use case #3 should derive replacement values for composed field writes', () => {
@@ -406,7 +404,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           }
         ]
       })
-      const targetNode = editor.selectNodes('//RelatedUrls')[0]
+      const targetNode = editor.selectNodes('//Collection/RelatedUrls')[0]
 
       expect(editor.getReplacementValue(
         {
@@ -450,13 +448,13 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Description: 'Processing level'
         }
       })
-      const node = editor.selectNodes('//ProcessingLevel')[0]
+      const node = editor.selectNodes('//Collection/ProcessingLevel')[0]
       const detached = {}
 
       editor.removeNestedElement(node, 'Description')
       editor.removeNestedElement(detached, 'Detached')
 
-      expect(editor.selectNodes('//ProcessingLevel/Description')).toEqual([])
+      expect(editor.selectNodes('//Collection/ProcessingLevel/Description')).toEqual([])
     })
 
     test('should ignore nested removals when the intermediate parent path does not exist', () => {
@@ -465,13 +463,13 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Id: 'L1'
         }
       })
-      const node = editor.selectNodes('//ProcessingLevel')[0]
+      const node = editor.selectNodes('//Collection/ProcessingLevel')[0]
 
       expect(editor.getNestedElement(node, 'Missing/Child')).toBeNull()
 
       editor.removeNestedElement(node, 'Missing/Child')
 
-      expect(editor.getElementText(editor.selectNodes('//ProcessingLevel/Id')[0])).toBe('L1')
+      expect(editor.getElementText(editor.selectNodes('//Collection/ProcessingLevel/Id')[0])).toBe('L1')
     })
 
     test('should return null for absolute-path creation when the document root is missing or mismatched', () => {
@@ -480,7 +478,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
         Platforms: []
       })
 
-      primitiveRootEditor.setNestedText('legacy', '//ProcessingLevel/Id', 'L1')
+      primitiveRootEditor.setNestedText('legacy', '//Collection/ProcessingLevel/Id', 'L1')
       expect(primitiveRootEditor.document).toBe('legacy')
 
       mismatchEditor.setNestedText(mismatchEditor.document.Platforms, '//Collection/ProcessingLevel/Id', 'L1')
@@ -502,8 +500,8 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
         ]
       })
 
-      const emptyBlockNode = editor.selectNodes('//MetadataSpecification')[0]
-      const nonEmptyBlockNode = editor.selectNodes('//ProcessingLevel')[0]
+      const emptyBlockNode = editor.selectNodes('//Collection/MetadataSpecification')[0]
+      const nonEmptyBlockNode = editor.selectNodes('//Collection/ProcessingLevel')[0]
 
       expect(editor.getElementChildren(emptyBlockNode)).toEqual([])
       expect(editor.getElementChildren(nonEmptyBlockNode)).toEqual(['L1'])
@@ -513,7 +511,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Type: 'GET DATA'
         }
       }, {
-        nodePath: '//Missing',
+        nodePath: '//Collection/Missing',
         find: {
           fieldPaths: ['Type'],
           valueKeys: ['Type']
@@ -525,7 +523,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Type: 'GET DATA'
         }
       }, {
-        nodePath: '//RelatedUrls',
+        nodePath: '//Collection/RelatedUrls',
         find: {
           fieldPaths: ['Type'],
           valueKeys: ['Type']
@@ -543,13 +541,13 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Value: 'MISSING'
         }
       }, {
-        nodePath: '//EntryTitle'
+        nodePath: '//Collection/EntryTitle'
       })).toBeNull()
 
       expect(editor.resolveNodeByFind({
         oldKeywordObject: {}
       }, {
-        nodePath: '//EntryTitle'
+        nodePath: '//Collection/EntryTitle'
       })).toBeNull()
     })
 
@@ -570,7 +568,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
       expect(editor.resolveNodeByFind({
         oldKeywordObject: {}
       }, {
-        nodePath: '//Platforms',
+        nodePath: '//Collection/Platforms',
         find: {
           fieldPaths: ['Type', 'ShortName']
         }
@@ -579,7 +577,7 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
       expect(editor.updateScalarNode({
         action: 'replace'
       }, {
-        nodePath: '//MissingField',
+        nodePath: '//Collection/MissingField',
         tagName: 'MissingField'
       })).toBe(false)
     })
@@ -597,11 +595,11 @@ describe('when using JsonMetadataPathEditor JSON helpers', () => {
           Alias: 'Level 1A'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(true)
 
-      expect(editor.getElementText(editor.selectNodes('//ProcessingLevel/Id')[0])).toBe('Level 1A')
+      expect(editor.getElementText(editor.selectNodes('//Collection/ProcessingLevel/Id')[0])).toBe('Level 1A')
       verifyJsonOnlyMutationCoverage()
     })
   })
@@ -640,7 +638,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         DetailedVariable: ''
       }
     }, {
-      nodePath: '//ScienceKeywords',
+      nodePath: '//Collection/ScienceKeywords',
       find: {
         fieldPaths: [
           'Category',
@@ -704,7 +702,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
       oldKeywordObject: CRYOSPHERE_SNOW_ICE_TERM_KEYWORD,
       newKeywordObject: CRYOSPHERE_SNOW_ICE_RENAMED_TERM_KEYWORD
     }, {
-      nodePath: '//ScienceKeywords',
+      nodePath: '//Collection/ScienceKeywords',
       find: {
         fieldPaths: [
           'Category',
@@ -776,7 +774,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         },
         newLongName: 'National Snow and Ice Data Center'
       }, {
-        nodePath: '//DataCenters',
+        nodePath: '//Collection/DataCenters',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -797,14 +795,14 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
             }
           },
           {
-            fieldPath: '//ProcessingLevel/Id',
+            fieldPath: '//Collection/ProcessingLevel/Id',
             source: {
               type: 'value',
               key: 'ShortName'
             }
           },
           {
-            fieldPath: '//CollectionDataType',
+            fieldPath: '//Collection/CollectionDataType',
             source: {
               type: 'value',
               key: 'ShortName'
@@ -846,7 +844,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Subtype: 'EARTHDATA SEARCH'
         }
       }, {
-        nodePath: '//RelatedUrls',
+        nodePath: '//Collection/RelatedUrls',
         find: {
           fieldPaths: ['Description'],
           valueKeys: ['CombinedType'],
@@ -893,6 +891,141 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
   })
 
   describe('outside cases', () => {
+    test('should update nested block nodes using the shared Collection path contract', () => {
+      const editor = new JsonMetadataPathEditor({
+        Platforms: [
+          {
+            ShortName: 'Aqua',
+            Instruments: [
+              {
+                ShortName: 'MODIS',
+                LongName: 'Legacy MODIS'
+              }
+            ]
+          }
+        ]
+      })
+
+      const isUpdated = editor.updateNestedBlockNode({
+        action: 'replace',
+        oldKeywordObject: {
+          ShortName: 'MODIS'
+        },
+        newKeywordObject: {
+          ShortName: 'MODIS-TERRA'
+        },
+        newLongName: ''
+      }, {
+        containerPath: '//Collection/Platforms',
+        childKey: 'Instruments',
+        find: {
+          fieldPaths: ['ShortName'],
+          valueKeys: ['ShortName']
+        },
+        replace: [
+          {
+            fieldPath: 'ShortName',
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          },
+          {
+            fieldPath: 'LongName',
+            source: {
+              type: 'param',
+              key: 'newLongName'
+            }
+          }
+        ]
+      })
+
+      expect(isUpdated).toBe(true)
+      expect(editor.document.Platforms[0].Instruments[0]).toEqual({
+        ShortName: 'MODIS-TERRA'
+      })
+    })
+
+    test('should delete nested block nodes, prune empty child arrays, and call afterDelete once', () => {
+      let afterDeleteCallCount = 0
+      const editor = new JsonMetadataPathEditor({
+        Platforms: [
+          {
+            ShortName: 'Aqua',
+            Instruments: [
+              {
+                ShortName: 'MODIS'
+              }
+            ]
+          }
+        ]
+      })
+
+      const isUpdated = editor.updateNestedBlockNode({
+        action: 'delete',
+        oldKeywordObject: {
+          ShortName: 'MODIS'
+        }
+      }, {
+        containerPath: '//Collection/Platforms',
+        childKey: 'Instruments',
+        find: {
+          fieldPaths: ['ShortName'],
+          valueKeys: ['ShortName']
+        },
+        replace: [],
+        afterDelete: () => {
+          afterDeleteCallCount += 1
+        }
+      })
+
+      expect(isUpdated).toBe(true)
+      expect(afterDeleteCallCount).toBe(1)
+      expect(editor.document.Platforms[0].Instruments).toBeUndefined()
+    })
+
+    test('should return false for unsupported nested block actions and missing nested correction keys', () => {
+      const editor = new JsonMetadataPathEditor({
+        Platforms: [
+          {
+            ShortName: 'Aqua',
+            Instruments: [
+              {
+                ShortName: 'MODIS'
+              }
+            ]
+          }
+        ]
+      })
+
+      expect(editor.updateNestedBlockNode({
+        action: 'noop',
+        oldKeywordObject: {
+          ShortName: 'MODIS'
+        }
+      }, {
+        containerPath: '//Collection/Platforms',
+        childKey: 'Instruments',
+        find: {
+          fieldPaths: ['ShortName'],
+          valueKeys: ['ShortName']
+        },
+        replace: []
+      })).toBe(false)
+
+      expect(editor.updateNestedBlockNode({
+        action: 'replace'
+      }, {
+        containerPath: '//Collection/Platforms',
+        childKey: 'Instruments',
+        find: {
+          fieldPaths: ['ShortName'],
+          valueKeys: ['ShortName']
+        },
+        replace: []
+      })).toBe(false)
+    })
+
     test('should invoke afterDelete callbacks for block nodes', () => {
       let callbackNodeName = null
       const editor = new JsonMetadataPathEditor({
@@ -909,7 +1042,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           ShortName: 'ONE'
         }
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -921,7 +1054,50 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
 
       expect(isUpdated).toBe(true)
       expect(callbackNodeName).toBe('ONE')
-      expect(editor.selectNodes('//Projects')).toEqual([])
+      expect(editor.selectNodes('//Collection/Projects')).toEqual([])
+    })
+
+    test('should invoke afterDelete callbacks for leaf and scalar deletes', () => {
+      const leafEditor = new JsonMetadataPathEditor({
+        ProcessingLevel: {
+          Id: '1'
+        }
+      })
+      const scalarEditor = new JsonMetadataPathEditor({
+        ProcessingLevel: {
+          Id: '1A'
+        }
+      })
+      let deletedLeafValue = null
+      let deletedScalarValue = null
+
+      expect(leafEditor.updateLeafNode({
+        action: 'delete',
+        oldKeywordObject: {
+          Value: '1'
+        }
+      }, {
+        nodePath: '//Collection/ProcessingLevel/Id',
+        afterDelete: (_, deletedValue) => {
+          deletedLeafValue = deletedValue
+        }
+      })).toBe(true)
+
+      expect(scalarEditor.updateScalarNode({
+        action: 'delete',
+        oldKeywordObject: {
+          Value: '1A'
+        }
+      }, {
+        nodePath: '//Collection/ProcessingLevel/Id',
+        tagName: 'Id',
+        afterDelete: (_, deletedValue) => {
+          deletedScalarValue = deletedValue
+        }
+      })).toBe(true)
+
+      expect(deletedLeafValue).toBe('1')
+      expect(deletedScalarValue).toBe('1A')
     })
 
     test('should invoke afterReplace callbacks for block nodes', () => {
@@ -943,7 +1119,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           ShortName: 'TWO'
         }
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -978,7 +1154,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1A'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })
 
@@ -1010,7 +1186,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           ShortName: 'TWO'
         }
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -1034,14 +1210,14 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           ShortName: 'ONE'
         }
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
         }
       })).toBe(true)
 
-      expect(deleteEditor.selectNodes('//Projects')).toEqual([])
+      expect(deleteEditor.selectNodes('//Collection/Projects')).toEqual([])
     })
 
     test('should return false when block updates do not match a node or use an unsupported action', () => {
@@ -1062,7 +1238,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           ShortName: 'TWO'
         }
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -1087,7 +1263,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           ShortName: 'TWO'
         }
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -1120,7 +1296,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         },
         newKeywordObject: {}
       }, {
-        nodePath: '//Projects',
+        nodePath: '//Collection/Projects',
         find: {
           fieldPaths: ['ShortName'],
           valueKeys: ['ShortName']
@@ -1138,7 +1314,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
       })
 
       expect(isUpdated).toBe(true)
-      expect(editor.selectNodes('//Projects')).toEqual([])
+      expect(editor.selectNodes('//Collection/Projects')).toEqual([])
     })
 
     test('should replace leaf node text with an empty string when the new keyword object has no scalar value', () => {
@@ -1154,11 +1330,11 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         },
         newKeywordObject: {}
       }, {
-        nodePath: '//ISOTopicCategories'
+        nodePath: '//Collection/ISOTopicCategories'
       })
 
       expect(isUpdated).toBe(true)
-      expect(editor.getElementText(editor.selectNodes('//ISOTopicCategories')[0])).toBe('')
+      expect(editor.getElementText(editor.selectNodes('//Collection/ISOTopicCategories')[0])).toBe('')
     })
 
     test('should delete leaf nodes and prune empty parents when configured, and return false for unmatched or unsupported actions', () => {
@@ -1177,7 +1353,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: 'NEXT'
         }
       }, {
-        nodePath: '//MissingLeaf'
+        nodePath: '//Collection/MissingLeaf'
       })).toBe(false)
 
       const isDeleted = editor.updateLeafNode({
@@ -1186,12 +1362,12 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         removeEmptyParent: true
       })
 
       expect(isDeleted).toBe(true)
-      expect(editor.selectNodes('//ProcessingLevel')).toEqual([])
+      expect(editor.selectNodes('//Collection/ProcessingLevel')).toEqual([])
 
       const unsupportedActionEditor = new JsonMetadataPathEditor({
         ISOTopicCategories: [
@@ -1208,7 +1384,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: 'OTHER'
         }
       }, {
-        nodePath: '//ISOTopicCategories'
+        nodePath: '//Collection/ISOTopicCategories'
       })).toBe(false)
 
       const deleteWithoutParentPruneEditor = new JsonMetadataPathEditor({
@@ -1223,10 +1399,10 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id'
+        nodePath: '//Collection/ProcessingLevel/Id'
       })).toBe(true)
 
-      expect(deleteWithoutParentPruneEditor.selectNodes('//ProcessingLevel')).toHaveLength(1)
+      expect(deleteWithoutParentPruneEditor.selectNodes('//Collection/ProcessingLevel')).toHaveLength(1)
 
       const unresolvedParentEditor = new JsonMetadataPathEditor({
         ProcessingLevel: {
@@ -1240,9 +1416,9 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         removeEmptyParent: true,
-        parentPath: '//MissingParent'
+        parentPath: '//Collection/MissingParent'
       })).toBe(true)
 
       expect(unresolvedParentEditor.document.ProcessingLevel).toEqual({})
@@ -1272,7 +1448,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1A'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(false)
 
@@ -1282,23 +1458,23 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1A'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(true)
 
-      expect(deleteEditor.selectNodes('//ProcessingLevel/Id')).toEqual([])
+      expect(deleteEditor.selectNodes('//Collection/ProcessingLevel/Id')).toEqual([])
 
       expect(defaultReplaceEditor.updateScalarNode({
         newKeywordObject: {
           Value: '1B'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(true)
 
       expect(defaultReplaceEditor.getElementText(
-        defaultReplaceEditor.selectNodes('//ProcessingLevel/Id')[0]
+        defaultReplaceEditor.selectNodes('//Collection/ProcessingLevel/Id')[0]
       )).toBe('1B')
 
       expect(missingRootEditor.updateScalarNode({
@@ -1307,7 +1483,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1A'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(false)
 
@@ -1317,7 +1493,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1B'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(false)
 
@@ -1325,7 +1501,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         action: 'replace',
         newKeywordObject: {}
       }, {
-        nodePath: '//MissingId',
+        nodePath: '//Collection/MissingId',
         tagName: 'MissingId'
       })).toBe(false)
 
@@ -1352,7 +1528,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
           Value: '1A'
         }
       }, {
-        nodePath: '//ProcessingLevel/Id',
+        nodePath: '//Collection/ProcessingLevel/Id',
         tagName: 'Id'
       })).toBe(false)
     })

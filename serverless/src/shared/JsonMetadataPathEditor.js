@@ -1,6 +1,7 @@
 import { hasAnyObjectValue, sequentialValueReplace } from './XmlMetadataPathEditor'
 
 const ARRAY_INDEX_PATTERN = /^\d+$/
+const COLLECTION_ROOT_SEGMENT = 'Collection'
 
 /**
  * Normalize optional text inputs so JSON comparisons and scalar writes behave consistently.
@@ -76,6 +77,23 @@ const toPathSegments = (path) => {
 }
 
 /**
+ * Resolves `//Collection/...` editor paths against the JSON document root.
+ *
+ * UMM-C payloads are plain JSON objects, but we still want the public editor contract to mirror
+ * the XML editor's document-root style (`//Collection/...`). This helper preserves that external
+ * contract while mapping document-root lookups onto the underlying JSON payload structure.
+ *
+ * @param {string} path Original JSON editor path.
+ * @param {Array<string|number>} segments Parsed path segments.
+ * @returns {Array<string|number>} Path segments relative to the JSON document root.
+ */
+const resolveCollectionRootPathSegments = (path, segments) => (
+  isAbsolutePath(path) && segments[0] === COLLECTION_ROOT_SEGMENT
+    ? segments.slice(1)
+    : segments
+)
+
+/**
  * True when the value can contain child paths.
  *
  * @param {unknown} value Candidate container.
@@ -97,6 +115,9 @@ const shouldCreateArrayForNextSegment = (nextSegment) => typeof nextSegment === 
  * The public update APIs intentionally match `XmlMetadataPathEditor` where possible, while the
  * underlying traversal works with slash-delimited JSON paths.
  *
+ * Absolute document paths intentionally use `//Collection/...` so UMM-C editor configs can stay
+ * aligned with the XML editors' document-root contract.
+ *
  * @example
  * const editor = new JsonMetadataPathEditor({
  *   Platforms: [
@@ -111,7 +132,7 @@ const shouldCreateArrayForNextSegment = (nextSegment) => typeof nextSegment === 
  *     ShortName: 'Aqua'
  *   }
  * }, {
- *   nodePath: '//Platforms/0',
+ *   nodePath: '//Collection/Platforms/0',
  *   replace: [
  *     {
  *       fieldPath: 'ShortName',
@@ -197,7 +218,7 @@ export class JsonMetadataPathEditor {
 
     const source = isAbsolutePath(fieldPath) ? this.document : node
 
-    return toPathSegments(fieldPath).reduce(
+    return this.getPathSegments(fieldPath).reduce(
       (currentNode, segment) => this.getDirectChildElement(currentNode, segment),
       source
     )
@@ -269,6 +290,17 @@ export class JsonMetadataPathEditor {
   }
 
   /**
+   * Converts a JSON editor path into traversal segments, honoring the synthetic `Collection`
+   * document root used by the shared editor contract.
+   *
+   * @param {string} path JSON editor path.
+   * @returns {Array<string|number>} Normalized path segments.
+   */
+  getPathSegments(path) {
+    return resolveCollectionRootPathSegments(path, toPathSegments(path))
+  }
+
+  /**
    * Selects JSON nodes using a simple path contract.
    *
    * When the resolved target is an array, each array item is returned as a candidate node. This
@@ -283,7 +315,7 @@ export class JsonMetadataPathEditor {
   }
 
   /**
-   * Resolves an absolute `//Root/Child/...` JSON path beneath an existing document root key.
+   * Resolves an absolute `//Collection/Child/...` JSON path beneath an existing document root key.
    *
    * Unlike generic root-level JSON writes, this mirrors the XML editor's contract by only
    * creating missing descendants when the requested root key already exists on the document.
@@ -299,7 +331,7 @@ export class JsonMetadataPathEditor {
       return null
     }
 
-    const [rootSegment, ...childSegments] = toPathSegments(fieldPath)
+    const [rootSegment, ...childSegments] = this.getPathSegments(fieldPath)
     if (typeof rootSegment === 'undefined') {
       return null
     }
@@ -341,7 +373,7 @@ export class JsonMetadataPathEditor {
     }
 
     const source = node
-    const segments = toPathSegments(fieldPath)
+    const segments = this.getPathSegments(fieldPath)
 
     if (!isContainer(source) || segments.length === 0) {
       return
@@ -367,7 +399,7 @@ export class JsonMetadataPathEditor {
     }
 
     const source = this.isAbsoluteFieldPath(fieldPath) ? this.document : node
-    const segments = toPathSegments(fieldPath)
+    const segments = this.getPathSegments(fieldPath)
 
     if (!isContainer(source) || segments.length === 0) {
       return
@@ -417,7 +449,8 @@ export class JsonMetadataPathEditor {
    * Locates the JSON node that corresponds to the current keyword value being corrected.
    *
    * If no explicit `find` config is provided and the resolved path yields exactly one candidate,
-   * that node is treated as an exact targeted match.
+   * that node is treated as an exact targeted match. Like the XML editor, matching is driven by
+   * the scheme configuration rather than by upstream validation-path hints on the correction.
    *
    * @param {Object} correction Correction descriptor being applied.
    * @param {Object} config Scheme-specific node find configuration.
@@ -536,12 +569,7 @@ export class JsonMetadataPathEditor {
       } else if (action === 'replace') {
         const item = childList[index]
         replace.forEach(({ fieldPath, source }) => {
-          let newValue
-          if (source.type === 'value') {
-            newValue = correction.newKeywordObject[source.key]
-          } else if (source.type === 'param') {
-            newValue = correction[source.key]
-          }
+          const newValue = this.getReplacementValue(correction, source, item)
 
           if (newValue === undefined || newValue === '' || newValue === null) {
             delete item[fieldPath]
@@ -554,7 +582,7 @@ export class JsonMetadataPathEditor {
       return true
     })
 
-    if (found && afterDelete) afterDelete(this)
+    if (found && action === 'delete' && afterDelete) afterDelete(this)
 
     return found
   }
@@ -650,7 +678,7 @@ export class JsonMetadataPathEditor {
           ? this.resolveAbsoluteFieldEntry(config.nodePath, { createIfMissing: true })
           : this.ensureEntryForSegments(
             this.document,
-            toPathSegments(config.nodePath)
+            this.getPathSegments(config.nodePath)
           )
         if (!createdEntry) {
           return false
@@ -682,7 +710,7 @@ export class JsonMetadataPathEditor {
     }
 
     const source = this.isAbsoluteFieldPath(path) ? this.document : contextNode
-    const segments = toPathSegments(path)
+    const segments = this.getPathSegments(path)
 
     if (typeof source === 'undefined') {
       return []
@@ -729,7 +757,7 @@ export class JsonMetadataPathEditor {
       return null
     }
 
-    const segments = toPathSegments(path)
+    const segments = this.getPathSegments(path)
     if (segments.length === 0) {
       return null
     }
@@ -746,19 +774,11 @@ export class JsonMetadataPathEditor {
    * Matching node entry or `null`.
    */
   resolveNodeEntryByFind(correction, config) {
-    let nodePath = null
-
-    if (typeof config.nodePath === 'string') {
-      nodePath = config.nodePath
-    } else if (typeof correction?.ummPath === 'string') {
-      nodePath = correction.ummPath
-    }
-
-    if (!nodePath) {
+    if (typeof config.nodePath !== 'string' || config.nodePath.length === 0) {
       return null
     }
 
-    const entries = this.selectNodeEntries(nodePath)
+    const entries = this.selectNodeEntries(config.nodePath)
     if (entries.length === 0) {
       return null
     }
