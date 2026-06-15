@@ -21,31 +21,32 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
 const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode(correction, config)
 
 /**
- * Generic utility for array cleanup
+ * Unified utility for array cleanup.
  */
-const cleanupEmptyArray = (doc, key) => {
+const cleanupArray = (doc, key, childKey = null) => {
+  if (!doc[key]) return
+
+  // Logic for nested cleanup
+  if (childKey) {
+    const filtered = doc[key].filter(
+      (item) => item[childKey] && item[childKey].length > 0
+    )
+
+    if (filtered.length === 0) {
+      // eslint-disable-next-line no-param-reassign
+      delete doc[key]
+    } else {
+      // eslint-disable-next-line no-param-reassign
+      doc[key] = filtered
+    }
+
+    return
+  }
+
+  // Logic for standard empty array cleanup
   if (Array.isArray(doc[key]) && doc[key].length === 0) {
     // eslint-disable-next-line no-param-reassign
     delete doc[key]
-  }
-}
-
-/**
- * Generic utility for nested array cleanup
- */
-const cleanupNestedArray = (doc, parentKey, childKey) => {
-  if (!doc[parentKey]) return
-
-  const filtered = doc[parentKey].filter(
-    (item) => item[childKey] && item[childKey].length > 0
-  )
-
-  if (filtered.length === 0) {
-    // eslint-disable-next-line no-param-reassign
-    delete doc[parentKey]
-  } else {
-    // eslint-disable-next-line no-param-reassign
-    doc[parentKey] = filtered
   }
 }
 
@@ -68,7 +69,7 @@ export const UMMC_SCHEME_EDITORS = {
   sciencekeywords: unifiedBlockScheme({
     nodePath: '//ScienceKeywords',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'ScienceKeywords')
+      cleanupArray(editor.document, 'ScienceKeywords')
     },
     find: {
       fieldPaths: FULL_PATH_VALUE_FIELDS.sciencekeywords,
@@ -79,7 +80,7 @@ export const UMMC_SCHEME_EDITORS = {
   locations: unifiedBlockScheme({
     nodePath: '//LocationKeywords',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'LocationKeywords')
+      cleanupArray(editor.document, 'LocationKeywords')
     },
     find: {
       fieldPaths: FULL_PATH_VALUE_FIELDS.locations,
@@ -103,13 +104,13 @@ export const UMMC_SCHEME_EDITORS = {
       FULL_PATH_VALUE_FIELDS.chronounits
     ),
     afterDelete: (editor) => {
-      cleanupNestedArray(editor.document, 'PaleoTemporalCoverages', 'ChronostratigraphicUnits')
+      cleanupArray(editor.document, 'PaleoTemporalCoverages', 'ChronostratigraphicUnits')
     }
   }),
   platforms: unifiedBlockScheme({
     nodePath: '//Platforms',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'Platforms')
+      cleanupArray(editor.document, 'Platforms')
     },
     find: {
       fieldPaths: [
@@ -177,7 +178,7 @@ export const UMMC_SCHEME_EDITORS = {
   projects: unifiedBlockScheme({
     nodePath: '//Projects',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'Projects')
+      cleanupArray(editor.document, 'Projects')
     },
     find: {
       fieldPaths: [
@@ -213,7 +214,7 @@ export const UMMC_SCHEME_EDITORS = {
   providers: unifiedBlockScheme({
     nodePath: '//DataCenters',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'DataCenters')
+      cleanupArray(editor.document, 'DataCenters')
     },
     find: {
       fieldPaths: [
@@ -249,7 +250,7 @@ export const UMMC_SCHEME_EDITORS = {
   rucontenttype: unifiedBlockScheme({
     nodePath: '//RelatedUrls',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'RelatedUrls')
+      cleanupArray(editor.document, 'RelatedUrls')
     },
     find: {
       fieldPaths: FULL_PATH_VALUE_FIELDS.rucontenttype,
@@ -260,7 +261,7 @@ export const UMMC_SCHEME_EDITORS = {
   idnnode: unifiedBlockScheme({
     nodePath: '//DirectoryNames',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'DirectoryNames')
+      cleanupArray(editor.document, 'DirectoryNames')
     },
     find: {
       fieldPaths: [
@@ -295,7 +296,7 @@ export const UMMC_SCHEME_EDITORS = {
   isotopiccategory: leafScheme({
     nodePath: '//ISOTopicCategories',
     afterDelete: (editor) => {
-      cleanupEmptyArray(editor.document, 'ISOTopicCategories')
+      cleanupArray(editor.document, 'ISOTopicCategories')
     }
   }),
   productlevelid: scalarScheme({
