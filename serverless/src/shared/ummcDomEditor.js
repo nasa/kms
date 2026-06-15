@@ -67,7 +67,7 @@ const cleanupArray = (doc, key, childKey = null) => {
  */
 export const UMMC_SCHEME_EDITORS = {
   sciencekeywords: unifiedBlockScheme({
-    nodePath: '//Collection/ScienceKeywords',
+    nodePath: '//ScienceKeywords',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'ScienceKeywords')
     },
@@ -78,7 +78,7 @@ export const UMMC_SCHEME_EDITORS = {
     replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.sciencekeywords)
   }),
   locations: unifiedBlockScheme({
-    nodePath: '//Collection/LocationKeywords',
+    nodePath: '//LocationKeywords',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'LocationKeywords')
     },
@@ -90,7 +90,7 @@ export const UMMC_SCHEME_EDITORS = {
   }),
   chronounits: unifiedBlockScheme({
     // 1. Path to the parent container
-    containerPath: '//Collection/PaleoTemporalCoverages',
+    containerPath: '//PaleoTemporalCoverages',
     // 2. The key containing the target array
     childKey: 'ChronostratigraphicUnits',
     // 3. Match using all relevant hierarchy fields
@@ -108,7 +108,7 @@ export const UMMC_SCHEME_EDITORS = {
     }
   }),
   platforms: unifiedBlockScheme({
-    nodePath: '//Collection/Platforms',
+    nodePath: '//Platforms',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'Platforms')
     },
@@ -152,7 +152,7 @@ export const UMMC_SCHEME_EDITORS = {
     ]
   }),
   instruments: unifiedBlockScheme({
-    containerPath: '//Collection/Platforms',
+    containerPath: '//Platforms',
     childKey: 'Instruments',
     find: {
       fieldPaths: ['ShortName'],
@@ -176,7 +176,7 @@ export const UMMC_SCHEME_EDITORS = {
     ]
   }),
   projects: unifiedBlockScheme({
-    nodePath: '//Collection/Projects',
+    nodePath: '//Projects',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'Projects')
     },
@@ -212,7 +212,7 @@ export const UMMC_SCHEME_EDITORS = {
     ]
   }),
   providers: unifiedBlockScheme({
-    nodePath: '//Collection/DataCenters',
+    nodePath: '//DataCenters',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'DataCenters')
     },
@@ -248,7 +248,7 @@ export const UMMC_SCHEME_EDITORS = {
     ]
   }),
   rucontenttype: unifiedBlockScheme({
-    nodePath: '//Collection/RelatedUrls',
+    nodePath: '//RelatedUrls',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'RelatedUrls')
     },
@@ -259,7 +259,7 @@ export const UMMC_SCHEME_EDITORS = {
     replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.rucontenttype)
   }),
   idnnode: unifiedBlockScheme({
-    nodePath: '//Collection/DirectoryNames',
+    nodePath: '//DirectoryNames',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'DirectoryNames')
     },
@@ -294,13 +294,13 @@ export const UMMC_SCHEME_EDITORS = {
     ]
   }),
   isotopiccategory: leafScheme({
-    nodePath: '//Collection/ISOTopicCategories',
+    nodePath: '//ISOTopicCategories',
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'ISOTopicCategories')
     }
   }),
   productlevelid: scalarScheme({
-    nodePath: '//Collection/ProcessingLevel/Id',
+    nodePath: '//ProcessingLevel/Id',
     fieldName: 'Id',
     afterDelete: (editor) => {
       // When ProcessingLevel.Id is deleted, remove the entire ProcessingLevel object

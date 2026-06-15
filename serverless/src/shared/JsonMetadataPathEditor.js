@@ -1,7 +1,6 @@
 import { hasAnyObjectValue, sequentialValueReplace } from './XmlMetadataPathEditor'
 
 const ARRAY_INDEX_PATTERN = /^\d+$/
-const COLLECTION_ROOT_SEGMENT = 'Collection'
 
 /**
  * Normalize optional text inputs so JSON comparisons and scalar writes behave consistently.
@@ -77,23 +76,6 @@ const toPathSegments = (path) => {
 }
 
 /**
- * Resolves `//Collection/...` editor paths against the JSON document root.
- *
- * UMM-C payloads are plain JSON objects, but we still want the public editor contract to mirror
- * the XML editor's document-root style (`//Collection/...`). This helper preserves that external
- * contract while mapping document-root lookups onto the underlying JSON payload structure.
- *
- * @param {string} path Original JSON editor path.
- * @param {Array<string|number>} segments Parsed path segments.
- * @returns {Array<string|number>} Path segments relative to the JSON document root.
- */
-const resolveCollectionRootPathSegments = (path, segments) => (
-  isAbsolutePath(path) && segments[0] === COLLECTION_ROOT_SEGMENT
-    ? segments.slice(1)
-    : segments
-)
-
-/**
  * True when the value can contain child paths.
  *
  * @param {unknown} value Candidate container.
@@ -115,8 +97,7 @@ const shouldCreateArrayForNextSegment = (nextSegment) => typeof nextSegment === 
  * The public update APIs intentionally match `XmlMetadataPathEditor` where possible, while the
  * underlying traversal works with slash-delimited JSON paths.
  *
- * Absolute document paths intentionally use `//Collection/...` so UMM-C editor configs can stay
- * aligned with the XML editors' document-root contract.
+ * Absolute document paths resolve from the JSON document root using a `//Field/...` contract.
  *
  * @example
  * const editor = new JsonMetadataPathEditor({
@@ -132,7 +113,7 @@ const shouldCreateArrayForNextSegment = (nextSegment) => typeof nextSegment === 
  *     ShortName: 'Aqua'
  *   }
  * }, {
- *   nodePath: '//Collection/Platforms/0',
+ *   nodePath: '//Platforms/0',
  *   replace: [
  *     {
  *       fieldPath: 'ShortName',
@@ -290,14 +271,15 @@ export class JsonMetadataPathEditor {
   }
 
   /**
-   * Converts a JSON editor path into traversal segments, honoring the synthetic `Collection`
-   * document root used by the shared editor contract.
+   * Converts a JSON editor path into traversal segments.
+   *
+   * Absolute paths resolve from the JSON document root, for example `//Platforms/0/Instruments/0`.
    *
    * @param {string} path JSON editor path.
    * @returns {Array<string|number>} Normalized path segments.
    */
   getPathSegments(path) {
-    return resolveCollectionRootPathSegments(path, toPathSegments(path))
+    return toPathSegments(path)
   }
 
   /**
@@ -315,10 +297,10 @@ export class JsonMetadataPathEditor {
   }
 
   /**
-   * Resolves an absolute `//Collection/Child/...` JSON path beneath an existing document root key.
+   * Resolves an absolute JSON path beneath an existing document root key.
    *
-   * Unlike generic root-level JSON writes, this mirrors the XML editor's contract by only
-   * creating missing descendants when the requested root key already exists on the document.
+   * Unlike generic root-level JSON writes, this only creates missing descendants when the
+   * requested root key already exists on the document.
    *
    * @param {string} fieldPath Absolute JSON path.
    * @param {Object} [options={}] Absolute-path resolution options.
