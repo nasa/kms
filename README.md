@@ -256,7 +256,7 @@ This:
 
 - loads `scripts/local/fixtures/metadata_correction_service.dif10.example.json`
 - applies the corrections locally through the DIF10 delegate
-- writes the corrected XML to `tmp/metadata_correction_smoke_output.xml`
+- writes the corrected XML to `tmp/metadata_correction_dif10_smoke_output.xml`
 
 The final writeback step is still stubbed, so this is a local mutation/integration check rather
 than a live CMR ingest test.

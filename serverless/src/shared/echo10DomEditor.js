@@ -1,24 +1,22 @@
 import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
 
-// Wrap a block-style scheme config in the shared editor contract used by the DIF10 delegate.
+// Wrap a block-style scheme config in the shared editor contract used by the ECHO10 delegate.
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
-// Wrap a leaf-value scheme config in the shared editor contract used by the DIF10 delegate.
-// const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
-// Wrap a scalar/root-field scheme config in the shared editor contract used by the DIF10 delegate.
+// Wrap a scalar/root-field scheme config in the shared editor contract used by the ECHO10 delegate.
 const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode(correction, config)
 
 /**
  * ECHO10 scheme configuration for the shared XML path editor.
  *
  * The object keys here are the incoming KMS scheme names from `correction.scheme`
- * (for example `sciencekeywords`, `platforms`, or `providers`). The DIF10 delegate
+ * (for example `sciencekeywords`, `platforms`, or `providers`). The ECHO10 delegate
  * lowercases `correction.scheme` and uses it to look up the matching function in
- * this map, so these keys are dispatch identifiers, not DIF10 XML tag names.
+ * this map, so these keys are dispatch identifiers, not ECHO10 XML tag names.
  *
  * Each scheme describes:
- * - the XPath used to find candidate DIF10 nodes
+ * - the XPath used to find candidate ECHO10 nodes
  * - how to match the current normalized keyword object from XML content
- * - how replacement values map back into DIF10 fields
+ * - how replacement values map back into ECHO10 fields
  *
  * @type {Object.<string, Function>}
  */
@@ -95,10 +93,10 @@ export const ECHO10_SCHEME_EDITORS = {
   platforms: blockScheme({
     // Platform corrections are normalized into an object that can carry:
     // - Class: the GCMD platform class, for example "Space-based Platforms"
-    // - Type: DIF10 <Type>
-    // - ShortName: DIF10 <Short_Name>
+    // - Type: ECHO10 <Type>
+    // - ShortName: ECHO10 <Short_Name>
     //
-    // DIF10 Platform only persists `Type` and `ShortName`, so those are the
+    // ECHO10 Platform only persists `Type` and `ShortName`, so those are the
     // only object fields written back into the XML.
     nodeXPath: '//Collection/Platforms/Platform',
     find: {
@@ -340,9 +338,9 @@ export const ECHO10_SCHEME_EDITORS = {
 }
 
 /**
- * Creates a DOM-backed editor for a raw DIF10 XML payload.
+ * Creates a DOM-backed editor for a raw ECHO10 XML payload.
  *
- * @param {string} metadataPayload Raw DIF10 XML string.
+ * @param {string} metadataPayload Raw ECHO10 XML string.
  * @returns {XmlMetadataPathEditor} Shared XML path editor instance.
  */
 export const createEcho10Editor = (metadataPayload) => new XmlMetadataPathEditor(metadataPayload)
