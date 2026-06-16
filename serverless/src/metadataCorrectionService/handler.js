@@ -9,8 +9,28 @@ import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptU
 import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
 
-// Keep the service allowlist aligned with the delegates that are safe for the current flow.
-const SUPPORTED_NATIVE_FORMATS = ['DIF10', 'UMM']
+/**
+ * True when the metadata-correction service is running in the repo's local LocalStack mode.
+ *
+ * @returns {boolean} `true` when local-only native-format support may be enabled.
+ */
+const isLocalMetadataCorrectionMode = () => (
+  String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
+  || String(process.env.useLocalstack || '').toLowerCase() === 'true'
+)
+
+/**
+ * True when the current native format is supported by the active runtime mode.
+ *
+ * DIF10 is supported everywhere. UMM is supported only for local smoke/development mode.
+ *
+ * @param {string} nativeFormat Normalized native format label.
+ * @returns {boolean} `true` when the handler should process this format.
+ */
+const isSupportedNativeFormat = (nativeFormat) => (
+  nativeFormat === 'DIF10'
+  || (nativeFormat === 'UMM' && isLocalMetadataCorrectionMode())
+)
 
 /**
  * Normalizes native-format labels so handler comparisons stay case-insensitive.
@@ -154,7 +174,7 @@ export const metadataCorrectionService = async (event) => {
         format: collectionDetails.format
       }))
 
-      if (!SUPPORTED_NATIVE_FORMATS.includes(nativeFormat)) {
+      if (!isSupportedNativeFormat(nativeFormat)) {
         throw new Error(`Unsupported native format: ${nativeFormat}`)
       }
 

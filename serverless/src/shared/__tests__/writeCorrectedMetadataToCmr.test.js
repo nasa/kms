@@ -48,9 +48,6 @@ describe('when writing corrected metadata to cmr', () => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
     process.env.CMR_WRITER_TOKEN = 'writer-token'
-    delete process.env.CMR_WRITE_TOKEN
-    delete process.env.CMR_WRITER_TOKEN_SECRET_NAME
-    delete process.env.CMR_WRITE_TOKEN_SECRET_NAME
     delete process.env.CMR_UMM_JSON_VERSION
 
     vi.mocked(getCmrWriterToken).mockResolvedValue('writer-token')
@@ -138,7 +135,6 @@ describe('when writing corrected metadata to cmr', () => {
   test('should return a disabled summary when writeback providers are not configured at all', async () => {
     delete process.env.CMR_WRITEBACK_PROVIDERS
     delete process.env.CMR_WRITER_TOKEN
-    delete process.env.CMR_WRITE_TOKEN
 
     const result = await writeCorrectedMetadataToCmr({
       collectionConceptId: 'C0000000000-KMS',
@@ -162,9 +158,6 @@ describe('when writing corrected metadata to cmr', () => {
 
   test('should skip writeback when no writer token is configured', async () => {
     delete process.env.CMR_WRITER_TOKEN
-    delete process.env.CMR_WRITE_TOKEN
-    delete process.env.CMR_WRITER_TOKEN_SECRET_NAME
-    delete process.env.CMR_WRITE_TOKEN_SECRET_NAME
 
     const result = await writeCorrectedMetadataToCmr({
       collectionConceptId: 'C0000000000-KMS',
@@ -272,23 +265,6 @@ describe('when writing corrected metadata to cmr', () => {
     expect(cmrPutRequest).toHaveBeenLastCalledWith(expect.objectContaining({
       contentType
     }))
-  })
-
-  test('should allow alias secret-name configuration to enable writeback', async () => {
-    delete process.env.CMR_WRITER_TOKEN
-    process.env.CMR_WRITE_TOKEN_SECRET_NAME = 'cmr-writer-token'
-
-    await writeCorrectedMetadataToCmr({
-      collectionConceptId: 'C0000000000-KMS',
-      providerId: 'KMS',
-      nativeId: 'native-1',
-      nativeFormat: 'DIF10',
-      correctionCount: 1,
-      correctedMetadata: '<DIF><Entry_ID/></DIF>'
-    })
-
-    expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
-    expect(cmrPutRequest).toHaveBeenCalledTimes(1)
   })
 
   test('should treat null corrected metadata as an empty serialized payload for byte counting', async () => {

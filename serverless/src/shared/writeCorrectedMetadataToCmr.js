@@ -27,22 +27,7 @@ const normalizeProviderId = (providerId) => String(providerId ?? '').trim().toUp
  *
  * @returns {string} Trimmed writer token or an empty string when unset.
  */
-const getConfiguredWriterToken = () => String(
-  process.env.CMR_WRITER_TOKEN
-  || process.env.CMR_WRITE_TOKEN
-  || ''
-).trim()
-
-/**
- * Reads the configured writer-token secret name from runtime environment variables.
- *
- * @returns {string} Trimmed secret name or an empty string when unset.
- */
-const getConfiguredWriterTokenSecretName = () => String(
-  process.env.CMR_WRITER_TOKEN_SECRET_NAME
-  || process.env.CMR_WRITE_TOKEN_SECRET_NAME
-  || ''
-).trim()
+const getConfiguredWriterToken = () => String(process.env.CMR_WRITER_TOKEN || '').trim()
 
 /**
  * Parses the rollout allowlist that controls which providers can write back to CMR.
@@ -75,13 +60,11 @@ const isWritebackEnabledForProvider = (providerId) => {
 }
 
 /**
- * True when a direct token or secret-name configuration exists for writer auth.
+ * True when a direct writer token is configured for auth.
  *
  * @returns {boolean} `true` when writeback auth is configured.
  */
-const isWriterTokenConfigured = () => (
-  Boolean(getConfiguredWriterToken()) || Boolean(getConfiguredWriterTokenSecretName())
-)
+const isWriterTokenConfigured = () => Boolean(getConfiguredWriterToken())
 
 /**
  * Builds the versioned UMM content type expected by CMR ingest.
@@ -202,8 +185,7 @@ const createWritebackError = async ({
  * - `ALL` => enabled for every provider
  * - comma-separated provider ids => enabled only for those providers
  *
- * Authentication uses a bearer token from `CMR_WRITER_TOKEN_SECRET_NAME` (or
- * `CMR_WRITER_TOKEN` for local-only development).
+ * Authentication uses a bearer token from `CMR_WRITER_TOKEN`.
  *
  * @param {Object} params Write request details.
  * @param {string} [params.collectionConceptId] Collection concept id being corrected.

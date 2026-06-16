@@ -223,7 +223,6 @@ async function main() {
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
     cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
-    cmrWriterTokenSecretName: process.env.CMR_WRITER_TOKEN_SECRET_NAME || '',
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     env,
     prefix,

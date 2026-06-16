@@ -30,6 +30,16 @@ const normalizeCorrections = (corrections = []) => (
 )
 
 /**
+ * True when the current process is running in the repo's local LocalStack mode.
+ *
+ * @returns {boolean} `true` when local-only metadata delegates may be used.
+ */
+const isLocalMetadataCorrectionMode = () => (
+  String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
+  || String(process.env.useLocalstack || '').toLowerCase() === 'true'
+)
+
+/**
  * Routes correction plans to the appropriate native-format delegate.
  *
  * By the time this helper is called, the metadata-correction service has already:
@@ -46,7 +56,8 @@ const normalizeCorrections = (corrections = []) => (
  * format. Unknown correction fields are intentionally dropped at this seam.
  *
  * That keeps the orchestration layer format-agnostic while allowing each delegate to own the
- * mechanics of mutating UMM, ISO19115, ISO SMAP, ECHO10, or DIF10 metadata.
+ * mechanics of mutating local-only UMM smoke payloads plus ISO19115, ISO SMAP, ECHO10, or
+ * DIF10 metadata.
  *
  * @param {object} params - Delegate parameters.
  * @param {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF10'|'UNKNOWN'} params.nativeFormat - Normalized native format.
@@ -64,7 +75,11 @@ export const invokeMetadataCorrectionDelegate = async ({
 
   switch (nativeFormat) {
     case 'UMM':
-      return applyUmmMetadataCorrections(normalizedDelegateParams)
+      if (isLocalMetadataCorrectionMode()) {
+        return applyUmmMetadataCorrections(normalizedDelegateParams)
+      }
+
+      throw new Error(`Unsupported native metadata format for delegate selection: ${nativeFormat}`)
     case 'ISO19115':
       return applyIso19115MetadataCorrections(normalizedDelegateParams)
     case 'ISO_SMAP':

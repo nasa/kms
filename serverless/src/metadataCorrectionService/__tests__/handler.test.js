@@ -92,6 +92,8 @@ const NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT = {
 describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    delete process.env.USE_LOCALSTACK
+    delete process.env.useLocalstack
 
     vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
       nativeFormat: 'DIF10',
@@ -640,7 +642,85 @@ describe('when the metadata correction service is invoked', () => {
       })
     })
 
-    test('should allow UMM requests when the detected native format has a registered delegate', async () => {
+    test('should reject UMM requests outside local mode', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C123-UMM',
+        providerId: 'PROV',
+        nativeId: 'native-umm',
+        revisionId: 2,
+        format: 'application/vnd.nasa.cmr.umm+json',
+        umm: {
+          Platforms: [
+            {
+              ShortName: 'Aqua Legacy'
+            }
+          ]
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['Platforms', 0],
+            errors: ['Platform was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {
+          errors: [
+            {
+              path: ['Platforms', 0],
+              errors: ['Platform was not a valid keyword combination.']
+            }
+          ],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'platforms',
+          path: ['Platforms', 0],
+          oldKeyword: '[resolve old keyword from UMM-C value: Aqua Legacy]',
+          keywordValue: {
+            ShortName: 'Aqua Legacy'
+          },
+          errors: ['Platform was not a valid keyword combination.']
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'platform-uuid-1',
+        oldKeywordObject: {
+          ShortName: 'Aqua Legacy'
+        },
+        newKeywordObject: {
+          ShortName: 'Aqua'
+        },
+        action: 'replace'
+      })
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-umm-1',
+            body: JSON.stringify({
+              source: 'cmrKeywordEventsListener',
+              collectionConceptId: 'C123-UMM'
+            })
+          }
+        ]
+      })).rejects.toThrow('Unsupported native format: UMM')
+
+      expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+      expect(getCmrCollectionNativeMetadata).not.toHaveBeenCalled()
+      expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
+    })
+
+    test('should allow UMM requests in local mode', async () => {
+      process.env.USE_LOCALSTACK = 'true'
+
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-UMM',
         providerId: 'PROV',
