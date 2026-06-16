@@ -20,6 +20,10 @@ interface LambdaFunctionsProps {
   api: apigateway.IRestApi;
   apiResources: ApiResources;
   lambdaRole: iam.Role;
+  metadataCorrectionEnvironment?: {
+    CMR_WRITER_TOKEN: string;
+    CMR_WRITEBACK_PROVIDERS: string;
+  };
   prefix: string;
   securityGroup: ec2.SecurityGroup;
   stage: string;
@@ -410,6 +414,19 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'runMetadataCorrection/handler.js',
+      'run-metadata-correction',
+      'runMetadataCorrection',
+      '/metadata_correction/{collectionConceptId}',
+      'PUT',
+      true,
+      Duration.seconds(30),
+      1024,
+      this.props.metadataCorrectionEnvironment || {}
+    )
+
+    this.createApiLambda(
+      scope,
       'createConceptScheme/handler.js',
       'create-concept-scheme',
       'createConceptScheme',
@@ -654,7 +671,8 @@ export class LambdaFunctions {
     functionName: string,
     handlerName: string,
     timeout: Duration,
-    memorySize: number
+    memorySize: number,
+    additionalEnvironment: Record<string, string> = {}
   ): lambda.Function {
     const lambdaKey = `${handlerPath}::${functionName}`
     let lambdaFunction = this.lambdas[lambdaKey]
@@ -669,7 +687,10 @@ export class LambdaFunctions {
         role: this.props.lambdaRole,
         depsLockFilePath: path.join(__dirname, '../../../../package-lock.json'),
         projectRoot: path.join(__dirname, '../../../..'),
-        environment: this.props.environment,
+        environment: {
+          ...this.props.environment,
+          ...additionalEnvironment
+        },
         // Conditionally add VPC configuration
         ...(this.useLocalstack ? {} : {
           vpc: this.props.vpc,
@@ -697,7 +718,8 @@ export class LambdaFunctions {
     httpMethod: string,
     useAuthorizer: boolean = false,
     timeout: Duration = Duration.seconds(30),
-    memorySize: number = 1024
+    memorySize: number = 1024,
+    additionalEnvironment: Record<string, string> = {}
 
   ) {
     const lambdaFunction = this.createLambdaFunction(
@@ -706,7 +728,8 @@ export class LambdaFunctions {
       functionName,
       handlerName,
       timeout,
-      memorySize
+      memorySize,
+      additionalEnvironment
     )
 
     let resource = this.props.api.root

@@ -180,6 +180,8 @@ async function main() {
 
   // Create KmsStack
   const kmsStackProps: KmsStackProps = {
+    cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
+    cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     prefix,
     env,
     vpcId,

@@ -1,5 +1,6 @@
 import { getHistoricalConceptByKeyword } from './redis-path-store/getHistoricalConceptByKeyword'
 import { getPublishedConceptByUuid } from './redis-path-store/getPublishedConceptByUuid'
+import { getKeywordPathFromKeywordObject } from './redis-path-store/getKeywordPathFromKeywordObject'
 
 /**
  * Historical-to-published keyword resolution helper for metadata correction.
@@ -61,6 +62,12 @@ const getCurrentPublishedKeywordConcept = async ({
   scheme: normalizedScheme
 })
 
+/**
+ * Normalizes a candidate keyword object to the plain-object shape expected by correction logic.
+ *
+ * @param {unknown} keywordObject Historical or published keyword object candidate.
+ * @returns {Record<string, string>} Plain-object keyword payload, or an empty object.
+ */
 const normalizeKeywordObject = (keywordObject) => (
   keywordObject
   && typeof keywordObject === 'object'
@@ -73,6 +80,7 @@ const normalizeKeywordObject = (keywordObject) => (
  * Builds the normalized correction descriptor returned to the metadata-correction service.
  *
  * @param {object} params - Correction descriptor fields.
+ * @param {string} params.scheme - Normalized keyword scheme.
  * @param {string|undefined} params.keywordConceptUuid - Resolved concept UUID.
  * @param {Record<string, string>|undefined} [params.oldKeywordObject] - Historical keyword object.
  * @param {Record<string, string>|undefined} [params.newKeywordObject] - Current published keyword object.
@@ -85,11 +93,14 @@ const normalizeKeywordObject = (keywordObject) => (
  *   newKeywordObject?: Record<string, string>,
  *   action: string,
  *   oldLongName?: string,
- *   newLongName?: string
+ *   newLongName?: string,
+ *   oldKeywordPath?: string,
+ *   newKeywordPath?: string
  * }|undefined}
  * Normalized correction descriptor, or `undefined` if required fields are missing.
  */
 const buildKeywordReference = ({
+  scheme,
   keywordConceptUuid,
   oldKeywordObject,
   newKeywordObject,
@@ -121,6 +132,14 @@ const buildKeywordReference = ({
     newKeywordObject: normalizedNewKeywordObject,
     action
   }
+  const oldKeywordPath = getKeywordPathFromKeywordObject({
+    scheme,
+    keywordObject: normalizedOldKeywordObject
+  })
+  const newKeywordPath = getKeywordPathFromKeywordObject({
+    scheme,
+    keywordObject: normalizedNewKeywordObject
+  })
 
   if (oldLongName) {
     keywordReference.oldLongName = oldLongName
@@ -128,6 +147,14 @@ const buildKeywordReference = ({
 
   if (newLongName) {
     keywordReference.newLongName = newLongName
+  }
+
+  if (oldKeywordPath) {
+    keywordReference.oldKeywordPath = oldKeywordPath
+  }
+
+  if (newKeywordPath) {
+    keywordReference.newKeywordPath = newKeywordPath
   }
 
   return keywordReference
@@ -165,7 +192,9 @@ const getConceptKeywordObject = ({
  *   newKeywordObject?: Record<string, string>,
  *   action: string,
  *   oldLongName?: string,
- *   newLongName?: string
+ *   newLongName?: string,
+ *   oldKeywordPath?: string,
+ *   newKeywordPath?: string
  * }|undefined>} Concrete correction descriptor for later delegate application.
  */
 export const resolveOldKeywordConceptUuid = async ({
@@ -202,6 +231,7 @@ export const resolveOldKeywordConceptUuid = async ({
     // Delete handling is the same for every lookup style: once the UUID matches the delete event,
     // no replacement path is required.
     return buildKeywordReference({
+      scheme: normalizedScheme,
       keywordConceptUuid,
       oldKeywordObject: getConceptKeywordObject({
         concept: historicalConcept
@@ -219,6 +249,7 @@ export const resolveOldKeywordConceptUuid = async ({
   })
 
   return buildKeywordReference({
+    scheme: normalizedScheme,
     keywordConceptUuid,
     oldKeywordObject: getConceptKeywordObject({
       concept: historicalConcept

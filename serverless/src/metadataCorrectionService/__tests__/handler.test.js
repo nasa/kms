@@ -164,7 +164,7 @@ describe('when the metadata correction service is invoked', () => {
         {
           scheme: 'sciencekeywords',
           path: ['ScienceKeywords', 0],
-          oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS]',
+          oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS',
           keywordValue: {
             Category: 'EARTH SCIENCE',
             Topic: 'ATMOSPHERE',
@@ -595,7 +595,7 @@ describe('when the metadata correction service is invoked', () => {
         {
           scheme: 'sciencekeywords',
           path: ['ScienceKeywords', 0],
-          oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS]',
+          oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS',
           keywordValue: {
             Category: 'EARTH SCIENCE',
             Topic: 'ATMOSPHERE',
@@ -682,7 +682,7 @@ describe('when the metadata correction service is invoked', () => {
         {
           scheme: 'platforms',
           path: ['Platforms', 0],
-          oldKeyword: '[resolve old keyword from UMM-C value: Aqua Legacy]',
+          oldKeyword: 'Aqua Legacy',
           keywordValue: {
             ShortName: 'Aqua Legacy'
           },
@@ -760,7 +760,7 @@ describe('when the metadata correction service is invoked', () => {
         {
           scheme: 'platforms',
           path: ['Platforms', 0],
-          oldKeyword: '[resolve old keyword from UMM-C value: Aqua Legacy]',
+          oldKeyword: 'Aqua Legacy',
           keywordValue: {
             ShortName: 'Aqua Legacy'
           },
@@ -907,7 +907,7 @@ describe('when the metadata correction service is invoked', () => {
         {
           scheme: 'sciencekeywords',
           path: ['ScienceKeywords', 0],
-          oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS]',
+          oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS',
           keywordValue: {
             Category: 'EARTH SCIENCE',
             Topic: 'ATMOSPHERE',
@@ -943,6 +943,65 @@ describe('when the metadata correction service is invoked', () => {
           messageId: 'message-collection-2',
           nativeFormat: 'DIF10',
           keywordValidationFailureCount: 1
+        })
+      )
+    })
+
+    test('should stop cleanly when validation finds no keyword issues at all', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C123-CLEAN',
+        providerId: 'PROV',
+        nativeId: 'native-clean',
+        revisionId: 6,
+        format: 'DIF+XML',
+        umm: {
+          ScienceKeywords: [
+            {
+              Category: 'EARTH SCIENCE',
+              Topic: 'ATMOSPHERE',
+              Term: 'AEROSOLS'
+            }
+          ]
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-clean-1',
+            body: JSON.stringify({
+              collectionConceptId: 'C123-CLEAN'
+            })
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: []
+      })
+
+      expect(resolveOldKeywordConceptUuid).not.toHaveBeenCalled()
+      expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+      expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
+
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] No resolvable keyword corrections found',
+        expect.objectContaining({
+          collectionConceptId: 'C123-CLEAN',
+          messageId: 'message-clean-1',
+          nativeFormat: 'DIF10',
+          keywordValidationFailureCount: 0
         })
       )
     })
@@ -989,7 +1048,7 @@ describe('when the metadata correction service is invoked', () => {
         {
           scheme: 'sciencekeywords',
           path: ['ScienceKeywords', 0],
-          oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS]',
+          oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|LEGACY AEROSOLS',
           keywordValue: {
             Category: 'EARTH SCIENCE',
             Topic: 'ATMOSPHERE',

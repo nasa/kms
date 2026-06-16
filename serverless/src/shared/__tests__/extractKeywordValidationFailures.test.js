@@ -212,7 +212,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'sciencekeywords',
         path: ['ScienceKeywords', 0],
         errors: ['Science keyword was not a valid keyword combination.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: EARTH SCIENCE|ATMOSPHERE|AEROSOLS|AEROSOL ABSORPTION]',
+        oldKeyword: 'EARTH SCIENCE|ATMOSPHERE|AEROSOLS|AEROSOL ABSORPTION',
         keywordValue: {
           Category: 'EARTH SCIENCE',
           Topic: 'ATMOSPHERE',
@@ -224,7 +224,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'platforms',
         path: ['Platforms', 0],
         errors: ['Platform short name was not a valid keyword combination.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: HU-25A]',
+        oldKeyword: 'HU-25A',
         keywordValue: {
           ShortName: 'HU-25A',
           LongName: 'Dassault HU-25A Guardian',
@@ -241,7 +241,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'instruments',
         path: ['Platforms', 0, 'Instruments', 0],
         errors: ['Instrument short name was not a valid keyword combination.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: AMS]',
+        oldKeyword: 'AMS',
         keywordValue: {
           ShortName: 'AMS',
           LongName: 'AEROSOL MASS SPECTROMETER'
@@ -251,7 +251,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'locations',
         path: ['LocationKeywords', 0],
         errors: ['Location keyword was not a valid keyword combination.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: CONTINENT|NORTH AMERICA]',
+        oldKeyword: 'CONTINENT|NORTH AMERICA',
         keywordValue: {
           Category: 'CONTINENT',
           Type: 'NORTH AMERICA'
@@ -261,7 +261,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'chronounits',
         path: ['PaleoTemporalCoverages', 0, 'ChronostratigraphicUnits', 0],
         errors: ['Chronostratigraphic unit was not a valid keyword combination.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: PHANEROZOIC|CENOZOIC|QUATERNARY|HOLOCENE|MEGHALAYAN|LATE]',
+        oldKeyword: 'PHANEROZOIC|CENOZOIC|QUATERNARY|HOLOCENE|MEGHALAYAN|LATE',
         keywordValue: {
           Eon: 'PHANEROZOIC',
           Era: 'CENOZOIC',
@@ -275,7 +275,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'projects',
         path: ['Projects', 0],
         errors: ['Project short name was not a valid keyword combination.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: ACTIVATE]',
+        oldKeyword: 'ACTIVATE',
         keywordValue: {
           ShortName: 'ACTIVATE',
           LongName: 'Aerosol Cloud meTeorology Interactions oVer the western ATlantic Experiment'
@@ -285,7 +285,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'providers',
         path: ['DataCenters', 0],
         errors: ['Data center short name was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: NASA/LARC/SD/ASDC]',
+        oldKeyword: 'NASA/LARC/SD/ASDC',
         keywordValue: {
           ShortName: 'NASA/LARC/SD/ASDC'
         }
@@ -294,7 +294,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'idnnode',
         path: ['DirectoryNames', 0],
         errors: ['Directory name short name was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: GCMD]',
+        oldKeyword: 'GCMD',
         keywordValue: {
           ShortName: 'GCMD',
           LongName: 'Global Change Master Directory'
@@ -304,21 +304,21 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'isotopiccategory',
         path: ['IsoTopicCategories', 0],
         errors: ['ISO Topic Category [BOUNDARIES] was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: BOUNDARIES]',
+        oldKeyword: 'BOUNDARIES',
         keywordValue: 'BOUNDARIES'
       },
       {
         scheme: 'temporalresolutionrange',
         path: ['TemporalExtents', 0, 'TemporalResolution'],
         errors: ['Temporal resolution [P1D] was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: P1D]',
+        oldKeyword: 'P1D',
         keywordValue: 'P1D'
       },
       {
         scheme: 'horizontalresolutionrange',
         path: ['SpatialInformation', 'ResolutionAndCoordinateSystem', 'HorizontalDataResolution'],
         errors: ['Horizontal resolution was not a valid keyword range.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: 250|m]',
+        oldKeyword: '250|m',
         keywordValue: {
           Value: '250',
           Unit: 'm'
@@ -328,7 +328,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'verticalresolutionrange',
         path: ['SpatialExtent', 'VerticalSpatialDomains', 0],
         errors: ['Vertical resolution was not a valid keyword range.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: ALTITUDE|1000|m]',
+        oldKeyword: 'ALTITUDE|1000|m',
         keywordValue: {
           Type: 'ALTITUDE',
           Value: '1000',
@@ -339,35 +339,35 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'ProductLevelId',
         path: ['ProcessingLevel', 'Id'],
         errors: ['ProcessingLevel Id [2] was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: 2]',
+        oldKeyword: '2',
         keywordValue: '2'
       },
       {
         scheme: 'DataFormat',
         path: ['ArchiveAndDistributionInformation', 'FileArchiveInformation', 0],
         errors: ['Format [Binary] was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: Binary]',
+        oldKeyword: 'Binary',
         keywordValue: 'Binary'
       },
       {
         scheme: 'DataFormat',
         path: ['ArchiveAndDistributionInformation', 'FileDistributionInformation', 0],
         errors: ['Format [netCDF-4] was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: netCDF-4]',
+        oldKeyword: 'netCDF-4',
         keywordValue: 'netCDF-4'
       },
       {
         scheme: 'GranuleDataFormat',
         path: ['RelatedUrls', 0, 'GetData', 'Format'],
         errors: ['Format [xml] was not a valid keyword.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: xml]',
+        oldKeyword: 'xml',
         keywordValue: 'xml'
       },
       {
         scheme: 'rucontenttype',
         path: ['RelatedUrls', 0],
         errors: ['Related URL Content Type was not a valid set together.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: DistributionURL|GET DATA|DIRECT DOWNLOAD]',
+        oldKeyword: 'DistributionURL|GET DATA|DIRECT DOWNLOAD',
         keywordValue: {
           URLContentType: 'DistributionURL',
           Type: 'GET DATA',
@@ -465,7 +465,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'verticalresolutionrange',
         path: ['SpatialInformation', 'VerticalCoordinateSystem'],
         errors: ['Vertical coordinate system keyword was not valid.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: ALTITUDE|1000|m]',
+        oldKeyword: 'ALTITUDE|1000|m',
         keywordValue: {
           Type: 'ALTITUDE',
           Value: '1000',
@@ -476,7 +476,7 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'projects',
         path: ['Projects', 0],
         errors: ['Project was missing a short name.'],
-        oldKeyword: '[resolve old keyword from UMM-C value: Project without short name]',
+        oldKeyword: 'Project without short name',
         keywordValue: {
           LongName: 'Project without short name'
         }
