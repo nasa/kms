@@ -6,6 +6,19 @@ import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
  * editor method based on the configuration keys.
  */
 const unifiedBlockScheme = (config) => (editor, correction) => {
+  // Support an array of configs
+  if (Array.isArray(config)) {
+    // Map each config to its update result (true if updated, false otherwise)
+    const results = config.map((c) => {
+      if (c.containerPath) return editor.updateNestedBlockNode(correction, c)
+
+      return editor.updateBlockNode(correction, c)
+    })
+
+    // Return true if at least one operation in the array returned true
+    return results.some((result) => result === true)
+  }
+
   // If a containerPath exists, it's a nested node
   if (config.containerPath) {
     return editor.updateNestedBlockNode(correction, config)
@@ -310,7 +323,39 @@ export const UMMC_SCHEME_EDITORS = {
         delete editor.document.ProcessingLevel
       }
     }
-  })
+  }),
+  dataformat: unifiedBlockScheme([
+    {
+      containerPath: '//ArchiveAndDistributionInformation',
+      childKey: 'FileArchiveInformation',
+      find: {
+        fieldPaths: ['Format'],
+        valueKeys: ['Format']
+      },
+      replace: [{
+        fieldPath: 'Format',
+        source: {
+          type: 'value',
+          key: 'Format'
+        }
+      }]
+    },
+    {
+      containerPath: '//ArchiveAndDistributionInformation',
+      childKey: 'FileDistributionInformation',
+      find: {
+        fieldPaths: ['Format'],
+        valueKeys: ['Format']
+      },
+      replace: [{
+        fieldPath: 'Format',
+        source: {
+          type: 'value',
+          key: 'Format'
+        }
+      }]
+    }
+  ])
 }
 
 /**

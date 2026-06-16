@@ -154,6 +154,16 @@
       "newKeywordObject": {
         "Value": "3"
       }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Format": "COG"
+      },
+      "newKeywordObject": {
+        "Format": "DXF"
+      }
     }
   ]
 }

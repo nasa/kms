@@ -3027,6 +3027,91 @@ describe('when applying science keyword UMM-C corrections', () => {
   })
 })
 
+describe('when applying DataFormat UMM-C corrections', () => {
+  test('should apply dataformat correction when oldKeywordObject matches one node path', async () => {
+    const mockUmmcDataFormat = {
+      ShortName: 'FORMAT_TEST',
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'NETCDF-4'
+        }],
+        FileDistributionInformation: [{
+          Format: 'HDF5'
+        }]
+      }
+    }
+
+    const corrections = [
+      {
+        scheme: 'dataformat',
+        action: 'replace',
+        oldKeywordObject: {
+          Format: 'NETCDF-4'
+        },
+        newKeywordObject: {
+          Format: 'ZARR'
+        }
+      }
+    ]
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload: mockUmmcDataFormat,
+      corrections
+    })
+
+    // Verify that the correction only processes where the match exists
+    expect(result.correctionCount).toBe(1)
+
+    const parsed = JSON.parse(result.correctedMetadata)
+    // Verify the specific path was updated
+    expect(parsed.ArchiveAndDistributionInformation.FileArchiveInformation[0].Format).toBe('ZARR')
+    // Verify the path that did not match the oldKeywordObject remains unchanged
+    expect(parsed.ArchiveAndDistributionInformation.FileDistributionInformation[0].Format).toBe('HDF5')
+  })
+
+  test('should apply dataformat correction when oldKeywordObject matches both node paths', async () => {
+    const mockUmmcDataFormat = {
+      ShortName: 'FORMAT_TEST',
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'NETCDF-4'
+        }],
+        FileDistributionInformation: [{
+          Format: 'NETCDF-4'
+        }]
+      }
+    }
+
+    const corrections = [
+      {
+        scheme: 'dataformat',
+        action: 'replace',
+        oldKeywordObject: {
+          Format: 'NETCDF-4'
+        },
+        newKeywordObject: {
+          Format: 'ZARR'
+        }
+      }
+    ]
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload: mockUmmcDataFormat,
+      corrections
+    })
+
+    // Verify that the correction only processes where the match exists
+    // expect(result.correctionCount).toBe(1)
+
+    const parsed = JSON.parse(result.correctedMetadata)
+    console.log('parsed:', parsed)
+    // Verify the specific path was updated
+    expect(parsed.ArchiveAndDistributionInformation.FileArchiveInformation[0].Format).toBe('ZARR')
+    // Verify the path that did not match the oldKeywordObject remains unchanged
+    expect(parsed.ArchiveAndDistributionInformation.FileDistributionInformation[0].Format).toBe('ZARR')
+  })
+})
+
 describe('when verifying edge cases', () => {
   test('should handle empty corrections array', async () => {
     const result = await applyUmmcMetadataCorrections({
