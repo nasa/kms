@@ -1016,7 +1016,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       expect(deleteWithoutParentPruneEditor.selectNodes('//DIF/Data_Resolution')).toHaveLength(1)
     })
 
-    test.only('should support scalar delete paths and return false when scalar updates are unsupported or cannot create a root field', () => {
+    test('should support scalar delete paths and return false when scalar updates are unsupported or cannot create a root field', () => {
       const deleteEditor = new XmlMetadataPathEditor('<DIF><Product_Level_Id>1A</Product_Level_Id></DIF>')
       const defaultReplaceEditor = new XmlMetadataPathEditor('<DIF><Product_Level_Id>1A</Product_Level_Id></DIF>')
       const missingDeleteEditor = new XmlMetadataPathEditor('<DIF><Entry_ID/></DIF>')
