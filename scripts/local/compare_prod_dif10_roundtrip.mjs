@@ -45,7 +45,20 @@ import path from 'node:path'
 const rootDir = path.resolve(import.meta.dirname, '../..')
 const outputDir = path.resolve(rootDir, 'tmp/dif10-roundtrip')
 
+/**
+ * Normalizes common truthy environment-variable strings.
+ *
+ * @param {string} [value=''] Environment variable value to inspect.
+ * @returns {boolean} `true` when the value represents an enabled flag.
+ */
 const isTrue = (value = '') => ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase())
+
+/**
+ * Normalizes a CMR base URL so follow-on route construction does not duplicate path segments.
+ *
+ * @param {string} [value=''] Raw base URL from runtime configuration.
+ * @returns {string} Base URL without trailing slashes or a trailing `/search`.
+ */
 const normalizeCmrBaseUrl = (value = '') => String(value)
   .replace(/\/+$/, '')
   .replace(/\/search$/, '')
@@ -66,7 +79,15 @@ const correctedPath = path.resolve(outputDir, `${conceptId}.corrected.native.xml
 const validateResponsePath = path.resolve(outputDir, `${conceptId}.validate.response.txt`)
 const ingestResponsePath = path.resolve(outputDir, `${conceptId}.ingest.response.txt`)
 
-// Build request headers for both search and ingest endpoints, with optional auth passthrough.
+/**
+ * Builds request headers for CMR search, validate, and ingest calls.
+ *
+ * @param {Object} [params={}] Header inputs.
+ * @param {string} [params.contentType] Request content type.
+ * @param {string} [params.accept] Request accept header.
+ * @param {boolean} [params.validateKeywordsHeader=false] True to opt into keyword validation.
+ * @returns {Object} Request headers for the outbound CMR call.
+ */
 const createRequestHeaders = ({
   contentType,
   accept,
@@ -95,8 +116,12 @@ const createRequestHeaders = ({
   return headers
 }
 
-// Resolve provider-id / native-id from the concept id so the script can later validate or ingest
-// without requiring those values to be supplied manually.
+/**
+ * Resolves provider/native routing metadata from a collection concept id.
+ *
+ * @returns {Promise<Object>} Collection metadata required for native fetch, validate, and ingest.
+ * @throws {Error} If the concept id cannot be resolved through CMR search.
+ */
 const parseSearchCollectionMetadata = async () => {
   const searchUrl = `${cmrBaseUrl}/search/collections.umm_json?concept_id=${encodeURIComponent(conceptId)}&page_size=1`
   const response = await fetch(searchUrl, {
@@ -128,7 +153,13 @@ const parseSearchCollectionMetadata = async () => {
   }
 }
 
-// Capture the most useful response details when we validate or ingest the corrected XML.
+/**
+ * Captures the most useful response details when we validate or ingest corrected XML.
+ *
+ * @param {Response} response Fetch response from a CMR endpoint.
+ * @returns {Promise<{ok: boolean, status: number, statusText: string, headers: Object, body: string}>}
+ * Normalized response details.
+ */
 const readResponseText = async (response) => {
   const body = await response.text()
 
@@ -141,6 +172,13 @@ const readResponseText = async (response) => {
   }
 }
 
+/**
+ * Returns the first byte offset where two strings differ.
+ *
+ * @param {string} left Left-hand string to compare.
+ * @param {string} right Right-hand string to compare.
+ * @returns {number} First differing offset, or `-1` when the strings match exactly.
+ */
 const getFirstDifference = (left, right) => {
   const minLength = Math.min(left.length, right.length)
 
@@ -153,6 +191,13 @@ const getFirstDifference = (left, right) => {
   return left.length === right.length ? -1 : minLength
 }
 
+/**
+ * Returns a slice of text around a difference offset for easier diff debugging.
+ *
+ * @param {string} text Full source text.
+ * @param {number} index Difference offset.
+ * @returns {string} Context window around the supplied offset.
+ */
 const getContext = (text, index) => {
   if (index < 0) {
     return ''

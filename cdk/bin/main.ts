@@ -39,6 +39,13 @@ import { SnapshotStack } from '../rdfdb/lib/SnapshotStack'
  * ```
  */
 async function main() {
+  /**
+   * Reads a required environment variable and throws when it is absent.
+   *
+   * @param {string} name - Environment variable name.
+   * @returns {string} Environment variable value.
+   * @throws {Error} If the variable is not set.
+   */
   const requireEnv = (name: string) => {
     const value = process.env[name]
 
@@ -215,8 +222,8 @@ async function main() {
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
-    cmrSystemToken: process.env.CMR_SYSTEM_TOKEN || '',
-    cmrSystemTokenSecretName: process.env.CMR_SYSTEM_TOKEN_SECRET_NAME || '',
+    cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
+    cmrWriterTokenSecretName: process.env.CMR_WRITER_TOKEN_SECRET_NAME || '',
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     env,
     prefix,

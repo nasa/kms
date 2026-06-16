@@ -12,11 +12,21 @@ import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCm
 // Keep the service allowlist aligned with the delegates that are safe for the current flow.
 const SUPPORTED_NATIVE_FORMATS = ['DIF10', 'UMM']
 
-// Normalize request formats so the service can compare them consistently.
+/**
+ * Normalizes native-format labels so handler comparisons stay case-insensitive.
+ *
+ * @param {string} nativeFormat Native format label from CMR metadata.
+ * @returns {string} Upper-cased native format string.
+ */
 const normalizeNativeFormat = (nativeFormat) => String(nativeFormat).trim().toUpperCase()
 
-// Accept only the collection identifier up front. Optional keyword-event context is used only
-// to safely prove delete actions for resolved keywords.
+/**
+ * Validates the minimum correction-request contract required by the service.
+ *
+ * @param {{ collectionConceptId?: string }} metadataCorrectionRequest Parsed request body.
+ * @returns {void}
+ * @throws {Error} If the request does not include a collection concept id.
+ */
 const validateMetadataCorrectionRequest = (metadataCorrectionRequest) => {
   if (typeof metadataCorrectionRequest.collectionConceptId !== 'string'
     || metadataCorrectionRequest.collectionConceptId.trim().length === 0) {
@@ -24,14 +34,29 @@ const validateMetadataCorrectionRequest = (metadataCorrectionRequest) => {
   }
 }
 
+/**
+ * Normalizes optional keyword-event context into a plain object for downstream resolution.
+ *
+ * @param {unknown} keywordEvent Optional triggering keyword event payload.
+ * @returns {Object} Normalized keyword event object.
+ */
 const normalizeKeywordEvent = (keywordEvent) => (
   keywordEvent && typeof keywordEvent === 'object'
     ? keywordEvent
     : {}
 )
 
-// Resolve one extracted invalid keyword into a concrete correction descriptor. Delete actions are
-// only emitted when the optional triggering keyword event positively proves the deleted UUID.
+/**
+ * Resolves one extracted invalid keyword into a concrete correction descriptor.
+ *
+ * Delete actions are only emitted when the optional triggering keyword event positively proves
+ * the deleted UUID.
+ *
+ * @param {Object} params Resolution inputs.
+ * @param {Object} params.keywordFailure Extracted invalid-keyword failure details.
+ * @param {Object} params.keywordEvent Optional triggering keyword event context.
+ * @returns {Promise<Object|undefined>} Resolved correction descriptor, if the keyword can be mapped.
+ */
 const buildResolvedCorrection = async ({
   keywordFailure,
   keywordEvent
@@ -53,8 +78,18 @@ const buildResolvedCorrection = async ({
   }
 }
 
-// Run the collection validation -> extraction -> historical resolution pipeline. Without explicit
-// delete context, unresolved historical/published cache gaps are skipped rather than inferred as deletes.
+/**
+ * Runs the validate -> extract -> historical resolution pipeline for one collection.
+ *
+ * Without explicit delete context, unresolved historical/published cache gaps are skipped rather
+ * than inferred as deletes.
+ *
+ * @param {Object} params Resolution inputs.
+ * @param {Object} params.collectionDetails Collection UMM details fetched from CMR.
+ * @param {Object} params.keywordEvent Optional triggering keyword event context.
+ * @returns {Promise<{keywordValidationFailures: Array, resolvedCorrections: Array}>}
+ * Validation failures plus the subset that could be resolved into corrections.
+ */
 const resolveMetadataCorrectionsFromCollection = async ({
   collectionDetails,
   keywordEvent

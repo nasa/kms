@@ -1,20 +1,65 @@
 import { cmrPutRequest } from './cmrPutRequest'
-import { getCmrSystemToken } from './getCmrSystemToken'
+import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
+/**
+ * Serializes corrected metadata into the payload shape expected by CMR ingest.
+ *
+ * @param {string|Object} correctedMetadata Corrected native metadata payload.
+ * @returns {string|undefined} Serialized metadata payload.
+ */
 const serializeCorrectedMetadata = (correctedMetadata) => (
   typeof correctedMetadata === 'string'
     ? correctedMetadata
     : JSON.stringify(correctedMetadata ?? '')
 )
 
-const normalizeProviderId = (providerId = '') => String(providerId).trim().toUpperCase()
+/**
+ * Normalizes provider identifiers for rollout gating and comparisons.
+ *
+ * @param {string} [providerId=''] Provider identifier from CMR metadata.
+ * @returns {string} Trimmed upper-cased provider id.
+ */
+const normalizeProviderId = (providerId) => String(providerId ?? '').trim().toUpperCase()
 
+/**
+ * Reads the direct writer-token override from runtime environment variables.
+ *
+ * @returns {string} Trimmed writer token or an empty string when unset.
+ */
+const getConfiguredWriterToken = () => String(
+  process.env.CMR_WRITER_TOKEN
+  || process.env.CMR_WRITE_TOKEN
+  || ''
+).trim()
+
+/**
+ * Reads the configured writer-token secret name from runtime environment variables.
+ *
+ * @returns {string} Trimmed secret name or an empty string when unset.
+ */
+const getConfiguredWriterTokenSecretName = () => String(
+  process.env.CMR_WRITER_TOKEN_SECRET_NAME
+  || process.env.CMR_WRITE_TOKEN_SECRET_NAME
+  || ''
+).trim()
+
+/**
+ * Parses the rollout allowlist that controls which providers can write back to CMR.
+ *
+ * @returns {string[]} Normalized provider ids from `CMR_WRITEBACK_PROVIDERS`.
+ */
 const parseEnabledWritebackProviders = () => String(process.env.CMR_WRITEBACK_PROVIDERS || '')
   .split(',')
   .map((providerId) => normalizeProviderId(providerId))
   .filter(Boolean)
 
+/**
+ * True when CMR writeback is enabled for the supplied provider id.
+ *
+ * @param {string} providerId Provider identifier from collection metadata.
+ * @returns {boolean} `true` when writeback is enabled for the provider.
+ */
 const isWritebackEnabledForProvider = (providerId) => {
   const enabledProviders = parseEnabledWritebackProviders()
 
@@ -29,14 +74,35 @@ const isWritebackEnabledForProvider = (providerId) => {
   return enabledProviders.includes(normalizeProviderId(providerId))
 }
 
+/**
+ * True when a direct token or secret-name configuration exists for writer auth.
+ *
+ * @returns {boolean} `true` when writeback auth is configured.
+ */
+const isWriterTokenConfigured = () => (
+  Boolean(getConfiguredWriterToken()) || Boolean(getConfiguredWriterTokenSecretName())
+)
+
+/**
+ * Builds the versioned UMM content type expected by CMR ingest.
+ *
+ * @returns {string} Versioned CMR UMM JSON content type.
+ */
 const getUmmContentType = () => {
   const ummVersion = String(process.env.CMR_UMM_JSON_VERSION || '1.18.5').trim()
 
   return `application/vnd.nasa.cmr.umm+json;version=${ummVersion}`
 }
 
+/**
+ * Maps supported native metadata formats to the corresponding CMR ingest content type.
+ *
+ * @param {string} nativeFormat Native metadata format identifier.
+ * @returns {string} Content type for the ingest request body.
+ * @throws {Error} If the native format is not supported for writeback.
+ */
 const getNativeMetadataContentType = (nativeFormat) => {
-  switch (String(nativeFormat || '').trim().toUpperCase()) {
+  switch (String(nativeFormat).trim().toUpperCase()) {
     case 'UMM':
       return getUmmContentType()
     case 'DIF10':
@@ -52,6 +118,12 @@ const getNativeMetadataContentType = (nativeFormat) => {
   }
 }
 
+/**
+ * Safely computes the UTF-8 byte length of the corrected metadata payload.
+ *
+ * @param {string|Object} correctedMetadata Corrected native metadata payload.
+ * @returns {number} UTF-8 byte count, or `0` when serialization fails.
+ */
 const getCorrectedMetadataByteLength = (correctedMetadata) => {
   try {
     const serializedMetadata = serializeCorrectedMetadata(correctedMetadata)
@@ -62,6 +134,12 @@ const getCorrectedMetadataByteLength = (correctedMetadata) => {
   }
 }
 
+/**
+ * Parses the text body from a CMR ingest response into JSON when possible.
+ *
+ * @param {{ text: () => Promise<string> }} response Fetch response wrapper.
+ * @returns {Promise<Object|string|null>} Parsed response body, raw text, or `null` when empty.
+ */
 const parseIngestResponseBody = async (response) => {
   const responseText = await response.text()
 
@@ -76,16 +154,31 @@ const parseIngestResponseBody = async (response) => {
   }
 }
 
+/**
+ * Creates a rich error object for non-2xx CMR ingest responses.
+ *
+ * @param {Object} params Error inputs.
+ * @param {Response} params.response Fetch response returned by CMR ingest.
+ * @param {string} params.path Request path used for the ingest call.
+ * @returns {Promise<Error>} Decorated writeback error with CMR response context attached.
+ */
 const createWritebackError = async ({
   response,
   path
 }) => {
   const responseBody = await parseIngestResponseBody(response)
-  const bodyMessage = typeof responseBody === 'string'
-    ? responseBody
-    : JSON.stringify(responseBody)
+  let bodyMessage
+
+  if (responseBody === null) {
+    bodyMessage = response.statusText
+  } else if (typeof responseBody === 'string') {
+    bodyMessage = responseBody
+  } else {
+    bodyMessage = JSON.stringify(responseBody)
+  }
+
   const error = new Error(
-    `CMR writeback failed with status ${response.status}: ${bodyMessage || response.statusText}`
+    `CMR writeback failed with status ${response.status}: ${bodyMessage}`
   )
 
   error.status = response.status
@@ -109,8 +202,8 @@ const createWritebackError = async ({
  * - `ALL` => enabled for every provider
  * - comma-separated provider ids => enabled only for those providers
  *
- * Authentication uses a bearer token from `CMR_SYSTEM_TOKEN_SECRET_NAME` (or
- * `CMR_SYSTEM_TOKEN` for local-only development).
+ * Authentication uses a bearer token from `CMR_WRITER_TOKEN_SECRET_NAME` (or
+ * `CMR_WRITER_TOKEN` for local-only development).
  *
  * @param {Object} params Write request details.
  * @param {string} [params.collectionConceptId] Collection concept id being corrected.
@@ -150,8 +243,18 @@ export const writeCorrectedMetadataToCmr = async ({
   const correctionsAppliedCount = Array.isArray(correctionsApplied) ? correctionsApplied.length : 0
   const correctedMetadataBytes = getCorrectedMetadataByteLength(correctedMetadata)
   const writebackEnabled = isWritebackEnabledForProvider(providerId)
+  const writerTokenConfigured = isWriterTokenConfigured()
 
-  if (!writebackEnabled) {
+  if (!writebackEnabled || !writerTokenConfigured) {
+    if (writebackEnabled && !writerTokenConfigured) {
+      logger.info('[cmr-writeback] Skipping writeback because no writer token is configured', {
+        collectionConceptId,
+        providerId,
+        nativeId,
+        nativeFormat
+      })
+    }
+
     return {
       stubbed: false,
       targetComponent: 'cmr-writeback',
@@ -216,7 +319,7 @@ export const writeCorrectedMetadataToCmr = async ({
 
   const path = `/ingest/providers/${encodeURIComponent(providerId)}/collections/${encodeURIComponent(nativeId)}`
   const contentType = getNativeMetadataContentType(nativeFormat)
-  const authorizationToken = await getCmrSystemToken()
+  const authorizationToken = await getCmrWriterToken()
   const response = await cmrPutRequest({
     path,
     body: serializedMetadata,

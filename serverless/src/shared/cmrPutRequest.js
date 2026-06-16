@@ -1,5 +1,11 @@
 import { logger } from './logger'
 
+/**
+ * Resolves the configured CMR base endpoint for outbound requests.
+ *
+ * @returns {{endpoint: string}} Normalized endpoint configuration.
+ * @throws {Error} If `CMR_BASE_URL` is not configured.
+ */
 const getEndpointConfig = () => {
   const baseUrl = process.env.CMR_BASE_URL
 
@@ -12,6 +18,12 @@ const getEndpointConfig = () => {
   }
 }
 
+/**
+ * Extracts the serializable parts of an error object for structured logging.
+ *
+ * @param {Error|Object|undefined|null} error Error-like object to inspect.
+ * @returns {Object|undefined} Serializable error details, or `undefined` when absent.
+ */
 const extractErrorDetails = (error) => {
   if (!error) {
     return undefined

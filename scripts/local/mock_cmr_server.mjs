@@ -55,6 +55,13 @@ const collectionsByConceptId = new Map(
   ])
 )
 
+const collectionsByProviderAndNativeId = new Map(
+  (fixture.cmr?.collections || []).map((collection) => [
+    `${collection.providerId}:${collection.nativeId}`,
+    collection
+  ])
+)
+
 // Return the native metadata payload the collection should expose through the `.native` route.
 const getNativeMetadataPayload = (collection) => {
   if (collection.nativeMetadata !== undefined) {
@@ -78,6 +85,10 @@ const getNativeMetadataContentType = (collection) => {
 // Keep the concept-id index in sync after local updates.
 const updateCollectionIndexes = (collection) => {
   collectionsByConceptId.set(collection.conceptId, collection)
+  collectionsByProviderAndNativeId.set(
+    `${collection.providerId}:${collection.nativeId}`,
+    collection
+  )
 }
 
 // Read a JSON request body for POST/PUT routes used by the local smoke server.
@@ -94,6 +105,17 @@ const readJsonBody = async (request) => new Promise((resolve, reject) => {
     } catch (error) {
       reject(error)
     }
+  })
+})
+
+// Read a raw text request body for native ingest/writeback routes.
+const readTextBody = async (request) => new Promise((resolve, reject) => {
+  const chunks = []
+
+  request.on('data', (chunk) => chunks.push(chunk))
+  request.on('error', reject)
+  request.on('end', () => {
+    resolve(Buffer.concat(chunks).toString('utf8'))
   })
 })
 
@@ -339,6 +361,68 @@ const handleLocalCollectionUpdateRequest = async (request, response, conceptId) 
   })
 }
 
+/**
+ * Handles ingest-style collection updates keyed by provider id and native id.
+ *
+ * This mirrors the real writeback seam route shape used by writeCorrectedMetadataToCmr:
+ * `PUT /ingest/providers/<provider-id>/collections/<native-id>`.
+ *
+ * For JSON content types, the request body is parsed and stored as both `umm` and
+ * `nativeMetadata`. For text/XML content types, the raw body is stored as `nativeMetadata`.
+ *
+ * @param {http.IncomingMessage} request - The incoming HTTP request.
+ * @param {http.ServerResponse} response - The HTTP response to write to.
+ * @param {string} providerId - Provider id from the ingest route.
+ * @param {string} nativeId - Native id from the ingest route.
+ * @returns {Promise<void>}
+ */
+const handleIngestCollectionWriteRequest = async (request, response, providerId, nativeId) => {
+  const collection = collectionsByProviderAndNativeId.get(`${providerId}:${nativeId}`)
+
+  if (!collection) {
+    sendJson(response, 404, {
+      errors: [`Collection not found in mock fixture for provider/native pair: ${providerId}/${nativeId}`]
+    })
+
+    return
+  }
+
+  const contentType = String(request.headers['content-type'] || '').toLowerCase()
+  const rawBody = await readTextBody(request)
+
+  if (!rawBody) {
+    sendJson(response, 400, {
+      errors: ['Missing request body for mock ingest writeback.']
+    })
+
+    return
+  }
+
+  if (contentType.includes('json')) {
+    const parsedBody = JSON.parse(rawBody)
+
+    collection.umm = parsedBody
+    collection.nativeMetadata = parsedBody
+  } else {
+    collection.nativeMetadata = rawBody
+  }
+
+  if (request.headers['content-type']) {
+    collection.format = String(request.headers['content-type'])
+  }
+
+  collection.revisionId = Number(collection.revisionId || 0) + 1
+
+  updateCollectionIndexes(collection)
+
+  sendJson(response, 200, {
+    'concept-id': collection.conceptId,
+    'native-id': collection.nativeId,
+    'provider-id': collection.providerId,
+    'revision-id': collection.revisionId
+  })
+}
+
 const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://127.0.0.1:${port}`)
@@ -390,6 +474,18 @@ const server = http.createServer(async (request, response) => {
       const conceptId = decodeURIComponent(localCollectionUpdateMatch[1])
 
       await handleLocalCollectionUpdateRequest(request, response, conceptId)
+
+      return
+    }
+
+    const ingestCollectionWriteMatch = request.method === 'PUT'
+      && url.pathname.match(/^\/ingest\/providers\/([^/]+)\/collections\/([^/]+)$/)
+
+    if (ingestCollectionWriteMatch) {
+      const providerId = decodeURIComponent(ingestCollectionWriteMatch[1])
+      const nativeId = decodeURIComponent(ingestCollectionWriteMatch[2])
+
+      await handleIngestCollectionWriteRequest(request, response, providerId, nativeId)
 
       return
     }

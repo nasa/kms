@@ -7,15 +7,15 @@ import {
 } from 'vitest'
 
 import { cmrPutRequest } from '../cmrPutRequest'
-import { getCmrSystemToken } from '../getCmrSystemToken'
+import { getCmrWriterToken } from '../getCmrWriterToken'
 import { writeCorrectedMetadataToCmr } from '../writeCorrectedMetadataToCmr'
 
 vi.mock('../cmrPutRequest', () => ({
   cmrPutRequest: vi.fn()
 }))
 
-vi.mock('../getCmrSystemToken', () => ({
-  getCmrSystemToken: vi.fn()
+vi.mock('../getCmrWriterToken', () => ({
+  getCmrWriterToken: vi.fn()
 }))
 
 vi.mock('../logger', () => ({
@@ -47,9 +47,13 @@ describe('when writing corrected metadata to cmr', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
+    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    delete process.env.CMR_WRITE_TOKEN
+    delete process.env.CMR_WRITER_TOKEN_SECRET_NAME
+    delete process.env.CMR_WRITE_TOKEN_SECRET_NAME
     delete process.env.CMR_UMM_JSON_VERSION
 
-    vi.mocked(getCmrSystemToken).mockResolvedValue('system-token')
+    vi.mocked(getCmrWriterToken).mockResolvedValue('writer-token')
     vi.mocked(cmrPutRequest).mockResolvedValue(createResponse())
   })
 
@@ -91,14 +95,14 @@ describe('when writing corrected metadata to cmr', () => {
       }
     })
 
-    expect(getCmrSystemToken).toHaveBeenCalledTimes(1)
+    expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
     expect(cmrPutRequest).toHaveBeenCalledWith({
       path: '/ingest/providers/KMS/collections/native-1',
       body: '<DIF><Entry_ID/></DIF>',
       contentType: 'application/dif10+xml',
       accept: 'application/json',
       headers: {
-        Authorization: 'Bearer system-token'
+        Authorization: 'Bearer writer-token'
       }
     })
   })
@@ -127,7 +131,58 @@ describe('when writing corrected metadata to cmr', () => {
       }
     })
 
-    expect(getCmrSystemToken).not.toHaveBeenCalled()
+    expect(getCmrWriterToken).not.toHaveBeenCalled()
+    expect(cmrPutRequest).not.toHaveBeenCalled()
+  })
+
+  test('should return a disabled summary when writeback providers are not configured at all', async () => {
+    delete process.env.CMR_WRITEBACK_PROVIDERS
+    delete process.env.CMR_WRITER_TOKEN
+    delete process.env.CMR_WRITE_TOKEN
+
+    const result = await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(result.ingestResult).toEqual({
+      enabled: false,
+      ingested: false,
+      updated: false,
+      stubbed: false
+    })
+
+    expect(getCmrWriterToken).not.toHaveBeenCalled()
+    expect(cmrPutRequest).not.toHaveBeenCalled()
+  })
+
+  test('should skip writeback when no writer token is configured', async () => {
+    delete process.env.CMR_WRITER_TOKEN
+    delete process.env.CMR_WRITE_TOKEN
+    delete process.env.CMR_WRITER_TOKEN_SECRET_NAME
+    delete process.env.CMR_WRITE_TOKEN_SECRET_NAME
+
+    const result = await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(result.ingestResult).toEqual({
+      enabled: false,
+      ingested: false,
+      updated: false,
+      stubbed: false
+    })
+
+    expect(getCmrWriterToken).not.toHaveBeenCalled()
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
 
@@ -174,9 +229,66 @@ describe('when writing corrected metadata to cmr', () => {
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.18.5',
       accept: 'application/json',
       headers: {
-        Authorization: 'Bearer system-token'
+        Authorization: 'Bearer writer-token'
       }
     })
+  })
+
+  test('should use the default UMM content type version when none is configured', async () => {
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
+
+    const correctedMetadata = {
+      ShortName: 'UPDATED'
+    }
+
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C1234567890-LOCAL',
+      providerId: 'LOCAL',
+      nativeId: 'native-umm-1',
+      nativeFormat: 'UMM',
+      correctionCount: 1,
+      correctedMetadata
+    })
+
+    expect(cmrPutRequest).toHaveBeenLastCalledWith(expect.objectContaining({
+      contentType: 'application/vnd.nasa.cmr.umm+json;version=1.18.5'
+    }))
+  })
+
+  test.each([
+    ['ECHO10', 'application/echo10+xml'],
+    ['ISO19115', 'application/iso19115+xml'],
+    ['ISO_SMAP', 'application/iso:smap+xml']
+  ])('should use the %s native content type', async (nativeFormat, contentType) => {
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat,
+      correctionCount: 1,
+      correctedMetadata: '<Native>value</Native>'
+    })
+
+    expect(cmrPutRequest).toHaveBeenLastCalledWith(expect.objectContaining({
+      contentType
+    }))
+  })
+
+  test('should allow alias secret-name configuration to enable writeback', async () => {
+    delete process.env.CMR_WRITER_TOKEN
+    process.env.CMR_WRITE_TOKEN_SECRET_NAME = 'cmr-writer-token'
+
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
+    expect(cmrPutRequest).toHaveBeenCalledTimes(1)
   })
 
   test('should treat null corrected metadata as an empty serialized payload for byte counting', async () => {
@@ -223,7 +335,7 @@ describe('when writing corrected metadata to cmr', () => {
       stubbed: false
     })
 
-    expect(getCmrSystemToken).not.toHaveBeenCalled()
+    expect(getCmrWriterToken).not.toHaveBeenCalled()
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
 
@@ -248,6 +360,19 @@ describe('when writing corrected metadata to cmr', () => {
     })).rejects.toThrow('Missing corrected metadata payload for CMR writeback')
   })
 
+  test('should throw when object serialization produces an empty payload', async () => {
+    await expect(writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'UMM',
+      correctionCount: 1,
+      correctedMetadata: {
+        toJSON: () => undefined
+      }
+    })).rejects.toThrow('Missing corrected metadata payload for CMR writeback')
+  })
+
   test('should surface CMR ingest failures', async () => {
     vi.mocked(cmrPutRequest).mockResolvedValue(createResponse({
       ok: false,
@@ -266,5 +391,80 @@ describe('when writing corrected metadata to cmr', () => {
       correctionCount: 1,
       correctedMetadata: '<DIF><Entry_ID/></DIF>'
     })).rejects.toThrow('CMR writeback failed with status 400')
+  })
+
+  test('should fall back to status text when a failed ingest response body is empty', async () => {
+    vi.mocked(cmrPutRequest).mockResolvedValue(createResponse({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      body: ''
+    }))
+
+    await expect(writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })).rejects.toMatchObject({
+      status: 500,
+      statusText: 'Internal Server Error',
+      cmrResponseBody: null
+    })
+  })
+
+  test('should preserve plain-text ingest error response bodies', async () => {
+    vi.mocked(cmrPutRequest).mockResolvedValue(createResponse({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      body: 'plain text failure'
+    }))
+
+    await expect(writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })).rejects.toMatchObject({
+      status: 400,
+      statusText: 'Bad Request',
+      cmrResponseBody: 'plain text failure'
+    })
+  })
+
+  test('should preserve plain-text ingest response bodies', async () => {
+    vi.mocked(cmrPutRequest).mockResolvedValue(createResponse({
+      ok: true,
+      body: 'accepted'
+    }))
+
+    const result = await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(result.ingestResult.responseBody).toBe('accepted')
+    expect(result.ingestResult.conceptId).toBeNull()
+    expect(result.ingestResult.revisionId).toBeNull()
+  })
+
+  test('should throw for unsupported native formats', async () => {
+    await expect(writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'UNKNOWN',
+      correctionCount: 1,
+      correctedMetadata: '<Native/>'
+    })).rejects.toThrow('Unsupported native format for CMR writeback: UNKNOWN')
   })
 })

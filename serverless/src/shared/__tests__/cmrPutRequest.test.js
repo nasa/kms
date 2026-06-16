@@ -20,7 +20,18 @@ describe('cmrPutRequest', () => {
   })
 
   afterEach(() => {
+    delete process.env.CMR_BASE_URL
     vi.restoreAllMocks()
+  })
+
+  test('should throw when CMR_BASE_URL is not configured', async () => {
+    delete process.env.CMR_BASE_URL
+
+    await expect(cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1'
+    })).rejects.toThrow('CMR_BASE_URL environment variable is not set')
+
+    expect(global.fetch).not.toHaveBeenCalled()
   })
 
   test('should make a PUT request with correct parameters', async () => {
@@ -175,6 +186,57 @@ describe('cmrPutRequest', () => {
         address: undefined,
         port: undefined
       }
+    })
+  })
+
+  test('should attach request context when fetch fails without a cause object', async () => {
+    const error = new Error('plain fetch failure')
+
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1',
+      body: '{}'
+    })).rejects.toThrow('plain fetch failure')
+
+    expect(error.cmrRequest).toEqual({
+      method: 'PUT',
+      endpoint: 'https://cmr-test.earthdata.nasa.gov',
+      path: '/ingest/providers/KMS/collections/native-1',
+      fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
+      bodyLength: 2
+    })
+
+    expect(error.cmrCause).toBeUndefined()
+  })
+
+  test('should rethrow non-object fetch failures without attaching request metadata', async () => {
+    global.fetch.mockRejectedValueOnce('literal failure')
+
+    await expect(cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1',
+      body: '{}'
+    })).rejects.toBe('literal failure')
+  })
+
+  test('should record an undefined bodyLength for failed requests with non-string bodies', async () => {
+    const error = new Error('object body failure')
+
+    global.fetch.mockRejectedValueOnce(error)
+
+    await expect(cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1',
+      body: {
+        test: true
+      }
+    })).rejects.toThrow('object body failure')
+
+    expect(error.cmrRequest).toEqual({
+      method: 'PUT',
+      endpoint: 'https://cmr-test.earthdata.nasa.gov',
+      path: '/ingest/providers/KMS/collections/native-1',
+      fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
+      bodyLength: undefined
     })
   })
 })

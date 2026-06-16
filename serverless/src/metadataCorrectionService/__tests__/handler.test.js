@@ -437,6 +437,120 @@ describe('when the metadata correction service is invoked', () => {
       }))
     })
 
+    test('should fall back to the normalized native format when applied audit delegateName is absent', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C123-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 9,
+        format: 'DIF+XML',
+        umm: {
+          ScienceKeywords: [
+            {
+              Category: 'EARTH SCIENCE',
+              Topic: 'ATMOSPHERE',
+              Term: 'LEGACY AEROSOLS'
+            }
+          ]
+        }
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 400,
+        errors: [
+          {
+            path: ['ScienceKeywords', 0],
+            errors: ['Science keyword was not a valid keyword combination.']
+          }
+        ],
+        warnings: [],
+        responseBody: {
+          errors: [
+            {
+              path: ['ScienceKeywords', 0],
+              errors: ['Science keyword was not a valid keyword combination.']
+            }
+          ],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+        {
+          scheme: 'sciencekeywords',
+          path: ['ScienceKeywords', 0],
+          keywordValue: OLD_SCIENCE_KEYWORD_OBJECT,
+          errors: ['Science keyword was not a valid keyword combination.']
+        }
+      ])
+
+      vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+        keywordConceptUuid: 'science-uuid-1',
+        oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+        newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
+        action: 'replace'
+      })
+
+      vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF><Entry_ID/></DIF>')
+
+      vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+        nativeFormat: 'DIF10',
+        correctionCount: 1,
+        correctedMetadata: '<DIF><Entry_ID>updated</Entry_ID></DIF>',
+        correctionsApplied: [
+          {
+            scheme: 'sciencekeywords',
+            keywordConceptUuid: 'science-uuid-1',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
+            action: 'replace',
+            ummPath: ['ScienceKeywords', 0]
+          }
+        ],
+        stubbed: false
+      })
+
+      vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+        stubbed: false,
+        targetComponent: 'cmr-writeback',
+        collectionConceptId: 'C123-PROV',
+        nativeFormat: 'DIF10',
+        correctionCount: 1,
+        correctionsAppliedCount: 1,
+        correctedMetadataBytes: 38,
+        ingestResult: {
+          enabled: true,
+          updated: true
+        }
+      })
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-collection-3',
+            body: JSON.stringify({
+              source: 'cmrKeywordEventsListener',
+              collectionConceptId: 'C123-PROV',
+              keywordEvent: {
+                eventType: 'UPDATED',
+                scheme: 'sciencekeywords',
+                uuid: 'science-uuid-1',
+                oldKeywordObject: OLD_TRIGGER_SCIENCE_KEYWORD_OBJECT,
+                newKeywordObject: NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT
+              }
+            })
+          }
+        ]
+      })
+
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        collectionConceptId: 'C123-PROV',
+        nativeFormat: 'DIF10',
+        delegateName: 'dif10',
+        status: 'applied'
+      }))
+    })
+
     test('should allow collection-only requests and skip delete inference without keyword-event context', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C999-DIF10',
