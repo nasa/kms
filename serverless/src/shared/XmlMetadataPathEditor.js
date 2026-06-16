@@ -873,8 +873,11 @@ export class XmlMetadataPathEditor {
       if (targetNode) {
         this.setElementText(targetNode, value)
       } else {
-        const difNode = this.selectNodes('/DIF')[0]
-        if (!difNode) {
+        const root = this.document?.documentElement
+        const targetNodeRootName = config.nodeXPath.match(/\/\/(.*?)\//)[1]
+
+        // Check if the root node name and the target node's root name are different
+        if (!root || (root.nodeName !== targetNodeRootName)) {
           return false
         }
 
@@ -882,7 +885,7 @@ export class XmlMetadataPathEditor {
         // the literal element name so we can create `<Product_Level_Id>` (or similar) explicitly.
         const newNode = this.document.createElement(config.tagName)
         this.setElementText(newNode, value)
-        difNode.appendChild(newNode)
+        root.appendChild(newNode)
       }
 
       return true

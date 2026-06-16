@@ -1551,6 +1551,24 @@ describe('when applying Dataformat ECHO10 corrections', () => {
       expect(result.correctionCount).toBe(0)
     })
 
+    test('should return true and add a new node if the DataFormat is not present', async () => {
+      const noProcessingLevelXml = '<Collection></Collection>'
+      const result = await applyEcho10MetadataCorrections({
+        metadataPayload: noProcessingLevelXml,
+        corrections: [{
+          scheme: 'dataformat',
+          action: 'replace',
+          newKeywordObject: {
+            Value: 'HDF5'
+          }
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+
+      expect(result.correctedMetadata).toContain('<DataFormat>HDF5</DataFormat>')
+    })
+
     test('should return false if an unknown action type is provided', async () => {
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: mockEcho10WithDataFormat,
@@ -1637,7 +1655,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
     })
 
     test('should return false if trying to delete a ProcessingLevelId that does not exist', async () => {
-      const missingFieldXml = '<Collection><Entry_ID><ShortName>TEST</ShortName></Entry_ID></Collection>'
+      const missingFieldXml = '<Collection><ShortName>TEST</ShortName></Collection>'
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: missingFieldXml,
         corrections: [{
@@ -1681,6 +1699,24 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
       })
 
       expect(result.correctionCount).toBe(0)
+    })
+
+    test('should return true and add a new node if the ProcessingLevelId is not present', async () => {
+      const noProcessingLevelXml = '<Collection></Collection>'
+      const result = await applyEcho10MetadataCorrections({
+        metadataPayload: noProcessingLevelXml,
+        corrections: [{
+          scheme: 'productlevelid',
+          action: 'replace',
+          newKeywordObject: {
+            Value: 'Level 4'
+          }
+        }]
+      })
+
+      expect(result.correctionCount).toBe(1)
+
+      expect(result.correctedMetadata).toContain('<ProcessingLevelId>Level 4</ProcessingLevelId>')
     })
 
     test('should return false if an unknown action type is provided', async () => {
