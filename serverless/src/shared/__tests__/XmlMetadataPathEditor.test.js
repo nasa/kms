@@ -366,6 +366,88 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
     expect(editor.serialize()).toContain('<Term>SNOW/ICE - chris v5</Term>')
   })
 
+  test('should match block nodes case-insensitively when DIF10 text casing differs from resolved keyword casing', () => {
+    const editor = new XmlMetadataPathEditor(`
+      <DIF>
+        <Science_Keywords>
+          <Category>EARTH SCIENCE</Category>
+          <Topic>Cryosphere</Topic>
+          <Term>Snow/Ice</Term>
+          <Variable_Level_1>Lake Ice</Variable_Level_1>
+        </Science_Keywords>
+      </DIF>
+    `)
+
+    const isUpdated = editor.updateBlockNode({
+      action: 'replace',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'CRYOSPHERE',
+        Term: 'SNOW/ICE',
+        VariableLevel1: 'LAKE ICE',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'Cryosphere',
+        Term: 'Snow/Ice - Chris v9',
+        VariableLevel1: 'Lake Ice',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      }
+    }, {
+      nodeXPath: '//DIF/Science_Keywords',
+      find: {
+        fieldPaths: [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ],
+        valueKeys: [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
+        ]
+      },
+      replace: sequentialValueReplace(
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ],
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
+        ]
+      )
+    })
+
+    expect(isUpdated).toBe(true)
+    expect(editor.serialize()).toContain('<Topic>Cryosphere</Topic>')
+    expect(editor.serialize()).toContain('<Term>Snow/Ice - Chris v9</Term>')
+    expect(editor.serialize()).toContain('<Variable_Level_1>Lake Ice</Variable_Level_1>')
+  })
+
   test('should invoke afterDelete callbacks for block nodes', () => {
     let callbackNodeName = null
     const editor = new XmlMetadataPathEditor('<DIF><Block><Short_Name>ONE</Short_Name></Block></DIF>')
