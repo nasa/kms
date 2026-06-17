@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
 import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
 import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
@@ -258,5 +259,114 @@ describe('runCollectionMetadataCorrection', () => {
         status: 'applied'
       })
     )
+  })
+
+  test('passes the exact fetched UMM content type through to writeback in local UMM mode', async () => {
+    process.env.USE_LOCALSTACK = 'true'
+
+    vi.mocked(detectNativeMetadataFormat).mockReturnValue('UMM')
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/vnd.nasa.cmr.umm+json',
+      umm: {
+        ShortName: 'TEST'
+      }
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue({
+      metadataPayload: {
+        ShortName: 'TEST'
+      },
+      contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
+    })
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'umm',
+      nativeFormat: 'UMM',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: {
+        ShortName: 'TEST-UPDATED'
+      }
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'applied'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        updated: true
+      }
+    })
+
+    await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })
+
+    expect(getCmrCollectionNativeMetadata).toHaveBeenCalledWith({
+      collectionConceptId: 'C1234567890-PROV',
+      revisionId: 7,
+      includeResponseMetadata: true
+    })
+
+    expect(invokeMetadataCorrectionDelegate).toHaveBeenCalledWith(expect.objectContaining({
+      nativeFormat: 'UMM',
+      metadataPayload: {
+        ShortName: 'TEST'
+      }
+    }))
+
+    expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
+      nativeFormat: 'UMM',
+      nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
+    }))
   })
 })

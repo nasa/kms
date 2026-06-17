@@ -266,10 +266,17 @@ export const runCollectionMetadataCorrection = async ({
     resolvedCorrections
   })
 
-  const metadataPayload = await getCmrCollectionNativeMetadata({
+  const nativeMetadataResponse = await getCmrCollectionNativeMetadata({
     collectionConceptId: collectionDetails.collectionConceptId,
-    revisionId: collectionDetails.revisionId
+    revisionId: collectionDetails.revisionId,
+    includeResponseMetadata: nativeFormat === 'UMM'
   })
+  const metadataPayload = nativeFormat === 'UMM'
+    ? nativeMetadataResponse.metadataPayload
+    : nativeMetadataResponse
+  const nativeMetadataContentType = nativeFormat === 'UMM'
+    ? nativeMetadataResponse.contentType
+    : String(collectionDetails.format || '')
 
   const rawCorrectionResult = await invokeMetadataCorrectionDelegate({
     collectionConceptId: collectionDetails.collectionConceptId,
@@ -320,6 +327,7 @@ export const runCollectionMetadataCorrection = async ({
     providerId: collectionDetails.providerId,
     nativeId: collectionDetails.nativeId,
     nativeFormat,
+    nativeMetadataContentType,
     correctedMetadata,
     correctionCount: normalizedCorrectionCount,
     correctionsApplied,

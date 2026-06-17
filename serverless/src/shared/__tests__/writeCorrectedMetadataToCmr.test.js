@@ -48,7 +48,6 @@ describe('when writing corrected metadata to cmr', () => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
     process.env.CMR_WRITER_TOKEN = 'writer-token'
-    delete process.env.CMR_UMM_JSON_VERSION
 
     vi.mocked(getCmrWriterToken).mockResolvedValue('writer-token')
     vi.mocked(cmrPutRequest).mockResolvedValue(createResponse())
@@ -100,6 +99,25 @@ describe('when writing corrected metadata to cmr', () => {
         Authorization: 'Bearer writer-token'
       }
     })
+  })
+
+  test('should preserve the DIF9 ingest content type when CMR identifies the record as application/dif+xml', async () => {
+    const result = await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      nativeMetadataContentType: 'application/dif+xml',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>',
+      source: 'metadataCorrectionService'
+    })
+
+    expect(result.ingestResult.updated).toBe(true)
+
+    expect(cmrPutRequest).toHaveBeenCalledWith(expect.objectContaining({
+      contentType: 'application/dif+xml'
+    }))
   })
 
   test('should return a disabled summary when writeback is not enabled for the provider', async () => {
@@ -189,9 +207,8 @@ describe('when writing corrected metadata to cmr', () => {
     expect(result.correctionsAppliedCount).toBe(0)
   })
 
-  test('should serialize object corrected metadata and use the versioned UMM content type', async () => {
+  test('should serialize object corrected metadata and use the exact fetched UMM content type version', async () => {
     process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
-    process.env.CMR_UMM_JSON_VERSION = '1.18.5'
 
     const correctedMetadata = {
       ShortName: 'UPDATED'
@@ -202,6 +219,7 @@ describe('when writing corrected metadata to cmr', () => {
       providerId: 'LOCAL',
       nativeId: 'native-umm-1',
       nativeFormat: 'UMM',
+      nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8',
       correctionCount: 1,
       correctedMetadata
     })
@@ -213,7 +231,7 @@ describe('when writing corrected metadata to cmr', () => {
     expect(cmrPutRequest).toHaveBeenCalledWith({
       path: '/ingest/providers/LOCAL/collections/native-umm-1',
       body: JSON.stringify(correctedMetadata),
-      contentType: 'application/vnd.nasa.cmr.umm+json;version=1.18.5',
+      contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2',
       accept: 'application/json',
       headers: {
         Authorization: 'Bearer writer-token'
@@ -221,25 +239,37 @@ describe('when writing corrected metadata to cmr', () => {
     })
   })
 
-  test('should use the default UMM content type version when none is configured', async () => {
+  test('should throw when UMM writeback does not include an exact native metadata content type', async () => {
     process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
 
     const correctedMetadata = {
       ShortName: 'UPDATED'
     }
 
-    await writeCorrectedMetadataToCmr({
+    await expect(writeCorrectedMetadataToCmr({
       collectionConceptId: 'C1234567890-LOCAL',
       providerId: 'LOCAL',
       nativeId: 'native-umm-1',
       nativeFormat: 'UMM',
       correctionCount: 1,
       correctedMetadata
-    })
+    })).rejects.toThrow('Missing exact UMM JSON content type for CMR writeback')
+  })
 
-    expect(cmrPutRequest).toHaveBeenLastCalledWith(expect.objectContaining({
-      contentType: 'application/vnd.nasa.cmr.umm+json;version=1.18.5'
-    }))
+  test('should throw when the UMM native metadata content type omits the version parameter', async () => {
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
+
+    await expect(writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C1234567890-LOCAL',
+      providerId: 'LOCAL',
+      nativeId: 'native-umm-1',
+      nativeFormat: 'UMM',
+      nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json',
+      correctionCount: 1,
+      correctedMetadata: {
+        ShortName: 'UPDATED'
+      }
+    })).rejects.toThrow('Missing UMM JSON version parameter for CMR writeback')
   })
 
   test.each([

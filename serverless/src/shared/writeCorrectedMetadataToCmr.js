@@ -66,29 +66,77 @@ const isWritebackEnabledForProvider = (providerId) => {
  */
 const isWriterTokenConfigured = () => Boolean(getConfiguredWriterToken())
 
-/**
- * Builds the versioned UMM content type expected by CMR ingest.
- *
- * @returns {string} Versioned CMR UMM JSON content type.
- */
-const getUmmContentType = () => {
-  const ummVersion = String(process.env.CMR_UMM_JSON_VERSION || '1.18.5').trim()
+const UMM_JSON_MEDIA_TYPE = 'application/vnd.nasa.cmr.umm+json'
 
-  return `application/vnd.nasa.cmr.umm+json;version=${ummVersion}`
+/**
+ * Extracts the base media type from a Content-Type header.
+ *
+ * @param {string} [contentType=''] Raw content type header value.
+ * @returns {string} Lower-cased media type without parameters.
+ */
+const extractMediaType = (contentType = '') => String(contentType)
+  .split(';')[0]
+  .trim()
+  .toLowerCase()
+
+/**
+ * Extracts the exact UMM JSON version parameter from a native-metadata response content type.
+ *
+ * @param {string} [contentType=''] Raw response content type returned by CMR.
+ * @returns {string} UMM JSON version string.
+ * @throws {Error} If the content type is not UMM JSON or does not include a version parameter.
+ */
+const extractUmmVersionFromContentType = (contentType = '') => {
+  const normalizedContentType = String(contentType).trim()
+  const lowerCasedContentType = normalizedContentType.toLowerCase()
+
+  if (!lowerCasedContentType.startsWith(UMM_JSON_MEDIA_TYPE)) {
+    throw new Error(
+      `Missing exact UMM JSON content type for CMR writeback: ${contentType || '(empty)'}`
+    )
+  }
+
+  const versionMatch = normalizedContentType.match(/(?:^|;)\s*version\s*=\s*([^;]+)/i)
+
+  if (!versionMatch?.[1]) {
+    throw new Error(
+      `Missing UMM JSON version parameter for CMR writeback: ${contentType || '(empty)'}`
+    )
+  }
+
+  return versionMatch[1].trim()
 }
+
+/**
+ * Rebuilds the canonical versioned UMM content type expected by CMR ingest.
+ *
+ * @param {string} nativeMetadataContentType Exact native metadata response content type.
+ * @returns {string} Canonical versioned UMM JSON content type for ingest.
+ */
+const getUmmContentType = (nativeMetadataContentType) => (
+  `${UMM_JSON_MEDIA_TYPE};version=${extractUmmVersionFromContentType(nativeMetadataContentType)}`
+)
 
 /**
  * Maps supported native metadata formats to the corresponding CMR ingest content type.
  *
  * @param {string} nativeFormat Native metadata format identifier.
+ * @param {string} [nativeMetadataContentType] Exact native metadata response content type.
  * @returns {string} Content type for the ingest request body.
  * @throws {Error} If the native format is not supported for writeback.
  */
-const getNativeMetadataContentType = (nativeFormat) => {
+const getNativeMetadataContentType = (
+  nativeFormat,
+  nativeMetadataContentType
+) => {
   switch (String(nativeFormat).trim().toUpperCase()) {
     case 'UMM':
-      return getUmmContentType()
+      return getUmmContentType(nativeMetadataContentType)
     case 'DIF10':
+      if (extractMediaType(nativeMetadataContentType) === 'application/dif+xml') {
+        return 'application/dif+xml'
+      }
+
       return 'application/dif10+xml'
     case 'ECHO10':
       return 'application/echo10+xml'
@@ -192,6 +240,8 @@ const createWritebackError = async ({
  * @param {string} [params.providerId] Collection provider id for CMR ingest routing.
  * @param {string} [params.nativeId] Collection native id for CMR ingest routing.
  * @param {string} [params.nativeFormat] Native metadata format identifier.
+ * @param {string} [params.nativeMetadataContentType] Exact native metadata response content type
+ * fetched from CMR. Required for UMM writeback so the ingest request uses the same UMM version.
  * @param {string|Object} [params.correctedMetadata] Corrected native metadata payload.
  * @param {number} [params.correctionCount] Number of corrections applied to the payload.
  * @param {Array<Object>} [params.correctionsApplied] Applied correction details.
@@ -216,6 +266,7 @@ export const writeCorrectedMetadataToCmr = async ({
   providerId = null,
   nativeId = null,
   nativeFormat = null,
+  nativeMetadataContentType = '',
   correctedMetadata = '',
   correctionCount = 0,
   correctionsApplied = [],
@@ -296,7 +347,7 @@ export const writeCorrectedMetadataToCmr = async ({
   }
 
   const path = `/ingest/providers/${encodeURIComponent(providerId)}/collections/${encodeURIComponent(nativeId)}`
-  const contentType = getNativeMetadataContentType(nativeFormat)
+  const contentType = getNativeMetadataContentType(nativeFormat, nativeMetadataContentType)
   const authorizationToken = await getCmrWriterToken()
   const response = await cmrPutRequest({
     path,
