@@ -1,0 +1,121 @@
+{
+  "collectionConceptId": "C1234567890-LOCAL",
+  "nativeFormat": "ECHO10",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "TERRESTRIAL HYDROSPHERE",
+        "Term": "SNOW/ICE",
+        "VariableLevel1": "SNOW WATER EQUIVALENT",
+        "VariableLevel2": "SNOW ICE TEST",
+        "VariableLevel3": "WATER ICE TEST",
+        "DetailedVariable": "RAIN"
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE-UPDATED",
+        "Topic": "TERRESTRIAL HYDROSPHERE-UPDATED",
+        "Term": "SNOW/ICE-UPDATED",
+        "VariableLevel1": "SNOW WATER EQUIVALENT-UPDATED",
+        "VariableLevel2": "SNOW ICE TEST-UPDATED",
+        "VariableLevel3": "WATER ICE TEST-UPDATED",
+        "DetailedVariable": "RAIN-UPDATED"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Earth Observing System, Terra (AM-1)-Updated",
+      "oldKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "Terra"
+      },
+      "newKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "Terra-UPDATED"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "AMSR-E"
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Advanced Microwave Scanning Radiometer Sea Ice Product Validation-UPDATED",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "AMSRICE06"
+      },
+      "newKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "AMSRICE06-UPDATED"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "newLongName": "National Snow and Ice Data Center",
+      "oldKeywordObject": {
+        "BucketLevel0": "PROCESSOR",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NASA/MSFC/AMSR-E SIPS"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "PROCESSOR",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NASA/MSFC/AMSR-E SIPS-UPDATED"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION"
+      },
+      "newKeywordObject": {
+        "URLContentType": "PublicationURL-UPDATED",
+        "Type": "VIEW RELATED INFORMATION-UPDATED",
+        "Subtype": "Subtype-UPDATED"
+      }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "netCDF-4"
+      },
+      "newKeywordObject": {
+        "Value": "HDF5"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "3"
+      },
+      "newKeywordObject": {
+        "Value": "4"
+      }
+    }
+  ]
+}

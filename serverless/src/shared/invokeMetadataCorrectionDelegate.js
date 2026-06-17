@@ -3,6 +3,7 @@ import { applyEcho10MetadataCorrections } from './applyEcho10MetadataCorrections
 import { applyIso19115MetadataCorrections } from './applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from './applyIsoSmapMetadataCorrections'
 import { applyUmmMetadataCorrections } from './applyUmmMetadataCorrections'
+import { logger } from './logger'
 
 const normalizeKeywordObject = (keywordObject) => (
   keywordObject
@@ -12,20 +13,52 @@ const normalizeKeywordObject = (keywordObject) => (
     : {}
 )
 
-const normalizeCorrection = (correction = {}) => ({
-  scheme: correction.scheme,
-  action: correction.action,
-  keywordConceptUuid: correction.keywordConceptUuid,
-  oldKeywordObject: normalizeKeywordObject(correction.oldKeywordObject),
-  newKeywordObject: normalizeKeywordObject(correction.newKeywordObject),
-  ummPath: correction.ummPath,
-  oldLongName: correction.oldLongName,
-  newLongName: correction.newLongName
-})
+const normalizeCorrection = (correction) => {
+  const safeCorrection = correction || {}
+
+  return {
+    scheme: safeCorrection.scheme,
+    action: safeCorrection.action,
+    keywordConceptUuid: safeCorrection.keywordConceptUuid,
+    oldKeywordObject: normalizeKeywordObject(safeCorrection.oldKeywordObject),
+    newKeywordObject: normalizeKeywordObject(safeCorrection.newKeywordObject),
+    ummPath: safeCorrection.ummPath,
+    oldLongName: safeCorrection.oldLongName,
+    newLongName: safeCorrection.newLongName
+  }
+}
+
+const hasMeaningfulKeywordValue = (keywordObject) => Object.values(keywordObject)
+  .some((value) => String(value || '').trim().length > 0)
+
+const shouldSkipCorrection = (correction) => {
+  const normalizedAction = String(correction.action || '').trim().toLowerCase()
+
+  return (
+    normalizedAction === 'replace'
+    && !hasMeaningfulKeywordValue(correction.newKeywordObject)
+  )
+}
 
 const normalizeCorrections = (corrections = []) => (
   Array.isArray(corrections)
-    ? corrections.map((correction = {}) => normalizeCorrection(correction))
+    ? corrections
+      .map((correction) => normalizeCorrection(correction))
+      .filter((correction) => {
+        if (!shouldSkipCorrection(correction)) {
+          return true
+        }
+
+        logger.error('[metadata-correction] Skipping invalid replacement correction payload', {
+          scheme: correction.scheme,
+          action: correction.action,
+          keywordConceptUuid: correction.keywordConceptUuid,
+          oldKeywordObject: correction.oldKeywordObject,
+          newKeywordObject: correction.newKeywordObject
+        })
+
+        return false
+      })
     : []
 )
 

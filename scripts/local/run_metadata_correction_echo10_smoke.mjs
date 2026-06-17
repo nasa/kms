@@ -6,21 +6,21 @@ import path from 'node:path'
 const rootDir = path.resolve(import.meta.dirname, '../..')
 const fixturePath = path.resolve(
   rootDir,
-  'scripts/local/fixtures/metadata_correction_service.dif10.example.json'
+  'scripts/local/fixtures/metadata_correction_service.echo10.example.json'
 )
 const metadataPayloadPath = path.resolve(
   rootDir,
-  'scripts/local/fixtures/metadata_correction_service.dif10.example.xml'
+  'scripts/local/fixtures/metadata_correction_service.echo10.example.xml'
 )
 const outputPath = path.resolve(
   rootDir,
-  'tmp/metadata_correction_dif10_smoke_output.xml'
+  'tmp/metadata_correction_echo10_smoke_output.xml'
 )
 
 const fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'))
 const metadataPayload = await fs.readFile(metadataPayloadPath, 'utf8')
 
-const { applyDif10MetadataCorrections } = await import('../../serverless/src/shared/applyDif10MetadataCorrections')
+const { applyEcho10MetadataCorrections } = await import('../../serverless/src/shared/applyEcho10MetadataCorrections')
 const { writeCorrectedMetadataToCmr } = await import('../../serverless/src/shared/writeCorrectedMetadataToCmr')
 
 const request = {
@@ -28,7 +28,7 @@ const request = {
   metadataPayload
 }
 
-const correctionResult = await applyDif10MetadataCorrections(request)
+const correctionResult = await applyEcho10MetadataCorrections(request)
 
 await fs.mkdir(path.dirname(outputPath), { recursive: true })
 await fs.writeFile(outputPath, correctionResult.correctedMetadata || '', 'utf8')
