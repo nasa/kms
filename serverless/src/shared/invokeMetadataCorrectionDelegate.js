@@ -2,7 +2,7 @@ import { applyDif10MetadataCorrections } from './applyDif10MetadataCorrections'
 import { applyEcho10MetadataCorrections } from './applyEcho10MetadataCorrections'
 import { applyIso19115MetadataCorrections } from './applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from './applyIsoSmapMetadataCorrections'
-import { applyUmmMetadataCorrections } from './applyUmmMetadataCorrections'
+import { applyUmmcMetadataCorrections } from './applyUmmcMetadataCorrections'
 import { logger } from './logger'
 
 const STATIC_METADATA_CORRECTION_DELEGATES = {
@@ -104,7 +104,7 @@ const getMetadataCorrectionDelegate = (nativeFormat) => {
 
   if (normalizedNativeFormat === 'UMM') {
     if (isLocalMetadataCorrectionMode()) {
-      return applyUmmMetadataCorrections
+      return applyUmmcMetadataCorrections
     }
 
     throw new Error(
@@ -140,7 +140,7 @@ const getMetadataCorrectionDelegate = (nativeFormat) => {
  * format. Unknown correction fields are intentionally dropped at this seam.
  *
  * That keeps the orchestration layer format-agnostic while allowing each delegate to own the
- * mechanics of mutating local-only UMM smoke payloads plus ISO19115, ISO SMAP, ECHO10, or
+ * mechanics of mutating local-only UMM-C smoke payloads plus ISO19115, ISO SMAP, ECHO10, or
  * DIF10 metadata.
  *
  * @param {object} params - Delegate parameters.

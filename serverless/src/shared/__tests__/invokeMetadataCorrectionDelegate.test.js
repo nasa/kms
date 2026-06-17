@@ -10,15 +10,15 @@ import { applyDif10MetadataCorrections } from '../applyDif10MetadataCorrections'
 import { applyEcho10MetadataCorrections } from '../applyEcho10MetadataCorrections'
 import { applyIso19115MetadataCorrections } from '../applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrections'
-import { applyUmmMetadataCorrections } from '../applyUmmMetadataCorrections'
+import { applyUmmcMetadataCorrections } from '../applyUmmcMetadataCorrections'
 import {
   invokeMetadataCorrectionDelegate,
   isMetadataCorrectionDelegateSupported
 } from '../invokeMetadataCorrectionDelegate'
 import { logger } from '../logger'
 
-vi.mock('../applyUmmMetadataCorrections', () => ({
-  applyUmmMetadataCorrections: vi.fn()
+vi.mock('../applyUmmcMetadataCorrections', () => ({
+  applyUmmcMetadataCorrections: vi.fn()
 }))
 
 vi.mock('../applyIso19115MetadataCorrections', () => ({
@@ -105,7 +105,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('routes UMM to the UMM delegate in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await expect(invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -113,7 +113,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       corrections: []
     })).resolves.toEqual({ delegateName: 'umm' })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: []
     })
@@ -121,7 +121,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('normalizes correction keyword objects before delegating UMM in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -135,7 +135,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -149,7 +149,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('preserves plain-object keyword objects before delegating UMM in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -166,7 +166,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -183,7 +183,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('preserves non-keyword-object correction fields before delegating UMM in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -202,7 +202,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -221,7 +221,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('normalizes array keyword objects to plain empty objects before delegating UMM in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -234,7 +234,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -247,7 +247,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('treats non-array corrections as an empty correction list before delegating UMM in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -257,7 +257,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       }
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: []
     })
@@ -265,7 +265,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('normalizes undefined correction entries to empty keyword objects before delegating UMM in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -273,7 +273,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       corrections: [undefined]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -286,7 +286,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
 
   test('drops unknown correction fields while preserving the normalized UMM contract in local mode', async () => {
     enableLocalMode()
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await expect(invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -313,7 +313,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })).resolves.toEqual({ delegateName: 'umm' })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({

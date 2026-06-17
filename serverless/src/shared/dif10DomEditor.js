@@ -1,3 +1,4 @@
+import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
 import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
 
 // Wrap a block-style scheme config in the shared editor contract used by the DIF10 delegate.
@@ -36,16 +37,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Variable_Level_3',
         'Detailed_Variable'
       ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ]
+      valueKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords
     },
     // Example correction input:
     // {
@@ -79,16 +71,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Variable_Level_3',
         'Detailed_Variable'
       ],
-      [
-        // Keys from newKeywordObject to read from
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ]
+      FULL_PATH_VALUE_FIELDS.sciencekeywords
     )
   }),
   locations: blockScheme({
@@ -103,15 +86,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Location_Subregion3',
         'Detailed_Location'
       ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'Category',
-        'Type',
-        'Subregion1',
-        'Subregion2',
-        'Subregion3',
-        'DetailedLocation'
-      ]
+      valueKeys: FULL_PATH_VALUE_FIELDS.locations
     },
     replace: sequentialValueReplace(
       [
@@ -123,15 +98,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Location_Subregion3',
         'Detailed_Location'
       ],
-      [
-        // Keys from newKeywordObject to read from
-        'Category',
-        'Type',
-        'Subregion1',
-        'Subregion2',
-        'Subregion3',
-        'DetailedLocation'
-      ]
+      FULL_PATH_VALUE_FIELDS.locations
     )
   }),
   chronounits: blockScheme({
@@ -146,15 +113,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Stage',
         'Detailed_Classification'
       ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'Eon',
-        'Era',
-        'Period',
-        'Epoch',
-        'Age',
-        'SubAge'
-      ]
+      valueKeys: FULL_PATH_VALUE_FIELDS.chronounits
     },
     replace: sequentialValueReplace(
       [
@@ -166,15 +125,7 @@ export const DIF10_SCHEME_EDITORS = {
         'Stage',
         'Detailed_Classification'
       ],
-      [
-        // Keys from newKeywordObject to read from
-        'Eon',
-        'Era',
-        'Period',
-        'Epoch',
-        'Age',
-        'SubAge'
-      ]
+      FULL_PATH_VALUE_FIELDS.chronounits
     )
   }),
   platforms: blockScheme({
