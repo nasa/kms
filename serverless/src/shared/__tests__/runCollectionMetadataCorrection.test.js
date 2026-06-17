@@ -39,13 +39,7 @@ vi.mock('@/shared/invokeMetadataCorrectionDelegate', () => ({
   invokeMetadataCorrectionDelegate: vi.fn(),
   isMetadataCorrectionDelegateSupported: vi.fn((nativeFormat) => (
     nativeFormat === 'DIF10'
-    || (
-      nativeFormat === 'UMM'
-      && (
-        String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
-        || String(process.env.useLocalstack || '').toLowerCase() === 'true'
-      )
-    )
+    || nativeFormat === 'UMM'
   ))
 }))
 
@@ -74,8 +68,6 @@ vi.mock('@/shared/writeCorrectedMetadataToCmr', () => ({
 describe('runCollectionMetadataCorrection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.USE_LOCALSTACK
-    delete process.env.useLocalstack
   })
 
   test('throws when invoked without arguments', async () => {
@@ -271,9 +263,7 @@ describe('runCollectionMetadataCorrection', () => {
     )
   })
 
-  test('passes the exact fetched UMM content type through to writeback in local UMM mode', async () => {
-    process.env.USE_LOCALSTACK = 'true'
-
+  test('passes the exact fetched UMM content type through to writeback', async () => {
     vi.mocked(detectNativeMetadataFormat).mockReturnValue('UMM')
     vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
       collectionConceptId: 'C1234567890-PROV',

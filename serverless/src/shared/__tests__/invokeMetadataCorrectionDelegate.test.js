@@ -54,44 +54,12 @@ const createExpectedCorrection = (correction = {}) => ({
   newLongName: correction.newLongName
 })
 
-const enableLocalMode = () => {
-  process.env.USE_LOCALSTACK = 'true'
-}
-
 describe('invokeMetadataCorrectionDelegate', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.USE_LOCALSTACK
-    delete process.env.useLocalstack
   })
 
-  test('rejects UMM outside local mode', async () => {
-    await expect(invokeMetadataCorrectionDelegate({
-      nativeFormat: 'UMM',
-      collectionConceptId: 'C1',
-      corrections: [
-        {
-          scheme: 'platforms',
-          action: 'replace',
-          keywordConceptUuid: 'uuid-1',
-          oldKeywordObject: 'not-an-object',
-          newKeywordObject: null,
-          ummPath: [
-            'Platforms',
-            0
-          ]
-        }
-      ]
-    })).rejects.toThrow(
-      'Unsupported native metadata format for delegate selection: UMM'
-    )
-  })
-
-  test('reports UMM support only in local mode', () => {
-    expect(isMetadataCorrectionDelegateSupported('UMM')).toBe(false)
-
-    enableLocalMode()
-
+  test('reports UMM support from the shared support matrix', () => {
     expect(isMetadataCorrectionDelegateSupported('UMM')).toBe(true)
   })
 
@@ -103,8 +71,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     expect(isMetadataCorrectionDelegateSupported()).toBe(false)
   })
 
-  test('routes UMM to the UMM delegate in local mode', async () => {
-    enableLocalMode()
+  test('routes UMM to the UMM delegate', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await expect(invokeMetadataCorrectionDelegate({
@@ -119,8 +86,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('normalizes correction keyword objects before delegating UMM in local mode', async () => {
-    enableLocalMode()
+  test('normalizes correction keyword objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -147,8 +113,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('preserves plain-object keyword objects before delegating UMM in local mode', async () => {
-    enableLocalMode()
+  test('preserves plain-object keyword objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -181,8 +146,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('preserves non-keyword-object correction fields before delegating UMM in local mode', async () => {
-    enableLocalMode()
+  test('preserves non-keyword-object correction fields before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -219,8 +183,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('normalizes array keyword objects to plain empty objects before delegating UMM in local mode', async () => {
-    enableLocalMode()
+  test('normalizes array keyword objects to plain empty objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -245,8 +208,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('treats non-array corrections as an empty correction list before delegating UMM in local mode', async () => {
-    enableLocalMode()
+  test('treats non-array corrections as an empty correction list before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -263,8 +225,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('normalizes undefined correction entries to empty keyword objects before delegating UMM in local mode', async () => {
-    enableLocalMode()
+  test('normalizes undefined correction entries to empty keyword objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -284,8 +245,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('drops unknown correction fields while preserving the normalized UMM contract in local mode', async () => {
-    enableLocalMode()
+  test('drops unknown correction fields while preserving the normalized UMM contract', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await expect(invokeMetadataCorrectionDelegate({

@@ -13,7 +13,7 @@ import path from 'node:path'
  * - fetch collection UMM/native metadata from the mock CMR server
  * - validate keyword problems against the seeded Redis caches
  * - resolve corrections
- * - apply the local-only UMM delegate
+ * - apply the UMM delegate
  * - persist audit rows
  * - write the corrected metadata back to the mock CMR ingest route
  *
@@ -239,7 +239,6 @@ try {
     await waitForHealth(`${baseUrl}/health`)
   }
 
-  process.env.USE_LOCALSTACK = 'true'
   process.env.CMR_BASE_URL = baseUrl
   process.env.CMR_WRITEBACK_PROVIDERS = process.env.CMR_WRITEBACK_PROVIDERS || providerId
   process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'local-writer-token'

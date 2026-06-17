@@ -6,6 +6,7 @@ import { applyUmmcMetadataCorrections } from './applyUmmcMetadataCorrections'
 import { logger } from './logger'
 
 const STATIC_METADATA_CORRECTION_DELEGATES = {
+  UMM: applyUmmcMetadataCorrections,
   ISO19115: applyIso19115MetadataCorrections,
   ISO_SMAP: applyIsoSmapMetadataCorrections,
   ECHO10: applyEcho10MetadataCorrections,
@@ -70,16 +71,6 @@ const normalizeCorrections = (corrections = []) => (
 )
 
 /**
- * True when the current process is running in the repo's local LocalStack mode.
- *
- * @returns {boolean} `true` when local-only metadata delegates may be used.
- */
-const isLocalMetadataCorrectionMode = () => (
-  String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
-  || String(process.env.useLocalstack || '').toLowerCase() === 'true'
-)
-
-/**
  * True when a native format currently has a registered metadata-correction delegate.
  *
  * This is the shared source of truth for format support. The collection runner uses it for an
@@ -92,26 +83,11 @@ const isLocalMetadataCorrectionMode = () => (
 export const isMetadataCorrectionDelegateSupported = (nativeFormat) => {
   const normalizedNativeFormat = String(nativeFormat || '').trim().toUpperCase()
 
-  if (normalizedNativeFormat === 'UMM') {
-    return isLocalMetadataCorrectionMode()
-  }
-
   return Boolean(STATIC_METADATA_CORRECTION_DELEGATES[normalizedNativeFormat])
 }
 
 const getMetadataCorrectionDelegate = (nativeFormat) => {
   const normalizedNativeFormat = String(nativeFormat || '').trim().toUpperCase()
-
-  if (normalizedNativeFormat === 'UMM') {
-    if (isLocalMetadataCorrectionMode()) {
-      return applyUmmcMetadataCorrections
-    }
-
-    throw new Error(
-      `Unsupported native metadata format for delegate selection: ${nativeFormat}`
-    )
-  }
-
   const delegate = STATIC_METADATA_CORRECTION_DELEGATES[normalizedNativeFormat]
 
   if (delegate) {
@@ -140,8 +116,7 @@ const getMetadataCorrectionDelegate = (nativeFormat) => {
  * format. Unknown correction fields are intentionally dropped at this seam.
  *
  * That keeps the orchestration layer format-agnostic while allowing each delegate to own the
- * mechanics of mutating local-only UMM-C smoke payloads plus ISO19115, ISO SMAP, ECHO10, or
- * DIF10 metadata.
+ * mechanics of mutating UMM-C, ISO19115, ISO SMAP, ECHO10, or DIF10 metadata.
  *
  * @param {object} params - Delegate parameters.
  * @param {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF9'|'DIF10'|'UNKNOWN'} params.nativeFormat - Normalized native format.
