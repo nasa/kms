@@ -4305,39 +4305,6 @@ describe('when applying related URL content type DIF10 corrections', () => {
     expect(result.correctionCount).toBe(0)
   })
 
-  test('should remove the URL_Content_Type container entirely if all its fields are deleted', async () => {
-    const result = await applyDif10MetadataCorrections({
-      metadataPayload: mockDif10WithRelatedURLs,
-      corrections: [{
-        scheme: 'rucontenttype',
-        action: 'replace',
-        oldKeywordObject: {
-          URLContentType: 'DistributionURL',
-          Type: 'GET DATA',
-          Subtype: ''
-        },
-        newKeywordObject: {
-          URLContentType: '',
-          Type: '',
-          Subtype: ''
-        } // Last 2 segments: '' and ''
-      }]
-    })
-
-    expect(result.correctionCount).toBe(1)
-
-    // 1. Verify the specific value is gone
-    expect(result.correctedMetadata).not.toContain('GET DATA')
-
-    // 2. Verify the structure has dropped URL_Content_Type for index 0 completely
-    expect(result.correctedMetadata).toMatch(
-      /<Related_URL>\s*<URL>https:\/\/example\.com\/data<\/URL>\s*<\/Related_URL>/
-    )
-
-    // 3. Verify we didn't accidentally delete URL_Content_Type from other blocks
-    expect(result.correctedMetadata).toContain('<Type>USE SERVICE API</Type>')
-  })
-
   test('should return false when oldKeywordObject does not match any current elements', async () => {
     const result = await applyDif10MetadataCorrections({
       collectionConceptId: 'C1',

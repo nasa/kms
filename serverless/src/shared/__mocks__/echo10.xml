@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Collection>
+    <ShortName>PRESERVATION_TEST</ShortName>
+    <VersionId>001</VersionId>
+    <ScienceKeywords>
+        <ScienceKeyword>
+            <CategoryKeyword>EARTH SCIENCE</CategoryKeyword>
+            <TopicKeyword>SOLID EARTH</TopicKeyword>
+            <TermKeyword>TECTONICS</TermKeyword>
+            <VariableLevel1Keyword>
+                <Value>EARTHQUAKES</Value>
+                <VariableLevel2Keyword>
+                    <Value>SEISMIC PROFILE</Value>
+                </VariableLevel2Keyword>
+            </VariableLevel1Keyword>
+            <DetailedVariableKeyword>RAIN</DetailedVariableKeyword>
+        </ScienceKeyword>
+        <ScienceKeyword>
+            <CategoryKeyword>EARTH SCIENCE</CategoryKeyword>
+            <TopicKeyword>OCEANS</TopicKeyword>
+            <TermKeyword>MARINE SEDIMENTS</TermKeyword>
+            <VariableLevel1Keyword>
+                <Value>SEDIMENTARY STRUCTURES</Value>
+            </VariableLevel1Keyword>
+        </ScienceKeyword>
+    </ScienceKeywords>
+    <Platforms>
+        <Platform>
+            <ShortName>SPOT-4</ShortName>
+            <LongName>Systeme Observation de la Terre-4</LongName>
+            <Type>Earth Observation Satellites</Type>
+            <Instruments>
+                <Instrument>
+                    <ShortName>SEISMIC REFLECTION PROFILERS</ShortName>
+                </Instrument>
+                <Instrument>
+                    <ShortName>GEOPHONES</ShortName>
+                    <LongName>Geophone Array</LongName>
+                </Instrument>
+            </Instruments>
+        </Platform>
+        <Platform>
+            <ShortName>NASA S-3B VIKING</ShortName>
+            <Type>Aircraft</Type>
+            <Instruments>
+                <Instrument>
+                    <ShortName>TSX-1</ShortName>
+                    <LongName>Synthetic Aperture Radar</LongName>
+                </Instrument>
+            </Instruments>
+        </Platform>
+    </Platforms>
+    <Campaigns>
+        <Campaign>
+            <ShortName>ALIENS</ShortName>
+            <LongName>Aliens in Antarctica</LongName>
+        </Campaign>
+        <Campaign>
+            <ShortName>ICEBRIDGE</ShortName>
+            <LongName>IceBridge Mission</LongName>
+        </Campaign>
+    </Campaigns>
+    <Contacts>
+        <Contact>
+            <ContactPersons>
+                <Role>INVESTIGATOR</Role>
+                <ContactPerson>
+                    <FirstName>RAY</FirstName>
+                    <LastName>DIBBLE</LastName>
+                    <JobPosition>INVESTIGATOR</JobPosition>
+                </ContactPerson>
+            </ContactPersons>
+        </Contact>
+        <Contact>
+            <Role>ARCHIVER</Role>
+            <OrganizationName>NZ/NZAI/ANZ</OrganizationName>
+            <ContactPersons>
+                <ContactPerson>
+                    <FirstName>SHULAMIT</FirstName>
+                    <LastName>GORDON</LastName>
+                    <JobPosition>DATA CENTER CONTACT</JobPosition>
+                </ContactPerson>
+            </ContactPersons>
+        </Contact>
+    </Contacts>
+    <DataFormat>netCDF-4</DataFormat>
+    <OnlineResources>
+        <OnlineResource>
+            <URL>https://example.org/opensearch</URL>
+            <Description>OpenSearch endpoint</Description>
+            <Type>DistributionURL : VIEW RELATED INFORMATION : OpenSearch</Type>
+        </OnlineResource>
+    </OnlineResources>
+    <InsertTime>2009-03-03T00:00:00.000Z</InsertTime>
+    <LastUpdate>2017-04-20T00:00:00.000Z</LastUpdate>
+    <AdditionalAttributes>
+        <AdditionalAttribute>
+            <Name>metadata.keyword_version</Name>
+            <DataType>FLOAT</DataType>
+            <Description>Not provided</Description>
+            <Value>8.1</Value>
+        </AdditionalAttribute>
+    </AdditionalAttributes>
+    <ProcessingLevelId>NA</ProcessingLevelId>
+</Collection>

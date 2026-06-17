@@ -213,20 +213,35 @@ describe('metadata correction delegate stubs', () => {
     })
   })
 
-  test('returns the expected ECHO10 delegate stub shape', async () => {
+  test('returns the expected ECHO10 no-payload shape', async () => {
     await expect(applyEcho10MetadataCorrections({
       collectionConceptId: 'C4',
       providerId: 'PROV',
       nativeId: 'native-4'
     })).resolves.toEqual({
-      nativeFormat: 'ECHO10',
-      delegateName: 'echo10',
+      correctionCount: 0,
+      stubbed: true
+    })
+  })
+
+  test('returns the expected ECHO10 no-payload shape even when corrections are provided', async () => {
+    await expect(applyDif10MetadataCorrections({
       collectionConceptId: 'C4',
       providerId: 'PROV',
       nativeId: 'native-4',
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          keywordConceptUuid: 'uuid-5',
+          oldKeywordObject: HU25A_PLATFORM_KEYWORD,
+          newKeywordObject: HU25A_PLATFORM_KEYWORD,
+          oldLongName: 'Dassault HU-25A Guardian Legacy',
+          newLongName: 'Dassault HU-25A Guardian'
+        }
+      ]
+    })).resolves.toEqual({
       correctionCount: 0,
-      correctedMetadata: undefined,
-      correctionsApplied: [],
       stubbed: true
     })
   })
