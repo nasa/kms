@@ -1,5 +1,9 @@
 # KMS 2.0
 
+[![codecov](https://codecov.io/gh/nasa/mmt/graph/badge.svg?token=B8Qspgsjou)](https://codecov.io/gh/nasa/kms (https://codecov.io/gh/nasa/mmt/graph/badge.svg?token=B8Qspgsjou)%5D(https://codecov.io/gh/nasa/kms))
+
+[![Known Vulnerabilities](https://snyk.io/test/github/nasa/kms/badge.svg)](https://snyk.io/test/github/nasa/kms (https://snyk.io/test/github/nasa/kms/badge.svg)%5D(https://snyk.io/test/github/nasa/kms))
+
 Keyword Management System (KMS) is a application for maintaining keywords (science keywords, platforms, instruments, data centers, locations, projects, services, resolution, etc.) in the earthdata/IDN system.
 
 ## Links
@@ -475,6 +479,8 @@ export bamboo_EDL_HOST=[edl host name]
 export bamboo_EDL_UID=[edl user id]
 export bamboo_EDL_PASSWORD=[edl password]
 export bamboo_CMR_BASE_URL=[cmr base url]
+export bamboo_CMR_WRITER_TOKEN=[optional bearer token for CMR metadata writeback]
+export bamboo_CMR_WRITEBACK_PROVIDERS=[optional provider id, comma-separated list, or ALL]
 export bamboo_CORS_ORIGIN=[comma separated list of cors origins]
 export bamboo_RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
@@ -488,6 +494,8 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
 Notes:
 - `bamboo_CMR_BASE_URL` is required. KMS no longer falls back to `https://cmr.earthdata.nasa.gov` during deploy or synth.
+- Leave `bamboo_CMR_WRITER_TOKEN` empty to disable live CMR writeback.
+- Leave `bamboo_CMR_WRITEBACK_PROVIDERS` empty to disable provider rollout for CMR writeback.
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault. This is useful when `rdf4jSnapshotStack` is being recreated after an RDF4J recovery event and you need the new stack to reuse an existing vault instead of trying to create the same vault name again.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is not set, `SnapshotStack` creates the default `rdf4j-backup-vault`.

@@ -35,6 +35,19 @@ const normalizeValueObject = (valueObject, valueKeys) => valueKeys.reduce(
 )
 
 /**
+ * Normalizes text for case-insensitive XML node matching while preserving write-time casing.
+ *
+ * UMM validation and historical-cache resolution can produce canonical uppercase keyword values,
+ * while live native metadata often stores mixed-case text such as `Cryosphere` or `Snow/Ice`.
+ * We therefore normalize only for comparisons and continue writing the caller-provided value
+ * back out unchanged.
+ *
+ * @param {unknown} value Candidate text value.
+ * @returns {string} Trimmed lower-cased text suitable for equality checks.
+ */
+const normalizeComparableText = (value) => trimString(value).toLowerCase()
+
+/**
  * True when any field in a keyword-style object contains meaningful text.
  *
  * @example
@@ -184,7 +197,13 @@ export class XmlMetadataPathEditor {
    * // '<?xml version="1.0" encoding="UTF-8"?>\\n<DIF><Node>value</Node></DIF>'
    */
   serialize() {
-    return `${XML_DECLARATION}\n${new XMLSerializer().serializeToString(this.document)}`
+    const serializedXml = new XMLSerializer().serializeToString(this.document)
+
+    if (serializedXml.startsWith('<?xml')) {
+      return serializedXml
+    }
+
+    return `${XML_DECLARATION}\n${serializedXml}`
   }
 
   /**
@@ -670,7 +689,8 @@ export class XmlMetadataPathEditor {
           }
 
           return valueKeys.every((valueKey) => (
-            nodeValueObject[valueKey] === findValueObject[valueKey]
+            normalizeComparableText(nodeValueObject[valueKey])
+            === normalizeComparableText(findValueObject[valueKey])
           ))
         })
 
@@ -685,7 +705,10 @@ export class XmlMetadataPathEditor {
     if (!config.find) {
       const findText = getScalarKeywordText(correction?.oldKeywordObject)
       if (findText.length > 0) {
-        const matchedNode = nodes.find((node) => this.getElementText(node) === findText)
+        const matchedNode = nodes.find((node) => (
+          normalizeComparableText(this.getElementText(node))
+          === normalizeComparableText(findText)
+        ))
 
         if (matchedNode) {
           return matchedNode

@@ -73,6 +73,8 @@ describe('resolveOldKeywordConceptUuid', () => {
       keywordConceptUuid: 'resolved-full-path',
       oldKeywordObject: SCIENCE_KEYWORD_OBJECT,
       newKeywordObject: SCIENCE_KEYWORD_OBJECT,
+      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
+      newKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > ',
       action: 'replace'
     })
 
@@ -138,6 +140,8 @@ describe('resolveOldKeywordConceptUuid', () => {
       newKeywordObject: PLATFORM_KEYWORD_OBJECT,
       oldLongName: 'Dassault HU-25A Guardian',
       newLongName: 'Dassault HU-25A Guardian',
+      oldKeywordPath: 'HU-25A',
+      newKeywordPath: 'HU-25A',
       action: 'replace'
     })
 
@@ -152,6 +156,37 @@ describe('resolveOldKeywordConceptUuid', () => {
     expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
       uuid: 'resolved-short-name',
       scheme: 'platforms'
+    })
+  })
+
+  test('omits oldKeywordPath when the historical keyword object has no meaningful path value', async () => {
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
+      uuid: 'resolved-scalar',
+      keywordObject: {
+        Value: ''
+      }
+    })
+
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
+      uuid: 'resolved-scalar',
+      keywordObject: {
+        Value: 'BOUNDARIES'
+      }
+    })
+
+    await expect(resolveOldKeywordConceptUuid({
+      scheme: 'isotopiccategory',
+      keywordValue: 'BOUNDARIES'
+    })).resolves.toEqual({
+      keywordConceptUuid: 'resolved-scalar',
+      oldKeywordObject: {
+        Value: ''
+      },
+      newKeywordObject: {
+        Value: 'BOUNDARIES'
+      },
+      newKeywordPath: 'BOUNDARIES',
+      action: 'replace'
     })
   })
 
@@ -264,6 +299,7 @@ describe('resolveOldKeywordConceptUuid', () => {
       keywordConceptUuid: 'deleted-project-uuid',
       oldKeywordObject: PROJECT_KEYWORD_OBJECT,
       newKeywordObject: {},
+      oldKeywordPath: 'Legacy Climate Study',
       action: 'delete'
     })
 
@@ -295,6 +331,7 @@ describe('resolveOldKeywordConceptUuid', () => {
       oldKeywordObject: SCIENCE_LEGACY_KEYWORD_OBJECT,
       newKeywordObject: {},
       oldLongName: 'Legacy Aerosols',
+      oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > ',
       action: 'delete'
     })
 

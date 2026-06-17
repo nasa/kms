@@ -18,6 +18,8 @@ import { VpcSetup } from './helper/VpcSetup'
  * @interface
  */
 export interface KmsStackProps extends cdk.StackProps {
+  cmrWritebackProviders?: string
+  cmrWriterToken?: string
   existingApiId: string | undefined
   keywordSyncAlarmEmails?: string[]
   prefix: string
@@ -162,6 +164,10 @@ export class KmsStack extends cdk.Stack {
       apiResources,
       environment: lambdaEnvironment,
       lambdaRole: this.lambdaRole,
+      metadataCorrectionEnvironment: {
+        CMR_WRITER_TOKEN: props.cmrWriterToken || '',
+        CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || ''
+      },
       prefix,
       securityGroup: this.securityGroup,
       stage: this.stage,

@@ -5,6 +5,14 @@ import { applyIsoSmapMetadataCorrections } from './applyIsoSmapMetadataCorrectio
 import { applyUmmcMetadataCorrections } from './applyUmmcMetadataCorrections'
 import { logger } from './logger'
 
+const STATIC_METADATA_CORRECTION_DELEGATES = {
+  UMM: applyUmmcMetadataCorrections,
+  ISO19115: applyIso19115MetadataCorrections,
+  ISO_SMAP: applyIsoSmapMetadataCorrections,
+  ECHO10: applyEcho10MetadataCorrections,
+  DIF10: applyDif10MetadataCorrections
+}
+
 const normalizeKeywordObject = (keywordObject) => (
   keywordObject
   && typeof keywordObject === 'object'
@@ -63,6 +71,35 @@ const normalizeCorrections = (corrections = []) => (
 )
 
 /**
+ * True when a native format currently has a registered metadata-correction delegate.
+ *
+ * This is the shared source of truth for format support. The collection runner uses it for an
+ * early, user-facing unsupported-format failure, while the delegate dispatcher uses the same
+ * support matrix to choose the concrete mutator implementation.
+ *
+ * @param {string} nativeFormat Normalized native format label.
+ * @returns {boolean} `true` when the format is currently supported.
+ */
+export const isMetadataCorrectionDelegateSupported = (nativeFormat) => {
+  const normalizedNativeFormat = String(nativeFormat || '').trim().toUpperCase()
+
+  return Boolean(STATIC_METADATA_CORRECTION_DELEGATES[normalizedNativeFormat])
+}
+
+const getMetadataCorrectionDelegate = (nativeFormat) => {
+  const normalizedNativeFormat = String(nativeFormat || '').trim().toUpperCase()
+  const delegate = STATIC_METADATA_CORRECTION_DELEGATES[normalizedNativeFormat]
+
+  if (delegate) {
+    return delegate
+  }
+
+  throw new Error(
+    `Unsupported native metadata format for delegate selection: ${nativeFormat}`
+  )
+}
+
+/**
  * Routes correction plans to the appropriate native-format delegate.
  *
  * By the time this helper is called, the metadata-correction service has already:
@@ -79,10 +116,10 @@ const normalizeCorrections = (corrections = []) => (
  * format. Unknown correction fields are intentionally dropped at this seam.
  *
  * That keeps the orchestration layer format-agnostic while allowing each delegate to own the
- * mechanics of mutating UMM, ISO19115, ISO SMAP, ECHO10, or DIF10 metadata.
+ * mechanics of mutating UMM-C, ISO19115, ISO SMAP, ECHO10, or DIF10 metadata.
  *
  * @param {object} params - Delegate parameters.
- * @param {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF10'|'UNKNOWN'} params.nativeFormat - Normalized native format.
+ * @param {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF9'|'DIF10'|'UNKNOWN'} params.nativeFormat - Normalized native format.
  * @returns {Promise<object>} Delegate result returned by the selected format-specific handler.
  * @throws {Error} If the native format does not have a registered delegate.
  */
@@ -90,25 +127,13 @@ export const invokeMetadataCorrectionDelegate = async ({
   nativeFormat,
   ...delegateParams
 }) => {
+  const delegate = getMetadataCorrectionDelegate(nativeFormat)
   const normalizedDelegateParams = {
     ...delegateParams,
     corrections: normalizeCorrections(delegateParams.corrections)
   }
 
-  switch (nativeFormat) {
-    case 'UMM':
-      return applyUmmcMetadataCorrections(normalizedDelegateParams)
-    case 'ISO19115':
-      return applyIso19115MetadataCorrections(normalizedDelegateParams)
-    case 'ISO_SMAP':
-      return applyIsoSmapMetadataCorrections(normalizedDelegateParams)
-    case 'ECHO10':
-      return applyEcho10MetadataCorrections(normalizedDelegateParams)
-    case 'DIF10':
-      return applyDif10MetadataCorrections(normalizedDelegateParams)
-    default:
-      throw new Error(`Unsupported native metadata format for delegate selection: ${nativeFormat}`)
-  }
+  return delegate(normalizedDelegateParams)
 }
 
 export default invokeMetadataCorrectionDelegate

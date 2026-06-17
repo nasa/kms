@@ -26,15 +26,32 @@ import { logger } from './logger'
  *
  * The shared `extractKeywordValue` helper owns the scheme-specific UMM-C extraction logic.
  */
-// Check whether a validation path includes an exact segment name.
+/**
+ * Checks whether a validation path contains an exact segment name.
+ *
+ * @param {Array<string|number>} path CMR validation path segments.
+ * @param {string} segment Exact segment to search for.
+ * @returns {boolean} `true` when the path contains the segment.
+ */
 const pathIncludes = (path, segment) => path.includes(segment)
 
-// Check whether a validation path includes a segment that starts with the given prefix.
+/**
+ * Checks whether a validation path contains a string segment with the given prefix.
+ *
+ * @param {Array<string|number>} path CMR validation path segments.
+ * @param {string} prefix Prefix to search for.
+ * @returns {boolean} `true` when any string path segment starts with the prefix.
+ */
 const pathIncludesPrefix = (path, prefix) => path.some(
   (segment) => typeof segment === 'string' && segment.startsWith(prefix)
 )
 
-// Map CMR validation paths to the KMS keyword scheme we will resolve later.
+/**
+ * Maps a CMR validation path back to the KMS keyword scheme it belongs to.
+ *
+ * @param {Array<string|number>} path CMR validation path segments.
+ * @returns {string|null} Matching KMS scheme, or `null` when the path is not keyword-related.
+ */
 const getKeywordSchemeForPath = (path) => {
   const [rootField] = path
 
@@ -81,7 +98,12 @@ const getKeywordSchemeForPath = (path) => {
   }
 }
 
-// Flatten extracted UMM-C keyword values into a readable placeholder string.
+/**
+ * Flattens nested UMM keyword values into a simple string array for serialization.
+ *
+ * @param {unknown} keywordValue Extracted keyword value from UMM.
+ * @returns {string[]} Flattened scalar values.
+ */
 const flattenKeywordValues = (keywordValue) => {
   if (keywordValue === undefined || keywordValue === null) {
     return []
@@ -98,11 +120,25 @@ const flattenKeywordValues = (keywordValue) => {
   return [String(keywordValue)]
 }
 
-// Treat the value as having lookup value only when it produces at least one concrete lookup token.
+/**
+ * Determines whether an extracted keyword value contains at least one usable lookup token.
+ *
+ * @param {unknown} keywordValue Extracted keyword value from UMM.
+ * @returns {boolean} `true` when the value can be serialized for later lookup/debugging.
+ */
 const hasMeaningfulKeywordValue = (keywordValue) => flattenKeywordValues(keywordValue).length > 0
 
-// Match the placeholder shape to the KMS lookup strategy we expect to use later.
-const getPlaceholderValuesForScheme = ({
+/**
+ * Chooses the serialized lookup components appropriate for the resolved scheme.
+ *
+ * Some schemes intentionally collapse richer UMM-C objects down to short-name lookup input.
+ *
+ * @param {object} params Serialization inputs.
+ * @param {string} params.scheme KMS keyword scheme.
+ * @param {unknown} params.keywordValue Extracted keyword value from UMM.
+ * @returns {string[]} Ordered lookup tokens for logging/resolution.
+ */
+const getSerializedValuesForScheme = ({
   scheme,
   keywordValue
 }) => {
@@ -118,8 +154,15 @@ const getPlaceholderValuesForScheme = ({
   }
 }
 
-// Carry a readable placeholder until the real KMS UUID lookup API exists.
-const buildOldKeywordPlaceholder = ({
+/**
+ * Builds the compact serialized `oldKeyword` value surfaced in correction responses.
+ *
+ * @param {object} params Serialization inputs.
+ * @param {string} params.scheme KMS keyword scheme.
+ * @param {unknown} params.keywordValue Extracted keyword value from UMM.
+ * @returns {string|undefined} Serialized keyword string, or `undefined` when no usable value exists.
+ */
+const buildOldKeywordValue = ({
   scheme,
   keywordValue
 }) => {
@@ -127,12 +170,12 @@ const buildOldKeywordPlaceholder = ({
     return undefined
   }
 
-  const serializedKeywordValue = getPlaceholderValuesForScheme({
+  const serializedKeywordValue = getSerializedValuesForScheme({
     scheme,
     keywordValue
   }).join('|')
 
-  return `[resolve old keyword from UMM-C value: ${serializedKeywordValue}]`
+  return serializedKeywordValue
 }
 
 /**
@@ -172,7 +215,7 @@ export const extractKeywordValidationFailures = ({
       path,
       umm
     })
-    const oldKeyword = buildOldKeywordPlaceholder({
+    const oldKeyword = buildOldKeywordValue({
       scheme,
       keywordValue
     })

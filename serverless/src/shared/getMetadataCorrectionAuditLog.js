@@ -4,6 +4,16 @@ import {
 } from '@/shared/metadataCorrectionAudit'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
+/**
+ * Normalizes a query-string boolean flag.
+ *
+ * @param {unknown} value - Raw query-string value.
+ * @returns {boolean} True when the caller explicitly enabled the flag.
+ */
+const normalizeBoolean = (value) => ['1', 'true', 'yes'].includes(
+  String(value || '').toLowerCase()
+)
+
 const normalizeLimit = (limit) => {
   const parsed = Number.parseInt(limit, 10)
 
@@ -12,6 +22,56 @@ const normalizeLimit = (limit) => {
   }
 
   return Math.max(1, Math.min(parsed, 500))
+}
+
+/**
+ * Builds a stable collapse key for one logical correction row.
+ *
+ * The append-only audit writer persists separate `pending` and `applied` rows for the same
+ * logical correction. This key intentionally ignores row-specific fields like `recordUri`,
+ * `timestamp`, and `status` so the read path can collapse those lifecycle rows into the newest
+ * effective state when requested.
+ *
+ * @param {object} item - Normalized audit row.
+ * @returns {string} Stable key used to identify duplicate lifecycle rows.
+ */
+const buildCollapsedAuditKey = (item) => JSON.stringify([
+  item.publishedVersionName,
+  item.collectionConceptId,
+  item.keywordConceptUuid,
+  item.scheme,
+  item.action,
+  item.oldKeywordPath,
+  item.newKeywordPath,
+  item.nativeFormat,
+  item.delegateName,
+  item.triggerScheme,
+  item.triggerKeywordUuid
+])
+
+/**
+ * Collapses append-only lifecycle rows into a latest-only view.
+ *
+ * The SPARQL query already returns rows newest-first, so keeping the first row for each
+ * correction key preserves the most recent status while hiding older duplicate lifecycle rows.
+ *
+ * @param {Array<object>} items - Normalized audit rows ordered newest-first.
+ * @returns {Array<object>} Collapsed audit rows.
+ */
+const collapseAuditRows = (items) => {
+  const seenKeys = new Set()
+
+  return items.filter((item) => {
+    const collapseKey = buildCollapsedAuditKey(item)
+
+    if (seenKeys.has(collapseKey)) {
+      return false
+    }
+
+    seenKeys.add(collapseKey)
+
+    return true
+  })
 }
 
 /**
@@ -35,6 +95,8 @@ const normalizeLimit = (limit) => {
  * @param {string} [filters.action] - Filter by triggering event action.
  * @param {string} [filters.scheme] - Filter by corrected keyword scheme.
  * @param {string} [filters.status] - Filter by audit status.
+ * @param {string|boolean} [filters.latestOnly=false] - When truthy, collapses duplicate
+ * append-only lifecycle rows so only the newest row for each logical correction is returned.
  * @param {string|number} [filters.limit=100] - Maximum number of rows to return. Values are
  * normalized into the inclusive range `1..500`, with invalid values falling back to `100`.
  * @returns {Promise<Array<{
@@ -61,6 +123,7 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
     action,
     scheme,
     status,
+    latestOnly = false,
     limit = 100
   } = filters
 
@@ -123,8 +186,7 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
 
   const result = await response.json()
   const bindings = result?.results?.bindings || []
-
-  return bindings.map((binding) => ({
+  const items = bindings.map((binding) => ({
     recordUri: binding.record?.value,
     timestamp: binding.timestamp?.value,
     publishedVersionName: binding.publishedVersionName?.value,
@@ -140,6 +202,10 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
     triggerScheme: binding.triggerScheme?.value,
     triggerKeywordUuid: binding.triggerKeywordUuid?.value
   }))
+
+  return normalizeBoolean(latestOnly)
+    ? collapseAuditRows(items)
+    : items
 }
 
 export default getMetadataCorrectionAuditLog

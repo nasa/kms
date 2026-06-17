@@ -26,6 +26,7 @@ import { logger } from '@/shared/logger'
  * - action
  * - scheme
  * - status
+ * - latestOnly
  * - limit
  *
  * @param {object} event - API Gateway event.
@@ -46,6 +47,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     action,
     scheme,
     status,
+    latestOnly,
     limit
   } = event?.queryStringParameters || {}
 
@@ -56,6 +58,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
       action,
       scheme,
       status,
+      latestOnly,
       limit
     })
 

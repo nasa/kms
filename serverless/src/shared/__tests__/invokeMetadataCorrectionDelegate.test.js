@@ -11,7 +11,10 @@ import { applyEcho10MetadataCorrections } from '../applyEcho10MetadataCorrection
 import { applyIso19115MetadataCorrections } from '../applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrections'
 import { applyUmmcMetadataCorrections } from '../applyUmmcMetadataCorrections'
-import { invokeMetadataCorrectionDelegate } from '../invokeMetadataCorrectionDelegate'
+import {
+  invokeMetadataCorrectionDelegate,
+  isMetadataCorrectionDelegateSupported
+} from '../invokeMetadataCorrectionDelegate'
 import { logger } from '../logger'
 
 vi.mock('../applyUmmcMetadataCorrections', () => ({
@@ -56,12 +59,25 @@ describe('invokeMetadataCorrectionDelegate', () => {
     vi.clearAllMocks()
   })
 
+  test('reports UMM support from the shared support matrix', () => {
+    expect(isMetadataCorrectionDelegateSupported('UMM')).toBe(true)
+  })
+
+  test('reports static delegate support from the shared support matrix', () => {
+    expect(isMetadataCorrectionDelegateSupported('DIF10')).toBe(true)
+    expect(isMetadataCorrectionDelegateSupported('ECHO10')).toBe(true)
+    expect(isMetadataCorrectionDelegateSupported('DIF9')).toBe(false)
+    expect(isMetadataCorrectionDelegateSupported('UNKNOWN')).toBe(false)
+    expect(isMetadataCorrectionDelegateSupported()).toBe(false)
+  })
+
   test('routes UMM to the UMM delegate', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await expect(invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
-      collectionConceptId: 'C1'
+      collectionConceptId: 'C1',
+      corrections: []
     })).resolves.toEqual({ delegateName: 'umm' })
 
     expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
@@ -70,7 +86,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('normalizes correction keyword objects before delegating', async () => {
+  test('normalizes correction keyword objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -97,7 +113,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('preserves plain-object keyword objects before delegating', async () => {
+  test('preserves plain-object keyword objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -130,7 +146,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('preserves non-keyword-object correction fields before delegating', async () => {
+  test('preserves non-keyword-object correction fields before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -167,7 +183,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('normalizes array keyword objects to plain empty objects before delegating', async () => {
+  test('normalizes array keyword objects to plain empty objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -192,7 +208,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('treats non-array corrections as an empty correction list', async () => {
+  test('treats non-array corrections as an empty correction list before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -209,7 +225,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('normalizes undefined correction entries to empty keyword objects', async () => {
+  test('normalizes undefined correction entries to empty keyword objects before delegating UMM', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
@@ -229,10 +245,10 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })
   })
 
-  test('drops unknown correction fields while preserving the normalized contract', async () => {
+  test('drops unknown correction fields while preserving the normalized UMM contract', async () => {
     vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
-    await invokeMetadataCorrectionDelegate({
+    await expect(invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
       collectionConceptId: 'C1',
       corrections: [
@@ -255,7 +271,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
           ignoredExtraField: 'ignored'
         }
       ]
-    })
+    })).resolves.toEqual({ delegateName: 'umm' })
 
     expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
@@ -520,5 +536,11 @@ describe('invokeMetadataCorrectionDelegate', () => {
       nativeFormat: 'UNKNOWN',
       collectionConceptId: 'C1'
     })).rejects.toThrow('Unsupported native metadata format for delegate selection: UNKNOWN')
+  })
+
+  test('throws when nativeFormat is missing', async () => {
+    await expect(invokeMetadataCorrectionDelegate({
+      collectionConceptId: 'C1'
+    })).rejects.toThrow('Unsupported native metadata format for delegate selection: undefined')
   })
 })

@@ -25,10 +25,16 @@ describe('detectNativeMetadataFormat', () => {
     })).toBe('DIF10')
   })
 
-  test('detects DIF10 from the DIF+xml alias used by CMR', () => {
+  test('detects DIF9 from the CMR format string', () => {
     expect(detectNativeMetadataFormat({
       format: 'application/dif+xml'
-    })).toBe('DIF10')
+    })).toBe('DIF9')
+  })
+
+  test('detects DIF9 from the legacy DIF+XML label', () => {
+    expect(detectNativeMetadataFormat({
+      format: 'DIF+XML'
+    })).toBe('DIF9')
   })
 
   test('detects ISO19115 from the CMR format string', () => {

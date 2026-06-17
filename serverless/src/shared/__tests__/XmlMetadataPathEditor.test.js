@@ -141,6 +141,13 @@ describe('when using XmlMetadataPathEditor DOM helpers', () => {
     )).toBe('SNOW/ICE')
   })
 
+  test('should preserve an existing XML declaration without duplicating it', () => {
+    const xml = "<?xml version='1.0' encoding='UTF-8'?><DIF><Node>value</Node></DIF>"
+    const editor = new XmlMetadataPathEditor(xml)
+
+    expect(editor.serialize()).toBe(xml)
+  })
+
   describe('outside cases', () => {
     test('should return no child elements for an undefined node', () => {
       const editor = new XmlMetadataPathEditor('<DIF><Node><A>one</A></Node></DIF>')
@@ -438,6 +445,88 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
 
     expect(isUpdated).toBe(true)
     expect(editor.serialize()).toContain('<Term>SNOW/ICE - chris v5</Term>')
+  })
+
+  test('should match block nodes case-insensitively when DIF10 text casing differs from resolved keyword casing', () => {
+    const editor = new XmlMetadataPathEditor(`
+      <DIF>
+        <Science_Keywords>
+          <Category>EARTH SCIENCE</Category>
+          <Topic>Cryosphere</Topic>
+          <Term>Snow/Ice</Term>
+          <Variable_Level_1>Lake Ice</Variable_Level_1>
+        </Science_Keywords>
+      </DIF>
+    `)
+
+    const isUpdated = editor.updateBlockNode({
+      action: 'replace',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'CRYOSPHERE',
+        Term: 'SNOW/ICE',
+        VariableLevel1: 'LAKE ICE',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'Cryosphere',
+        Term: 'Snow/Ice - Chris v9',
+        VariableLevel1: 'Lake Ice',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      }
+    }, {
+      nodeXPath: '//DIF/Science_Keywords',
+      find: {
+        fieldPaths: [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ],
+        valueKeys: [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
+        ]
+      },
+      replace: sequentialValueReplace(
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'Variable_Level_1',
+          'Variable_Level_2',
+          'Variable_Level_3',
+          'Detailed_Variable'
+        ],
+        [
+          'Category',
+          'Topic',
+          'Term',
+          'VariableLevel1',
+          'VariableLevel2',
+          'VariableLevel3',
+          'DetailedVariable'
+        ]
+      )
+    })
+
+    expect(isUpdated).toBe(true)
+    expect(editor.serialize()).toContain('<Topic>Cryosphere</Topic>')
+    expect(editor.serialize()).toContain('<Term>Snow/Ice - Chris v9</Term>')
+    expect(editor.serialize()).toContain('<Variable_Level_1>Lake Ice</Variable_Level_1>')
   })
 
   describe('for the ECHO10 use cases called out in review', () => {

@@ -130,7 +130,7 @@ describe('getCmrCollectionNativeMetadata', () => {
     vi.mocked(cmrGetRequest).mockResolvedValue({
       ok: true,
       headers: {
-        get: vi.fn().mockReturnValue('application/vnd.nasa.cmr.umm+json')
+        get: vi.fn().mockReturnValue('application/vnd.nasa.cmr.umm+json;version=1.16.2')
       },
       text: vi.fn().mockResolvedValue(JSON.stringify({
         ShortName: 'LOCAL-SMOKE'
@@ -141,6 +141,28 @@ describe('getCmrCollectionNativeMetadata', () => {
       collectionConceptId: 'C1234567890-PROV'
     })).resolves.toEqual({
       ShortName: 'LOCAL-SMOKE'
+    })
+  })
+
+  test('should return the native payload plus exact response content type when requested', async () => {
+    vi.mocked(cmrGetRequest).mockResolvedValue({
+      ok: true,
+      headers: {
+        get: vi.fn().mockReturnValue('application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8')
+      },
+      text: vi.fn().mockResolvedValue(JSON.stringify({
+        ShortName: 'LOCAL-SMOKE'
+      }))
+    })
+
+    await expect(getCmrCollectionNativeMetadata({
+      collectionConceptId: 'C1234567890-PROV',
+      includeResponseMetadata: true
+    })).resolves.toEqual({
+      metadataPayload: {
+        ShortName: 'LOCAL-SMOKE'
+      },
+      contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     })
   })
 

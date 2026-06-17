@@ -47,6 +47,7 @@ describe('getMetadataCorrectionAudit', () => {
     const result = await getMetadataCorrectionAudit({
       queryStringParameters: {
         collectionConceptId: 'C1234567890-LOCAL',
+        latestOnly: 'true',
         limit: '10'
       }
     })
@@ -57,6 +58,7 @@ describe('getMetadataCorrectionAudit', () => {
       action: undefined,
       scheme: undefined,
       status: undefined,
+      latestOnly: 'true',
       limit: '10'
     })
 
