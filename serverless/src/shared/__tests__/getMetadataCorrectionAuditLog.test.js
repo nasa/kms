@@ -159,4 +159,101 @@ describe('getMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).not.toContain('FILTER(?keywordConceptUuid =')
     expect(sparqlCall.body).not.toContain('FILTER(?scheme =')
   })
+
+  test('collapses duplicate pending and applied lifecycle rows when latestOnly is enabled', async () => {
+    vi.mocked(sparqlRequest).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: [
+            {
+              record: { value: 'https://example.org/audit/applied-1' },
+              timestamp: { value: '2026-06-17T12:00:01.000Z' },
+              publishedVersionName: { value: '9.1.6' },
+              collectionConceptId: { value: 'C1234567890-LOCAL' },
+              keywordConceptUuid: { value: 'uuid-1' },
+              scheme: { value: 'sciencekeywords' },
+              action: { value: 'UPDATED' },
+              oldKeywordPath: { value: 'EARTH SCIENCE > ATMOSPHERE' },
+              newKeywordPath: { value: 'EARTH SCIENCE > OCEANS' },
+              nativeFormat: { value: 'DIF10' },
+              delegateName: { value: 'dif10' },
+              status: { value: 'applied' },
+              triggerScheme: { value: 'sciencekeywords' },
+              triggerKeywordUuid: { value: 'uuid-trigger' }
+            },
+            {
+              record: { value: 'https://example.org/audit/pending-1' },
+              timestamp: { value: '2026-06-17T12:00:00.000Z' },
+              publishedVersionName: { value: '9.1.6' },
+              collectionConceptId: { value: 'C1234567890-LOCAL' },
+              keywordConceptUuid: { value: 'uuid-1' },
+              scheme: { value: 'sciencekeywords' },
+              action: { value: 'UPDATED' },
+              oldKeywordPath: { value: 'EARTH SCIENCE > ATMOSPHERE' },
+              newKeywordPath: { value: 'EARTH SCIENCE > OCEANS' },
+              nativeFormat: { value: 'DIF10' },
+              delegateName: { value: 'dif10' },
+              status: { value: 'pending' },
+              triggerScheme: { value: 'sciencekeywords' },
+              triggerKeywordUuid: { value: 'uuid-trigger' }
+            },
+            {
+              record: { value: 'https://example.org/audit/pending-2' },
+              timestamp: { value: '2026-06-17T11:59:59.000Z' },
+              publishedVersionName: { value: '9.1.6' },
+              collectionConceptId: { value: 'C9999999999-LOCAL' },
+              keywordConceptUuid: { value: 'uuid-2' },
+              scheme: { value: 'platforms' },
+              action: { value: 'UPDATED' },
+              oldKeywordPath: { value: 'OLD PLATFORM' },
+              newKeywordPath: { value: 'NEW PLATFORM' },
+              nativeFormat: { value: 'UMM' },
+              delegateName: { value: 'umm' },
+              status: { value: 'pending' }
+            }
+          ]
+        }
+      })
+    })
+
+    const result = await getMetadataCorrectionAuditLog({
+      latestOnly: 'true'
+    })
+
+    expect(result).toEqual([
+      {
+        recordUri: 'https://example.org/audit/applied-1',
+        timestamp: '2026-06-17T12:00:01.000Z',
+        publishedVersionName: '9.1.6',
+        collectionConceptId: 'C1234567890-LOCAL',
+        keywordConceptUuid: 'uuid-1',
+        scheme: 'sciencekeywords',
+        action: 'UPDATED',
+        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE',
+        newKeywordPath: 'EARTH SCIENCE > OCEANS',
+        nativeFormat: 'DIF10',
+        delegateName: 'dif10',
+        status: 'applied',
+        triggerScheme: 'sciencekeywords',
+        triggerKeywordUuid: 'uuid-trigger'
+      },
+      {
+        recordUri: 'https://example.org/audit/pending-2',
+        timestamp: '2026-06-17T11:59:59.000Z',
+        publishedVersionName: '9.1.6',
+        collectionConceptId: 'C9999999999-LOCAL',
+        keywordConceptUuid: 'uuid-2',
+        scheme: 'platforms',
+        action: 'UPDATED',
+        oldKeywordPath: 'OLD PLATFORM',
+        newKeywordPath: 'NEW PLATFORM',
+        nativeFormat: 'UMM',
+        delegateName: 'umm',
+        status: 'pending',
+        triggerScheme: undefined,
+        triggerKeywordUuid: undefined
+      }
+    ])
+  })
 })
