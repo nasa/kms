@@ -301,6 +301,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-123',
         nativeFormat: 'DIF10',
+        nativeMetadataContentType: 'DIF+XML',
         correctedMetadata: '<DIF><Entry_ID>updated</Entry_ID></DIF>',
         correctionCount: 1,
         correctionsApplied: [
@@ -638,7 +639,8 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(getCmrCollectionNativeMetadata).toHaveBeenCalledWith({
         collectionConceptId: 'C999-DIF10',
-        revisionId: 4
+        revisionId: 4,
+        includeResponseMetadata: false
       })
     })
 
@@ -780,11 +782,14 @@ describe('when the metadata correction service is invoked', () => {
       })
 
       vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue({
-        Platforms: [
-          {
-            ShortName: 'Aqua Legacy'
-          }
-        ]
+        metadataPayload: {
+          Platforms: [
+            {
+              ShortName: 'Aqua Legacy'
+            }
+          ]
+        },
+        contentType: 'application/vnd.nasa.cmr.umm+json;version=1.18.5'
       })
 
       vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
@@ -860,7 +865,8 @@ describe('when the metadata correction service is invoked', () => {
           collectionConceptId: 'C123-UMM',
           providerId: 'PROV',
           nativeId: 'native-umm',
-          nativeFormat: 'UMM'
+          nativeFormat: 'UMM',
+          nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.18.5'
         })
       )
     })
@@ -1091,6 +1097,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-1',
         nativeFormat: 'DIF10',
+        nativeMetadataContentType: ' dif+xml ',
         correctedMetadata: '',
         correctionCount: 0,
         correctionsApplied: [],

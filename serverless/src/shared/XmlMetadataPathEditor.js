@@ -3,6 +3,7 @@ import xpath from 'xpath'
 
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 const ELEMENT_NODE = 1
+const SIMPLE_ABSOLUTE_FIELD_PATH = /^\/\/[A-Za-z_][\w.-]*(\/[A-Za-z_][\w.-]*)*$/
 
 /**
  * Normalize optional text inputs so object comparisons and XML writes behave consistently.
@@ -12,6 +13,26 @@ const ELEMENT_NODE = 1
  * // 'SPOT-4'
  */
 const trimString = (value) => ((typeof value === 'string') ? value.trim() : '')
+
+/**
+ * Trims a keyword-style object down to the specific keys being compared so find/replace matching
+ * stays consistent even when callers provide extra fields or untrimmed values.
+ *
+ * @param {Record<string, any>|null|undefined} valueObject Candidate keyword-style object.
+ * @param {string[]} valueKeys Ordered keys that matter for the current comparison.
+ * @returns {Record<string, string>} Trimmed object containing only the requested keys.
+ *
+ * @example
+ * normalizeValueObject({ Type: ' GET DATA ', Subtype: ' GIOVANNI ' }, ['Type', 'Subtype'])
+ * // { Type: 'GET DATA', Subtype: 'GIOVANNI' }
+ */
+const normalizeValueObject = (valueObject, valueKeys) => valueKeys.reduce(
+  (normalizedObject, valueKey) => ({
+    ...normalizedObject,
+    [valueKey]: trimString(valueObject?.[valueKey])
+  }),
+  {}
+)
 
 /**
  * Normalizes text for case-insensitive XML node matching while preserving write-time casing.
@@ -252,6 +273,52 @@ export class XmlMetadataPathEditor {
   }
 
   /**
+   * True when a field path should be resolved from the document root instead of the matched node.
+   *
+   * @param {string} fieldPath Candidate field path.
+   * @returns {boolean} Whether the path is an absolute document path.
+   */
+  isAbsoluteFieldPath(fieldPath) {
+    return typeof fieldPath === 'string' && fieldPath.startsWith('//')
+  }
+
+  /**
+   * Resolves an absolute `//Root/Child/...` field path and optionally creates missing descendants.
+   *
+   * Creation support is intentionally limited to simple tag-only paths so we do not overreach into
+   * full XPath semantics. That keeps absolute writes useful for root/sibling fields like
+   * `//DIF/ProcessingCenter` without changing the editor into a generic XPath mutation engine.
+   *
+   * @param {string} fieldPath Absolute `//...` field path.
+   * @param {Object} [options={}] Absolute-path resolution options.
+   * @param {boolean} [options.createIfMissing=false] Create missing descendants for simple paths.
+   * @returns {Element|null} Matching or newly created absolute target element.
+   */
+  resolveAbsoluteFieldElement(fieldPath, { createIfMissing = false } = {}) {
+    const matchedNode = this.selectNodes(fieldPath)[0] || null
+    if (matchedNode || !createIfMissing || !SIMPLE_ABSOLUTE_FIELD_PATH.test(fieldPath)) {
+      return matchedNode
+    }
+
+    const root = this.document?.documentElement
+    if (!root) {
+      return null
+    }
+
+    const [rootTagName, ...childPathParts] = fieldPath.replace(/^\/\//, '').split('/')
+    const rootNodeNames = [root.nodeName, root.localName].filter(Boolean)
+
+    if (!rootNodeNames.includes(rootTagName)) {
+      return null
+    }
+
+    return childPathParts.reduce(
+      (currentNode, tagName) => this.ensureDirectChildElement(currentNode, tagName),
+      root
+    )
+  }
+
+  /**
    * Reads trimmed text content from an element.
    *
    * @param {Node|null|undefined} node Candidate text node owner.
@@ -277,7 +344,35 @@ export class XmlMetadataPathEditor {
    * // 'SPOT-4'
    */
   getNestedText(node, fieldPath) {
+    if (this.isAbsoluteFieldPath(fieldPath)) {
+      return this.getElementText(this.resolveAbsoluteFieldElement(fieldPath))
+    }
+
     return this.getElementText(this.getNestedElement(node, fieldPath))
+  }
+
+  /**
+   * Evaluates an optional replace-field condition against the current correction and target node.
+   *
+   * Conditions are only used to decide whether one configured field write should run; they do not
+   * affect node matching. This is useful for ECHO10-style sibling updates where a matched contact
+   * may own `ProcessingCenter` but not `ArchiveCenter`.
+   *
+   * @param {Object} correction Correction descriptor being applied.
+   * @param {Function|undefined} condition Optional condition callback.
+   * @param {Element|null} [targetNode=null] Matched XML node being updated.
+   * @returns {boolean} Whether the field write should be applied.
+   */
+  shouldApplyFieldCondition(correction, condition, targetNode) {
+    if (typeof condition !== 'function') {
+      return true
+    }
+
+    return Boolean(condition({
+      correction,
+      editor: this,
+      targetNode: targetNode ?? null
+    }))
   }
 
   /**
@@ -402,6 +497,16 @@ export class XmlMetadataPathEditor {
    * // undefined
    */
   setNestedText(node, fieldPath, value) {
+    if (this.isAbsoluteFieldPath(fieldPath)) {
+      const target = this.resolveAbsoluteFieldElement(fieldPath, { createIfMissing: true })
+
+      if (target) {
+        this.setElementText(target, value)
+      }
+
+      return
+    }
+
     const target = this.ensureNestedElement(node, fieldPath)
     this.setElementText(target, value)
   }
@@ -417,6 +522,12 @@ export class XmlMetadataPathEditor {
    * // undefined
    */
   removeNestedElement(node, fieldPath) {
+    if (this.isAbsoluteFieldPath(fieldPath)) {
+      this.removeNode(this.resolveAbsoluteFieldElement(fieldPath))
+
+      return
+    }
+
     const pathParts = fieldPath.split('/')
     const childTagName = pathParts.pop()
     const parentNode = pathParts.length > 0 ? this.getNestedElement(node, pathParts.join('/')) : node
@@ -460,8 +571,12 @@ export class XmlMetadataPathEditor {
   /**
    * Resolves the replacement value for a configured XML field from correction input.
    *
+   * Source configs can read directly from the correction payload (`param`), from the normalized
+   * replacement keyword object (`value`), or compute a composed value dynamically (`computed`).
+   *
    * @param {Object} correction Correction descriptor being applied.
    * @param {Object} [sourceConfig={}] Source selection rules for the replacement value.
+   * @param {Element|null} [targetNode=null] Matched XML node being updated.
    * @returns {string} Replacement value to write into the XML field.
    *
    * @example
@@ -477,7 +592,7 @@ export class XmlMetadataPathEditor {
    * )
    * // 'Systeme Observation de la Terre-4 Updated'
    */
-  getReplacementValue(correction, sourceConfig = {}) {
+  getReplacementValue(correction, sourceConfig = {}, targetNode = null) {
     if (sourceConfig.type === 'param') {
       return trimString(correction?.[sourceConfig.key])
     }
@@ -486,11 +601,24 @@ export class XmlMetadataPathEditor {
       return trimString(correction?.newKeywordObject?.[sourceConfig.key])
     }
 
+    if (sourceConfig.type === 'computed' && typeof sourceConfig.getValue === 'function') {
+      return trimString(sourceConfig.getValue({
+        correction,
+        editor: this,
+        targetNode,
+        sourceConfig
+      }))
+    }
+
     return ''
   }
 
   /**
    * Locates the XML node that corresponds to the current keyword value being corrected.
+   *
+   * Standard scheme configs compare ordered XML field paths against `oldKeywordObject`, while
+   * custom find callbacks can synthesize comparison objects for combined-format fields like
+   * `URLContentType : Type : Subtype`.
    *
    * @param {Object} correction Correction descriptor being applied.
    * @param {Object} config Scheme-specific node find configuration.
@@ -521,16 +649,38 @@ export class XmlMetadataPathEditor {
       const valueKeys = Array.isArray(config.find.valueKeys) && config.find.valueKeys.length > 0
         ? config.find.valueKeys
         : config.find.fieldPaths
-      const findValueObject = valueKeys.reduce((keywordObject, valueKey) => ({
-        ...keywordObject,
-        [valueKey]: trimString(correction?.oldKeywordObject?.[valueKey])
-      }), {})
+      const findValueObject = normalizeValueObject(
+        typeof config.find.getExpectedValueObject === 'function'
+          ? config.find.getExpectedValueObject({
+            correction,
+            editor: this,
+            valueKeys,
+            fieldPaths: config.find.fieldPaths,
+            findConfig: config.find
+          })
+          : valueKeys.reduce((keywordObject, valueKey) => ({
+            ...keywordObject,
+            [valueKey]: correction?.oldKeywordObject?.[valueKey]
+          }), {}),
+        valueKeys
+      )
 
       if (hasAnyObjectValue(findValueObject)) {
         const matchedNode = nodes.find((node) => {
-          const nodeValueObject = this.getNodeValueObject(
-            node,
-            config.find.fieldPaths,
+          const nodeValueObject = normalizeValueObject(
+            typeof config.find.getNodeValueObject === 'function'
+              ? config.find.getNodeValueObject({
+                node,
+                editor: this,
+                valueKeys,
+                fieldPaths: config.find.fieldPaths,
+                findConfig: config.find
+              })
+              : this.getNodeValueObject(
+                node,
+                config.find.fieldPaths,
+                valueKeys
+              ),
             valueKeys
           )
 
@@ -599,7 +749,12 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'delete') {
+      const { parentNode } = targetNode
       this.removeNode(targetNode)
+
+      if (config.removeEmptyParent) {
+        this.removeNodeIfNoElementChildren(parentNode)
+      }
 
       if (typeof config.afterDelete === 'function') {
         config.afterDelete(this, targetNode)
@@ -609,8 +764,12 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      config.replace.forEach(({ fieldPath, source }) => {
-        const value = this.getReplacementValue(correction, source)
+      config.replace.forEach(({ fieldPath, source, condition }) => {
+        if (!this.shouldApplyFieldCondition(correction, condition, targetNode)) {
+          return
+        }
+
+        const value = this.getReplacementValue(correction, source, targetNode)
 
         if (value.length > 0) {
           this.setNestedText(targetNode, fieldPath, value)
@@ -737,8 +896,11 @@ export class XmlMetadataPathEditor {
       if (targetNode) {
         this.setElementText(targetNode, value)
       } else {
-        const difNode = this.selectNodes('/DIF')[0]
-        if (!difNode) {
+        const root = this.document?.documentElement
+        const targetNodeRootName = config.nodeXPath.match(/\/\/(.*?)\//)[1]
+
+        // Check if the root node name and the target node's root name are different
+        if (!root || (root.nodeName !== targetNodeRootName)) {
           return false
         }
 
@@ -746,7 +908,7 @@ export class XmlMetadataPathEditor {
         // the literal element name so we can create `<Product_Level_Id>` (or similar) explicitly.
         const newNode = this.document.createElement(config.tagName)
         this.setElementText(newNode, value)
-        difNode.appendChild(newNode)
+        root.appendChild(newNode)
       }
 
       return true
