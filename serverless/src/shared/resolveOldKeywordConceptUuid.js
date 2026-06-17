@@ -1,6 +1,6 @@
 import { getHistoricalConceptByKeyword } from './redis-path-store/getHistoricalConceptByKeyword'
-import { getPublishedConceptByUuid } from './redis-path-store/getPublishedConceptByUuid'
 import { getKeywordPathFromKeywordObject } from './redis-path-store/getKeywordPathFromKeywordObject'
+import { getPublishedConceptByUuid } from './redis-path-store/getPublishedConceptByUuid'
 
 /**
  * Historical-to-published keyword resolution helper for metadata correction.
