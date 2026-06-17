@@ -32,7 +32,7 @@ export const ECHO10_SCHEME_EDITORS = {
         'TermKeyword',
         'VariableLevel1Keyword/Value',
         'VariableLevel1Keyword/VariableLevel2Keyword/Value',
-        'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword/Value',
+        'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword',
         'DetailedVariableKeyword'
       ],
       valueKeys: [
@@ -75,7 +75,7 @@ export const ECHO10_SCHEME_EDITORS = {
         'TermKeyword',
         'VariableLevel1Keyword/Value',
         'VariableLevel1Keyword/VariableLevel2Keyword/Value',
-        'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword/Value',
+        'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword',
         'DetailedVariableKeyword'
       ],
       [

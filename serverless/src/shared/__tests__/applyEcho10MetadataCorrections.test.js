@@ -2927,6 +2927,24 @@ const mockSimpleEcho10Xml = `<Collection>
     </ScienceKeywords>
 </Collection>`
 
+const mockLevel3Echo10Xml = `<Collection>
+    <ShortName>LEVEL3_COLLECTION</ShortName>
+    <ScienceKeywords>
+        <ScienceKeyword>
+            <CategoryKeyword>EARTH SCIENCE</CategoryKeyword>
+            <TopicKeyword>TERRESTRIAL HYDROSPHERE</TopicKeyword>
+            <TermKeyword>SNOW/ICE</TermKeyword>
+            <VariableLevel1Keyword>
+                <Value>SNOW WATER EQUIVALENT</Value>
+                <VariableLevel2Keyword>
+                    <Value>SNOW ICE TEST</Value>
+                    <VariableLevel3Keyword>WATER ICE TEST</VariableLevel3Keyword>
+                </VariableLevel2Keyword>
+            </VariableLevel1Keyword>
+        </ScienceKeyword>
+    </ScienceKeywords>
+</Collection>`
+
 describe('when applying science keyword ECHO10 corrections', () => {
   test('should apply science keyword renaming correction (same hierarchy, different name)', async () => {
     const result = await applyEcho10MetadataCorrections({
@@ -3713,5 +3731,82 @@ describe('when applying science keyword ECHO10 corrections', () => {
     // Verify the substitution took place seamlessly
     expect(result.correctedMetadata).toContain('<TermKeyword>CLOUD PROPERTIES</TermKeyword>')
     expect(result.correctedMetadata).not.toContain('<TermKeyword>CLOUDS</TermKeyword>')
+  })
+
+  test('should write VariableLevel3Keyword as a direct text node instead of a nested Value element', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockLevel3Echo10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'TERRESTRIAL HYDROSPHERE',
+            Term: 'SNOW/ICE',
+            VariableLevel1: 'SNOW WATER EQUIVALENT',
+            VariableLevel2: 'SNOW ICE TEST',
+            VariableLevel3: 'WATER ICE TEST',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'TERRESTRIAL HYDROSPHERE',
+            Term: 'SNOW/ICE',
+            VariableLevel1: 'SNOW WATER EQUIVALENT',
+            VariableLevel2: 'SNOW ICE TEST',
+            VariableLevel3: 'WATER ICE TEST UPDATED',
+            DetailedVariable: ''
+          }
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain(
+      '<VariableLevel3Keyword>WATER ICE TEST UPDATED</VariableLevel3Keyword>'
+    )
+
+    expect(result.correctedMetadata).not.toContain('<VariableLevel3Keyword><Value>')
+  })
+
+  test('should remove VariableLevel3Keyword entirely when a replacement clears that level', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockLevel3Echo10Xml,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'TERRESTRIAL HYDROSPHERE',
+            Term: 'SNOW/ICE',
+            VariableLevel1: 'SNOW WATER EQUIVALENT',
+            VariableLevel2: 'SNOW ICE TEST',
+            VariableLevel3: 'WATER ICE TEST',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'TERRESTRIAL HYDROSPHERE',
+            Term: 'SNOW/ICE',
+            VariableLevel1: 'SNOW WATER EQUIVALENT',
+            VariableLevel2: 'SNOW ICE TEST',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('<VariableLevel3Keyword>')
+    expect(result.correctedMetadata).not.toContain('WATER ICE TEST')
   })
 })

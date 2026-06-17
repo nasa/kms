@@ -209,9 +209,7 @@
                 <Value>SNOW WATER EQUIVALENT</Value>
                 <VariableLevel2Keyword>
                     <Value>SNOW ICE TEST</Value>
-                    <VariableLevel3Keyword>
-                        <Value>WATER ICE TEST</Value>
-                    </VariableLevel3Keyword>
+                    <VariableLevel3Keyword>WATER ICE TEST</VariableLevel3Keyword>
                 </VariableLevel2Keyword>
             </VariableLevel1Keyword>
             <DetailedVariableKeyword>RAIN</DetailedVariableKeyword>
