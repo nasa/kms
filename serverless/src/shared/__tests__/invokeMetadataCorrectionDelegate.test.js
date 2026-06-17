@@ -10,12 +10,12 @@ import { applyDif10MetadataCorrections } from '../applyDif10MetadataCorrections'
 import { applyEcho10MetadataCorrections } from '../applyEcho10MetadataCorrections'
 import { applyIso19115MetadataCorrections } from '../applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrections'
-import { applyUmmMetadataCorrections } from '../applyUmmMetadataCorrections'
+import { applyUmmcMetadataCorrections } from '../applyUmmcMetadataCorrections'
 import { invokeMetadataCorrectionDelegate } from '../invokeMetadataCorrectionDelegate'
 import { logger } from '../logger'
 
-vi.mock('../applyUmmMetadataCorrections', () => ({
-  applyUmmMetadataCorrections: vi.fn()
+vi.mock('../applyUmmcMetadataCorrections', () => ({
+  applyUmmcMetadataCorrections: vi.fn()
 }))
 
 vi.mock('../applyIso19115MetadataCorrections', () => ({
@@ -57,21 +57,21 @@ describe('invokeMetadataCorrectionDelegate', () => {
   })
 
   test('routes UMM to the UMM delegate', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await expect(invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
       collectionConceptId: 'C1'
     })).resolves.toEqual({ delegateName: 'umm' })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: []
     })
   })
 
   test('normalizes correction keyword objects before delegating', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -85,7 +85,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -98,7 +98,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
   })
 
   test('preserves plain-object keyword objects before delegating', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -115,7 +115,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -131,7 +131,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
   })
 
   test('preserves non-keyword-object correction fields before delegating', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -150,7 +150,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -168,7 +168,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
   })
 
   test('normalizes array keyword objects to plain empty objects before delegating', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -181,7 +181,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -193,7 +193,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
   })
 
   test('treats non-array corrections as an empty correction list', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -203,14 +203,14 @@ describe('invokeMetadataCorrectionDelegate', () => {
       }
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: []
     })
   })
 
   test('normalizes undefined correction entries to empty keyword objects', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -218,7 +218,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       corrections: [undefined]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
@@ -230,7 +230,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
   })
 
   test('drops unknown correction fields while preserving the normalized contract', async () => {
-    vi.mocked(applyUmmMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
+    vi.mocked(applyUmmcMetadataCorrections).mockResolvedValue({ delegateName: 'umm' })
 
     await invokeMetadataCorrectionDelegate({
       nativeFormat: 'UMM',
@@ -257,7 +257,7 @@ describe('invokeMetadataCorrectionDelegate', () => {
       ]
     })
 
-    expect(applyUmmMetadataCorrections).toHaveBeenCalledWith({
+    expect(applyUmmcMetadataCorrections).toHaveBeenCalledWith({
       collectionConceptId: 'C1',
       corrections: [
         createExpectedCorrection({
