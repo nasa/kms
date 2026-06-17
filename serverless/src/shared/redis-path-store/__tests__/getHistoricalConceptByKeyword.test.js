@@ -158,6 +158,15 @@ describe('getHistoricalConceptByKeyword', () => {
       cachedJsonResponseReader
     })).resolves.toBeUndefined()
 
+    await expect(getHistoricalConceptByKeyword({
+      scheme: 'granuledataformat',
+      keywordValue: {
+        ShortName: 'HDF4'
+      }
+    }, {
+      cachedJsonResponseReader
+    })).resolves.toBeUndefined()
+
     expect(cachedJsonResponseReader).not.toHaveBeenCalled()
   })
 

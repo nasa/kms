@@ -3,13 +3,15 @@ import { getCachedJsonResponse } from '../redisCacheStore'
 import { getHistoricalConceptByFullPath } from './getHistoricalConceptByFullPath'
 import { getHistoricalConceptByShortName } from './getHistoricalConceptByShortName'
 import {
+  HISTORICAL_CACHE_FULL_PATH_SCHEME_SET,
+  HISTORICAL_CACHE_SHORT_NAME_SCHEME_SET
+} from './helpers/constants'
+import {
   getFullPathLookupValueFromKeywordObject
 } from './helpers/getFullPathLookupValueFromKeywordObject'
 import {
   getShortNameLookupValueFromKeywordObject
 } from './helpers/getShortNameLookupValueFromKeywordObject'
-import { isLookupFullPathScheme } from './helpers/isLookupFullPathScheme'
-import { isLookupShortNameScheme } from './helpers/isLookupShortNameScheme'
 import { normalizeKeywordScheme } from './helpers/normalizeKeywordScheme'
 import { resolveLookupKeywordObject } from './helpers/resolveLookupKeywordObject'
 
@@ -65,7 +67,7 @@ export const getHistoricalConceptByKeyword = async (
     keywordValue
   })
 
-  if (isLookupFullPathScheme(normalizedScheme)) {
+  if (HISTORICAL_CACHE_FULL_PATH_SCHEME_SET.has(normalizedScheme)) {
     const fullPath = getFullPathLookupValueFromKeywordObject({
       scheme: normalizedScheme,
       keywordObject: normalizedKeywordObject
@@ -81,7 +83,7 @@ export const getHistoricalConceptByKeyword = async (
     }, context)
   }
 
-  if (isLookupShortNameScheme(normalizedScheme)) {
+  if (HISTORICAL_CACHE_SHORT_NAME_SCHEME_SET.has(normalizedScheme)) {
     const shortName = getShortNameLookupValueFromKeywordObject(normalizedKeywordObject)
 
     if (!shortName) {
