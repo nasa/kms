@@ -370,8 +370,7 @@ export const runCollectionMetadataCorrection = async ({
       correctionsAppliedCount: correctionsApplied.length,
       correctionsApplied,
       correctedMetadataProduced: rawCorrectionResult.correctedMetadata !== undefined
-        && rawCorrectionResult.correctedMetadata !== null,
-      stubbed: Boolean(rawCorrectionResult.stubbed)
+        && rawCorrectionResult.correctedMetadata !== null
     },
     auditResults: {
       pending: pendingAuditResult,

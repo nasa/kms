@@ -67,7 +67,6 @@ describe('when writing corrected metadata to cmr', () => {
     })
 
     expect(result).toEqual({
-      stubbed: false,
       targetComponent: 'cmr-writeback',
       collectionConceptId: 'C0000000000-KMS',
       providerId: 'KMS',
@@ -81,7 +80,6 @@ describe('when writing corrected metadata to cmr', () => {
         enabled: true,
         ingested: true,
         updated: true,
-        stubbed: false,
         status: 200,
         conceptId: 'C0000000000-KMS',
         revisionId: 2,
@@ -110,7 +108,6 @@ describe('when writing corrected metadata to cmr', () => {
     const result = await writeCorrectedMetadataToCmr()
 
     expect(result).toEqual({
-      stubbed: false,
       targetComponent: 'cmr-writeback',
       collectionConceptId: null,
       providerId: null,
@@ -123,8 +120,7 @@ describe('when writing corrected metadata to cmr', () => {
       ingestResult: {
         enabled: false,
         ingested: false,
-        updated: false,
-        stubbed: false
+        updated: false
       }
     })
 
@@ -148,8 +144,7 @@ describe('when writing corrected metadata to cmr', () => {
     expect(result.ingestResult).toEqual({
       enabled: false,
       ingested: false,
-      updated: false,
-      stubbed: false
+      updated: false
     })
 
     expect(getCmrWriterToken).not.toHaveBeenCalled()
@@ -171,8 +166,7 @@ describe('when writing corrected metadata to cmr', () => {
     expect(result.ingestResult).toEqual({
       enabled: false,
       ingested: false,
-      updated: false,
-      stubbed: false
+      updated: false
     })
 
     expect(getCmrWriterToken).not.toHaveBeenCalled()
@@ -307,8 +301,7 @@ describe('when writing corrected metadata to cmr', () => {
     expect(result.ingestResult).toEqual({
       enabled: true,
       ingested: false,
-      updated: false,
-      stubbed: false
+      updated: false
     })
 
     expect(getCmrWriterToken).not.toHaveBeenCalled()

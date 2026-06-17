@@ -238,7 +238,6 @@ export const writeCorrectedMetadataToCmr = async ({
     }
 
     return {
-      stubbed: false,
       targetComponent: 'cmr-writeback',
       collectionConceptId,
       providerId,
@@ -251,8 +250,7 @@ export const writeCorrectedMetadataToCmr = async ({
       ingestResult: {
         enabled: false,
         ingested: false,
-        updated: false,
-        stubbed: false
+        updated: false
       }
     }
   }
@@ -270,7 +268,6 @@ export const writeCorrectedMetadataToCmr = async ({
     })
 
     return {
-      stubbed: false,
       targetComponent: 'cmr-writeback',
       collectionConceptId,
       providerId,
@@ -283,8 +280,7 @@ export const writeCorrectedMetadataToCmr = async ({
       ingestResult: {
         enabled: true,
         ingested: false,
-        updated: false,
-        stubbed: false
+        updated: false
       }
     }
   }
@@ -324,7 +320,6 @@ export const writeCorrectedMetadataToCmr = async ({
     enabled: true,
     ingested: true,
     updated: true,
-    stubbed: false,
     status: response.status,
     conceptId: responseBody?.['concept-id'] || null,
     revisionId: responseBody?.['revision-id'] || null,
@@ -341,7 +336,6 @@ export const writeCorrectedMetadataToCmr = async ({
   })
 
   return {
-    stubbed: false,
     targetComponent: 'cmr-writeback',
     collectionConceptId,
     providerId,

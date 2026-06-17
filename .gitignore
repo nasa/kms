@@ -5,6 +5,7 @@
 .esbuild
 .vite
 coverage
+coverage-tmp/
 dist
 doc
 node_modules
