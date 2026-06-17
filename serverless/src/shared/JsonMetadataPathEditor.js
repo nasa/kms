@@ -535,8 +535,8 @@ export class JsonMetadataPathEditor {
         const valueKey = find.valueKeys[i]
 
         // Normalize both sides
-        const docValue = String(item[fieldPath] || '').trim()
-        const corrValue = String(correction.oldKeywordObject[valueKey] || '').trim()
+        const docValue = String(item[fieldPath] || '').trim().toLowerCase()
+        const corrValue = String(correction.oldKeywordObject[valueKey] || '').trim().toLowerCase()
 
         return docValue === corrValue
       }))
@@ -808,9 +808,13 @@ export class JsonMetadataPathEditor {
             return false
           }
 
-          return valueKeys.every((valueKey) => (
-            nodeValueObject[valueKey] === findValueObject[valueKey]
-          ))
+          return valueKeys.every((valueKey) => {
+            // Convert both sides to lowercase for a case-insensitive match
+            const nodeValue = String(nodeValueObject[valueKey] || '').toLowerCase()
+            const findValue = String(findValueObject[valueKey] || '').toLowerCase()
+
+            return nodeValue === findValue
+          })
         })
 
         if (matchedEntry) {

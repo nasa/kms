@@ -318,6 +318,55 @@ describe('when applying UMM-C metadata corrections', () => {
     const parsed = JSON.parse(result.correctedMetadata)
     expect(parsed.ShortName).toBe('TEST_COLLECTION')
   })
+
+  test('should perform case-insensitive matching for ScienceKeywords', async () => {
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload: mockUmmcSimple,
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          action: 'replace',
+          // Existing metadata has 'ATMOSPHERE'
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'atmosphere',
+            Term: 'AEROSOLS'
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'NEW AEROSOL TERM'
+          }
+        }
+      ]
+    })
+
+    const parsed = JSON.parse(result.correctedMetadata)
+    // Verify that the match occurred despite the casing difference
+    expect(parsed.ScienceKeywords[0].Term).toBe('NEW AEROSOL TERM')
+  })
+
+  test('should perform case-insensitive matching for Nested Blocks (Platforms)', async () => {
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload: mockUmmcSimple,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          // Existing platform is 'SPOT-4'
+          oldKeywordObject: {
+            ShortName: 'spot-4'
+          },
+          newKeywordObject: {
+            ShortName: 'SPOT-UPDATED'
+          }
+        }
+      ]
+    })
+
+    const parsed = JSON.parse(result.correctedMetadata)
+    expect(parsed.Platforms[0].ShortName).toBe('SPOT-UPDATED')
+  })
 })
 
 describe('when correcting a UMM-C record', () => {
