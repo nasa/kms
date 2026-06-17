@@ -7,9 +7,14 @@ import {
 } from 'vitest'
 
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
+import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
 import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
+import { invokeMetadataCorrectionDelegate } from '@/shared/invokeMetadataCorrectionDelegate'
 import { logger } from '@/shared/logger'
+import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
+import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptUuid'
 import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
+import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
 
 import { runCollectionMetadataCorrection } from '../runCollectionMetadataCorrection'
 
@@ -118,6 +123,139 @@ describe('runCollectionMetadataCorrection', () => {
         collectionConceptId: 'C1234567890-PROV',
         nativeFormat: 'DIF10',
         keywordValidationFailureCount: 0
+      })
+    )
+  })
+
+  test('marks audit actions as MANUAL for the synchronous concept-id correction flow', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'DIF+XML',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'ATMOSPHERE',
+          Term: 'AEROSOLS',
+          VariableLevel1: 'LEGACY AEROSOLS'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: 'LEGACY AEROSOLS',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'applied'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        updated: true
+      }
+    })
+
+    await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      source: 'metadataCorrectionApi'
+    })
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        keywordEvent: {
+          eventType: 'MANUAL'
+        },
+        status: 'pending'
+      })
+    )
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        keywordEvent: {
+          eventType: 'MANUAL'
+        },
+        status: 'applied'
       })
     )
   })

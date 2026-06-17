@@ -67,6 +67,31 @@ const normalizeKeywordEvent = (keywordEvent) => (
 )
 
 /**
+ * Normalizes the audit trigger metadata used when persisting correction audit rows.
+ *
+ * The synchronous concept-id endpoint does not originate from a keyword event, so we stamp those
+ * audit rows with a synthetic `MANUAL` action to distinguish them from event-driven runs.
+ *
+ * @param {Object} params Normalization inputs.
+ * @param {Object} params.keywordEvent Optional triggering keyword event context.
+ * @param {string} params.source Source label for the current correction request.
+ * @returns {Object} Audit-ready keyword event object.
+ */
+const buildAuditKeywordEvent = ({
+  keywordEvent,
+  source
+}) => {
+  if (!keywordEvent?.eventType && source === 'metadataCorrectionApi') {
+    return {
+      ...keywordEvent,
+      eventType: 'MANUAL'
+    }
+  }
+
+  return keywordEvent
+}
+
+/**
  * Resolves one extracted invalid keyword into a concrete correction descriptor.
  *
  * Delete actions are only emitted when the optional triggering keyword event positively proves
@@ -174,6 +199,10 @@ export const runCollectionMetadataCorrection = async ({
   })
 
   const keywordEvent = normalizeKeywordEvent(rawKeywordEvent)
+  const auditKeywordEvent = buildAuditKeywordEvent({
+    keywordEvent,
+    source
+  })
   const collectionDetails = await getCmrCollectionUmmDetails({
     collectionConceptId
   })
@@ -262,7 +291,7 @@ export const runCollectionMetadataCorrection = async ({
   if (correctionsApplied.length > 0) {
     pendingAuditResult = await persistMetadataCorrectionAuditLog({
       collectionConceptId: collectionDetails.collectionConceptId,
-      keywordEvent,
+      keywordEvent: auditKeywordEvent,
       nativeFormat,
       delegateName,
       corrections: correctionsApplied,
@@ -300,7 +329,7 @@ export const runCollectionMetadataCorrection = async ({
   if (correctionsApplied.length > 0 && writeResult?.ingestResult?.updated === true) {
     appliedAuditResult = await persistMetadataCorrectionAuditLog({
       collectionConceptId: collectionDetails.collectionConceptId,
-      keywordEvent,
+      keywordEvent: auditKeywordEvent,
       nativeFormat,
       delegateName,
       corrections: correctionsApplied,
