@@ -7,7 +7,7 @@ const normalizeFormatString = (format) => String(format || '').trim().toUpperCas
  *
  * @param {object} params - Format detection parameters.
  * @param {string} [params.format] - CMR format metadata string.
- * @returns {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF10'|'UNKNOWN'} Normalized native format.
+ * @returns {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF9'|'DIF10'|'UNKNOWN'} Normalized native format.
  */
 export const detectNativeMetadataFormat = ({
   format
@@ -22,8 +22,12 @@ export const detectNativeMetadataFormat = ({
     return 'ECHO10'
   }
 
-  if (normalizedFormat.includes('DIF10') || normalizedFormat.includes('DIF+XML')) {
+  if (normalizedFormat.includes('DIF10')) {
     return 'DIF10'
+  }
+
+  if (normalizedFormat.includes('DIF9') || normalizedFormat.includes('DIF+XML')) {
+    return 'DIF9'
   }
 
   if (normalizedFormat.includes('ISO:SMAP')) {

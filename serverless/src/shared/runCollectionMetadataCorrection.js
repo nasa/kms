@@ -23,6 +23,8 @@ const isLocalMetadataCorrectionMode = () => (
  * True when the current native format is supported by the active runtime mode.
  *
  * DIF10 is supported everywhere. UMM is supported only for local smoke/development mode.
+ * DIF9 is detected separately so it does not silently flow through the DIF10 delegate, but it
+ * remains unsupported until it has its own correction delegate.
  *
  * @param {string} nativeFormat Normalized native format label.
  * @returns {boolean} `true` when the runner should process this format.

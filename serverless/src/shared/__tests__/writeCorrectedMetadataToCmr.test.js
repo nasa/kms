@@ -101,13 +101,12 @@ describe('when writing corrected metadata to cmr', () => {
     })
   })
 
-  test('should preserve the DIF9 ingest content type when CMR identifies the record as application/dif+xml', async () => {
+  test('should write DIF9 corrected metadata with the DIF9 ingest content type', async () => {
     const result = await writeCorrectedMetadataToCmr({
       collectionConceptId: 'C0000000000-KMS',
       providerId: 'KMS',
       nativeId: 'native-1',
-      nativeFormat: 'DIF10',
-      nativeMetadataContentType: 'application/dif+xml',
+      nativeFormat: 'DIF9',
       correctionCount: 1,
       correctedMetadata: '<DIF><Entry_ID/></DIF>',
       source: 'metadataCorrectionService'

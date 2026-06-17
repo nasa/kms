@@ -69,17 +69,6 @@ const isWriterTokenConfigured = () => Boolean(getConfiguredWriterToken())
 const UMM_JSON_MEDIA_TYPE = 'application/vnd.nasa.cmr.umm+json'
 
 /**
- * Extracts the base media type from a Content-Type header.
- *
- * @param {string} [contentType=''] Raw content type header value.
- * @returns {string} Lower-cased media type without parameters.
- */
-const extractMediaType = (contentType = '') => String(contentType)
-  .split(';')[0]
-  .trim()
-  .toLowerCase()
-
-/**
  * Extracts the exact UMM JSON version parameter from a native-metadata response content type.
  *
  * @param {string} [contentType=''] Raw response content type returned by CMR.
@@ -132,11 +121,9 @@ const getNativeMetadataContentType = (
   switch (String(nativeFormat).trim().toUpperCase()) {
     case 'UMM':
       return getUmmContentType(nativeMetadataContentType)
+    case 'DIF9':
+      return 'application/dif+xml'
     case 'DIF10':
-      if (extractMediaType(nativeMetadataContentType) === 'application/dif+xml') {
-        return 'application/dif+xml'
-      }
-
       return 'application/dif10+xml'
     case 'ECHO10':
       return 'application/echo10+xml'

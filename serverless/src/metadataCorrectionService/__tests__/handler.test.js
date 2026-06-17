@@ -128,7 +128,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-123',
         revisionId: 9,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -301,7 +301,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-123',
         nativeFormat: 'DIF10',
-        nativeMetadataContentType: 'DIF+XML',
+        nativeMetadataContentType: 'application/dif10+xml',
         correctedMetadata: '<DIF><Entry_ID>updated</Entry_ID></DIF>',
         correctionCount: 1,
         correctionsApplied: [
@@ -324,7 +324,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-123',
         revisionId: 9,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -446,7 +446,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-123',
         revisionId: 9,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -560,7 +560,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-dif10',
         revisionId: 4,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -877,7 +877,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-123',
         revisionId: 9,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -959,7 +959,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-clean',
         revisionId: 6,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -1018,7 +1018,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-1',
         revisionId: 3,
-        format: ' dif+xml ',
+        format: ' application/dif10+xml ',
         umm: {
           ScienceKeywords: [
             {
@@ -1097,7 +1097,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-1',
         nativeFormat: 'DIF10',
-        nativeMetadataContentType: ' dif+xml ',
+        nativeMetadataContentType: ' application/dif10+xml ',
         correctedMetadata: '',
         correctionCount: 0,
         correctionsApplied: [],
@@ -1111,7 +1111,7 @@ describe('when the metadata correction service is invoked', () => {
         providerId: 'PROV',
         nativeId: 'native-2',
         revisionId: 5,
-        format: 'DIF+XML',
+        format: 'application/dif10+xml',
         umm: {
           ScienceKeywords: [
             {
@@ -1244,6 +1244,33 @@ describe('when the metadata correction service is invoked', () => {
           }
         ]
       })).rejects.toThrow('Unsupported native format: UNKNOWN')
+
+      expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
+      expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+    })
+
+    test('should reject DIF9 collections until a dedicated DIF9 delegate exists', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C123-DIF9',
+        providerId: 'PROV',
+        nativeId: 'native-dif9',
+        revisionId: 1,
+        format: 'application/dif+xml',
+        umm: {
+          ShortName: 'TEST'
+        }
+      })
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-dif9-format',
+            body: JSON.stringify({
+              collectionConceptId: 'C123-DIF9'
+            })
+          }
+        ]
+      })).rejects.toThrow('Unsupported native format: DIF9')
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()

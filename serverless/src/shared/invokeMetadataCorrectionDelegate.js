@@ -93,7 +93,7 @@ const isLocalMetadataCorrectionMode = () => (
  * DIF10 metadata.
  *
  * @param {object} params - Delegate parameters.
- * @param {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF10'|'UNKNOWN'} params.nativeFormat - Normalized native format.
+ * @param {'UMM'|'ISO19115'|'ISO_SMAP'|'ECHO10'|'DIF9'|'DIF10'|'UNKNOWN'} params.nativeFormat - Normalized native format.
  * @returns {Promise<object>} Delegate result returned by the selected format-specific handler.
  * @throws {Error} If the native format does not have a registered delegate.
  */

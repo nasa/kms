@@ -80,7 +80,7 @@ describe('runCollectionMetadataCorrection', () => {
       providerId: 'PROV',
       nativeId: 'native-123',
       revisionId: 7,
-      format: 'DIF+XML',
+      format: 'application/dif10+xml',
       umm: {}
     })
 
@@ -134,7 +134,7 @@ describe('runCollectionMetadataCorrection', () => {
       providerId: 'PROV',
       nativeId: 'native-123',
       revisionId: 7,
-      format: 'DIF+XML',
+      format: 'application/dif10+xml',
       umm: {}
     })
 
@@ -368,5 +368,26 @@ describe('runCollectionMetadataCorrection', () => {
       nativeFormat: 'UMM',
       nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     }))
+  })
+
+  test('rejects DIF9 until a dedicated DIF9 delegate exists', async () => {
+    vi.mocked(detectNativeMetadataFormat).mockReturnValue('DIF9')
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif+xml',
+      umm: {}
+    })
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toThrow('Unsupported native format: DIF9')
+
+    expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
+    expect(getCmrCollectionNativeMetadata).not.toHaveBeenCalled()
+    expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+    expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
   })
 })
