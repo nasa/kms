@@ -36,7 +36,17 @@ vi.mock('@/shared/getCmrCollectionUmmDetails', () => ({
 }))
 
 vi.mock('@/shared/invokeMetadataCorrectionDelegate', () => ({
-  invokeMetadataCorrectionDelegate: vi.fn()
+  invokeMetadataCorrectionDelegate: vi.fn(),
+  isMetadataCorrectionDelegateSupported: vi.fn((nativeFormat) => (
+    nativeFormat === 'DIF10'
+    || (
+      nativeFormat === 'UMM'
+      && (
+        String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
+        || String(process.env.useLocalstack || '').toLowerCase() === 'true'
+      )
+    )
+  ))
 }))
 
 vi.mock('@/shared/logger', () => ({
@@ -367,6 +377,91 @@ describe('runCollectionMetadataCorrection', () => {
     expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
       nativeFormat: 'UMM',
       nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
+    }))
+  })
+
+  test('falls back to an empty native metadata content type for non-UMM records when collection format is missing', async () => {
+    vi.mocked(detectNativeMetadataFormat).mockReturnValue('DIF10')
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'applied'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        updated: true
+      }
+    })
+
+    await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })
+
+    expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
+      nativeFormat: 'DIF10',
+      nativeMetadataContentType: ''
     }))
   })
 

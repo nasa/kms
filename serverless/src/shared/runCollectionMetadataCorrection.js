@@ -2,37 +2,15 @@ import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
 import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
 import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
-import { invokeMetadataCorrectionDelegate } from '@/shared/invokeMetadataCorrectionDelegate'
+import {
+  invokeMetadataCorrectionDelegate,
+  isMetadataCorrectionDelegateSupported
+} from '@/shared/invokeMetadataCorrectionDelegate'
 import { logger } from '@/shared/logger'
 import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
 import { resolveOldKeywordConceptUuid } from '@/shared/resolveOldKeywordConceptUuid'
 import { validateCmrCollectionUmm } from '@/shared/validateCmrCollectionUmm'
 import { writeCorrectedMetadataToCmr } from '@/shared/writeCorrectedMetadataToCmr'
-
-/**
- * True when the metadata-correction flow is running in the repo's local LocalStack mode.
- *
- * @returns {boolean} `true` when local-only native-format support may be enabled.
- */
-const isLocalMetadataCorrectionMode = () => (
-  String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
-  || String(process.env.useLocalstack || '').toLowerCase() === 'true'
-)
-
-/**
- * True when the current native format is supported by the active runtime mode.
- *
- * DIF10 is supported everywhere. UMM is supported only for local smoke/development mode.
- * DIF9 is detected separately so it does not silently flow through the DIF10 delegate, but it
- * remains unsupported until it has its own correction delegate.
- *
- * @param {string} nativeFormat Normalized native format label.
- * @returns {boolean} `true` when the runner should process this format.
- */
-const isSupportedNativeFormat = (nativeFormat) => (
-  nativeFormat === 'DIF10'
-  || (nativeFormat === 'UMM' && isLocalMetadataCorrectionMode())
-)
 
 /**
  * Normalizes native-format labels so comparisons stay case-insensitive.
@@ -212,7 +190,7 @@ export const runCollectionMetadataCorrection = async ({
     format: collectionDetails.format
   }))
 
-  if (!isSupportedNativeFormat(nativeFormat)) {
+  if (!isMetadataCorrectionDelegateSupported(nativeFormat)) {
     throw new Error(`Unsupported native format: ${nativeFormat}`)
   }
 

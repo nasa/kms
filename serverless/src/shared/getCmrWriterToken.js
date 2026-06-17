@@ -1,5 +1,3 @@
-let cachedWriterToken
-
 /**
  * Reads the configured writer token from runtime environment.
  *
@@ -14,19 +12,13 @@ const getConfiguredWriterToken = () => String(process.env.CMR_WRITER_TOKEN || ''
  * @throws {Error} If `CMR_WRITER_TOKEN` is empty or missing.
  */
 export const getCmrWriterToken = async () => {
-  if (cachedWriterToken) {
-    return cachedWriterToken
-  }
-
   const configuredToken = getConfiguredWriterToken()
 
   if (!configuredToken) {
     throw new Error('Missing CMR writer token configuration: set CMR_WRITER_TOKEN')
   }
 
-  cachedWriterToken = configuredToken
-
-  return cachedWriterToken
+  return configuredToken
 }
 
 export default getCmrWriterToken

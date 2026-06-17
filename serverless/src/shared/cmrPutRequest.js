@@ -95,7 +95,7 @@ export const cmrPutRequest = async ({
       bodyLength: typeof body === 'string' ? body.length : undefined
     }
 
-    logger.error('[cmr-put] CMR fetch failed', {
+    logger.error('[cmr-put] CMR write failed', {
       ...requestContext,
       error: extractErrorDetails(error),
       cause: extractErrorDetails(error?.cause)

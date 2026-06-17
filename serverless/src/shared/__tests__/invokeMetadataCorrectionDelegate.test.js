@@ -11,7 +11,10 @@ import { applyEcho10MetadataCorrections } from '../applyEcho10MetadataCorrection
 import { applyIso19115MetadataCorrections } from '../applyIso19115MetadataCorrections'
 import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrections'
 import { applyUmmMetadataCorrections } from '../applyUmmMetadataCorrections'
-import { invokeMetadataCorrectionDelegate } from '../invokeMetadataCorrectionDelegate'
+import {
+  invokeMetadataCorrectionDelegate,
+  isMetadataCorrectionDelegateSupported
+} from '../invokeMetadataCorrectionDelegate'
 import { logger } from '../logger'
 
 vi.mock('../applyUmmMetadataCorrections', () => ({
@@ -82,6 +85,22 @@ describe('invokeMetadataCorrectionDelegate', () => {
     })).rejects.toThrow(
       'Unsupported native metadata format for delegate selection: UMM'
     )
+  })
+
+  test('reports UMM support only in local mode', () => {
+    expect(isMetadataCorrectionDelegateSupported('UMM')).toBe(false)
+
+    enableLocalMode()
+
+    expect(isMetadataCorrectionDelegateSupported('UMM')).toBe(true)
+  })
+
+  test('reports static delegate support from the shared support matrix', () => {
+    expect(isMetadataCorrectionDelegateSupported('DIF10')).toBe(true)
+    expect(isMetadataCorrectionDelegateSupported('ECHO10')).toBe(true)
+    expect(isMetadataCorrectionDelegateSupported('DIF9')).toBe(false)
+    expect(isMetadataCorrectionDelegateSupported('UNKNOWN')).toBe(false)
+    expect(isMetadataCorrectionDelegateSupported()).toBe(false)
   })
 
   test('routes UMM to the UMM delegate in local mode', async () => {
@@ -557,5 +576,11 @@ describe('invokeMetadataCorrectionDelegate', () => {
       nativeFormat: 'UNKNOWN',
       collectionConceptId: 'C1'
     })).rejects.toThrow('Unsupported native metadata format for delegate selection: UNKNOWN')
+  })
+
+  test('throws when nativeFormat is missing', async () => {
+    await expect(invokeMetadataCorrectionDelegate({
+      collectionConceptId: 'C1'
+    })).rejects.toThrow('Unsupported native metadata format for delegate selection: undefined')
   })
 })

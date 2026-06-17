@@ -31,7 +31,17 @@ vi.mock('@/shared/getCmrCollectionUmmDetails', () => ({
 }))
 
 vi.mock('@/shared/invokeMetadataCorrectionDelegate', () => ({
-  invokeMetadataCorrectionDelegate: vi.fn()
+  invokeMetadataCorrectionDelegate: vi.fn(),
+  isMetadataCorrectionDelegateSupported: vi.fn((nativeFormat) => (
+    nativeFormat === 'DIF10'
+    || (
+      nativeFormat === 'UMM'
+      && (
+        String(process.env.USE_LOCALSTACK || '').toLowerCase() === 'true'
+        || String(process.env.useLocalstack || '').toLowerCase() === 'true'
+      )
+    )
+  ))
 }))
 
 vi.mock('@/shared/logger', () => ({

@@ -162,7 +162,7 @@ describe('cmrPutRequest', () => {
       body: '{}'
     })).rejects.toThrow('fetch failed')
 
-    expect(logger.error).toHaveBeenCalledWith('[cmr-put] CMR fetch failed', {
+    expect(logger.error).toHaveBeenCalledWith('[cmr-put] CMR write failed', {
       method: 'PUT',
       endpoint: 'https://cmr-test.earthdata.nasa.gov',
       path: '/ingest/providers/KMS/collections/native-1',

@@ -71,17 +71,18 @@ const UMM_JSON_MEDIA_TYPE = 'application/vnd.nasa.cmr.umm+json'
 /**
  * Extracts the exact UMM JSON version parameter from a native-metadata response content type.
  *
- * @param {string} [contentType=''] Raw response content type returned by CMR.
+ * @param {string} [contentType] Raw response content type returned by CMR.
  * @returns {string} UMM JSON version string.
  * @throws {Error} If the content type is not UMM JSON or does not include a version parameter.
  */
-const extractUmmVersionFromContentType = (contentType = '') => {
-  const normalizedContentType = String(contentType).trim()
+const extractUmmVersionFromContentType = (contentType) => {
+  const normalizedContentType = String(contentType || '').trim()
   const lowerCasedContentType = normalizedContentType.toLowerCase()
+  const contentTypeLabel = normalizedContentType === '' ? '(empty)' : normalizedContentType
 
   if (!lowerCasedContentType.startsWith(UMM_JSON_MEDIA_TYPE)) {
     throw new Error(
-      `Missing exact UMM JSON content type for CMR writeback: ${contentType || '(empty)'}`
+      `Missing exact UMM JSON content type for CMR writeback: ${contentTypeLabel}`
     )
   }
 
@@ -89,7 +90,7 @@ const extractUmmVersionFromContentType = (contentType = '') => {
 
   if (!versionMatch?.[1]) {
     throw new Error(
-      `Missing UMM JSON version parameter for CMR writeback: ${contentType || '(empty)'}`
+      `Missing UMM JSON version parameter for CMR writeback: ${contentTypeLabel}`
     )
   }
 

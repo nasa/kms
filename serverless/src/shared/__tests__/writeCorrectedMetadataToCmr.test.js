@@ -255,6 +255,24 @@ describe('when writing corrected metadata to cmr', () => {
     })).rejects.toThrow('Missing exact UMM JSON content type for CMR writeback')
   })
 
+  test('should include a non-empty invalid UMM content type in the exact content type error', async () => {
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
+
+    await expect(writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C1234567890-LOCAL',
+      providerId: 'LOCAL',
+      nativeId: 'native-umm-1',
+      nativeFormat: 'UMM',
+      nativeMetadataContentType: 'application/json',
+      correctionCount: 1,
+      correctedMetadata: {
+        ShortName: 'UPDATED'
+      }
+    })).rejects.toThrow(
+      'Missing exact UMM JSON content type for CMR writeback: application/json'
+    )
+  })
+
   test('should throw when the UMM native metadata content type omits the version parameter', async () => {
     process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
 
