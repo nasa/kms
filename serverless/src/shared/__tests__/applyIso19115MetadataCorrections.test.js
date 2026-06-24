@@ -112,6 +112,66 @@ const mockIso19115 = `
           </gmd:thesaurusName>
         </gmd:MD_Keywords>
       </gmd:descriptiveKeywords>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>MEASURES &gt; Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="project">project</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+          <gmd:thesaurusName>
+            <gmd:CI_Citation>
+              <gmd:title>
+                <gco:CharacterString>NASA / GCMD Project Keywords</gco:CharacterString>
+              </gmd:title>
+              <gmd:date>
+                <gmd:CI_Date>
+                  <gmd:date>
+                    <gco:Date>2008-01-24</gco:Date>
+                  </gmd:date>
+                  <gmd:dateType>
+                    <gmd:CI_DateTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#CI_DateTypeCode" codeListValue="revision">revision</gmd:CI_DateTypeCode>
+                  </gmd:dateType>
+                </gmd:CI_Date>
+              </gmd:date>
+            </gmd:CI_Citation>
+          </gmd:thesaurusName>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>Continent &gt; North America &gt; Greenland</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Continent &gt; North America &gt; Canada &gt; Alberta</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="place">place</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+          <gmd:thesaurusName>
+            <gmd:CI_Citation>
+              <gmd:title>
+                <gco:CharacterString>NASA / GCMD Location Keywords</gco:CharacterString>
+              </gmd:title>
+              <gmd:date>
+                <gmd:CI_Date>
+                  <gmd:date>
+                    <gco:Date>2008-02-05</gco:Date>
+                  </gmd:date>
+                  <gmd:dateType>
+                    <gmd:CI_DateTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#CI_DateTypeCode" codeListValue="revision">revision</gmd:CI_DateTypeCode>
+                  </gmd:dateType>
+                </gmd:CI_Date>
+              </gmd:date>
+            </gmd:CI_Citation>
+          </gmd:thesaurusName>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
 </gmi:MI_Metadata>`
 
 const mockIso19115WithOneScienceKeyword = `
@@ -163,7 +223,7 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
         Category: 'EARTH SCIENCE',
         Topic: 'OCEANS',
         Term: 'MARINE SEDIMENTS',
-        VariableLevel1: '',
+        VariableLevel1: 'PARTICLE SIZE',
         VariableLevel2: '',
         VariableLevel3: '',
         DetailedVariable: ''
@@ -177,8 +237,8 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
 
     // Verify the XML was updated
     const updatedXml = editor.serialize()
-    expect(updatedXml).toContain('<gco:CharacterString>EARTH SCIENCE &gt; OCEANS &gt; MARINE SEDIMENTS</gco:CharacterString>')
-    expect(updatedXml).not.toContain('AEROSOLS')
+    expect(updatedXml).toContain('EARTH SCIENCE &gt; OCEANS &gt; MARINE SEDIMENTS &gt; PARTICLE SIZE')
+    expect(updatedXml).not.toContain('EARTH SCIENCE &gt; ATMOSPHERE &gt; AEROSOLS')
   })
 
   test('should delete existing science keyword block correctly', () => {
@@ -191,15 +251,13 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
 
     const config = ISO_19115_SCHEME_EDITORS.sciencekeywords
 
-    // Note: You may need to add an updateBlockNode implementation for 'delete'
-    // in iso19115DomEditor.js similar to the one shown below.
     const success = config(editor, correction)
 
     expect(success).toBe(true)
 
     // Verify the XML no longer contains the MD_Keywords block
     const updatedXml = editor.serialize()
-    expect(updatedXml).not.toContain('EARTH SCIENCE > ATMOSPHERE > AEROSOLS')
+    expect(updatedXml).not.toContain('EARTH SCIENCE &gt; ATMOSPHERE &gt; AEROSOLS')
   })
 
   test('should delete single existing science keyword block correctly', () => {
@@ -212,8 +270,6 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
 
     const config = ISO_19115_SCHEME_EDITORS.sciencekeywords
 
-    // Note: You may need to add an updateBlockNode implementation for 'delete'
-    // in iso19115DomEditor.js similar to the one shown below.
     const success = config(editor, correction)
 
     expect(success).toBe(true)
@@ -225,11 +281,58 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
   })
 })
 
+describe('when applying locations ISO-19115 corrections', () => {
+  test('should replace existing location correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+    const correction = {
+      scheme: 'locations',
+      action: 'replace',
+      oldKeywordObject: { Value: 'CONTINENT > NORTH AMERICA > CANADA > ALBERTA' },
+      newKeywordObject: {
+        Category: 'CONTINENT',
+        Type: 'NORTH AMERICA',
+        Subregion1: 'MEXICO',
+        Subregion2: '',
+        Subregion3: '',
+        DetailedLocation: ''
+      }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.locations
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the XML was updated
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('CONTINENT &gt; NORTH AMERICA &gt; MEXICO')
+    expect(updatedXml).not.toContain('Continent &gt; North America &gt; Canada &gt; Alberta')
+  })
+
+  test('should delete existing locations block correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+    const correction = {
+      scheme: 'locations',
+      action: 'delete',
+      oldKeywordObject: { Value: 'Continent > North America > Greenland' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.locations
+
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the XML no longer contains the MD_Keywords block
+    const updatedXml = editor.serialize()
+    expect(updatedXml).not.toContain('Continent &gt; North America &gt; Greenland')
+  })
+})
+
 describe('when applying platforms ISO-19115 corrections', () => {
   test('should replace existing platform keyword correctly', () => {
     const editor = new Iso19115MetadataPathEditor(mockIso19115)
 
-    // Example: Replace "AQUA > Earth Observing System"
     const correction = {
       scheme: 'platforms',
       action: 'replace',
@@ -246,7 +349,7 @@ describe('when applying platforms ISO-19115 corrections', () => {
     expect(success).toBe(true)
 
     const updatedXml = editor.serialize()
-    expect(updatedXml).toContain('<gco:CharacterString>AQUA &gt; New Platform Description</gco:CharacterString>')
+    expect(updatedXml).toContain('AQUA &gt; New Platform Description')
     expect(updatedXml).not.toContain('AQUA &gt; Earth Observing System')
   })
 
@@ -274,7 +377,7 @@ describe('when applying instruments ISO-19115 corrections', () => {
   test('should replace existing instrument keyword correctly', () => {
     const editor = new Iso19115MetadataPathEditor(mockIso19115)
 
-    // Example: Replace "AQUA > Earth Observing System"
+    // Example: Replace "MODIS > Earth Observing System"
     const correction = {
       scheme: 'instruments',
       action: 'replace',
@@ -291,7 +394,7 @@ describe('when applying instruments ISO-19115 corrections', () => {
     expect(success).toBe(true)
 
     const updatedXml = editor.serialize()
-    expect(updatedXml).toContain('<gco:CharacterString>MODIS-1 &gt; New Instrument Description</gco:CharacterString>')
+    expect(updatedXml).toContain('MODIS-1 &gt; New Instrument Description')
     expect(updatedXml).not.toContain('MODIS &gt; Moderate-Resolution Imaging Spectroradiometer')
   })
 
@@ -312,5 +415,49 @@ describe('when applying instruments ISO-19115 corrections', () => {
     const updatedXml = editor.serialize()
     expect(updatedXml).not.toContain('ATLAS &gt; Advanced Topographic Laser Altimeter System')
     expect(updatedXml).toContain('MODIS &gt; Moderate-Resolution Imaging Spectroradiometer')
+  })
+})
+
+describe('when applying projects ISO-19115 corrections', () => {
+  test('should replace existing project keyword correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'MEASURES' },
+      newKeywordObject: {
+        ShortName: 'MEASURES-1'
+      },
+      newLongName: 'New Project Description'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('MEASURES-1 &gt; New Project Description')
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+  })
+
+  test('should delete existing project keyword block correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+    const correction = {
+      scheme: 'projects',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'MEASURES' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the specific keyword is gone
+    const updatedXml = editor.serialize()
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+    expect(updatedXml).toContain('MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula')
   })
 })

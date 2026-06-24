@@ -39,29 +39,33 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
 
     // 2. Handle the 'delete' action
     if (correction.action === 'delete') {
-      const oldVal = correction.oldKeywordObject.Value || correction.oldKeywordObject.ShortName
+      // Normalize search string to lowercase
+      const oldVal = (correction.oldKeywordObject.Value || correction.oldKeywordObject.ShortName || '').toLowerCase().trim()
 
-      // Find the specific <gmd:keyword> node containing the string to delete
-      // We look for a CharacterString that contains the old value
-      // We use the block (targetNode) as the context to keep search scoped
-      const xPath = `.//gmd:keyword/gco:CharacterString[contains(., '${oldVal}')]`
-      const targetCharString = this.selectNodes(xPath, targetNode)[0]
+      // 1. Get all potential CharacterString nodes within the block
+      const allCharStrings = this.selectNodes('.//gmd:keyword/gco:CharacterString', targetNode)
+
+      // 2. Find the node using a case-insensitive partial match (.includes)
+      const targetCharString = allCharStrings.find((node) => {
+        const textValue = (node.textContent || '').toLowerCase().trim()
+
+        return textValue.includes(oldVal)
+      })
 
       if (!targetCharString) return false
 
-      // A. Remove the specific keyword entry
+      // 3. Remove the specific keyword entry
       const keywordNode = targetCharString.parentNode
       keywordNode.parentNode.removeChild(keywordNode)
 
-      // B. Check if any keywords remain in the MD_Keywords block
+      // 4. Check if any keywords remain in the MD_Keywords block
       const remainingKeywords = this.selectNodes('.//gmd:keyword', targetNode)
 
       if (remainingKeywords.length === 0) {
-        // C. If no keywords remain, remove the MD_Keywords block
+        // ... (rest of your cleanup logic remains exactly the same)
         const mdKeywordsParent = targetNode.parentNode
         mdKeywordsParent.removeChild(targetNode)
 
-        // D. Check if the gmd:descriptiveKeywords wrapper is now empty
         const remainingBlocks = this.selectNodes('./gmd:MD_Keywords', mdKeywordsParent)
         if (remainingBlocks.length === 0) {
           mdKeywordsParent.parentNode.removeChild(mdKeywordsParent)
@@ -88,8 +92,8 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         // Compare ALL keys present in the correction.oldKeywordObject
         // This works for { Value: '...' } AND { ShortName: '...' }
         return Object.keys(correction.oldKeywordObject).every((key) => {
-          const parsedValue = parsedObject[key] ? trimString(parsedObject[key]) : ''
-          const correctionValue = correction.oldKeywordObject[key] ? trimString(correction.oldKeywordObject[key]) : ''
+          const parsedValue = parsedObject[key] ? trimString(parsedObject[key]).toLowerCase() : ''
+          const correctionValue = correction.oldKeywordObject[key] ? trimString(correction.oldKeywordObject[key]).toLowerCase() : ''
 
           return parsedValue === correctionValue
         })
