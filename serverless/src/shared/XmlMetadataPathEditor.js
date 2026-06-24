@@ -1,38 +1,15 @@
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom'
 import xpath from 'xpath'
 
+import {
+  getScalarKeywordText,
+  isSimpleFieldPath,
+  normalizeValueObject,
+  trimString
+} from './XmlUtils'
+
 const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 const ELEMENT_NODE = 1
-const SIMPLE_ABSOLUTE_FIELD_PATH = /^\/\/[A-Za-z_][\w.-]*(\/[A-Za-z_][\w.-]*)*$/
-
-/**
- * Normalize optional text inputs so object comparisons and XML writes behave consistently.
- *
- * @example
- * trimString('  SPOT-4  ')
- * // 'SPOT-4'
- */
-const trimString = (value) => ((typeof value === 'string') ? value.trim() : '')
-
-/**
- * Trims a keyword-style object down to the specific keys being compared so find/replace matching
- * stays consistent even when callers provide extra fields or untrimmed values.
- *
- * @param {Record<string, any>|null|undefined} valueObject Candidate keyword-style object.
- * @param {string[]} valueKeys Ordered keys that matter for the current comparison.
- * @returns {Record<string, string>} Trimmed object containing only the requested keys.
- *
- * @example
- * normalizeValueObject({ Type: ' GET DATA ', Subtype: ' GIOVANNI ' }, ['Type', 'Subtype'])
- * // { Type: 'GET DATA', Subtype: 'GIOVANNI' }
- */
-const normalizeValueObject = (valueObject, valueKeys) => valueKeys.reduce(
-  (normalizedObject, valueKey) => ({
-    ...normalizedObject,
-    [valueKey]: trimString(valueObject?.[valueKey])
-  }),
-  {}
-)
 
 /**
  * Normalizes text for case-insensitive XML node matching while preserving write-time casing.
@@ -56,27 +33,6 @@ const normalizeComparableText = (value) => trimString(value).toLowerCase()
  */
 export const hasAnyObjectValue = (keywordObject) => Object.values(keywordObject || {})
   .some((value) => trimString(value).length > 0)
-
-/**
- * Resolves the most useful scalar representation of a keyword object for leaf/scalar updates.
- *
- * @example
- * getScalarKeywordText({ Value: 'OCEANS', ShortName: 'ignored' })
- * // 'OCEANS'
- */
-const getScalarKeywordText = (keywordObject = {}) => {
-  const preferredValue = [keywordObject.Value, keywordObject.ShortName]
-    .map((value) => trimString(value))
-    .find((value) => value.length > 0)
-
-  if (preferredValue) {
-    return preferredValue
-  }
-
-  return Object.values(keywordObject)
-    .map((value) => trimString(value))
-    .find((value) => value.length > 0) || ''
-}
 
 /**
  * Rewrites simple element XPath into a namespace-agnostic `local-name()` form.
@@ -296,7 +252,7 @@ export class XmlMetadataPathEditor {
    */
   resolveAbsoluteFieldElement(fieldPath, { createIfMissing = false } = {}) {
     const matchedNode = this.selectNodes(fieldPath)[0] || null
-    if (matchedNode || !createIfMissing || !SIMPLE_ABSOLUTE_FIELD_PATH.test(fieldPath)) {
+    if (matchedNode || !createIfMissing || !isSimpleFieldPath(fieldPath)) {
       return matchedNode
     }
 
