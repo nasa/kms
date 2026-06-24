@@ -92,7 +92,8 @@ export const ISO_19115_SCHEME_EDITORS = {
         source: {
           type: 'computed',
           getValue: ({ correction }) => {
-            const { ShortName, LongName } = correction.newKeywordObject
+            const { ShortName } = correction.newKeywordObject
+            const LongName = correction.newLongName
 
             return `${ShortName} > ${LongName}`
           }
@@ -130,7 +131,8 @@ export const ISO_19115_SCHEME_EDITORS = {
         source: {
           type: 'computed',
           getValue: ({ correction }) => {
-            const { ShortName, LongName } = correction.newKeywordObject
+            const { ShortName } = correction.newKeywordObject
+            const LongName = correction.newLongName
 
             return `${ShortName} > ${LongName}`
           }

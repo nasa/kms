@@ -235,9 +235,9 @@ describe('when applying platforms ISO-19115 corrections', () => {
       action: 'replace',
       oldKeywordObject: { ShortName: 'AQUA' },
       newKeywordObject: {
-        ShortName: 'AQUA',
-        LongName: 'New Platform Description'
-      }
+        ShortName: 'AQUA'
+      },
+      newLongName: 'New Platform Description'
     }
 
     const config = ISO_19115_SCHEME_EDITORS.platforms
@@ -280,9 +280,9 @@ describe('when applying instruments ISO-19115 corrections', () => {
       action: 'replace',
       oldKeywordObject: { ShortName: 'MODIS' },
       newKeywordObject: {
-        ShortName: 'MODIS-1',
-        LongName: 'New Instrument Description'
-      }
+        ShortName: 'MODIS-1'
+      },
+      newLongName: 'New Instrument Description'
     }
 
     const config = ISO_19115_SCHEME_EDITORS.instruments
