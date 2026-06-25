@@ -7,24 +7,24 @@ import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
  */
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
 
+const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
+
 /**
  * Factory to generate hierarchical keyword block editors
  * (like Science Keywords and Locations).
  */
-const createHierarchicalKeywordBlock = (thesaurusTitle, keywordTypeCode, fieldKey) => blockScheme({
+const createHierarchicalKeywordBlock = (keywordTypeCode, fieldKeys) => blockScheme({
   nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords
   [
-    gmd:thesaurusName/gmd:CI_Citation/gmd:title/gco:CharacterString = '${thesaurusTitle}'
-    or
     gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${keywordTypeCode}'
   ]`,
   find: {
     fieldPaths: ['gco:CharacterString'],
-    valueKeys: FULL_PATH_VALUE_FIELDS[fieldKey],
+    valueKeys: fieldKeys,
     getNodeValueObject: ({ node, editor, fieldPaths }) => {
       const fullString = editor.getNestedText(node, fieldPaths[0]) || ''
       const parts = fullString.split(' > ').map((s) => s.trim())
-      const fields = FULL_PATH_VALUE_FIELDS[fieldKey]
+      const fields = fieldKeys
 
       const obj = fields.reduce((acc, field, index) => {
         acc[field] = parts[index] || ''
@@ -44,7 +44,7 @@ const createHierarchicalKeywordBlock = (thesaurusTitle, keywordTypeCode, fieldKe
         type: 'computed',
         getValue: ({ correction }) => {
           const k = correction.newKeywordObject
-          const fields = FULL_PATH_VALUE_FIELDS[fieldKey]
+          const fields = fieldKeys
 
           return fields
             .map((field) => k[field] || '')
@@ -60,11 +60,9 @@ const createHierarchicalKeywordBlock = (thesaurusTitle, keywordTypeCode, fieldKe
  * Factory to generate standardized keyword block editors for structures
  * like Platforms and Instruments.
  */
-const createKeywordBlock = (thesaurusTitle, keywordTypeCode) => blockScheme({
+const createKeywordBlock = (keywordTypeCode) => blockScheme({
   nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords
   [
-    gmd:thesaurusName/gmd:CI_Citation/gmd:title/gco:CharacterString = '${thesaurusTitle}'
-    or
     gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${keywordTypeCode}'
   ]`,
   find: {
@@ -96,6 +94,30 @@ const createKeywordBlock = (thesaurusTitle, keywordTypeCode) => blockScheme({
   ]
 })
 
+const createIsoTopicCategoryEditor = () => leafScheme({
+  // Targets the specific category element directly
+  nodeXPath: '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:topicCategory',
+  find: {
+    getNodeValueObject: ({ node }) => ({ Value: node.textContent?.trim() || '' })
+  },
+  replace: [
+    {
+      fieldPath: 'gmd:MD_TopicCategoryCode',
+      source: {
+        type: 'computed',
+        getValue: ({ correction }) => correction.newKeywordObject.Value
+      }
+    },
+    {
+      fieldPath: 'gmd:MD_TopicCategoryCode/@codeListValue',
+      source: {
+        type: 'computed',
+        getValue: ({ correction }) => correction.newKeywordObject.Value
+      }
+    }
+  ]
+})
+
 /**
  * ISO 19115 scheme configuration.
  * Defines how to identify, parse, and update specific keyword blocks (e.g., science keywords, platforms)
@@ -103,22 +125,31 @@ const createKeywordBlock = (thesaurusTitle, keywordTypeCode) => blockScheme({
  */
 export const ISO_19115_SCHEME_EDITORS = {
   sciencekeywords: createHierarchicalKeywordBlock(
-    'NASA / GCMD Science Keywords',
     'theme',
-    'sciencekeywords'
+    FULL_PATH_VALUE_FIELDS.sciencekeywords
   ),
 
   locations: createHierarchicalKeywordBlock(
-    'NASA / GCMD Location Keywords',
     'place',
-    'locations'
+    FULL_PATH_VALUE_FIELDS.locations
   ),
 
-  platforms: createKeywordBlock('NASA / GCMD Platform Keywords', 'platform'),
+  platforms: createKeywordBlock('platform'),
 
-  instruments: createKeywordBlock('NASA / GCMD Instrument Keywords', 'instrument'),
+  instruments: createKeywordBlock('instrument'),
 
-  projects: createKeywordBlock('NASA / GCMD Project Keywords', 'project')
+  projects: createKeywordBlock('project'),
+
+  isotopiccategory: createIsoTopicCategoryEditor()
+
+  /*
+  Providers: short name not in examples
+              <gmd:organisationName>
+                <gco:CharacterString>National Snow and Ice Data Center</gco:CharacterString>
+              </gmd:organisationName>
+  rucontenttype: TBD
+  idnnode: no mapping
+  */
 }
 
 /**

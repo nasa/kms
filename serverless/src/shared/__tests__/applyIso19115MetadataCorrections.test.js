@@ -16,7 +16,18 @@ const mockIso19115 = `
   xmlns:gml="http://www.opengis.net/gml/3.2" 
   xmlns:xlink="http://www.w3.org/1999/xlink" 
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <gmd:descriptiveKeywords>
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:topicCategory>
+        <gmd:MD_TopicCategoryCode codeListValue="LOCATION">LOCATION</gmd:MD_TopicCategoryCode>
+      </gmd:topicCategory>
+      <gmd:topicCategory>
+        <gmd:MD_TopicCategoryCode codeListValue="FARMING">FARMING</gmd:MD_TopicCategoryCode>
+      </gmd:topicCategory>
+      <gmd:topicCategory>
+        <gmd:MD_TopicCategoryCode codeListValue="ELEVATION">ELEVATION</gmd:MD_TopicCategoryCode>
+      </gmd:topicCategory>
+      <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>   
           <gmd:keyword>
             <gco:CharacterString>EARTH SCIENCE &gt; Cryosphere &gt; Glaciers/Ice Sheets &gt; Firn &gt; Snow Grain Size</gco:CharacterString>
@@ -172,6 +183,8 @@ const mockIso19115 = `
           </gmd:thesaurusName>
         </gmd:MD_Keywords>
       </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
 </gmi:MI_Metadata>`
 
 const mockIso19115WithOneScienceKeyword = `
@@ -183,7 +196,9 @@ const mockIso19115WithOneScienceKeyword = `
   xmlns:gml="http://www.opengis.net/gml/3.2" 
   xmlns:xlink="http://www.w3.org/1999/xlink" 
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <gmd:descriptiveKeywords>
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>
           <gmd:keyword>
             <gco:CharacterString>EARTH SCIENCE &gt; ATMOSPHERE &gt; AEROSOLS</gco:CharacterString>
@@ -210,6 +225,8 @@ const mockIso19115WithOneScienceKeyword = `
           </gmd:thesaurusName>
         </gmd:MD_Keywords>
       </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
 </gmi:MI_Metadata>`
 
 describe('when applying sciencekeywords ISO-19115 corrections', () => {
@@ -459,5 +476,49 @@ describe('when applying projects ISO-19115 corrections', () => {
     const updatedXml = editor.serialize()
     expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
     expect(updatedXml).toContain('MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula')
+  })
+})
+
+describe('topiccategory scheme', () => {
+  test('should replace existing topic category correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'isotopiccategory',
+      action: 'replace',
+      oldKeywordObject: { Value: 'FARMING' },
+      newKeywordObject: { Value: 'BIOTA' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.isotopiccategory
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    // Verify both the text content and the attribute were updated
+    expect(updatedXml).toContain('<gmd:MD_TopicCategoryCode codeListValue="BIOTA">BIOTA</gmd:MD_TopicCategoryCode>')
+    expect(updatedXml).not.toContain('codeListValue="FARMING">FARMING')
+  })
+
+  test('should delete existing topic category correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'isotopiccategory',
+      action: 'delete',
+      oldKeywordObject: { Value: 'LOCATION' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.isotopiccategory
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the specific category element is removed
+    const updatedXml = editor.serialize()
+    expect(updatedXml).not.toContain('codeListValue="LOCATION">LOCATION')
+    // Verify other categories remain
+    expect(updatedXml).toContain('codeListValue="FARMING">FARMING')
   })
 })
