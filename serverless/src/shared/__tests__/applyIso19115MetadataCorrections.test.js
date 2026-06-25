@@ -27,6 +27,16 @@ const mockIso19115 = `
       <gmd:topicCategory>
         <gmd:MD_TopicCategoryCode codeListValue="ELEVATION">ELEVATION</gmd:MD_TopicCategoryCode>
       </gmd:topicCategory>
+      <gmd:processingLevel>
+        <gmd:MD_Identifier>
+          <gmd:code>
+            <gco:CharacterString>3</gco:CharacterString>
+          </gmd:code>
+          <gmd:codeSpace>
+            <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+          </gmd:codeSpace>
+        </gmd:MD_Identifier>
+      </gmd:processingLevel>
       <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>   
           <gmd:keyword>
@@ -185,6 +195,20 @@ const mockIso19115 = `
       </gmd:descriptiveKeywords>
     </gmd:MD_DataIdentification>
   </gmd:identificationInfo>
+  <gmd:contentInfo>
+    <gmd:MD_ImageDescription>
+      <gmd:processingLevelCode>
+        <gmd:MD_Identifier>
+          <gmd:code>
+            <gco:CharacterString>3</gco:CharacterString>
+          </gmd:code>
+          <gmd:codeSpace>
+            <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+          </gmd:codeSpace>
+        </gmd:MD_Identifier>
+      </gmd:processingLevelCode>
+    </gmd:MD_ImageDescription>
+  </gmd:contentInfo>
 </gmi:MI_Metadata>`
 
 const mockIso19115WithOneScienceKeyword = `
@@ -479,8 +503,8 @@ describe('when applying projects ISO-19115 corrections', () => {
   })
 })
 
-describe('topiccategory scheme', () => {
-  test('should replace existing topic category correctly', () => {
+describe('when applying isotopiccategory ISO-19115 corrections', () => {
+  test('should replace existing isotopiccategory correctly', () => {
     const editor = new Iso19115MetadataPathEditor(mockIso19115)
 
     const correction = {
@@ -501,7 +525,7 @@ describe('topiccategory scheme', () => {
     expect(updatedXml).not.toContain('codeListValue="FARMING">FARMING')
   })
 
-  test('should delete existing topic category correctly', () => {
+  test('should delete existing isotopiccategory correctly', () => {
     const editor = new Iso19115MetadataPathEditor(mockIso19115)
 
     const correction = {
@@ -520,5 +544,51 @@ describe('topiccategory scheme', () => {
     expect(updatedXml).not.toContain('codeListValue="LOCATION">LOCATION')
     // Verify other categories remain
     expect(updatedXml).toContain('codeListValue="FARMING">FARMING')
+  })
+})
+
+describe('when applying productlevelid ISO-19115 corrections', () => {
+  test('should replace existing productlevelid correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'productlevelid',
+      action: 'replace',
+      oldKeywordObject: { Value: '3' },
+      newKeywordObject: { Value: '5' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.productlevelid
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    // 1. Data Identification location
+    expect(updatedXml).toMatch(/<gmd:processingLevel>.*<gco:CharacterString>5<\/gco:CharacterString>/s)
+    // 2. Image Description location
+    expect(updatedXml).toMatch(/<gmd:contentInfo>.*<gco:CharacterString>5<\/gco:CharacterString>/s)
+    expect(updatedXml).not.toContain('<gco:CharacterString>3</gco:CharacterString>')
+  })
+
+  test('should delete existing productlevelid correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'productlevelid',
+      action: 'delete',
+      oldKeywordObject: { Value: '3' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.productlevelid
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Verify that the Identifier block is completely gone from both expected locations
+    expect(updatedXml).not.toContain('gov.nasa.esdis.umm.processinglevelid')
+    expect(updatedXml).not.toContain('<gco:CharacterString>3</gco:CharacterString>')
   })
 })

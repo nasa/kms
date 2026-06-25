@@ -29,20 +29,42 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   }
 
   /**
-   * Updates leaf (direct) nodes like isotopiccategory.
+   * Updates leaf (direct) nodes like isotopiccategory and productlevelid.
    */
   updateLeafNode(correction, config) {
     const { action, oldKeywordObject } = correction
     const oldVal = (oldKeywordObject.Value || '').toLowerCase().trim()
-
-    // 1. Get all relevant nodes
     const allNodes = this.selectNodes(config.nodeXPath)
 
-    // 2. Handle DELETE
     if (action === 'delete') {
-      const targetNode = allNodes.find((node) => (node.textContent || '').toLowerCase().trim() === oldVal)
+      // 1. Find the primary node to confirm the object exists
+      const targetNode = allNodes.find((node) => {
+        const valueObj = config.find.getNodeValueObject({
+          node,
+          editor: this
+        })
+
+        const foundVal = (valueObj.Value || '').toLowerCase().trim()
+        const match = foundVal === oldVal
+
+        return match
+      })
+
       if (targetNode) {
-        targetNode.parentNode.removeChild(targetNode)
+        // 2. Strategy: If explicit delete paths are provided, use them (e.g., productlevelid)
+        if (config.delete && config.delete.length > 0) {
+          config.delete.forEach((delConfig) => {
+            const nodesToDelete = this.selectNodes(delConfig.path, this.document)
+            nodesToDelete.forEach((node) => {
+              if (node && node.parentNode) {
+                node.parentNode.removeChild(node)
+              }
+            })
+          })
+        } else if (targetNode.parentNode) {
+          // Use 'else if' to flatten the structure and satisfy the linter
+          targetNode.parentNode.removeChild(targetNode)
+        }
 
         return true
       }
@@ -50,27 +72,31 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       return false
     }
 
-    // 3. Handle REPLACE
     if (action === 'replace') {
-      const matchingNode = allNodes.find((node) => (node.textContent || '').toLowerCase().trim() === oldVal)
+      const matchingNode = allNodes.find((node) => {
+        const valueObj = config.find.getNodeValueObject({
+          node,
+          editor: this
+        })
+
+        return (valueObj.Value || '').toLowerCase().trim() === oldVal
+      })
 
       if (matchingNode) {
-        // We iterate through the replace config array using the correction object
         config.replace.forEach((replConfig) => {
-          // The source.getValue function uses the 'correction' object (which contains newKeywordObject)
           const newValue = replConfig.source.getValue({ correction })
+          const isGlobal = replConfig.fieldPath.startsWith('//')
+          const context = isGlobal ? this.document : matchingNode
 
+          // If updating an attribute (contains @)
           if (replConfig.fieldPath.includes('@')) {
-            const [elementName, attrName] = replConfig.fieldPath.split('/@')
-            const targetElement = this.selectNodes(`./${elementName}`, matchingNode)[0]
-            if (targetElement) {
-              targetElement.setAttribute(attrName, newValue)
-            }
+            const [path, attr] = replConfig.fieldPath.split('/@')
+            const targetElement = this.selectNodes(isGlobal ? path : `./${path}`, context)[0]
+            if (targetElement) targetElement.setAttribute(attr, newValue)
           } else {
-            const fieldNode = this.selectNodes(`./${replConfig.fieldPath}`, matchingNode)[0]
-            if (fieldNode) {
-              this.setElementText(fieldNode, newValue)
-            }
+            // Standard text content update
+            const targetNode = this.selectNodes(isGlobal ? replConfig.fieldPath : `./${replConfig.fieldPath}`, context)[0]
+            if (targetNode) this.setElementText(targetNode, newValue)
           }
         })
 

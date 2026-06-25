@@ -95,13 +95,13 @@ const createKeywordBlock = (keywordTypeCode) => blockScheme({
 })
 
 const createIsoTopicCategoryEditor = () => leafScheme({
-  // Targets the specific category element directly
   nodeXPath: '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:topicCategory',
   find: {
     getNodeValueObject: ({ node }) => ({ Value: node.textContent?.trim() || '' })
   },
   replace: [
     {
+      // 1. Update the visible text content
       fieldPath: 'gmd:MD_TopicCategoryCode',
       source: {
         type: 'computed',
@@ -109,7 +109,39 @@ const createIsoTopicCategoryEditor = () => leafScheme({
       }
     },
     {
+      // 2. Update the codeListValue attribute
       fieldPath: 'gmd:MD_TopicCategoryCode/@codeListValue',
+      source: {
+        type: 'computed',
+        getValue: ({ correction }) => correction.newKeywordObject.Value
+      }
+    }
+  ]
+})
+
+const createProductLevelIdEditor = () => leafScheme({
+  nodeXPath: '//gmd:processingLevel/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
+  find: {
+    getNodeValueObject: ({ node, editor }) => ({
+      Value: editor.getNestedText(node, 'gmd:code/gco:CharacterString')?.trim() || ''
+    })
+  },
+  delete: [
+    // Define the paths to remove both occurrences
+    { path: '//gmd:processingLevel/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' },
+    { path: '//gmd:processingLevelCode/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' }
+  ],
+  replace: [
+    {
+      // Since matchingNode is now MD_Identifier, this path correctly selects the child
+      fieldPath: 'gmd:code/gco:CharacterString',
+      source: {
+        type: 'computed',
+        getValue: ({ correction }) => correction.newKeywordObject.Value
+      }
+    },
+    {
+      fieldPath: '//gmd:contentInfo/gmd:MD_ImageDescription/gmd:processingLevelCode/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]/gmd:code/gco:CharacterString',
       source: {
         type: 'computed',
         getValue: ({ correction }) => correction.newKeywordObject.Value
@@ -140,7 +172,9 @@ export const ISO_19115_SCHEME_EDITORS = {
 
   projects: createKeywordBlock('project'),
 
-  isotopiccategory: createIsoTopicCategoryEditor()
+  isotopiccategory: createIsoTopicCategoryEditor(),
+
+  productlevelid: createProductLevelIdEditor()
 
   /*
   Providers: short name not in examples
