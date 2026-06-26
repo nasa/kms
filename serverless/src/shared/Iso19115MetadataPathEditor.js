@@ -5,6 +5,8 @@ import { extractNamespaces } from './XmlUtils'
 
 /**
  * Subclass of XmlMetadataPathEditor specialized for ISO 19115 XML structure.
+ * Handles namespace resolution and provides specific methods for updating
+ * keyword blocks and leaf nodes within ISO 19115 metadata.
  */
 export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   constructor(xmlString) {
@@ -32,15 +34,23 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     this.resolver = xpath.useNamespaces(this.namespaces)
   }
 
-  // In Iso19115Editor class
+  /**
+   * Executes an XPath expression and ensures only element nodes are returned.
+   * @param {string} expression - The XPath string.
+   * @param {Node} contextNode - The XML node to execute the search against.
+   * @returns {Node[]} Array of matching Element nodes.
+   */
   selectNodes(expression, contextNode = this.document) {
-  // Use the registered resolver instance
     return this.resolver(expression, contextNode)
-      .filter((node) => node?.nodeType === 1) // ELEMENT_NODE
+      .filter((node) => node?.nodeType === 1) // Ensure only ELEMENT_NODE
   }
 
   /**
-   * Helper to identify the correct keyword node based on the config.
+   * Identifies the specific keyword node to update or delete within a block.
+   * @param {Node} targetNode - The parent MD_Keywords block.
+   * @param {Object} correction - The user-provided change data.
+   * @param {Object} config - The configuration defining matching logic.
+   * @returns {Node|undefined} The matching node if found.
    */
   findMatchingNode(targetNode, correction, config) {
     const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
@@ -52,7 +62,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         fieldPaths: config.find.fieldPaths
       })
 
-      // Use matchKeys if defined, otherwise fall back to oldKeywordObject keys
+      // Use defined matchKeys or default to existing object keys
       const matchKeys = config.find.matchKeys || Object.keys(correction.oldKeywordObject)
 
       return matchKeys.every((key) => {
@@ -65,7 +75,11 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   }
 
   /**
-   * Updates leaf (direct) nodes like isotopiccategory and productlevelid.
+   * Updates or deletes leaf nodes (direct elements) based on configuration.
+   * Handles multi-step path deletions and attribute-based updates.
+   * @param {Object} correction - The change data.
+   * @param {Object} config - The node configuration mapping.
+   * @returns {boolean} True if the operation was successful.
    */
   updateLeafNode(correction, config) {
     const { action, oldKeywordObject } = correction
@@ -98,7 +112,6 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             })
           })
         } else if (targetNode.parentNode) {
-          // Use 'else if' to flatten the structure and satisfy the linter
           targetNode.parentNode.removeChild(targetNode)
         }
 
@@ -143,8 +156,14 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     return false
   }
 
+  /**
+   * Updates complex keyword block nodes.
+   * Handles deletion of nested keywords and recursive cleanup of empty parents.
+   * @param {Object} correction - The change data.
+   * @param {Object} config - Configuration for the block node.
+   * @returns {boolean} True if the operation was successful.
+   */
   updateBlockNode(correction, config) {
-    // 1. Find the parent block using your namespaced XPath
     const targetNode = this.selectNodes(config.nodeXPath)[0] || null
     if (!targetNode) return false
 
@@ -153,10 +172,10 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       const matchingNode = this.findMatchingNode(targetNode, correction, config)
       if (!matchingNode) return false
 
-      // Remove the identified node
+      // Remove target node
       matchingNode.parentNode.removeChild(matchingNode)
 
-      // Cleanup empty parent blocks
+      // Cleanup: Remove parent blocks if they are now empty
       const remainingKeywords = this.selectNodes('./gmd:keyword', targetNode)
       if (remainingKeywords.length === 0) {
         const mdKeywordsParent = targetNode.parentNode
@@ -179,7 +198,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       if (matchingNode) {
         let fieldNode = null
 
-        // Attempt dynamic path if defined in the config
+        // Determine dynamic path or default
         if (replaceConfig.fieldPath) {
           const path = typeof replaceConfig.fieldPath === 'function'
             ? replaceConfig.fieldPath({
@@ -192,13 +211,13 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           [fieldNode] = this.selectNodes(relativePath, matchingNode)
         }
 
-        // Fallback: look for standard gco:CharacterString
+        // Fallback search for standard string elements
         if (!fieldNode) {
           [fieldNode] = this.selectNodes('./gco:CharacterString', matchingNode)
                     || this.selectNodes('gco:CharacterString', matchingNode)
         }
 
-        // Perform update
+        // Apply text update
         if (fieldNode) {
           const newValue = replaceConfig.source.getValue({ correction })
           this.setElementText(fieldNode, newValue)

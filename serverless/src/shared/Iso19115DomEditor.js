@@ -4,14 +4,22 @@ import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
 /**
  * Helper factory function to create a block editor configuration.
  * Maps a correction to an update operation within the editor instance.
+ * @param {Object} config - Configuration object defining XPath and transformation logic.
+ * @returns {Function} Function to apply the update.
  */
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
-
+/**
+ * Helper factory function to create a leaf editor configuration.
+ * @param {Object} config - Configuration object for updating single nodes.
+ * @returns {Function} Function to apply the update.
+ */
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
-
 /**
  * Factory to generate standardized keyword block editors for structures
  * like Platforms and Instruments.
+ * * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
+ * @param {Object} options - Configuration for field parsing and value generation.
+ * @returns {Function} Configured block editor function.
  */
 const createKeywordBlock = (type, { fieldKeys, matchKeys, getValue }) => blockScheme({
   nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}']`,
@@ -19,6 +27,10 @@ const createKeywordBlock = (type, { fieldKeys, matchKeys, getValue }) => blockSc
     fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
     valueKeys: fieldKeys,
     matchKeys,
+    /**
+     * Extracts values from the XML node and maps them to field keys.
+     * Handles hierarchical strings (l1 > l2).
+     */
     getNodeValueObject: ({ node, editor }) => {
       const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
       const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
@@ -36,16 +48,20 @@ const createKeywordBlock = (type, { fieldKeys, matchKeys, getValue }) => blockSc
   },
   replace: [
     {
+      // Dynamically select target element (Anchor vs CharacterString) based on existing content
       fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
-        // Use the custom getValue if provided, else fall back to default
+        // Allows custom formatting for keyword strings; defaults to joining keys with ' > '
         getValue: getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k]).filter(Boolean).join(' > '))
       }
     }
   ]
 })
-
+/**
+ * Creates an editor for ISO Topic Category nodes.
+ * Updates both the text content and the @codeListValue attribute.
+ */
 const createIsoTopicCategoryEditor = () => leafScheme({
   nodeXPath: '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:topicCategory',
   find: {
@@ -70,7 +86,10 @@ const createIsoTopicCategoryEditor = () => leafScheme({
     }
   ]
 })
-
+/**
+ * Creates an editor for Processing Level Identifiers.
+ * Manages deletion of old paths and insertion/updates into specific XML locations.
+ */
 const createProductLevelIdEditor = () => leafScheme({
   nodeXPath: '//gmd:processingLevel/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
   find: {
@@ -85,7 +104,6 @@ const createProductLevelIdEditor = () => leafScheme({
   ],
   replace: [
     {
-      // Since matchingNode is now MD_Identifier, this path correctly selects the child
       fieldPath: 'gmd:code/gco:CharacterString',
       source: {
         type: 'computed',
@@ -93,6 +111,7 @@ const createProductLevelIdEditor = () => leafScheme({
       }
     },
     {
+      // Target specific secondary locations for synchronization
       fieldPath: '//gmd:contentInfo/gmd:MD_ImageDescription/gmd:processingLevelCode/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]/gmd:code/gco:CharacterString',
       source: {
         type: 'computed',
@@ -157,10 +176,6 @@ export const ISO_19115_SCHEME_EDITORS = {
     }
   }),
 
-  isotopiccategory: createIsoTopicCategoryEditor(),
-
-  productlevelid: createProductLevelIdEditor(),
-
   providers: createKeywordBlock('dataCentre', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
@@ -170,16 +185,11 @@ export const ISO_19115_SCHEME_EDITORS = {
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
     }
-  })
+  }),
 
-  /*
-  Providers: short name not in examples
-              <gmd:organisationName>
-                <gco:CharacterString>National Snow and Ice Data Center</gco:CharacterString>
-              </gmd:organisationName>
-  rucontenttype: TBD
-  idnnode: no mapping
-  */
+  isotopiccategory: createIsoTopicCategoryEditor(),
+
+  productlevelid: createProductLevelIdEditor()
 }
 
 /**
