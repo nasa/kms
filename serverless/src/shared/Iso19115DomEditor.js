@@ -60,60 +60,18 @@ const createHierarchicalKeywordBlock = (keywordTypeCode, fieldKeys) => blockSche
  * Factory to generate standardized keyword block editors for structures
  * like Platforms and Instruments.
  */
-const createKeywordBlock = (keywordTypeCode) => blockScheme({
-  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords
-  [
-    gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${keywordTypeCode}'
-  ]`,
+const createKeywordBlock = (type) => blockScheme({
+  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}']`,
   find: {
-    fieldPaths: ['gco:CharacterString'],
-    valueKeys: ['ShortName', 'LongName'],
-    getNodeValueObject: ({ node, editor, fieldPaths }) => {
-      const fullString = editor.getNestedText(node, fieldPaths[0]) || ''
-      const [ShortName, ...longNameParts] = fullString.split(' > ')
-
-      return {
-        ShortName: ShortName?.trim() || '',
-        LongName: longNameParts.join(' > ').trim() || ''
-      }
-    }
-  },
-  replace: [
-    {
-      fieldPath: 'gmd:keyword/gco:CharacterString',
-      source: {
-        type: 'computed',
-        getValue: ({ correction }) => {
-          const { ShortName } = correction.newKeywordObject
-          const LongName = correction.newLongName
-
-          return `${ShortName} > ${LongName}`
-        }
-      }
-    }
-  ]
-})
-
-/**
- * Factory to generate standardized keyword block editors for structures
- * like Platforms and Instruments.
- */
-const createProviderEditor = () => blockScheme({
-  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords
-  [
-    gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'dataCentre'
-  ]`,
-  find: {
-    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'], // Changed paths to be relative to <gmd:keyword>
+    // Look for both, factory will handle the specific logic
+    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
     valueKeys: ['ShortName', 'LongName'],
     getNodeValueObject: ({ node, editor }) => {
-      // Directly extract the text from the child elements
+      // Use helper to grab content regardless of tag type
       const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
       const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
 
-      const fullString = (anchorNode ? anchorNode.textContent : '')
-                     || (charStringNode ? charStringNode.textContent : '') || ''
-
+      const fullString = (anchorNode || charStringNode)?.textContent || ''
       const [ShortName, ...longNameParts] = fullString.split(' > ')
 
       return {
@@ -124,9 +82,8 @@ const createProviderEditor = () => blockScheme({
   },
   replace: [
     {
-      fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0
-        ? 'gmx:Anchor'
-        : 'gco:CharacterString'),
+      // Dynamic path resolver used by the editor class
+      fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
         getValue: ({ correction }) => {
@@ -222,7 +179,7 @@ export const ISO_19115_SCHEME_EDITORS = {
 
   productlevelid: createProductLevelIdEditor(),
 
-  providers: createProviderEditor()
+  providers: createKeywordBlock('dataCentre')
 
   /*
   Providers: short name not in examples
