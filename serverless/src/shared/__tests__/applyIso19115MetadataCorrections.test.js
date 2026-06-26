@@ -14,6 +14,7 @@ const mockIso19115 = `
   xmlns:gmd="http://www.isotc211.org/2005/gmd" 
   xmlns:gmi="http://www.isotc211.org/2005/gmi" 
   xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
   xmlns:xlink="http://www.w3.org/1999/xlink" 
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <gmd:identificationInfo>
@@ -37,6 +38,82 @@ const mockIso19115 = `
           </gmd:codeSpace>
         </gmd:MD_Identifier>
       </gmd:processingLevel>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gmx:Anchor xlink:href="https://gcmdservices.gsfc.nasa.gov/kms/concept/086c68e5-1c94-4f2f-89d5-0453443ff249" xlink:actuate="onRequest">DOC/NOAA/NESDIS/NODC &gt; National Oceanographic Data Center, NESDIS, NOAA, U.S. Department of Commerce</gmx:Anchor>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gmx:Anchor xlink:href="https://gcmdservices.gsfc.nasa.gov/kms/concept/e59896e0-3b4d-43ea-9348-f1f456305d05" xlink:actuate="onRequest">DOC/NOAA/NESDIS/NCEI &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce</gmx:Anchor>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeList="https://data.noaa.gov/resources/iso19139/schema/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="dataCentre">dataCentre</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+          <gmd:thesaurusName>
+            <gmd:CI_Citation>
+              <gmd:title>
+                <gco:CharacterString>Global Change Master Directory (GCMD) Data Center Keywords</gco:CharacterString>
+              </gmd:title>
+              <gmd:date>
+                <gmd:CI_Date>
+                  <gmd:date>
+                    <gco:Date>2019-11-12</gco:Date>
+                  </gmd:date>
+                  <gmd:dateType>
+                    <gmd:CI_DateTypeCode codeList="https://data.noaa.gov/resources/iso19139/schema/resources/Codelist/gmxCodelists.xml#CI_DateTypeCode" codeListValue="publication">publication</gmd:CI_DateTypeCode>
+                  </gmd:dateType>
+                </gmd:CI_Date>
+              </gmd:date>
+              <gmd:edition>
+                <gco:CharacterString>9</gco:CharacterString>
+              </gmd:edition>
+              <gmd:citedResponsibleParty>
+                <gmd:CI_ResponsibleParty>
+                  <gmd:organisationName>
+                    <gco:CharacterString>Global Change Data Center, Science and Exploration Directorate, Goddard Space Flight Center (GSFC) National Aeronautics and Space Administration (NASA)</gco:CharacterString>
+                  </gmd:organisationName>
+                  <gmd:contactInfo>
+                    <gmd:CI_Contact>
+                      <gmd:address>
+                        <gmd:CI_Address>
+                          <gmd:city>
+                            <gco:CharacterString>Greenbelt</gco:CharacterString>
+                          </gmd:city>
+                          <gmd:administrativeArea>
+                            <gco:CharacterString>MD</gco:CharacterString>
+                          </gmd:administrativeArea>
+                        </gmd:CI_Address>
+                      </gmd:address>
+                      <gmd:onlineResource>
+                        <gmd:CI_OnlineResource>
+                          <gmd:linkage>
+                            <gmd:URL>https://wiki.earthdata.nasa.gov/display/gcmdkey</gmd:URL>
+                          </gmd:linkage>
+                          <gmd:protocol>
+                            <gco:CharacterString>HTTPS</gco:CharacterString>
+                          </gmd:protocol>
+                          <gmd:name>
+                            <gco:CharacterString>GCMD Keyword Forum Page</gco:CharacterString>
+                          </gmd:name>
+                          <gmd:description>
+                            <gco:CharacterString>The information provided on this page seeks to define how the GCMD Keywords are structured, used and accessed. It also provides information on how users can participate in the further development of the keywords.</gco:CharacterString>
+                          </gmd:description>
+                          <gmd:function>
+                            <gmd:CI_OnLineFunctionCode codeList="https://data.noaa.gov/resources/iso19139/schema/resources/Codelist/gmxCodelists.xml#CI_OnLineFunctionCode" codeListValue="information">information</gmd:CI_OnLineFunctionCode>
+                          </gmd:function>
+                        </gmd:CI_OnlineResource>
+                      </gmd:onlineResource>
+                    </gmd:CI_Contact>
+                  </gmd:contactInfo>
+                  <gmd:role>
+                    <gmd:CI_RoleCode codeList="https://data.noaa.gov/resources/iso19139/schema/resources/Codelist/gmxCodelists.xml#CI_RoleCode" codeListValue="custodian">custodian</gmd:CI_RoleCode>
+                  </gmd:role>
+                </gmd:CI_ResponsibleParty>
+              </gmd:citedResponsibleParty>
+            </gmd:CI_Citation>
+          </gmd:thesaurusName>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
       <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>   
           <gmd:keyword>
@@ -590,5 +667,49 @@ describe('when applying productlevelid ISO-19115 corrections', () => {
     // Verify that the Identifier block is completely gone from both expected locations
     expect(updatedXml).not.toContain('gov.nasa.esdis.umm.processinglevelid')
     expect(updatedXml).not.toContain('<gco:CharacterString>3</gco:CharacterString>')
+  })
+})
+
+describe('when applying providers ISO-19115 corrections', () => {
+  test('should replace existing providers keyword correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'providers',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'DOC/NOAA/NESDIS/NCEI' },
+      newKeywordObject: {
+        ShortName: 'DOC/NOAA/NESDIS/NCEI-1'
+      },
+      newLongName: 'New Provider Description'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.providers
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('DOC/NOAA/NESDIS/NCEI-1 &gt; New Provider Description')
+    expect(updatedXml).not.toContain('DOC/NOAA/NESDIS/NCEI &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce')
+  })
+
+  test('should delete existing providers keyword block correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+    const correction = {
+      scheme: 'providers',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'DOC/NOAA/NESDIS/NCEI' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.providers
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the specific keyword is gone
+    const updatedXml = editor.serialize()
+    expect(updatedXml).not.toContain('DOC/NOAA/NESDIS/NCEI &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce')
+    expect(updatedXml).toContain('DOC/NOAA/NESDIS/NODC &gt; National Oceanographic Data Center, NESDIS, NOAA, U.S. Department of Commerce')
   })
 })

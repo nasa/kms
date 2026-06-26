@@ -113,31 +113,35 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     if (!targetNode) return false
 
     // 2. Handle the 'delete' action
+    // 2. Handle the 'delete' action
     if (correction.action === 'delete') {
-      // Normalize search string to lowercase
-      const oldVal = (correction.oldKeywordObject.Value || correction.oldKeywordObject.ShortName || '').toLowerCase().trim()
+      // 1. Get all potential keyword nodes within the block
+      const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
 
-      // 1. Get all potential CharacterString nodes within the block
-      const allCharStrings = this.selectNodes('.//gmd:keyword/gco:CharacterString', targetNode)
+      // 2. Find the correct node using your config's getNodeValueObject
+      const matchingNode = keywordNodes.find((node) => {
+        const parsedObject = config.find.getNodeValueObject({
+          node,
+          editor: this,
+          fieldPaths: config.find.fieldPaths
+        })
 
-      // 2. Find the node using a case-insensitive partial match (.includes)
-      const targetCharString = allCharStrings.find((node) => {
-        const textValue = (node.textContent || '').toLowerCase().trim()
+        return Object.keys(correction.oldKeywordObject).every((key) => {
+          const parsedValue = parsedObject[key] ? trimString(parsedObject[key]).toLowerCase() : ''
+          const correctionValue = correction.oldKeywordObject[key] ? trimString(correction.oldKeywordObject[key]).toLowerCase() : ''
 
-        return textValue.includes(oldVal)
+          return parsedValue === correctionValue
+        })
       })
 
-      if (!targetCharString) return false
+      if (!matchingNode) return false
 
-      // 3. Remove the specific keyword entry
-      const keywordNode = targetCharString.parentNode
-      keywordNode.parentNode.removeChild(keywordNode)
+      // 3. Remove the identified node
+      matchingNode.parentNode.removeChild(matchingNode)
 
-      // 4. Check if any keywords remain in the MD_Keywords block
-      const remainingKeywords = this.selectNodes('.//gmd:keyword', targetNode)
-
+      // 4. Cleanup empty parent blocks (same logic as before)
+      const remainingKeywords = this.selectNodes('./gmd:keyword', targetNode)
       if (remainingKeywords.length === 0) {
-        // ... (rest of your cleanup logic remains exactly the same)
         const mdKeywordsParent = targetNode.parentNode
         mdKeywordsParent.removeChild(targetNode)
 
@@ -174,12 +178,31 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         })
       })
 
+      // Inside Iso19115MetadataPathEditor.js, within the 'replace' action block:
       if (matchingNode) {
-        // Since matchingNode is already the <gmd:keyword> element,
-        // we look for the child <gco:CharacterString> directly.
-        const fieldNode = this.selectNodes('./gco:CharacterString', matchingNode)[0]
-                    || this.selectNodes('gco:CharacterString', matchingNode)[0]
+        let fieldNode = null
 
+        // 1. Attempt to find the dynamic path if defined in the config
+        if (replaceConfig.fieldPath) {
+          const path = typeof replaceConfig.fieldPath === 'function'
+            ? replaceConfig.fieldPath({
+              node: matchingNode,
+              editor: this
+            })
+            : replaceConfig.fieldPath
+
+          const relativePath = path.startsWith('./') ? path : `./${path}`;
+          // Use destructuring to capture the first match directly
+          [fieldNode] = this.selectNodes(relativePath, matchingNode)
+        }
+
+        // 2. Fallback: If dynamic path failed, look for standard gco:CharacterString
+        if (!fieldNode) {
+          [fieldNode] = this.selectNodes('./gco:CharacterString', matchingNode)
+                    || this.selectNodes('gco:CharacterString', matchingNode)
+        }
+
+        // 3. Perform update if node found
         if (fieldNode) {
           const newValue = replaceConfig.source.getValue({ correction })
           this.setElementText(fieldNode, newValue)
