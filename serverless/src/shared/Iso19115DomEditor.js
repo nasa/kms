@@ -10,88 +10,37 @@ const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(c
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
 
 /**
- * Factory to generate hierarchical keyword block editors
- * (like Science Keywords and Locations).
- */
-const createHierarchicalKeywordBlock = (keywordTypeCode, fieldKeys) => blockScheme({
-  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords
-  [
-    gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${keywordTypeCode}'
-  ]`,
-  find: {
-    fieldPaths: ['gco:CharacterString'],
-    valueKeys: fieldKeys,
-    getNodeValueObject: ({ node, editor, fieldPaths }) => {
-      const fullString = editor.getNestedText(node, fieldPaths[0]) || ''
-      const parts = fullString.split(' > ').map((s) => s.trim())
-      const fields = fieldKeys
-
-      const obj = fields.reduce((acc, field, index) => {
-        acc[field] = parts[index] || ''
-
-        return acc
-      }, {})
-
-      obj.Value = fullString.trim()
-
-      return obj
-    }
-  },
-  replace: [
-    {
-      fieldPath: 'gmd:keyword/gco:CharacterString',
-      source: {
-        type: 'computed',
-        getValue: ({ correction }) => {
-          const k = correction.newKeywordObject
-          const fields = fieldKeys
-
-          return fields
-            .map((field) => k[field] || '')
-            .filter((v) => v.trim().length > 0)
-            .join(' > ')
-        }
-      }
-    }
-  ]
-})
-
-/**
  * Factory to generate standardized keyword block editors for structures
  * like Platforms and Instruments.
  */
-const createKeywordBlock = (type) => blockScheme({
+const createKeywordBlock = (type, { fieldKeys, matchKeys, getValue }) => blockScheme({
   nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}']`,
   find: {
-    // Look for both, factory will handle the specific logic
     fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
-    valueKeys: ['ShortName', 'LongName'],
+    valueKeys: fieldKeys,
+    matchKeys,
     getNodeValueObject: ({ node, editor }) => {
-      // Use helper to grab content regardless of tag type
       const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
       const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
 
       const fullString = (anchorNode || charStringNode)?.textContent || ''
-      const [ShortName, ...longNameParts] = fullString.split(' > ')
+      // Parsing logic: Hierarchical (l1 > l2) or Simple (short > long)
+      const parts = fullString.split(' > ').map((s) => s.trim())
 
-      return {
-        ShortName: ShortName?.trim() || '',
-        LongName: longNameParts.join(' > ').trim() || ''
-      }
+      return fieldKeys.reduce((acc, key, index) => {
+        acc[key] = parts[index] || ''
+
+        return acc
+      }, { Value: fullString.trim() })
     }
   },
   replace: [
     {
-      // Dynamic path resolver used by the editor class
       fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
-        getValue: ({ correction }) => {
-          const { ShortName } = correction.newKeywordObject
-          const LongName = correction.newLongName || ''
-
-          return LongName ? `${ShortName} > ${LongName}` : ShortName
-        }
+        // Use the custom getValue if provided, else fall back to default
+        getValue: getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k]).filter(Boolean).join(' > '))
       }
     }
   ]
@@ -159,27 +108,69 @@ const createProductLevelIdEditor = () => leafScheme({
  * within an ISO 19115 XML structure using XPath selectors and transformation logic.
  */
 export const ISO_19115_SCHEME_EDITORS = {
-  sciencekeywords: createHierarchicalKeywordBlock(
+  sciencekeywords: createKeywordBlock(
     'theme',
-    FULL_PATH_VALUE_FIELDS.sciencekeywords
+    {
+      fieldKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords,
+      matchKeys: ['Value']
+    }
   ),
 
-  locations: createHierarchicalKeywordBlock(
+  locations: createKeywordBlock(
     'place',
-    FULL_PATH_VALUE_FIELDS.locations
+    {
+      fieldKeys: FULL_PATH_VALUE_FIELDS.locations,
+      matchKeys: ['Value']
+    }
   ),
 
-  platforms: createKeywordBlock('platform'),
+  platforms: createKeywordBlock('platform', {
+    fieldKeys: ['ShortName', 'LongName'],
+    matchKeys: ['ShortName'],
+    getValue: ({ correction }) => {
+      const { ShortName } = correction.newKeywordObject
+      const LongName = correction.newLongName || ''
 
-  instruments: createKeywordBlock('instrument'),
+      return LongName ? `${ShortName} > ${LongName}` : ShortName
+    }
+  }),
 
-  projects: createKeywordBlock('project'),
+  instruments: createKeywordBlock('instrument', {
+    fieldKeys: ['ShortName', 'LongName'],
+    matchKeys: ['ShortName'],
+    getValue: ({ correction }) => {
+      const { ShortName } = correction.newKeywordObject
+      const LongName = correction.newLongName || ''
+
+      return LongName ? `${ShortName} > ${LongName}` : ShortName
+    }
+  }),
+
+  projects: createKeywordBlock('project', {
+    fieldKeys: ['ShortName', 'LongName'],
+    matchKeys: ['ShortName'],
+    getValue: ({ correction }) => {
+      const { ShortName } = correction.newKeywordObject
+      const LongName = correction.newLongName || ''
+
+      return LongName ? `${ShortName} > ${LongName}` : ShortName
+    }
+  }),
 
   isotopiccategory: createIsoTopicCategoryEditor(),
 
   productlevelid: createProductLevelIdEditor(),
 
-  providers: createKeywordBlock('dataCentre')
+  providers: createKeywordBlock('dataCentre', {
+    fieldKeys: ['ShortName', 'LongName'],
+    matchKeys: ['ShortName'],
+    getValue: ({ correction }) => {
+      const { ShortName } = correction.newKeywordObject
+      const LongName = correction.newLongName || ''
+
+      return LongName ? `${ShortName} > ${LongName}` : ShortName
+    }
+  })
 
   /*
   Providers: short name not in examples

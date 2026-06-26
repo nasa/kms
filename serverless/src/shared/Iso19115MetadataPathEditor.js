@@ -1,7 +1,7 @@
 import xpath from 'xpath'
 
 import XmlMetadataPathEditor from './XmlMetadataPathEditor'
-import { extractNamespaces, trimString } from './XmlUtils'
+import { extractNamespaces } from './XmlUtils'
 
 /**
  * Subclass of XmlMetadataPathEditor specialized for ISO 19115 XML structure.
@@ -9,16 +9,27 @@ import { extractNamespaces, trimString } from './XmlUtils'
 export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   constructor(xmlString) {
     super(xmlString)
-    // Get the root element
     const root = this.document.documentElement
 
-    // Build the namespace map from the root's attributes
-    const namespaces = extractNamespaces(root)
+    // 1. Get dynamic namespaces
+    const extracted = extractNamespaces(root)
 
-    // Store for use in XPath resolution
-    this.namespaces = namespaces
-    const resolver = xpath.useNamespaces(namespaces)
-    this.resolver = resolver
+    // 2. Define standard ISO 19115 namespaces
+    const standardNamespaces = {
+      gco: 'http://www.isotc211.org/2005/gco',
+      gmd: 'http://www.isotc211.org/2005/gmd',
+      gmi: 'http://www.isotc211.org/2005/gmi',
+      gmx: 'http://www.isotc211.org/2005/gmx',
+      gml: 'http://www.opengis.net/gml/3.2'
+    }
+
+    // 3. Merge them, prioritizing extracted ones (if any)
+    this.namespaces = {
+      ...standardNamespaces,
+      ...extracted
+    }
+
+    this.resolver = xpath.useNamespaces(this.namespaces)
   }
 
   // In Iso19115Editor class
@@ -26,6 +37,31 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   // Use the registered resolver instance
     return this.resolver(expression, contextNode)
       .filter((node) => node?.nodeType === 1) // ELEMENT_NODE
+  }
+
+  /**
+   * Helper to identify the correct keyword node based on the config.
+   */
+  findMatchingNode(targetNode, correction, config) {
+    const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
+
+    return keywordNodes.find((node) => {
+      const parsedObject = config.find.getNodeValueObject({
+        node,
+        editor: this,
+        fieldPaths: config.find.fieldPaths
+      })
+
+      // Use matchKeys if defined, otherwise fall back to oldKeywordObject keys
+      const matchKeys = config.find.matchKeys || Object.keys(correction.oldKeywordObject)
+
+      return matchKeys.every((key) => {
+        const parsedValue = (parsedObject[key] || '').toLowerCase().trim()
+        const correctionValue = (correction.oldKeywordObject[key] || '').toLowerCase().trim()
+
+        return parsedValue === correctionValue
+      })
+    })
   }
 
   /**
@@ -113,33 +149,14 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     if (!targetNode) return false
 
     // 2. Handle the 'delete' action
-    // 2. Handle the 'delete' action
     if (correction.action === 'delete') {
-      // 1. Get all potential keyword nodes within the block
-      const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
-
-      // 2. Find the correct node using your config's getNodeValueObject
-      const matchingNode = keywordNodes.find((node) => {
-        const parsedObject = config.find.getNodeValueObject({
-          node,
-          editor: this,
-          fieldPaths: config.find.fieldPaths
-        })
-
-        return Object.keys(correction.oldKeywordObject).every((key) => {
-          const parsedValue = parsedObject[key] ? trimString(parsedObject[key]).toLowerCase() : ''
-          const correctionValue = correction.oldKeywordObject[key] ? trimString(correction.oldKeywordObject[key]).toLowerCase() : ''
-
-          return parsedValue === correctionValue
-        })
-      })
-
+      const matchingNode = this.findMatchingNode(targetNode, correction, config)
       if (!matchingNode) return false
 
-      // 3. Remove the identified node
+      // Remove the identified node
       matchingNode.parentNode.removeChild(matchingNode)
 
-      // 4. Cleanup empty parent blocks (same logic as before)
+      // Cleanup empty parent blocks
       const remainingKeywords = this.selectNodes('./gmd:keyword', targetNode)
       if (remainingKeywords.length === 0) {
         const mdKeywordsParent = targetNode.parentNode
@@ -157,32 +174,12 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     // 3. Handle the 'replace' action
     if (correction.action === 'replace') {
       const replaceConfig = config.replace[0]
+      const matchingNode = this.findMatchingNode(targetNode, correction, config)
 
-      // 1. Get all keyword nodes in this block
-      const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
-
-      const matchingNode = keywordNodes.find((node) => {
-        const parsedObject = config.find.getNodeValueObject({
-          node,
-          editor: this,
-          fieldPaths: config.find.fieldPaths
-        })
-
-        // Compare ALL keys present in the correction.oldKeywordObject
-        // This works for { Value: '...' } AND { ShortName: '...' }
-        return Object.keys(correction.oldKeywordObject).every((key) => {
-          const parsedValue = parsedObject[key] ? trimString(parsedObject[key]).toLowerCase() : ''
-          const correctionValue = correction.oldKeywordObject[key] ? trimString(correction.oldKeywordObject[key]).toLowerCase() : ''
-
-          return parsedValue === correctionValue
-        })
-      })
-
-      // Inside Iso19115MetadataPathEditor.js, within the 'replace' action block:
       if (matchingNode) {
         let fieldNode = null
 
-        // 1. Attempt to find the dynamic path if defined in the config
+        // Attempt dynamic path if defined in the config
         if (replaceConfig.fieldPath) {
           const path = typeof replaceConfig.fieldPath === 'function'
             ? replaceConfig.fieldPath({
@@ -192,17 +189,16 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             : replaceConfig.fieldPath
 
           const relativePath = path.startsWith('./') ? path : `./${path}`;
-          // Use destructuring to capture the first match directly
           [fieldNode] = this.selectNodes(relativePath, matchingNode)
         }
 
-        // 2. Fallback: If dynamic path failed, look for standard gco:CharacterString
+        // Fallback: look for standard gco:CharacterString
         if (!fieldNode) {
           [fieldNode] = this.selectNodes('./gco:CharacterString', matchingNode)
                     || this.selectNodes('gco:CharacterString', matchingNode)
         }
 
-        // 3. Perform update if node found
+        // Perform update
         if (fieldNode) {
           const newValue = replaceConfig.source.getValue({ correction })
           this.setElementText(fieldNode, newValue)
@@ -211,7 +207,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         }
       }
 
-      return false // Match not found or fieldNode missing
+      return false
     }
 
     return false
