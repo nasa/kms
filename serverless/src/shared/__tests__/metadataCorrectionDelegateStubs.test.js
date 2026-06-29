@@ -202,7 +202,15 @@ describe('metadata correction delegate stubs', () => {
     const correction = {
       scheme: 'sciencekeywords',
       action: 'replace',
-      oldKeywordObject: { Value: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS' },
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
       newKeywordObject: {
         Category: 'EARTH SCIENCE',
         Topic: 'ATMOSPHERE',
