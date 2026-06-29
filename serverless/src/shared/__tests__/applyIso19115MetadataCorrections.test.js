@@ -336,7 +336,15 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
     const correction = {
       scheme: 'sciencekeywords',
       action: 'replace',
-      oldKeywordObject: { Value: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS' },
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
       newKeywordObject: {
         Category: 'EARTH SCIENCE',
         Topic: 'OCEANS',
@@ -364,7 +372,15 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
     const correction = {
       scheme: 'sciencekeywords',
       action: 'delete',
-      oldKeywordObject: { Value: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS' }
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.sciencekeywords
@@ -383,7 +399,15 @@ describe('when applying sciencekeywords ISO-19115 corrections', () => {
     const correction = {
       scheme: 'sciencekeywords',
       action: 'delete',
-      oldKeywordObject: { Value: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS' }
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.sciencekeywords
@@ -405,7 +429,14 @@ describe('when applying locations ISO-19115 corrections', () => {
     const correction = {
       scheme: 'locations',
       action: 'replace',
-      oldKeywordObject: { Value: 'CONTINENT > NORTH AMERICA > CANADA > ALBERTA' },
+      oldKeywordObject: {
+        Category: 'CONTINENT',
+        Type: 'NORTH AMERICA',
+        Subregion1: 'CANADA',
+        Subregion2: 'ALBERTA',
+        Subregion3: '',
+        DetailedLocation: ''
+      },
       newKeywordObject: {
         Category: 'CONTINENT',
         Type: 'NORTH AMERICA',
@@ -432,7 +463,14 @@ describe('when applying locations ISO-19115 corrections', () => {
     const correction = {
       scheme: 'locations',
       action: 'delete',
-      oldKeywordObject: { Value: 'Continent > North America > Greenland' }
+      oldKeywordObject: {
+        Category: 'Continent',
+        Type: 'North America',
+        Subregion1: 'Greenland',
+        Subregion2: '',
+        Subregion3: '',
+        DetailedLocation: ''
+      }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.locations
