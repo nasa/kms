@@ -2,6 +2,7 @@ import * as path from 'path'
 
 import * as cdk from 'aws-cdk-lib'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -158,6 +159,10 @@ export class MetadataCorrectionSetup extends Construct {
     ))
 
     this.metadataCorrectionRequestsQueue.grantConsumeMessages(this.metadataCorrectionServiceLambda)
+    this.metadataCorrectionServiceLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cloudwatch:PutMetricData'],
+      resources: ['*']
+    }))
 
     this.metadataCorrectionRequestsTopicArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsTopicArn', {
       description: 'SNS topic ARN for metadata correction request publishing',

@@ -1,4 +1,6 @@
 import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
+import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
+import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
 import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
 import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
@@ -154,6 +156,86 @@ const determineNoOpOutcome = (keywordValidationFailures) => (
 )
 
 /**
+ * Determines which record-update metric applies to the current correction run.
+ *
+ * @param {Object} params Classification inputs.
+ * @param {Object} params.keywordEvent Optional triggering keyword event context.
+ * @param {string} params.source Source label for the current correction request.
+ * @returns {string|undefined} Metric name for the update source, if one applies.
+ */
+const getRecordUpdateMetricName = ({
+  keywordEvent,
+  source
+}) => {
+  if (source === 'metadataCorrectionApi') {
+    return CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_MANUAL
+  }
+
+  if (typeof keywordEvent?.uuid === 'string' && keywordEvent.uuid.trim().length > 0) {
+    return CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_EVENT
+  }
+
+  return undefined
+}
+
+/**
+ * Builds the reconciliation/update metrics for a completed correction run.
+ *
+ * @param {Object} params Metric inputs.
+ * @param {Object} params.keywordEvent Optional triggering keyword event context.
+ * @param {string} params.source Source label for the current correction request.
+ * @param {Array} params.keywordValidationFailures Extracted invalid keyword failures.
+ * @param {Array} params.resolvedCorrections Resolved corrections derived from the failures.
+ * @param {Array} params.correctionsApplied Delegate-applied corrections.
+ * @param {Object|null} params.writeResult Writeback summary returned by CMR writeback.
+ * @returns {Array<{metricName: string, value: number}>} Metric payload for the run.
+ */
+const buildRunMetrics = ({
+  keywordEvent,
+  source,
+  keywordValidationFailures,
+  resolvedCorrections,
+  correctionsApplied,
+  writeResult
+}) => {
+  const metrics = [
+    {
+      metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+      value: keywordValidationFailures.length
+    },
+    {
+      metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+      value: resolvedCorrections.length
+    },
+    {
+      metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+      value: correctionsApplied.length
+    }
+  ]
+  const writebackUpdated = writeResult?.ingestResult?.updated === true
+  const recordUpdateMetricName = getRecordUpdateMetricName({
+    keywordEvent,
+    source
+  })
+
+  if (correctionsApplied.length > 0 && writebackUpdated) {
+    metrics.push({
+      metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_WRITTEN_TO_CMR,
+      value: correctionsApplied.length
+    })
+
+    if (recordUpdateMetricName) {
+      metrics.push({
+        metricName: recordUpdateMetricName,
+        value: 1
+      })
+    }
+  }
+
+  return metrics
+}
+
+/**
  * Runs the full metadata-correction flow for one collection and returns a rich summary.
  *
  * This is the shared execution seam used by both the asynchronous SQS consumer and the
@@ -216,6 +298,24 @@ export const runCollectionMetadataCorrection = async ({
       messageId,
       nativeFormat,
       keywordValidationFailureCount: keywordValidationFailures.length
+    })
+
+    await emitConsumerMetricsSafely({
+      metrics: buildRunMetrics({
+        keywordEvent,
+        source,
+        keywordValidationFailures,
+        resolvedCorrections,
+        correctionsApplied: [],
+        writeResult: null
+      }),
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics',
+      logContext: {
+        collectionConceptId: collectionDetails.collectionConceptId,
+        messageId,
+        nativeFormat,
+        source
+      }
     })
 
     return {
@@ -338,6 +438,24 @@ export const runCollectionMetadataCorrection = async ({
     nativeFormat,
     correctionCount: normalizedCorrectionCount,
     writeResult
+  })
+
+  await emitConsumerMetricsSafely({
+    metrics: buildRunMetrics({
+      keywordEvent,
+      source,
+      keywordValidationFailures,
+      resolvedCorrections,
+      correctionsApplied,
+      writeResult
+    }),
+    logMessage: '[metadata-correction] Failed to emit correction-run metrics',
+    logContext: {
+      collectionConceptId: collectionDetails.collectionConceptId,
+      messageId,
+      nativeFormat,
+      source
+    }
   })
 
   return {

@@ -1,3 +1,5 @@
+import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
+import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { logger } from '@/shared/logger'
 import { runCollectionMetadataCorrection } from '@/shared/runCollectionMetadataCorrection'
 
@@ -15,6 +17,17 @@ export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
 
   await Promise.all(records.map(async (record) => {
+    await emitConsumerMetricsSafely({
+      metrics: [{
+        metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
+        value: 1
+      }],
+      logMessage: '[metadata-correction] Failed to emit processing metrics',
+      logContext: {
+        messageId: record?.messageId
+      }
+    })
+
     try {
       const metadataCorrectionRequest = JSON.parse(record.body || '{}')
 
@@ -30,7 +43,31 @@ export const metadataCorrectionService = async (event) => {
         messageId: record.messageId,
         source: metadataCorrectionRequest.source
       })
+
+      await emitConsumerMetricsSafely({
+        metrics: [{
+          metricName: CONSUMER_METRIC_NAMES.EVENTS_PROCESSED,
+          value: 1
+        }],
+        logMessage: '[metadata-correction] Failed to emit processing metrics',
+        logContext: {
+          collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+          messageId: record.messageId,
+          source: metadataCorrectionRequest.source
+        }
+      })
     } catch (error) {
+      await emitConsumerMetricsSafely({
+        metrics: [{
+          metricName: CONSUMER_METRIC_NAMES.EVENT_PROCESSING_FAILURES,
+          value: 1
+        }],
+        logMessage: '[metadata-correction] Failed to emit processing metrics',
+        logContext: {
+          messageId: record?.messageId
+        }
+      })
+
       logger.error('[metadata-correction] Failed to process metadata correction request', error)
       throw error
     }

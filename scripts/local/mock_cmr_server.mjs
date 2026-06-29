@@ -77,6 +77,10 @@ const getNativeMetadataPayload = (collection) => {
 
 // Infer a reasonable content type for the fixture-backed native metadata response.
 const getNativeMetadataContentType = (collection) => {
+  if (collection.nativeMetadataContentType) {
+    return String(collection.nativeMetadataContentType).trim()
+  }
+
   const format = String(collection.format || '').trim()
 
   return format || 'application/octet-stream'

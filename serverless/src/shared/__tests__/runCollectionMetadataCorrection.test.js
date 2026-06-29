@@ -7,6 +7,8 @@ import {
 } from 'vitest'
 
 import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
+import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
+import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
 import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
 import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
@@ -43,9 +45,29 @@ vi.mock('@/shared/invokeMetadataCorrectionDelegate', () => ({
   ))
 }))
 
+vi.mock('@/shared/emitConsumerMetrics', () => ({
+  CONSUMER_METRIC_NAMES: {
+    EVENTS_CONSUMED: 'EventsConsumed',
+    EVENTS_PROCESSED: 'EventsProcessed',
+    EVENT_PROCESSING_FAILURES: 'EventProcessingFailures',
+    RECORDS_UPDATED_FROM_EVENT: 'RecordsUpdatedFromEvent',
+    RECORDS_UPDATED_FROM_MANUAL: 'RecordsUpdatedFromManual',
+    INVALID_KEYWORD_COUNT: 'InvalidKeywordCount',
+    CORRECTIONS_APPLIED_TO_METADATA: 'CorrectionsAppliedToMetadata',
+    CORRECTIONS_WRITTEN_TO_CMR: 'CorrectionsWrittenToCMR',
+    KEYWORDS_RESOLVED: 'KeywordsResolved'
+  },
+  emitConsumerMetrics: vi.fn()
+}))
+
+vi.mock('@/shared/emitConsumerMetricsSafely', () => ({
+  emitConsumerMetricsSafely: vi.fn()
+}))
+
 vi.mock('@/shared/logger', () => ({
   logger: {
-    info: vi.fn()
+    info: vi.fn(),
+    error: vi.fn()
   }
 }))
 
@@ -119,6 +141,24 @@ describe('runCollectionMetadataCorrection', () => {
       writeResult: null,
       source: 'metadataCorrectionService'
     })
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 0
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 0
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 0
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+    }))
 
     expect(logger.info).toHaveBeenCalledWith(
       '[metadata-correction] No resolvable keyword corrections found',
@@ -233,6 +273,7 @@ describe('runCollectionMetadataCorrection', () => {
 
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {
+        enabled: true,
         updated: true
       }
     })
@@ -241,6 +282,32 @@ describe('runCollectionMetadataCorrection', () => {
       collectionConceptId: 'C1234567890-PROV',
       source: 'metadataCorrectionApi'
     })
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_WRITTEN_TO_CMR,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_MANUAL,
+          value: 1
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+    }))
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
       1,
@@ -261,6 +328,54 @@ describe('runCollectionMetadataCorrection', () => {
         status: 'applied'
       })
     )
+  })
+
+  test('emits no-op run metrics for the synchronous concept-id correction flow', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: [],
+      warnings: [],
+      responseBody: {
+        errors: [],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      source: 'metadataCorrectionApi'
+    })).resolves.toEqual(expect.objectContaining({
+      outcome: 'no-keyword-issues'
+    }))
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 0
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 0
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 0
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+    }))
   })
 
   test('passes the exact fetched UMM content type through to writeback', async () => {
@@ -343,12 +458,14 @@ describe('runCollectionMetadataCorrection', () => {
 
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {
+        enabled: true,
         updated: true
       }
     })
 
     await runCollectionMetadataCorrection({
-      collectionConceptId: 'C1234567890-PROV'
+      collectionConceptId: 'C1234567890-PROV',
+      source: 'metadataCorrectionApi'
     })
 
     expect(getCmrCollectionNativeMetadata).toHaveBeenCalledWith({
@@ -367,6 +484,32 @@ describe('runCollectionMetadataCorrection', () => {
     expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
       nativeFormat: 'UMM',
       nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
+    }))
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_WRITTEN_TO_CMR,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_MANUAL,
+          value: 1
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
   })
 
@@ -452,6 +595,253 @@ describe('runCollectionMetadataCorrection', () => {
     expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
       nativeFormat: 'DIF10',
       nativeMetadataContentType: ''
+    }))
+  })
+
+  test('does not emit record-update metrics when corrections are applied but writeback is disabled', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValue({
+      insertedCount: 1,
+      publishedVersionName: 'published',
+      status: 'pending'
+    })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        enabled: false,
+        ingested: false,
+        updated: false
+      }
+    })
+
+    await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      keywordEvent: {
+        eventType: 'UPDATED',
+        scheme: 'sciencekeywords',
+        uuid: 'uuid-1'
+      }
+    })
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 1
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+    }))
+  })
+
+  test('emits direct update metrics for keyword-event-driven corrections', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'applied'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        enabled: true,
+        updated: true
+      }
+    })
+
+    await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      keywordEvent: {
+        eventType: 'UPDATED',
+        scheme: 'sciencekeywords',
+        uuid: 'uuid-1'
+      }
+    })
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_WRITTEN_TO_CMR,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_EVENT,
+          value: 1
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+    }))
+  })
+
+  test('logs and continues when correction-run metric emission fails', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: [],
+      warnings: [],
+      responseBody: {
+        errors: [],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+    vi.mocked(emitConsumerMetricsSafely).mockResolvedValueOnce(undefined)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).resolves.toEqual(expect.objectContaining({
+      outcome: 'no-keyword-issues'
+    }))
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      logMessage: '[metadata-correction] Failed to emit correction-run metrics',
+      logContext: expect.objectContaining({
+        collectionConceptId: 'C1234567890-PROV',
+        source: 'metadataCorrectionService'
+      })
     }))
   })
 
