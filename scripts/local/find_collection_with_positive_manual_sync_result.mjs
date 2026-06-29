@@ -37,6 +37,7 @@ const showUsageAndExit = (exitCode) => {
     '  MIN_VALUE            Minimum numeric value to count as a match. Defaults to 1.',
     '  MAX_CONCEPTS         Optional cap on how many concept ids to try.',
     '  REQUEST_DELAY_MS     Optional delay between endpoint calls. Defaults to 0.',
+    '  STOP_ON_ERROR        When true, throw on the first non-2xx response instead of skipping it.',
     '  KMS_BASE_URL         Optional KMS base URL override.',
     '',
     'Safety:',
@@ -206,6 +207,17 @@ const getFieldValue = (responseBody, fieldPath) => fieldPath
   ), responseBody)
 
 /**
+ * Compacts an error response body into a one-line snippet for stderr logging.
+ *
+ * @param {string} bodyText Raw HTTP response body.
+ * @returns {string} Trimmed one-line body preview.
+ */
+const formatErrorBodySnippet = (bodyText) => String(bodyText || '')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .slice(0, 500)
+
+/**
  * Calls the synchronous metadata-correction endpoint for one concept id.
  *
  * @param {object} params Request inputs.
@@ -303,6 +315,7 @@ const buildMatchSummary = ({
  * @param {string} params.resultField Dot-path field to inspect on the JSON response.
  * @param {number} params.minValue Minimum numeric value that counts as a match.
  * @param {number} params.requestDelayMs Delay between requests.
+ * @param {boolean} params.stopOnError When true, throw on the first non-2xx response.
  * @param {number} [params.inspectedCount=0] Number of requests already attempted.
  * @returns {Promise<object>} Match summary or a no-match summary when exhausted.
  */
@@ -313,6 +326,7 @@ const findFirstMatchingCollection = async ({
   resultField,
   minValue,
   requestDelayMs,
+  stopOnError,
   inspectedCount = 0
 }) => {
   if (candidateConceptIds.length === 0) {
@@ -340,10 +354,19 @@ const findFirstMatchingCollection = async ({
   })
 
   if (!result.ok) {
+    const errorBodySnippet = formatErrorBodySnippet(result.bodyText)
+
     process.stderr.write(
       `[find-positive-manual-sync-result] Skipping ${collectionConceptId}; `
-      + `endpoint returned ${result.status}\n`
+      + `endpoint returned ${result.status}${errorBodySnippet ? ` body=${errorBodySnippet}` : ''}\n`
     )
+
+    if (stopOnError) {
+      throw new Error(
+        `Manual sync endpoint failed for ${collectionConceptId} `
+        + `with status ${result.status}. ${errorBodySnippet || 'No response body returned.'}`
+      )
+    }
 
     if (requestDelayMs > 0) {
       await sleep(requestDelayMs)
@@ -356,6 +379,7 @@ const findFirstMatchingCollection = async ({
       resultField,
       minValue,
       requestDelayMs,
+      stopOnError,
       inspectedCount: nextInspectedCount
     })
   }
@@ -387,6 +411,7 @@ const findFirstMatchingCollection = async ({
     resultField,
     minValue,
     requestDelayMs,
+    stopOnError,
     inspectedCount: nextInspectedCount
   })
 }
@@ -420,6 +445,7 @@ const main = async () => {
   const resultField = String(process.env.RESULT_FIELD || 'resolvedCorrectionCount').trim()
   const minValue = parsePositiveInteger(process.env.MIN_VALUE, 1, 'MIN_VALUE')
   const requestDelayMs = parseNonNegativeInteger(process.env.REQUEST_DELAY_MS, 0, 'REQUEST_DELAY_MS')
+  const stopOnError = String(process.env.STOP_ON_ERROR || '').toLowerCase() === 'true'
   const maxConcepts = process.env.MAX_CONCEPTS
     ? parsePositiveInteger(process.env.MAX_CONCEPTS, 1, 'MAX_CONCEPTS')
     : undefined
@@ -455,7 +481,8 @@ const main = async () => {
     authorizationValue,
     resultField,
     minValue,
-    requestDelayMs
+    requestDelayMs,
+    stopOnError
   })
 
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`)
