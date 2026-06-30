@@ -40,6 +40,9 @@ const showUsageAndExit = (exitCode) => {
     '  STOP_ON_ERROR        When true, throw on the first non-2xx response instead of skipping it.',
     '  KMS_BASE_URL         Optional KMS base URL override.',
     '',
+    'UAT/Prod safety:',
+    '  For uat and prod runs, you must provide either MAX_CONCEPTS or a providerId filter.',
+    '',
     'Safety:',
     '  This script calls PUT /metadata_correction/{collectionConceptId}.',
     '  Set ALLOW_MUTATING_CORRECTION_ENDPOINT=true to acknowledge that it may',
@@ -205,6 +208,35 @@ const getFieldValue = (responseBody, fieldPath) => fieldPath
       ? value[segment]
       : undefined
   ), responseBody)
+
+/**
+ * Reads and validates the numeric result field used to decide whether a collection matched.
+ *
+ * @param {object|undefined} responseBody Parsed JSON response body from the sync endpoint.
+ * @param {string} fieldPath Dot-path field to read from the response.
+ * @returns {number} Numeric result value for comparison.
+ * @throws {Error} If the field is missing or does not resolve to a finite number.
+ */
+const getNumericResultFieldValue = (responseBody, fieldPath) => {
+  const rawValue = getFieldValue(responseBody, fieldPath)
+
+  if (rawValue === undefined) {
+    throw new Error(
+      `Requested RESULT_FIELD "${fieldPath}" was not present in the metadata correction response.`
+    )
+  }
+
+  const numericValue = Number(rawValue)
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error(
+      `Requested RESULT_FIELD "${fieldPath}" must resolve to a numeric value. `
+      + `Received: ${JSON.stringify(rawValue)}`
+    )
+  }
+
+  return numericValue
+}
 
 /**
  * Compacts an error response body into a one-line snippet for stderr logging.
@@ -384,7 +416,7 @@ const findFirstMatchingCollection = async ({
     })
   }
 
-  const resultValue = Number(getFieldValue(result.responseBody, resultField) || 0)
+  const resultValue = getNumericResultFieldValue(result.responseBody, resultField)
 
   process.stderr.write(
     `[find-positive-manual-sync-result] ${collectionConceptId} -> ${resultField}=${resultValue}\n`
@@ -449,6 +481,13 @@ const main = async () => {
   const maxConcepts = process.env.MAX_CONCEPTS
     ? parsePositiveInteger(process.env.MAX_CONCEPTS, 1, 'MAX_CONCEPTS')
     : undefined
+
+  if ((environment === 'uat' || environment === 'prod') && !maxConcepts && !providerId) {
+    throw new Error(
+      'UAT and prod runs require either MAX_CONCEPTS or a providerId filter to limit the '
+      + 'number of mutating metadata correction requests.'
+    )
+  }
 
   process.stderr.write(
     `[find-positive-manual-sync-result] Listing ${format} collections in ${environment}\n`
