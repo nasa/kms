@@ -4,6 +4,7 @@ import {
   test
 } from 'vitest'
 
+import applyIso19115MetadataCorrections from '../applyIso19115MetadataCorrections'
 import { ISO_19115_SCHEME_EDITORS } from '../Iso19115DomEditor'
 import Iso19115MetadataPathEditor from '../Iso19115MetadataPathEditor'
 
@@ -329,6 +330,56 @@ const mockIso19115WithOneScienceKeyword = `
     </gmd:MD_DataIdentification>
   </gmd:identificationInfo>
 </gmi:MI_Metadata>`
+
+describe('applyIso19115MetadataCorrections', () => {
+  test('should handle missing corrections array gracefully', async () => {
+    const params = {
+      metadataPayload: '<gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"></gmi:MI_Metadata>'
+    }
+
+    const result = await applyIso19115MetadataCorrections(params)
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toEqual([])
+    expect(result.correctedMetadata).toBeDefined()
+  })
+
+  test('should return early when metadataPayload is missing', async () => {
+    const params = {
+      metadataPayload: undefined,
+      corrections: []
+    }
+
+    const result = await applyIso19115MetadataCorrections(params)
+
+    expect(result).toEqual({
+      correctionCount: 0,
+      correctedMetadata: undefined,
+      correctionsApplied: [],
+      stubbed: false
+    })
+  })
+
+  test('should skip corrections with unknown schemes', async () => {
+    const params = {
+      metadataPayload: '<gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"></gmi:MI_Metadata>',
+      corrections: [
+        {
+          scheme: 'invalid-scheme',
+          action: 'replace',
+          oldKeywordObject: { Value: 'test' },
+          newKeywordObject: { Value: 'new' }
+        }
+      ]
+    }
+
+    const result = await applyIso19115MetadataCorrections(params)
+
+    // The correction was invalid, so nothing should be applied
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toEqual([])
+  })
+})
 
 describe('when applying sciencekeywords ISO-19115 corrections', () => {
   test('should replace existing science keyword correctly', () => {

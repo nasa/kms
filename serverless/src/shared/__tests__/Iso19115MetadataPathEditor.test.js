@@ -29,6 +29,50 @@ describe('Iso19115MetadataPathEditor', () => {
     editor = new Iso19115MetadataPathEditor(xmlString)
   })
 
+  test('should fallback to gco:CharacterString when explicit fieldPath is missing or invalid', () => {
+  // 1. Setup: Keyword block WITHOUT a specific sub-path defined in replaceConfig,
+  // but WITH a standard gco:CharacterString
+    const xml = `
+  <gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+    <gmd:descriptiveKeywords>
+      <gmd:MD_Keywords>
+        <gmd:keyword>
+          <gco:CharacterString>Old Value</gco:CharacterString>
+        </gmd:keyword>
+      </gmd:MD_Keywords>
+    </gmd:descriptiveKeywords>
+  </gmd:MD_Metadata>`
+
+    editor = new Iso19115MetadataPathEditor(xml)
+
+    // 2. Setup: Config with no fieldPath, forcing the fallback
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        matchKeys: ['Value'],
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() })
+      },
+      replace: [{
+      // No fieldPath provided
+        source: { getValue: () => 'New Value' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'Old Value' },
+      newKeywordObject: { Value: 'New Value' }
+    }
+
+    // 3. Execute
+    const success = editor.updateBlockNode(correction, config)
+
+    // 4. Assertions
+    expect(success).toBe(true)
+    expect(editor.serialize()).toContain('New Value')
+    expect(editor.serialize()).not.toContain('Old Value')
+  })
+
   test('should initialize namespaces correctly', () => {
     expect(editor.namespaces).toHaveProperty('gmd')
     expect(editor.namespaces.gmd).toBe('http://www.isotc211.org/2005/gmd')
