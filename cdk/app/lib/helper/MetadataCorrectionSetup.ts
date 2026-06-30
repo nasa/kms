@@ -161,7 +161,12 @@ export class MetadataCorrectionSetup extends Construct {
     this.metadataCorrectionRequestsQueue.grantConsumeMessages(this.metadataCorrectionServiceLambda)
     this.metadataCorrectionServiceLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['cloudwatch:PutMetricData'],
-      resources: ['*']
+      resources: ['*'],
+      conditions: {
+        StringEquals: {
+          'cloudwatch:namespace': 'CMR/KeywordSync'
+        }
+      }
     }))
 
     this.metadataCorrectionRequestsTopicArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsTopicArn', {

@@ -18,7 +18,7 @@ import {
  * expected consumer metrics incremented in the `CMR/KeywordSync` namespace.
  *
  * Prerequisites:
- * - LocalStack is running and reachable on `AWS_ENDPOINT_URL` or `http://localhost:4566`
+ * - LocalStack is running on `http://127.0.0.1:4566`
  * - local Redis is running
  * - local RDF4J is running
  *
@@ -33,9 +33,10 @@ const fixturePath = path.resolve(
 const outputDir = path.resolve(rootDir, 'tmp/metadata-correction-consumer-metrics-async-smoke')
 const outputPath = path.resolve(outputDir, 'result.json')
 const mockCmrPort = Number(process.env.MOCK_CMR_PORT || 3020)
-const cmrBaseUrl = process.env.CMR_BASE_URL || `http://127.0.0.1:${mockCmrPort}`
-const cloudWatchEndpoint = process.env.AWS_ENDPOINT_URL || 'http://127.0.0.1:4566'
 const startMockServer = String(process.env.START_MOCK_CMR || 'true').toLowerCase() !== 'false'
+const localMockCmrBaseUrl = `http://127.0.0.1:${mockCmrPort}`
+const cmrBaseUrl = localMockCmrBaseUrl
+const cloudWatchEndpoint = 'http://127.0.0.1:4566'
 const cloudWatchApiVersion = '2010-08-01'
 const metricNamespace = CONSUMER_METRIC_NAMESPACE
 const metricPeriodSeconds = 60

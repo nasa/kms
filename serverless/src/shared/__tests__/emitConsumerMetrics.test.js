@@ -202,4 +202,32 @@ describe('emitConsumerMetrics', () => {
       })
     )
   })
+
+  test('logs metric emission failures when safe helper uses the default empty log context', async () => {
+    sendCloudWatchMock.mockRejectedValueOnce(new Error('cloudwatch unavailable'))
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
+
+    await expect(emitConsumerMetricsSafely({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
+          value: 1
+        }
+      ],
+      logMessage: '[metadata-correction] Failed to emit processing metrics'
+    })).resolves.toBeUndefined()
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Failed to emit processing metrics',
+      {
+        metrics: [
+          {
+            metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
+            value: 1
+          }
+        ],
+        error: 'cloudwatch unavailable'
+      }
+    )
+  })
 })
