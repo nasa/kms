@@ -2,17 +2,6 @@ import Iso19115MetadataPathEditor from './Iso19115MetadataPathEditor'
 import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
 
 /**
- * A list of authorized domains used to validate the 'codeList' attribute
- * within MD_KeywordTypeCode elements. This ensures only keywords originating
- * from trusted metadata authorities are processed by the editor.
- */
-const KEYWORD_DOMAINS = [
-  'cdn.earthdata.nasa.gov', // NASA Earthdata Resource Codelists
-  'www.isotc211.org', // ISO TC 211 Standard Codelists
-  'data.noaa.gov' // NOAA Metadata Authority Codelists
-]
-
-/**
  * Helper factory function to create a block editor configuration.
  * Maps a correction to an update operation within the editor instance.
  * @param {Object} config - Configuration object defining XPath and transformation logic.
@@ -29,52 +18,41 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
  * Factory to generate standardized keyword block editors.
  * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
  * @param {Object} options - Configuration options.
- * @param {string[]} options.allowedCodelistDomains - List of domains (e.g., ['cdn.earthdata.nasa.gov', 'noaa.gov']).
  */
 const createKeywordBlock = (type, {
-  fieldKeys, matchKeys, getValue, allowedCodelistDomains = []
-}) => {
-  // Construct the XPath predicate to check if the codeList contains any of the allowed domains
-  const domainConditions = allowedCodelistDomains
-    .map((domain) => `contains(gmd:type/gmd:MD_KeywordTypeCode/@codeList, '${domain}')`)
-    .join(' or ')
-
-  const predicate = domainConditions ? `and (${domainConditions})` : ''
-
-  return blockScheme({
-    nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
+  fieldKeys, matchKeys, getValue
+}) => blockScheme({
+  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
       gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}' 
-      ${predicate}
     ]`.replace(/\s+/g, ' '),
 
-    find: {
-      fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
-      valueKeys: fieldKeys,
-      matchKeys,
-      getNodeValueObject: ({ node, editor }) => {
-        const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
-        const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
-        const fullString = (anchorNode || charStringNode)?.textContent || ''
-        const parts = fullString.split(' > ').map((s) => s.trim())
+  find: {
+    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
+    valueKeys: fieldKeys,
+    matchKeys,
+    getNodeValueObject: ({ node, editor }) => {
+      const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
+      const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
+      const fullString = (anchorNode || charStringNode)?.textContent || ''
+      const parts = fullString.split(' > ').map((s) => s.trim())
 
-        return fieldKeys.reduce((acc, key, index) => {
-          acc[key] = parts[index] || ''
+      return fieldKeys.reduce((acc, key, index) => {
+        acc[key] = parts[index] || ''
 
-          return acc
-        }, { Value: fullString.trim() })
+        return acc
+      }, { Value: fullString.trim() })
+    }
+  },
+  replace: [
+    {
+      fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
+      source: {
+        type: 'computed',
+        getValue: getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k]).filter(Boolean).join(' > '))
       }
-    },
-    replace: [
-      {
-        fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
-        source: {
-          type: 'computed',
-          getValue: getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k]).filter(Boolean).join(' > '))
-        }
-      }
-    ]
-  })
-}
+    }
+  ]
+})
 
 /**
  * Creates an editor for ISO Topic Category nodes.
@@ -149,8 +127,7 @@ export const ISO_19115_SCHEME_EDITORS = {
     'theme',
     {
       fieldKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords,
-      matchKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords,
-      allowedCodelistDomains: KEYWORD_DOMAINS
+      matchKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords
     }
   ),
 
@@ -158,15 +135,13 @@ export const ISO_19115_SCHEME_EDITORS = {
     'place',
     {
       fieldKeys: FULL_PATH_VALUE_FIELDS.locations,
-      matchKeys: FULL_PATH_VALUE_FIELDS.locations,
-      allowedCodelistDomains: KEYWORD_DOMAINS
+      matchKeys: FULL_PATH_VALUE_FIELDS.locations
     }
   ),
 
   platforms: createKeywordBlock('platform', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
-    allowedCodelistDomains: KEYWORD_DOMAINS,
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
@@ -178,7 +153,6 @@ export const ISO_19115_SCHEME_EDITORS = {
   instruments: createKeywordBlock('instrument', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
-    allowedCodelistDomains: KEYWORD_DOMAINS,
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
@@ -190,7 +164,6 @@ export const ISO_19115_SCHEME_EDITORS = {
   projects: createKeywordBlock('project', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
-    allowedCodelistDomains: KEYWORD_DOMAINS,
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
@@ -202,7 +175,6 @@ export const ISO_19115_SCHEME_EDITORS = {
   providers: createKeywordBlock('dataCentre', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
-    allowedCodelistDomains: KEYWORD_DOMAINS,
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
