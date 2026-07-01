@@ -177,22 +177,61 @@ describe('metadata correction delegate stubs', () => {
     })
   })
 
-  test('returns the expected ISO19115 delegate stub shape', async () => {
-    await expect(applyIso19115MetadataCorrections({
-      collectionConceptId: 'C2',
-      providerId: 'PROV',
-      nativeId: 'native-2'
-    })).resolves.toEqual({
-      nativeFormat: 'ISO19115',
-      delegateName: 'iso19115',
+  test('returns the expected ISO19115 payload shape when corrections are provided', async () => {
+    const mockPayload = `
+      <gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:descriptiveKeywords>
+          <gmd:MD_Keywords>
+            <gmd:keyword>
+              <gco:CharacterString>EARTH SCIENCE > ATMOSPHERE > AEROSOLS</gco:CharacterString>
+            </gmd:keyword>
+            <gmd:type>
+              <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="theme">theme</gmd:MD_KeywordTypeCode>
+            </gmd:type>
+            <gmd:thesaurusName>
+              <gmd:CI_Citation>
+                <gmd:title>
+                  <gco:CharacterString>NASA / GCMD Science Keywords</gco:CharacterString>
+                </gmd:title>
+              </gmd:CI_Citation>
+            </gmd:thesaurusName>
+          </gmd:MD_Keywords>
+        </gmd:descriptiveKeywords>
+      </gmi:MI_Metadata>`
+
+    const correction = {
+      scheme: 'sciencekeywords',
+      action: 'replace',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: 'NEW AEROSOLS'
+      }
+    }
+
+    const result = await applyIso19115MetadataCorrections({
       collectionConceptId: 'C2',
       providerId: 'PROV',
       nativeId: 'native-2',
-      correctionCount: 0,
-      correctedMetadata: undefined,
-      correctionsApplied: [],
-      stubbed: true
+      nativeFormat: 'ISO19115',
+      metadataPayload: mockPayload,
+      corrections: [correction]
     })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.stubbed).toBe(false)
+    expect(result.correctedMetadata).toContain('NEW AEROSOLS')
+    expect(result.correctionsApplied).toEqual([correction])
   })
 
   test('returns the expected ISO_SMAP delegate stub shape', async () => {
