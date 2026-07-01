@@ -158,31 +158,52 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
 
   /**
    * Updates complex keyword block nodes.
-   * Handles deletion of nested keywords and recursive cleanup of empty parents.
+   * Handles deletion and replacement of keywords, including synchronized
+   * updates across global paths (like CI_ResponsibleParty).
    * @param {Object} correction - The change data.
    * @param {Object} config - Configuration for the block node.
    * @returns {boolean} True if the operation was successful.
    */
   updateBlockNode(correction, config) {
-    const targetNode = this.selectNodes(config.nodeXPath)[0] || null
-    if (!targetNode) return false
+    const targetNodes = this.selectNodes(config.nodeXPath)
+    if (!targetNodes || targetNodes.length === 0) return false
 
-    // 2. Handle the 'delete' action
+    // Identify the first block that contains the matching node
+    const matchingData = targetNodes
+      .map((node) => ({
+        node,
+        matchingNode: this.findMatchingNode(node, correction, config)
+      }))
+      .find((data) => data.matchingNode !== null)
+
+    // Return early if no match is found, preventing downstream errors
+    if (!matchingData) return false
+
+    const { matchingNode } = matchingData
+
+    // 2. Handle 'delete' action
     if (correction.action === 'delete') {
-      const matchingNode = this.findMatchingNode(targetNode, correction, config)
-      if (!matchingNode) return false
+      const parentBlock = matchingNode.parentNode
 
-      // Remove target node
+      // Clean up synchronized paths globally first
+      if (config.replace) {
+        config.replace
+          .filter((replConfig) => typeof replConfig.fieldPath === 'string' && replConfig.fieldPath.startsWith('//'))
+          .forEach((replConfig) => {
+            this.selectNodes(replConfig.fieldPath, this.document)
+              .forEach((node) => node?.parentNode?.removeChild(node))
+          })
+      }
+
+      // Remove the target keyword
       matchingNode.parentNode.removeChild(matchingNode)
 
-      // Cleanup: Remove parent blocks if they are now empty
-      const remainingKeywords = this.selectNodes('./gmd:keyword', targetNode)
-      if (remainingKeywords.length === 0) {
-        const mdKeywordsParent = targetNode.parentNode
-        mdKeywordsParent.removeChild(targetNode)
+      // Cleanup parent blocks if empty
+      if (this.selectNodes('./gmd:keyword', parentBlock).length === 0) {
+        const mdKeywordsParent = parentBlock.parentNode
+        mdKeywordsParent.removeChild(parentBlock)
 
-        const remainingBlocks = this.selectNodes('./gmd:MD_Keywords', mdKeywordsParent)
-        if (remainingBlocks.length === 0) {
+        if (this.selectNodes('./gmd:MD_Keywords', mdKeywordsParent).length === 0) {
           mdKeywordsParent.parentNode.removeChild(mdKeywordsParent)
         }
       }
@@ -190,15 +211,11 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       return true
     }
 
-    // 3. Handle the 'replace' action
+    // 3. Handle 'replace' action
     if (correction.action === 'replace') {
-      const replaceConfig = config.replace[0]
-      const matchingNode = this.findMatchingNode(targetNode, correction, config)
-
-      if (matchingNode) {
+      const results = config.replace.map((replaceConfig) => {
         let fieldNode = null
 
-        // Determine dynamic path or default
         if (replaceConfig.fieldPath) {
           const path = typeof replaceConfig.fieldPath === 'function'
             ? replaceConfig.fieldPath({
@@ -207,28 +224,28 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             })
             : replaceConfig.fieldPath
 
-          const relativePath = path.startsWith('./') ? path : `./${path}`;
-          [fieldNode] = this.selectNodes(relativePath, matchingNode)
+          const context = path.startsWith('//') ? this.document : matchingNode
+          const relativePath = path.startsWith('//') ? path : `./${path}`;
+          [fieldNode] = this.selectNodes(relativePath, context)
         }
 
-        // Fallback search for standard string elements
         if (!fieldNode) {
           [fieldNode] = this.selectNodes('./gco:CharacterString', matchingNode)
-                    || this.selectNodes('gco:CharacterString', matchingNode)
         }
 
-        // Apply text update
         if (fieldNode) {
-          const newValue = replaceConfig.source.getValue({ correction })
-          this.setElementText(fieldNode, newValue)
+          this.setElementText(fieldNode, replaceConfig.source.getValue({ correction }))
 
           return true
         }
-      }
 
-      return false
+        return false
+      })
+
+      return results.some((success) => success === true)
     }
 
+    // If action is neither 'delete' nor 'replace'
     return false
   }
 }

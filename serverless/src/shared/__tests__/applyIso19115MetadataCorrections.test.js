@@ -71,7 +71,7 @@ const mockIso19115 = `
               <gmd:citedResponsibleParty>
                 <gmd:CI_ResponsibleParty>
                   <gmd:organisationName>
-                    <gco:CharacterString>Global Change Data Center, Science and Exploration Directorate, Goddard Space Flight Center (GSFC) National Aeronautics and Space Administration (NASA)</gco:CharacterString>
+                    <gco:CharacterString>DOC/NOAA/NESDIS/NCEI &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce</gco:CharacterString>
                   </gmd:organisationName>
                   <gmd:contactInfo>
                     <gmd:CI_Contact>

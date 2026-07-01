@@ -14,13 +14,15 @@ const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(c
  * @returns {Function} Function to apply the update.
  */
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
+
 /**
  * Factory to generate standardized keyword block editors.
  * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
  * @param {Object} options - Configuration options.
+ * @param {Array} [options.additionalPaths] - Optional array of XPath strings for secondary sync.
  */
 const createKeywordBlock = (type, {
-  fieldKeys, matchKeys, getValue
+  fieldKeys, matchKeys, getValue, additionalPaths = []
 }) => blockScheme({
   nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
       gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}' 
@@ -48,9 +50,23 @@ const createKeywordBlock = (type, {
       fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
-        getValue: getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k]).filter(Boolean).join(' > '))
+        getValue: getValue || (({ correction }) => fieldKeys
+          .map((k) => correction.newKeywordObject[k] || 'NONE')
+          .join(' > ')
+        )
       }
-    }
+    },
+    // Dynamically add secondary paths for synchronization
+    ...additionalPaths.map((path) => ({
+      fieldPath: path,
+      source: {
+        type: 'computed',
+        // Ensure the secondary sync paths also use the 'NONE' padding logic
+        getValue: getValue || (({ correction }) => fieldKeys
+          .map((k) => correction.newKeywordObject[k] || 'NONE')
+          .join(' > '))
+      }
+    }))
   ]
 })
 
@@ -180,7 +196,11 @@ export const ISO_19115_SCHEME_EDITORS = {
       const LongName = correction.newLongName || ''
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
-    }
+    },
+    // Additional paths
+    additionalPaths: [
+      '//gmd:CI_ResponsibleParty/gmd:organisationName/gco:CharacterString'
+    ]
   }),
 
   isotopiccategory: createIsoTopicCategoryEditor(),
