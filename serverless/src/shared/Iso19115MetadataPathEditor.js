@@ -185,13 +185,24 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     if (correction.action === 'delete') {
       const parentBlock = matchingNode.parentNode
 
-      // Clean up synchronized paths globally first
+      // Initialize keywordValue here so it is available in the scope
+      const keywordValue = matchingNode.textContent.trim()
+
+      // Clean up synchronized paths globally, but with a value constraint
       if (config.replace) {
         config.replace
           .filter((replConfig) => typeof replConfig.fieldPath === 'string' && replConfig.fieldPath.startsWith('//'))
           .forEach((replConfig) => {
-            this.selectNodes(replConfig.fieldPath, this.document)
-              .forEach((node) => node?.parentNode?.removeChild(node))
+            // Find all nodes in the document that match the path
+            const allPotentialMatches = this.selectNodes(replConfig.fieldPath, this.document)
+
+            // Filter those nodes: only remove the ones whose text content
+            // matches the keyword we are currently deleting
+            allPotentialMatches
+              .filter((node) => node.textContent.trim() === keywordValue)
+              .forEach((node) => {
+                if (node?.parentNode) node.parentNode.removeChild(node)
+              })
           })
       }
 
@@ -214,8 +225,9 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     // 3. Handle 'replace' action
     if (correction.action === 'replace') {
       const results = config.replace.map((replaceConfig) => {
-        let fieldNode = null
+        let fieldNodes = []
 
+        // 1. Attempt to find nodes via the provided path
         if (replaceConfig.fieldPath) {
           const path = typeof replaceConfig.fieldPath === 'function'
             ? replaceConfig.fieldPath({
@@ -225,16 +237,22 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             : replaceConfig.fieldPath
 
           const context = path.startsWith('//') ? this.document : matchingNode
-          const relativePath = path.startsWith('//') ? path : `./${path}`;
-          [fieldNode] = this.selectNodes(relativePath, context)
+          const relativePath = path.startsWith('//') ? path : `./${path}`
+
+          fieldNodes = this.selectNodes(relativePath, context)
         }
 
-        if (!fieldNode) {
-          [fieldNode] = this.selectNodes('./gco:CharacterString', matchingNode)
+        // 2. Fallback: If no nodes were found via path,
+        // ALWAYS check for the default text node (remove the !replaceConfig.fieldPath check)
+        if (fieldNodes.length === 0) {
+          fieldNodes = this.selectNodes('./gco:CharacterString', matchingNode)
         }
 
-        if (fieldNode) {
-          this.setElementText(fieldNode, replaceConfig.source.getValue({ correction }))
+        // 3. Update every node found
+        if (fieldNodes.length > 0) {
+          fieldNodes.forEach((node) => {
+            this.setElementText(node, replaceConfig.source.getValue({ correction }))
+          })
 
           return true
         }

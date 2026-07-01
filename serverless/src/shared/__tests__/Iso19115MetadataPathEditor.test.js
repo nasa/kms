@@ -398,4 +398,49 @@ describe('Iso19115MetadataPathEditor', () => {
 
     expect(result).toBe(false)
   })
+
+  test('updateBlockNode should update ALL matching nodes when multiple are found', () => {
+    const xml = `
+    <gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>Original Value</gco:CharacterString>
+            <gco:CharacterString>Original Value</gco:CharacterString>
+          </gmd:keyword>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_Metadata>`
+
+    const testEditor = new Iso19115MetadataPathEditor(xml)
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: () => ({ Value: 'Original Value' }),
+        matchKeys: ['Value']
+      },
+      replace: [{
+        fieldPath: 'gco:CharacterString',
+        source: { getValue: () => 'New Value' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'Original Value' },
+      newKeywordObject: { Value: 'New Value' }
+    }
+
+    const result = testEditor.updateBlockNode(correction, config)
+
+    expect(result).toBe(true)
+
+    // Verify that ALL CharacterString nodes were updated
+    const updatedNodes = testEditor.selectNodes('//gco:CharacterString', testEditor.document)
+    expect(updatedNodes.length).toBe(2)
+    updatedNodes.forEach((node) => {
+      expect(node.textContent).toBe('New Value')
+    })
+  })
 })
