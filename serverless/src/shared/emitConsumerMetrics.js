@@ -112,7 +112,7 @@ const emitConsumerMetricsWithQueryApi = async ({ endpoint, metrics }) => {
     const responseBody = await response.text()
 
     throw new Error(
-      'Failed to emit consumer keyword sync metrics to LocalStack. '
+      'Failed to emit consumer keyword sync metrics. '
       + `Status: ${response.status}. Response: ${responseBody}`
     )
   }
@@ -143,7 +143,7 @@ export const emitConsumerMetrics = async ({ metrics }) => {
     }))
   }
 
-  logger.info(
+  logger.debug(
     '[consumer-metrics] Emitted consumer metrics '
     + `namespace=${CONSUMER_METRIC_NAMESPACE} `
     + `metrics=${metrics.map(({ metricName, value }) => `${metricName}:${value}`).join(',')}`

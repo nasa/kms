@@ -41,7 +41,7 @@ describe('emitConsumerMetrics', () => {
       send: sendCloudWatchMock
     }))
 
-    vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'debug').mockImplementation(() => {})
     vi.stubGlobal('fetch', fetchMock)
     delete process.env.AWS_ENDPOINT_URL
     sendCloudWatchMock.mockResolvedValue({})
@@ -88,7 +88,7 @@ describe('emitConsumerMetrics', () => {
 
     expect(sendCloudWatchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).not.toHaveBeenCalled()
-    expect(logger.info).toHaveBeenCalledWith(
+    expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('EventsConsumed:3')
     )
   })
@@ -168,7 +168,7 @@ describe('emitConsumerMetrics', () => {
           value: 1
         }
       ]
-    })).rejects.toThrow('Failed to emit consumer keyword sync metrics to LocalStack')
+    })).rejects.toThrow('Failed to emit consumer keyword sync metrics')
   })
 
   test('logs and swallows metric emission failures when using the safe helper', async () => {

@@ -62,6 +62,7 @@ vi.mock('@/shared/emitConsumerMetricsSafely', () => ({
 vi.mock('@/shared/logger', () => ({
   logger: {
     info: vi.fn(),
+    debug: vi.fn(),
     error: vi.fn()
   }
 }))
@@ -1195,19 +1196,19 @@ describe('when the metadata correction service is invoked', () => {
           {
             metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
             value: 1
-          }
-        ],
-        logMessage: '[metadata-correction] Failed to emit processing metrics'
-      }))
-
-      expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
-        metrics: [
+          },
           {
             metricName: CONSUMER_METRIC_NAMES.EVENTS_PROCESSED,
             value: 1
           }
         ],
-        logMessage: '[metadata-correction] Failed to emit processing metrics'
+        logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        logContext: expect.objectContaining({
+          failureCount: 0,
+          messageIds: ['message-metrics-success'],
+          processedCount: 1,
+          recordCount: 1
+        })
       }))
     })
   })
@@ -1333,19 +1334,19 @@ describe('when the metadata correction service is invoked', () => {
           {
             metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
             value: 1
-          }
-        ],
-        logMessage: '[metadata-correction] Failed to emit processing metrics'
-      }))
-
-      expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
-        metrics: [
+          },
           {
             metricName: CONSUMER_METRIC_NAMES.EVENT_PROCESSING_FAILURES,
             value: 1
           }
         ],
-        logMessage: '[metadata-correction] Failed to emit processing metrics'
+        logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        logContext: expect.objectContaining({
+          failureCount: 1,
+          messageIds: ['message-processing-failure'],
+          processedCount: 0,
+          recordCount: 1
+        })
       }))
     })
 
@@ -1387,9 +1388,12 @@ describe('when the metadata correction service is invoked', () => {
       })
 
       expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
-        logMessage: '[metadata-correction] Failed to emit processing metrics',
+        logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
         logContext: expect.objectContaining({
-          messageId: 'message-metric-failure'
+          failureCount: 0,
+          messageIds: ['message-metric-failure'],
+          processedCount: 1,
+          recordCount: 1
         })
       }))
     })

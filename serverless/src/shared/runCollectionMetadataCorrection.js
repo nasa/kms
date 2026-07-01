@@ -175,6 +175,11 @@ const getRecordUpdateMetricName = ({
     return CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_EVENT
   }
 
+  logger.debug('[metadata-correction] No source-specific record update metric applied', {
+    source,
+    keywordEventUuid: keywordEvent?.uuid
+  })
+
   return undefined
 }
 

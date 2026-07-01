@@ -76,9 +76,10 @@ const getNativeMetadataPayload = (collection) => {
 }
 
 // Infer a reasonable content type for the fixture-backed native metadata response.
+// This is mock server response metadata, not part of the embedded native metadata payload.
 const getNativeMetadataContentType = (collection) => {
-  if (collection.nativeMetadataContentType) {
-    return String(collection.nativeMetadataContentType).trim()
+  if (collection.nativeResponseContentType) {
+    return String(collection.nativeResponseContentType).trim()
   }
 
   const format = String(collection.format || '').trim()

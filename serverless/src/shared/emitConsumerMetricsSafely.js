@@ -2,7 +2,12 @@ import { emitConsumerMetrics } from '@/shared/emitConsumerMetrics'
 import { logger } from '@/shared/logger'
 
 /**
- * Emits consumer metrics without failing the caller when CloudWatch is unavailable.
+ * Best-effort wrapper around consumer metric emission.
+ *
+ * The correction worker and the shared collection runner both emit CloudWatch metrics, but
+ * metric delivery should never break the actual metadata-correction flow. This helper keeps that
+ * behavior in one place: try to emit, log enough context on failure, and then let processing
+ * continue.
  *
  * @param {Object} params Safe emission details.
  * @param {Array<{metricName: string, value: number}>} params.metrics Metrics to emit.
