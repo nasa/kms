@@ -22,10 +22,10 @@ export const CONSUMER_METRIC_NAMES = {
   // Count of metadata-correction SQS records that fail during processing.
   EVENT_PROCESSING_FAILURES: 'EventProcessingFailures',
 
-  // Count of collections successfully updated in CMR by the async keyword-event flow.
+  // Count of collections successfully updated in CMR for event-driven runs.
   RECORDS_UPDATED_FROM_EVENT: 'RecordsUpdatedFromEvent',
 
-  // Count of collections successfully updated in CMR by the manual single-collection sync endpoint.
+  // Count of collections successfully updated in CMR for manual sync runs.
   RECORDS_UPDATED_FROM_MANUAL: 'RecordsUpdatedFromManual',
 
   // Resolver-stage count: how many invalid keyword values were found for the collection.

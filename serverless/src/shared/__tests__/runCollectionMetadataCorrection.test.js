@@ -158,7 +158,7 @@ describe('runCollectionMetadataCorrection', () => {
           value: 0
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -307,7 +307,7 @@ describe('runCollectionMetadataCorrection', () => {
           value: 1
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
@@ -375,7 +375,7 @@ describe('runCollectionMetadataCorrection', () => {
           value: 0
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
   })
 
@@ -510,7 +510,7 @@ describe('runCollectionMetadataCorrection', () => {
           value: 1
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
   })
 
@@ -693,7 +693,7 @@ describe('runCollectionMetadataCorrection', () => {
           value: 1
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
   })
 
@@ -804,7 +804,116 @@ describe('runCollectionMetadataCorrection', () => {
           value: 1
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
+    }))
+  })
+
+  test('emits deleted-action record update metrics when a deleted keyword event writes successfully', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {},
+      action: 'delete'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'applied'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        enabled: true,
+        updated: true
+      }
+    })
+
+    await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      keywordEvent: {
+        eventType: 'DELETED',
+        scheme: 'sciencekeywords',
+        uuid: 'uuid-1'
+      }
+    })
+
+    expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+      metrics: [
+        {
+          metricName: CONSUMER_METRIC_NAMES.INVALID_KEYWORD_COUNT,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.KEYWORDS_RESOLVED,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_APPLIED_TO_METADATA,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.CORRECTIONS_WRITTEN_TO_CMR,
+          value: 1
+        },
+        {
+          metricName: CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_EVENT,
+          value: 1
+        }
+      ],
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics'
     }))
   })
 
@@ -838,7 +947,7 @@ describe('runCollectionMetadataCorrection', () => {
     }))
 
     expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics',
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics',
       logContext: expect.objectContaining({
         collectionConceptId: 'C1234567890-PROV',
         source: 'metadataCorrectionService'

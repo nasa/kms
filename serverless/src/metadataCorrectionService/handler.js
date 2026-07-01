@@ -84,7 +84,7 @@ export const metadataCorrectionService = async (event) => {
         processedCount,
         failureCount
       }),
-      logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+      errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
       logContext: {
         failureCount,
         messageIds: records.map(({ messageId }) => messageId).filter(Boolean),

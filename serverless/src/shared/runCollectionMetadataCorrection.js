@@ -159,36 +159,26 @@ const determineNoOpOutcome = (keywordValidationFailures) => (
  * Determines which record-update metric applies to the current correction run.
  *
  * @param {Object} params Classification inputs.
- * @param {Object} params.keywordEvent Optional triggering keyword event context.
- * @param {string} params.source Source label for the current correction request.
- * @returns {string|undefined} Metric name for the update source, if one applies.
+ * @param {Object} params.keywordEvent Normalized triggering keyword event context.
+ * @returns {string} Metric name for the run source bucket.
  */
 const getRecordUpdateMetricName = ({
-  keywordEvent,
-  source
+  keywordEvent
 }) => {
-  if (source === 'metadataCorrectionApi') {
+  const normalizedEventType = String(keywordEvent?.eventType || '').trim().toUpperCase()
+
+  if (normalizedEventType === 'MANUAL') {
     return CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_MANUAL
   }
 
-  if (typeof keywordEvent?.uuid === 'string' && keywordEvent.uuid.trim().length > 0) {
-    return CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_EVENT
-  }
-
-  logger.debug('[metadata-correction] No source-specific record update metric applied', {
-    source,
-    keywordEventUuid: keywordEvent?.uuid
-  })
-
-  return undefined
+  return CONSUMER_METRIC_NAMES.RECORDS_UPDATED_FROM_EVENT
 }
 
 /**
  * Builds the reconciliation/update metrics for a completed correction run.
  *
  * @param {Object} params Metric inputs.
- * @param {Object} params.keywordEvent Optional triggering keyword event context.
- * @param {string} params.source Source label for the current correction request.
+ * @param {Object} params.keywordEvent Normalized triggering keyword event context.
  * @param {Array} params.keywordValidationFailures Extracted invalid keyword failures.
  * @param {Array} params.resolvedCorrections Resolved corrections derived from the failures.
  * @param {Array} params.correctionsApplied Delegate-applied corrections.
@@ -197,7 +187,6 @@ const getRecordUpdateMetricName = ({
  */
 const buildRunMetrics = ({
   keywordEvent,
-  source,
   keywordValidationFailures,
   resolvedCorrections,
   correctionsApplied,
@@ -219,8 +208,7 @@ const buildRunMetrics = ({
   ]
   const writebackUpdated = writeResult?.ingestResult?.updated === true
   const recordUpdateMetricName = getRecordUpdateMetricName({
-    keywordEvent,
-    source
+    keywordEvent
   })
 
   if (correctionsApplied.length > 0 && writebackUpdated) {
@@ -229,12 +217,10 @@ const buildRunMetrics = ({
       value: correctionsApplied.length
     })
 
-    if (recordUpdateMetricName) {
-      metrics.push({
-        metricName: recordUpdateMetricName,
-        value: 1
-      })
-    }
+    metrics.push({
+      metricName: recordUpdateMetricName,
+      value: 1
+    })
   }
 
   return metrics
@@ -307,14 +293,13 @@ export const runCollectionMetadataCorrection = async ({
 
     await emitConsumerMetricsSafely({
       metrics: buildRunMetrics({
-        keywordEvent,
-        source,
+        keywordEvent: auditKeywordEvent,
         keywordValidationFailures,
         resolvedCorrections,
         correctionsApplied: [],
         writeResult: null
       }),
-      logMessage: '[metadata-correction] Failed to emit correction-run metrics',
+      errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics',
       logContext: {
         collectionConceptId: collectionDetails.collectionConceptId,
         messageId,
@@ -447,14 +432,13 @@ export const runCollectionMetadataCorrection = async ({
 
   await emitConsumerMetricsSafely({
     metrics: buildRunMetrics({
-      keywordEvent,
-      source,
+      keywordEvent: auditKeywordEvent,
       keywordValidationFailures,
       resolvedCorrections,
       correctionsApplied,
       writeResult
     }),
-    logMessage: '[metadata-correction] Failed to emit correction-run metrics',
+    errorLogMessage: '[metadata-correction] Failed to emit correction-run metrics',
     logContext: {
       collectionConceptId: collectionDetails.collectionConceptId,
       messageId,

@@ -182,7 +182,7 @@ describe('emitConsumerMetrics', () => {
           value: 1
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit processing metrics',
+      errorLogMessage: '[metadata-correction] Failed to emit processing metrics',
       logContext: {
         messageId: 'message-1'
       }
@@ -214,7 +214,7 @@ describe('emitConsumerMetrics', () => {
           value: 1
         }
       ],
-      logMessage: '[metadata-correction] Failed to emit processing metrics'
+      errorLogMessage: '[metadata-correction] Failed to emit processing metrics'
     })).resolves.toBeUndefined()
 
     expect(logger.error).toHaveBeenCalledWith(

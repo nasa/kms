@@ -11,13 +11,13 @@ import { logger } from '@/shared/logger'
  *
  * @param {Object} params Safe emission details.
  * @param {Array<{metricName: string, value: number}>} params.metrics Metrics to emit.
- * @param {string} params.logMessage Error log message to use when metric emission fails.
+ * @param {string} params.errorLogMessage Error log message to use when metric emission fails.
  * @param {Object} [params.logContext={}] Structured log context for failed emission.
  * @returns {Promise<void>}
  */
 export const emitConsumerMetricsSafely = async ({
   metrics,
-  logMessage,
+  errorLogMessage,
   logContext = {}
 }) => {
   try {
@@ -25,7 +25,7 @@ export const emitConsumerMetricsSafely = async ({
       metrics
     })
   } catch (metricError) {
-    logger.error(logMessage, {
+    logger.error(errorLogMessage, {
       ...logContext,
       metrics,
       error: metricError.message

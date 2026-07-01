@@ -1202,7 +1202,7 @@ describe('when the metadata correction service is invoked', () => {
             value: 1
           }
         ],
-        logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
         logContext: expect.objectContaining({
           failureCount: 0,
           messageIds: ['message-metrics-success'],
@@ -1340,7 +1340,7 @@ describe('when the metadata correction service is invoked', () => {
             value: 1
           }
         ],
-        logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
         logContext: expect.objectContaining({
           failureCount: 1,
           messageIds: ['message-processing-failure'],
@@ -1388,7 +1388,7 @@ describe('when the metadata correction service is invoked', () => {
       })
 
       expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
-        logMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
         logContext: expect.objectContaining({
           failureCount: 0,
           messageIds: ['message-metric-failure'],
