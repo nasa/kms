@@ -340,6 +340,182 @@ describe('Instrument corrections with synchronized keyword blocks and acquisitio
 
     // Should not create malformed "MODIS-SIMPLE > "
     expect(updatedXml).not.toContain('MODIS-SIMPLE &gt; ')
+
+    // Verify acquisition gmd:description is empty string (line 255 coverage for instruments)
+    expect(updatedXml).toMatch(/<eos:EOS_Instrument id="_MODIS">[\s\S]*?<gmd:description>\s*<gco:CharacterString><\/gco:CharacterString>/)
+  })
+
+  test('should handle undefined newLongName (not just empty string)', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115WithKeywordsAndAcquisition)
+
+    const correction = {
+      scheme: 'instruments',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'ATLAS' },
+      newKeywordObject: { ShortName: 'ATLAS-MINIMAL' }
+      // NewLongName is completely omitted (undefined)
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.instruments
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword should be just ShortName when newLongName is undefined (line 188 coverage for instruments)
+    expect(updatedXml).toContain('<gco:CharacterString>ATLAS-MINIMAL</gco:CharacterString>')
+    expect(updatedXml).not.toContain('ATLAS-MINIMAL &gt;')
+
+    // Verify acquisition code has only ShortName
+    expect(updatedXml).toMatch(/<eos:EOS_Instrument id="_ATLAS">[\s\S]*?<gmd:code>\s*<gco:CharacterString>ATLAS-MINIMAL<\/gco:CharacterString>/)
+
+    // Verify acquisition description is empty string when newLongName is falsy (line 255 coverage)
+    expect(updatedXml).toMatch(/<eos:EOS_Instrument id="_ATLAS">[\s\S]*?<gmd:description>\s*<gco:CharacterString><\/gco:CharacterString>/)
+  })
+
+  test('should preserve CWIC format free-text description when updating with combined format', () => {
+    // This specifically tests line 269 for instruments: return node?.textContent || ''
+    const cwicXml = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>SIRAL &gt; SAR Interferometric Radar Altimeter</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="instrument">instrument</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:instrument>
+        <gmi:MI_Instrument>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>SIRAL &gt; SAR Interferometric Radar Altimeter</gco:CharacterString>
+              </gmd:code>
+              <gmd:description>
+                <gco:CharacterString>This is a custom free-text description that should be preserved in CWIC format for instruments</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+          <gmi:type>
+            <gco:CharacterString>radar</gco:CharacterString>
+          </gmi:type>
+          <gmi:description>
+            <gco:CharacterString>SIRAL is a synthetic aperture radar altimeter operating in Ku-band</gco:CharacterString>
+          </gmi:description>
+        </gmi:MI_Instrument>
+      </gmi:instrument>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(cwicXml)
+
+    const correction = {
+      scheme: 'instruments',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'SIRAL' },
+      newKeywordObject: { ShortName: 'SIRAL-2' },
+      newLongName: 'SAR Interferometric Radar Altimeter Version 2'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.instruments
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword updated with combined format
+    expect(updatedXml).toContain('SIRAL-2 &gt; SAR Interferometric Radar Altimeter Version 2')
+
+    // Acquisition code updated with combined format (detected ' > ')
+    expect(updatedXml).toMatch(/<gmd:code>\s*<gco:CharacterString>SIRAL-2 &gt; SAR Interferometric Radar Altimeter Version 2<\/gco:CharacterString>/)
+
+    // CRITICAL: Free-text description should be PRESERVED (line 269 coverage for instruments)
+    // This tests the fallback: return node?.textContent || ''
+    expect(updatedXml).toContain('This is a custom free-text description that should be preserved in CWIC format for instruments')
+
+    // Instrument-level description also preserved
+    expect(updatedXml).toContain('SIRAL is a synthetic aperture radar altimeter operating in Ku-band')
+  })
+
+  test('should handle CWIC format with null/undefined description node gracefully', () => {
+    // Edge case: what if description node doesn't exist in CWIC format?
+    const cwicXmlNoDesc = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos"
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx" 
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>TEST-RADAR &gt; Test Radar</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="instrument">instrument</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:instrument>
+        <gmi:MI_Instrument>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>TEST-RADAR &gt; Test Radar</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Instrument>
+      </gmi:instrument>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(cwicXmlNoDesc)
+
+    const correction = {
+      scheme: 'instruments',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'TEST-RADAR' },
+      newKeywordObject: { ShortName: 'TEST-RADAR-2' },
+      newLongName: 'Test Radar Version 2'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.instruments
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Should handle gracefully even without description node (line 269: || '' fallback)
+    expect(updatedXml).toContain('TEST-RADAR-2 &gt; Test Radar Version 2')
+    expect(updatedXml).toMatch(/<gmd:code>\s*<gco:CharacterString>TEST-RADAR-2 &gt; Test Radar Version 2<\/gco:CharacterString>/)
   })
 
   test('should handle special characters in instrument names', () => {
