@@ -48,26 +48,45 @@
     {                                     
       "scheme": "platforms",
       "action": "replace",
-      "newLongName": "New Platform Long Name",
+      "newLongName": "Earth Observing System AQUA Updated",
       "oldKeywordObject": {
-        "Class": "Air-based Platforms",
-        "Type": "Rotorcraft/Helicopter",
         "ShortName": "AQUA"
       },
       "newKeywordObject": {
-        "Class": "Air-based Platforms",
-        "Type": "Rotorcraft/Helicopter",
-        "ShortName": "AQUA"
+        "ShortName": "AQUA-2"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Earth Observing System TERRA Updated",
+      "oldKeywordObject": {
+        "ShortName": "TERRA"
+      },
+      "newKeywordObject": {
+        "ShortName": "TERRA-2"
       }
     },
     {
       "scheme": "instruments",
-      "action": "delete",
+      "action": "replace",
+      "newLongName": "Moderate-Resolution Imaging Spectroradiometer Updated",
       "oldKeywordObject": {
-        "Category": "Imaging Spectrometers/Radiometers",
-        "Class": "",
-        "Subclass": "",
+        "ShortName": "MODIS"
+      },
+      "newKeywordObject": {
+        "ShortName": "MODIS-2"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Advanced Topographic Laser Altimeter System Updated",
+      "oldKeywordObject": {
         "ShortName": "ATLAS"
+      },
+      "newKeywordObject": {
+        "ShortName": "ATLAS-2"
       }
     },
     {

@@ -276,4 +276,60 @@
       </gmd:processingLevelCode>
     </gmd:MD_ImageDescription>
   </gmd:contentInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <!-- CWIC-style platform (combined ShortName > LongName in code) -->
+      <gmi:platform>
+        <eos:EOS_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>AQUA > Earth Observing System</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+          <gmi:instrument>
+            <eos:EOS_Instrument>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code>
+                    <gco:CharacterString>MODIS > Moderate-Resolution Imaging Spectroradiometer</gco:CharacterString>
+                  </gmd:code>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </eos:EOS_Instrument>
+          </gmi:instrument>
+        </eos:EOS_Platform>
+      </gmi:platform>
+      <!-- NSIDC/NOAA-style platform (split format: ShortName in code, LongName in description) -->
+      <gmi:platform>
+        <gmi:MI_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>TERRA</gco:CharacterString>
+              </gmd:code>
+              <gmd:description>
+                <gco:CharacterString>Earth Observing System, TERRA (AM-1)</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+          <gmi:instrument>
+            <gmi:MI_Instrument>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code>
+                    <gco:CharacterString>ATLAS</gco:CharacterString>
+                  </gmd:code>
+                  <gmd:description>
+                    <gco:CharacterString>Advanced Topographic Laser Altimeter System</gco:CharacterString>
+                  </gmd:description>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </gmi:MI_Instrument>
+          </gmi:instrument>
+        </gmi:MI_Platform>
+      </gmi:platform>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
 </gmi:MI_Metadata>
