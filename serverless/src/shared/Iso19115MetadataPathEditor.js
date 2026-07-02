@@ -133,7 +133,6 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
 
       if (matchingNode) {
         config.replace.forEach((replConfig) => {
-          const newValue = replConfig.source.getValue({ correction })
           const isGlobal = replConfig.fieldPath.startsWith('//')
           const context = isGlobal ? this.document : matchingNode
 
@@ -141,11 +140,25 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           if (replConfig.fieldPath.includes('@')) {
             const [path, attr] = replConfig.fieldPath.split('/@')
             const targetElement = this.selectNodes(isGlobal ? path : `./${path}`, context)[0]
-            if (targetElement) targetElement.setAttribute(attr, newValue)
+            if (targetElement) {
+              const newValue = replConfig.source.getValue({
+                correction,
+                node: targetElement,
+                editor: this
+              })
+              targetElement.setAttribute(attr, newValue)
+            }
           } else {
             // Standard text content update
             const targetNode = this.selectNodes(isGlobal ? replConfig.fieldPath : `./${replConfig.fieldPath}`, context)[0]
-            if (targetNode) this.setElementText(targetNode, newValue)
+            if (targetNode) {
+              const newValue = replConfig.source.getValue({
+                correction,
+                node: targetNode,
+                editor: this
+              })
+              this.setElementText(targetNode, newValue)
+            }
           }
         })
 
@@ -188,7 +201,56 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       // Initialize keywordValue here so it is available in the scope
       const keywordValue = matchingNode.textContent.trim()
 
+      // Get the ShortName for matching acquisition information entries
+      const oldShortName = correction.oldKeywordObject?.ShortName
+
+      // Only platforms and instruments have acquisition information sections
+      const isPlatformOrInstrument = correction.scheme === 'platforms' || correction.scheme === 'instruments'
+
+      // For platforms/instruments, delete from acquisition section too
+      if (isPlatformOrInstrument && oldShortName && config.replace) {
+        // Find all MD_Identifier nodes that match this platform/instrument
+        const allIdentifiers = this.selectNodes('//gmd:MD_Identifier', this.document)
+        const identifiersToDelete = allIdentifiers.filter((identifier) => {
+          const codeNodes = this.selectNodes('.//gmd:code/gco:CharacterString', identifier)
+          if (codeNodes.length > 0) {
+            const codeValue = codeNodes[0].textContent?.trim() || ''
+
+            return codeValue === oldShortName || codeValue.startsWith(`${oldShortName} > `)
+          }
+
+          return false
+        })
+
+        // Delete the parent platform/instrument nodes from acquisition section
+        identifiersToDelete.forEach((identifier) => {
+          // Navigate up DOM tree to find the acquisition platform/instrument wrapper node
+          let currentNode = identifier.parentNode
+          while (currentNode) {
+            const { localName } = currentNode
+            // Check if we found a platform or instrument node
+            if (localName === 'EOS_Platform' || localName === 'MI_Platform'
+                || localName === 'EOS_Instrument' || localName === 'MI_Instrument') {
+              // Found the acquisition wrapper node, remove it entirely
+              if (currentNode.parentNode) {
+                currentNode.parentNode.removeChild(currentNode)
+              }
+
+              break
+            }
+
+            // Move up the tree
+            currentNode = currentNode.parentNode
+            // Stop if we reach the document root
+            if (currentNode === this.document.documentElement) {
+              break
+            }
+          }
+        })
+      }
+
       // Clean up synchronized paths globally, but with a value constraint
+      // This handles providers and other non-acquisition paths
       if (config.replace) {
         config.replace
           .filter((replConfig) => typeof replConfig.fieldPath === 'string' && replConfig.fieldPath.startsWith('//'))
@@ -224,12 +286,33 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
 
     // 3. Handle 'replace' action
     if (correction.action === 'replace') {
+      // Pre-scan: Build a map of identifiers that should be updated
+      // This prevents issues when processing multiple paths in sequence
+      const oldShortName = correction.oldKeywordObject?.ShortName
+      let identifiersToUpdate = []
+
+      if (oldShortName) {
+        // Find all MD_Identifier nodes that have code matching oldShortName
+        const allIdentifiers = this.selectNodes('//gmd:MD_Identifier', this.document)
+        identifiersToUpdate = allIdentifiers.filter((identifier) => {
+          const codeNodes = this.selectNodes('.//gmd:code/gco:CharacterString', identifier)
+          if (codeNodes.length > 0) {
+            const codeValue = codeNodes[0].textContent?.trim() || ''
+
+            return codeValue === oldShortName || codeValue.startsWith(`${oldShortName} > `)
+          }
+
+          return false
+        })
+      }
+
       const results = config.replace.map((replaceConfig) => {
         let fieldNodes = []
+        let path = null
 
         // 1. Attempt to find nodes via the provided path
         if (replaceConfig.fieldPath) {
-          const path = typeof replaceConfig.fieldPath === 'function'
+          path = typeof replaceConfig.fieldPath === 'function'
             ? replaceConfig.fieldPath({
               node: matchingNode,
               editor: this
@@ -243,18 +326,42 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         }
 
         // 2. Fallback: If no nodes were found via path,
-        // ALWAYS check for the default text node (remove the !replaceConfig.fieldPath check)
-        if (fieldNodes.length === 0) {
+        // ONLY check for the default text node if the path is relative (not global)
+        // Global paths (starting with //) should not fall back to keyword block updates
+        if (fieldNodes.length === 0 && (!path || !path.startsWith('//'))) {
           fieldNodes = this.selectNodes('./gco:CharacterString', matchingNode)
         }
 
         // 3. Update every node found
         if (fieldNodes.length > 0) {
+          // For global paths (starting with //), filter to only update matching nodes
+          // This prevents updating all platforms when we only want to update one
+          if (path && path.startsWith('//') && identifiersToUpdate.length > 0) {
+            // Filter nodes: only include nodes within the pre-scanned identifiers
+            fieldNodes = fieldNodes.filter((node) => {
+              // Navigate up to find the MD_Identifier parent
+              let identifier = node.parentNode
+              while (identifier && identifier.localName !== 'MD_Identifier') {
+                identifier = identifier.parentNode
+                if (!identifier || identifier === this.document.documentElement) {
+                  return false
+                }
+              }
+
+              // Check if this identifier is in our list to update
+              return identifiersToUpdate.includes(identifier)
+            })
+          }
+
           fieldNodes.forEach((node) => {
-            this.setElementText(node, replaceConfig.source.getValue({ correction }))
+            this.setElementText(node, replaceConfig.source.getValue({
+              correction,
+              node,
+              editor: this
+            }))
           })
 
-          return true
+          return fieldNodes.length > 0
         }
 
         return false

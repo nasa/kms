@@ -756,6 +756,10 @@ describe('when applying productlevelid ISO-19115 corrections', () => {
     // Verify that the Identifier block is completely gone from both expected locations
     expect(updatedXml).not.toContain('gov.nasa.esdis.umm.processinglevelid')
     expect(updatedXml).not.toContain('<gco:CharacterString>3</gco:CharacterString>')
+
+    // Verify that parent wrappers are also removed
+    expect(updatedXml).not.toContain('<gmd:processingLevel>')
+    expect(updatedXml).not.toContain('<gmd:processingLevelCode>')
   })
 })
 

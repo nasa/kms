@@ -57,16 +57,22 @@ const createKeywordBlock = (type, {
       }
     },
     // Dynamically add secondary paths for synchronization
-    ...additionalPaths.map((path) => ({
-      fieldPath: path,
-      source: {
-        type: 'computed',
-        // Ensure the secondary sync paths also use the 'NONE' padding logic
-        getValue: getValue || (({ correction }) => fieldKeys
-          .map((k) => correction.newKeywordObject[k] || 'NONE')
-          .join(' > '))
+    // Each path can be a string or an object with { path, getValue }
+    ...additionalPaths.map((pathConfig) => {
+      const isObject = typeof pathConfig === 'object' && pathConfig.path
+      const path = isObject ? pathConfig.path : pathConfig
+      const pathGetValue = isObject ? pathConfig.getValue : null
+
+      return {
+        fieldPath: path,
+        source: {
+          type: 'computed',
+          getValue: pathGetValue || getValue || (({ correction }) => fieldKeys
+            .map((k) => correction.newKeywordObject[k] || 'NONE')
+            .join(' > '))
+        }
       }
-    }))
+    })
   ]
 })
 
@@ -110,9 +116,10 @@ const createProductLevelIdEditor = () => leafScheme({
     })
   },
   delete: [
-    // Define the paths to remove both occurrences
-    { path: '//gmd:processingLevel/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' },
-    { path: '//gmd:processingLevelCode/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' }
+    // Remove the entire processingLevel parent wrapper (in identificationInfo)
+    { path: '//gmd:identificationInfo//gmd:processingLevel[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' },
+    // Remove the entire processingLevelCode parent wrapper (in contentInfo)
+    { path: '//gmd:contentInfo//gmd:processingLevelCode[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' }
   ],
   replace: [
     {
@@ -163,7 +170,68 @@ export const ISO_19115_SCHEME_EDITORS = {
       const LongName = correction.newLongName || ''
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
-    }
+    },
+    // Sync with acquisition information section
+    // Smart detection: if gmd:code contains ' > ', use combined format (CWIC style)
+    // Otherwise use split format (NSIDC/NOAA style)
+    additionalPaths: [
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/eos:EOS_Platform/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        getValue: ({ correction, node }) => {
+          const existingValue = node?.textContent || ''
+          // If existing value contains ' > ', keep combined format
+          if (existingValue.includes(' > ')) {
+            const { ShortName } = correction.newKeywordObject
+            const LongName = correction.newLongName || ''
+
+            return LongName ? `${ShortName} > ${LongName}` : ShortName
+          }
+
+          // Otherwise use ShortName only (NSIDC/NOAA format)
+          return correction.newKeywordObject.ShortName
+        }
+      },
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/gmi:MI_Platform/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        getValue: ({ correction, node }) => {
+          const existingValue = node?.textContent || ''
+          if (existingValue.includes(' > ')) {
+            const { ShortName } = correction.newKeywordObject
+            const LongName = correction.newLongName || ''
+
+            return LongName ? `${ShortName} > ${LongName}` : ShortName
+          }
+
+          return correction.newKeywordObject.ShortName
+        }
+      },
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/eos:EOS_Platform/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        getValue: ({ correction, node, editor }) => {
+          const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
+          const codeValue = codeNode?.textContent || ''
+          // Only update description if code uses split format (doesn't contain ' > ')
+          if (!codeValue.includes(' > ')) {
+            return correction.newLongName || ''
+          }
+
+          // For CWIC format, preserve existing free-text description
+          return node?.textContent || ''
+        }
+      },
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/gmi:MI_Platform/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        getValue: ({ correction, node, editor }) => {
+          const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
+          const codeValue = codeNode?.textContent || ''
+          if (!codeValue.includes(' > ')) {
+            return correction.newLongName || ''
+          }
+
+          return node?.textContent || ''
+        }
+      }
+    ]
   }),
 
   instruments: createKeywordBlock('instrument', {
@@ -174,7 +242,64 @@ export const ISO_19115_SCHEME_EDITORS = {
       const LongName = correction.newLongName || ''
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
-    }
+    },
+    // Sync with acquisition information section
+    // Smart detection: if gmd:code contains ' > ', use combined format (CWIC style)
+    // Otherwise use split format (NSIDC/NOAA style)
+    additionalPaths: [
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        getValue: ({ correction, node }) => {
+          const existingValue = node?.textContent || ''
+          if (existingValue.includes(' > ')) {
+            const { ShortName } = correction.newKeywordObject
+            const LongName = correction.newLongName || ''
+
+            return LongName ? `${ShortName} > ${LongName}` : ShortName
+          }
+
+          return correction.newKeywordObject.ShortName
+        }
+      },
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        getValue: ({ correction, node }) => {
+          const existingValue = node?.textContent || ''
+          if (existingValue.includes(' > ')) {
+            const { ShortName } = correction.newKeywordObject
+            const LongName = correction.newLongName || ''
+
+            return LongName ? `${ShortName} > ${LongName}` : ShortName
+          }
+
+          return correction.newKeywordObject.ShortName
+        }
+      },
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        getValue: ({ correction, node, editor }) => {
+          const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
+          const codeValue = codeNode?.textContent || ''
+          if (!codeValue.includes(' > ')) {
+            return correction.newLongName || ''
+          }
+
+          return node?.textContent || ''
+        }
+      },
+      {
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        getValue: ({ correction, node, editor }) => {
+          const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
+          const codeValue = codeNode?.textContent || ''
+          if (!codeValue.includes(' > ')) {
+            return correction.newLongName || ''
+          }
+
+          return node?.textContent || ''
+        }
+      }
+    ]
   }),
 
   projects: createKeywordBlock('project', {
