@@ -6,6 +6,8 @@ import {
   vi
 } from 'vitest'
 
+import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
+import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
 import { getCmrCollectionNativeMetadata } from '@/shared/getCmrCollectionNativeMetadata'
 import { getCmrCollectionUmmDetails } from '@/shared/getCmrCollectionUmmDetails'
@@ -38,9 +40,29 @@ vi.mock('@/shared/invokeMetadataCorrectionDelegate', () => ({
   ))
 }))
 
+vi.mock('@/shared/emitConsumerMetrics', () => ({
+  CONSUMER_METRIC_NAMES: {
+    EVENTS_CONSUMED: 'EventsConsumed',
+    EVENTS_PROCESSED: 'EventsProcessed',
+    EVENT_PROCESSING_FAILURES: 'EventProcessingFailures',
+    RECORDS_UPDATED_FROM_EVENT: 'RecordsUpdatedFromEvent',
+    RECORDS_UPDATED_FROM_MANUAL: 'RecordsUpdatedFromManual',
+    INVALID_KEYWORD_COUNT: 'InvalidKeywordCount',
+    CORRECTIONS_APPLIED_TO_METADATA: 'CorrectionsAppliedToMetadata',
+    CORRECTIONS_WRITTEN_TO_CMR: 'CorrectionsWrittenToCMR',
+    KEYWORDS_RESOLVED: 'KeywordsResolved'
+  },
+  emitConsumerMetrics: vi.fn()
+}))
+
+vi.mock('@/shared/emitConsumerMetricsSafely', () => ({
+  emitConsumerMetricsSafely: vi.fn()
+}))
+
 vi.mock('@/shared/logger', () => ({
   logger: {
     info: vi.fn(),
+    debug: vi.fn(),
     error: vi.fn()
   }
 }))
@@ -96,6 +118,7 @@ const NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT = {
 describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(emitConsumerMetricsSafely).mockResolvedValue(undefined)
 
     vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
       nativeFormat: 'DIF10',
@@ -1128,6 +1151,66 @@ describe('when the metadata correction service is invoked', () => {
         batchItemFailures: []
       })
     })
+
+    test('should emit consumed and processed metrics for a successful request', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-metrics-success',
+            body: JSON.stringify({
+              source: 'cmrKeywordEventsListener',
+              collectionConceptId: 'C1234567890-PROV',
+              keywordEvent: {
+                eventType: 'UPDATED',
+                scheme: 'sciencekeywords',
+                uuid: 'uuid-1'
+              }
+            })
+          }
+        ]
+      })
+
+      expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+        metrics: [
+          {
+            metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
+            value: 1
+          },
+          {
+            metricName: CONSUMER_METRIC_NAMES.EVENTS_PROCESSED,
+            value: 1
+          }
+        ],
+        errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        logContext: expect.objectContaining({
+          failureCount: 0,
+          messageIds: ['message-metrics-success'],
+          processedCount: 1,
+          recordCount: 1
+        })
+      }))
+    })
   })
 
   describe('when the invocation is unsuccessful', () => {
@@ -1234,6 +1317,85 @@ describe('when the metadata correction service is invoked', () => {
         '[metadata-correction] Failed to process metadata correction request',
         expect.anything()
       )
+    })
+
+    test('should emit a processing failure metric when a request fails', async () => {
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-processing-failure',
+            body: 'not-json'
+          }
+        ]
+      })).rejects.toThrow()
+
+      expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+        metrics: [
+          {
+            metricName: CONSUMER_METRIC_NAMES.EVENTS_CONSUMED,
+            value: 1
+          },
+          {
+            metricName: CONSUMER_METRIC_NAMES.EVENT_PROCESSING_FAILURES,
+            value: 1
+          }
+        ],
+        errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        logContext: expect.objectContaining({
+          failureCount: 1,
+          messageIds: ['message-processing-failure'],
+          processedCount: 0,
+          recordCount: 1
+        })
+      }))
+    })
+
+    test('should log and continue when processing metric emission fails', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+      vi.mocked(emitConsumerMetricsSafely).mockResolvedValueOnce(undefined)
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-metric-failure',
+            body: JSON.stringify({
+              source: 'cmrKeywordEventsListener',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: []
+      })
+
+      expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
+        errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
+        logContext: expect.objectContaining({
+          failureCount: 0,
+          messageIds: ['message-metric-failure'],
+          processedCount: 1,
+          recordCount: 1
+        })
+      }))
     })
   })
 })
