@@ -1389,4 +1389,225 @@ describe('Platform corrections with synchronized keyword blocks and acquisition 
     expect(updatedXml).toMatch(/xmlns:gmd="http:\/\/www.isotc211.org\/2005\/gmd"/)
     expect(updatedXml).toMatch(/xmlns:gmi="http:\/\/www.isotc211.org\/2005\/gmi"/)
   })
+
+  test('should detect combined format in acquisition code and update accordingly', () => {
+    // Test coverage for: if (existingValue.includes(' > '))
+    const xmlWithCombinedFormat = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>NOAA-20 &gt; NOAA-20</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:platform>
+        <eos:EOS_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>NOAA-20 &gt; NOAA-20</gco:CharacterString>
+              </gmd:code>
+              <gmd:description>
+                <gco:CharacterString>Custom description text</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </eos:EOS_Platform>
+      </gmi:platform>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithCombinedFormat)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'NOAA-20' },
+      newKeywordObject: { ShortName: 'NOAA-21' },
+      newLongName: 'NOAA-21 Satellite'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword block updated
+    expect(updatedXml).toContain('NOAA-21 &gt; NOAA-21 Satellite')
+
+    // CRITICAL: Code should use combined format because existing code includes ' > '
+    // This covers the if (existingValue.includes(' > ')) branch
+    expect(updatedXml).toMatch(/<gmd:code>\s*<gco:CharacterString>NOAA-21 &gt; NOAA-21 Satellite<\/gco:CharacterString>/)
+
+    // Description should be preserved (CWIC format)
+    expect(updatedXml).toContain('Custom description text')
+  })
+
+  test('should use combined format with empty LongName when existing code has delimiter', () => {
+    // Test coverage for: if (existingValue.includes(' > ')) with LongName being falsy
+    // This tests: return LongName ? `${ShortName} > ${LongName}` : ShortName
+    const xmlWithDelimiter = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>GOES-16 &gt; Geostationary Operational Environmental Satellite-16</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:platform>
+        <gmi:MI_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>GOES-16 &gt; Geostationary Operational Environmental Satellite-16</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Platform>
+      </gmi:platform>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithDelimiter)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'GOES-16' },
+      newKeywordObject: { ShortName: 'GOES-17' }
+      // No newLongName - testing the ternary with falsy LongName
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword block updated with just ShortName (no LongName provided)
+    expect(updatedXml).toContain('<gco:CharacterString>GOES-17</gco:CharacterString>')
+
+    // Code detected ' > ' in existing value, enters if branch
+    // But LongName is falsy, so ternary returns just ShortName
+    // This covers: const { ShortName } = correction.newKeywordObject
+    // and: return LongName ? `${ShortName} > ${LongName}` : ShortName
+    expect(updatedXml).toMatch(/<gmd:code>\s*<gco:CharacterString>GOES-17<\/gco:CharacterString>/)
+  })
+
+  test('should handle both EOS_Platform and MI_Platform with combined format detection', () => {
+    // Test coverage for both namespace variants with includes(' > ') check
+    const mixedXml = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>METOP-A &gt; Meteorological Operational Satellite-A</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:platform>
+        <eos:EOS_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>METOP-A &gt; Meteorological Operational Satellite-A</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </eos:EOS_Platform>
+      </gmi:platform>
+      <gmi:platform>
+        <gmi:MI_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>METOP-A &gt; Meteorological Operational Satellite-A</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Platform>
+      </gmi:platform>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(mixedXml)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'METOP-A' },
+      newKeywordObject: { ShortName: 'METOP-B' },
+      newLongName: 'Meteorological Operational Satellite-B'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword updated
+    expect(updatedXml).toContain('METOP-B &gt; Meteorological Operational Satellite-B')
+
+    // Both EOS_Platform and MI_Platform should detect ' > ' and use combined format
+    expect(updatedXml).toMatch(/<eos:EOS_Platform>[\s\S]*?<gmd:code>\s*<gco:CharacterString>METOP-B &gt; Meteorological Operational Satellite-B<\/gco:CharacterString>/)
+    expect(updatedXml).toMatch(/<gmi:MI_Platform>[\s\S]*?<gmd:code>\s*<gco:CharacterString>METOP-B &gt; Meteorological Operational Satellite-B<\/gco:CharacterString>/)
+  })
 })

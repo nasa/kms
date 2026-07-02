@@ -705,4 +705,225 @@ describe('Instrument corrections with synchronized keyword blocks and acquisitio
     // But acquisition section structure remains
     expect(updatedXml).toContain('gmi:acquisitionInformation')
   })
+
+  test('should detect combined format in acquisition code and update accordingly', () => {
+    // Test coverage for: if (existingValue.includes(' > '))
+    const xmlWithCombinedFormat = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>VIIRS &gt; Visible Infrared Imaging Radiometer Suite</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="instrument">instrument</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:instrument>
+        <eos:EOS_Instrument>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>VIIRS &gt; Visible Infrared Imaging Radiometer Suite</gco:CharacterString>
+              </gmd:code>
+              <gmd:description>
+                <gco:CharacterString>Custom instrument description</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </eos:EOS_Instrument>
+      </gmi:instrument>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithCombinedFormat)
+
+    const correction = {
+      scheme: 'instruments',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'VIIRS' },
+      newKeywordObject: { ShortName: 'VIIRS-2' },
+      newLongName: 'Visible Infrared Imaging Radiometer Suite Version 2'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.instruments
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword block updated
+    expect(updatedXml).toContain('VIIRS-2 &gt; Visible Infrared Imaging Radiometer Suite Version 2')
+
+    // CRITICAL: Code should use combined format because existing code includes ' > '
+    // This covers the if (existingValue.includes(' > ')) branch
+    expect(updatedXml).toMatch(/<gmd:code>\s*<gco:CharacterString>VIIRS-2 &gt; Visible Infrared Imaging Radiometer Suite Version 2<\/gco:CharacterString>/)
+
+    // Description should be preserved (CWIC format)
+    expect(updatedXml).toContain('Custom instrument description')
+  })
+
+  test('should use combined format with empty LongName when existing code has delimiter', () => {
+    // Test coverage for: if (existingValue.includes(' > ')) with LongName being falsy
+    // This tests: return LongName ? `${ShortName} > ${LongName}` : ShortName
+    const xmlWithDelimiter = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>CERES &gt; Clouds and the Earth's Radiant Energy System</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="instrument">instrument</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:instrument>
+        <gmi:MI_Instrument>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>CERES &gt; Clouds and the Earth's Radiant Energy System</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Instrument>
+      </gmi:instrument>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithDelimiter)
+
+    const correction = {
+      scheme: 'instruments',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'CERES' },
+      newKeywordObject: { ShortName: 'CERES-2' }
+      // No newLongName - testing the ternary with falsy LongName
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.instruments
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword block updated with just ShortName (no LongName provided)
+    expect(updatedXml).toContain('<gco:CharacterString>CERES-2</gco:CharacterString>')
+
+    // Code detected ' > ' in existing value, enters if branch
+    // But LongName is falsy, so ternary returns just ShortName
+    // This covers: const { ShortName } = correction.newKeywordObject
+    // and: return LongName ? `${ShortName} > ${LongName}` : ShortName
+    expect(updatedXml).toMatch(/<gmd:code>\s*<gco:CharacterString>CERES-2<\/gco:CharacterString>/)
+  })
+
+  test('should handle both EOS_Instrument and MI_Instrument with combined format detection', () => {
+    // Test coverage for both namespace variants with includes(' > ') check
+    const mixedXml = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>AIRS &gt; Atmospheric Infrared Sounder</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="instrument">instrument</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:instrument>
+        <eos:EOS_Instrument>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>AIRS &gt; Atmospheric Infrared Sounder</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </eos:EOS_Instrument>
+      </gmi:instrument>
+      <gmi:instrument>
+        <gmi:MI_Instrument>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>AIRS &gt; Atmospheric Infrared Sounder</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Instrument>
+      </gmi:instrument>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(mixedXml)
+
+    const correction = {
+      scheme: 'instruments',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'AIRS' },
+      newKeywordObject: { ShortName: 'AIRS-2' },
+      newLongName: 'Atmospheric Infrared Sounder Version 2'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.instruments
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword updated
+    expect(updatedXml).toContain('AIRS-2 &gt; Atmospheric Infrared Sounder Version 2')
+
+    // Both EOS_Instrument and MI_Instrument should detect ' > ' and use combined format
+    expect(updatedXml).toMatch(/<eos:EOS_Instrument>[\s\S]*?<gmd:code>\s*<gco:CharacterString>AIRS-2 &gt; Atmospheric Infrared Sounder Version 2<\/gco:CharacterString>/)
+    expect(updatedXml).toMatch(/<gmi:MI_Instrument>[\s\S]*?<gmd:code>\s*<gco:CharacterString>AIRS-2 &gt; Atmospheric Infrared Sounder Version 2<\/gco:CharacterString>/)
+  })
 })

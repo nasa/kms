@@ -805,4 +805,113 @@ describe('when applying providers ISO-19115 corrections', () => {
     expect(updatedXml).not.toContain('DOC/NOAA/NESDIS/NCEI &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce')
     expect(updatedXml).toContain('DOC/NOAA/NESDIS/NODC &gt; National Oceanographic Data Center, NESDIS, NOAA, U.S. Department of Commerce')
   })
+
+  test('should use fallback getValue with NONE for missing fieldKeys in science keywords', () => {
+    // This test covers the fallback getValue function (lines 58-61 and conceptually 70-71)
+    // getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k] || 'NONE').join(' > '))
+    // Note: Lines 70-71 (in additionalPaths.map) use the same fallback logic but are not hit by
+    // current schemes since all schemes with additionalPaths also provide custom getValue.
+    // This test covers the main keyword block fallback which uses identical logic.
+    // For sciencekeywords, NO custom getValue is provided, so it uses the default fallback
+
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    // Provide incomplete science keyword - missing some hierarchy levels
+    const correction = {
+      scheme: 'sciencekeywords',
+      action: 'replace',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'BIOSPHERE'
+        // Deliberately omitting Term, VariableLevel1, etc. to trigger || 'NONE' fallback
+        // The fallback function will map each missing field to 'NONE'
+      }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.sciencekeywords
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // The fallback getValue function (lines 70-71) will create:
+    // fieldKeys.map((k) => correction.newKeywordObject[k] || 'NONE').join(' > ')
+    // With fieldKeys = ['Category', 'Topic', 'Term', 'VariableLevel1', 'VariableLevel2', 'VariableLevel3', 'DetailedVariable']
+    // Result: 'EARTH SCIENCE > BIOSPHERE > NONE > NONE > NONE > NONE > NONE'
+    expect(updatedXml).toContain('EARTH SCIENCE &gt; BIOSPHERE &gt; NONE &gt; NONE &gt; NONE &gt; NONE &gt; NONE')
+  })
+
+  test('should handle providers with missing LongName in both keyword and CI_ResponsibleParty', () => {
+    // Test that verifies the getValue logic propagates correctly to additionalPaths
+    // For providers: getValue is provided, so additionalPaths will use that getValue (not the fallback)
+    const xmlWithResponsibleParty = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>NASA/JPL &gt; Jet Propulsion Laboratory</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="dataCentre">dataCentre</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmd:contact>
+    <gmd:CI_ResponsibleParty>
+      <gmd:organisationName>
+        <gco:CharacterString>NASA/JPL &gt; Jet Propulsion Laboratory</gco:CharacterString>
+      </gmd:organisationName>
+      <gmd:role>
+        <gmd:CI_RoleCode codeListValue="pointOfContact">pointOfContact</gmd:CI_RoleCode>
+      </gmd:role>
+    </gmd:CI_ResponsibleParty>
+  </gmd:contact>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithResponsibleParty)
+
+    const correction = {
+      scheme: 'providers',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'NASA/JPL' },
+      newKeywordObject: {
+        ShortName: 'NASA/JPL/CALTECH'
+      },
+      newLongName: 'Jet Propulsion Laboratory, California Institute of Technology'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.providers
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Both keyword and organisationName should be updated consistently
+    expect(updatedXml).toContain('NASA/JPL/CALTECH &gt; Jet Propulsion Laboratory, California Institute of Technology')
+
+    // Verify organisationName in CI_ResponsibleParty was also updated
+    expect(updatedXml).toMatch(/<gmd:organisationName>\s*<gco:CharacterString>NASA\/JPL\/CALTECH &gt; Jet Propulsion Laboratory, California Institute of Technology<\/gco:CharacterString>/)
+  })
 })
