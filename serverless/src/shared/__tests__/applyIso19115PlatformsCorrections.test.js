@@ -1610,4 +1610,225 @@ describe('Platform corrections with synchronized keyword blocks and acquisition 
     expect(updatedXml).toMatch(/<eos:EOS_Platform>[\s\S]*?<gmd:code>\s*<gco:CharacterString>METOP-B &gt; Meteorological Operational Satellite-B<\/gco:CharacterString>/)
     expect(updatedXml).toMatch(/<gmi:MI_Platform>[\s\S]*?<gmd:code>\s*<gco:CharacterString>METOP-B &gt; Meteorological Operational Satellite-B<\/gco:CharacterString>/)
   })
+
+  test('should handle unsupported action gracefully', () => {
+    // This covers line 169: return false when action is neither 'delete' nor 'replace'
+    const editor = new Iso19115MetadataPathEditor(mockIso19115WithNSIDCAcquisition)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'invalid-action', // Unsupported action
+      oldKeywordObject: { ShortName: 'ICESat-2' },
+      newKeywordObject: { ShortName: 'ICESat-3' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+    const success = config(editor, correction)
+
+    // Should return false for unsupported action
+    expect(success).toBe(false)
+
+    // XML should remain unchanged
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('ICESat-2')
+    expect(updatedXml).not.toContain('ICESat-3')
+  })
+
+  test('should handle delete when identifier has no code nodes', () => {
+    // This covers line 222: return false when identifier has no code nodes during delete
+    const xmlWithMalformedIdentifier = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>TEST-SAT &gt; Test Satellite</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:platform>
+        <eos:EOS_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <!-- No gmd:code element - malformed -->
+              <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.platformshortname</gco:CharacterString>
+              </gmd:codeSpace>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </eos:EOS_Platform>
+      </gmi:platform>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithMalformedIdentifier)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'TEST-SAT' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+    const success = config(editor, correction)
+
+    // Should still succeed in deleting the keyword block
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    // Keyword removed from descriptiveKeywords
+    expect(updatedXml).not.toContain('TEST-SAT &gt; Test Satellite')
+    // Malformed acquisition platform remains (no code node to match)
+    expect(updatedXml).toContain('eos:EOS_Platform')
+  })
+
+  test('should handle replace when identifier has no code nodes', () => {
+    // This covers line 305: return false when identifier has no code nodes during replace
+    const xmlWithMalformedIdentifier = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>TEST-SAT &gt; Test Satellite</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:platform>
+        <eos:EOS_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <!-- No gmd:code element - malformed -->
+              <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.platformshortname</gco:CharacterString>
+              </gmd:codeSpace>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </eos:EOS_Platform>
+      </gmi:platform>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithMalformedIdentifier)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'TEST-SAT' },
+      newKeywordObject: { ShortName: 'NEW-SAT' },
+      newLongName: 'New Satellite'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+    const success = config(editor, correction)
+
+    // Should still succeed in updating the keyword block
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    // Keyword updated in descriptiveKeywords
+    expect(updatedXml).toContain('NEW-SAT &gt; New Satellite')
+    // Malformed acquisition platform remains unchanged (no code node to match)
+    expect(updatedXml).toContain('eos:EOS_Platform')
+    expect(updatedXml).not.toContain('NEW-SAT</gco:CharacterString>')
+  })
+
+  test('should break when reaching document root during delete navigation', () => {
+    // This covers line 246: break when currentNode === this.document.documentElement
+    // Create XML where MD_Identifier is in an unexpected location (not properly nested in EOS_Platform/MI_Platform)
+    const xmlWithShallowIdentifier = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:gmx="http://www.isotc211.org/2005/gmx"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>ORPHAN-SAT &gt; Orphan Satellite</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <!-- MD_Identifier directly under MI_AcquisitionInformation without proper platform wrapper -->
+      <gmd:MD_Identifier>
+        <gmd:code>
+          <gco:CharacterString>ORPHAN-SAT</gco:CharacterString>
+        </gmd:code>
+        <gmd:codeSpace>
+          <gco:CharacterString>gov.nasa.esdis.umm.platformshortname</gco:CharacterString>
+        </gmd:codeSpace>
+      </gmd:MD_Identifier>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithShallowIdentifier)
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'ORPHAN-SAT' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.platforms
+
+    // The delete operation should find the identifier matching 'ORPHAN-SAT'
+    // When navigating up from MD_Identifier, it will check:
+    // - parentNode = MI_AcquisitionInformation (localName !== EOS_Platform/MI_Platform)
+    // - parentNode = acquisitionInformation (localName !== EOS_Platform/MI_Platform)
+    // - parentNode = MI_Metadata (this IS document.documentElement)
+    // Line 246: break is hit when currentNode === this.document.documentElement
+    const success = config(editor, correction)
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    // Keyword should be deleted
+    expect(updatedXml).not.toContain('ORPHAN-SAT &gt; Orphan Satellite')
+    // Orphan MD_Identifier remains because navigation hit document root without finding platform wrapper
+    expect(updatedXml).toContain('ORPHAN-SAT</gco:CharacterString>')
+  })
 })
