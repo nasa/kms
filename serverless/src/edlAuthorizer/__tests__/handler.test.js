@@ -8,9 +8,11 @@ vi.mock('@/shared/fetchEdlProfile')
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
   let loggerErrorSpy
+  let loggerInfoSpy
 
   beforeEach(() => {
     loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
+    loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     fetchEdlProfile.mockReset()
     fetchEdlProfile.mockResolvedValue({
@@ -28,6 +30,7 @@ describe('edlAuthorizer', () => {
 
   afterAll(() => {
     loggerErrorSpy?.mockRestore()
+    loggerInfoSpy?.mockRestore()
   })
 
   describe('when the token is for a valid user', () => {
@@ -117,7 +120,13 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('Authorization failed: No uid found in profile')
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: No uid found in profile', expect.objectContaining({
+        profile: expect.objectContaining({
+          uid: undefined
+        }),
+        tokenPresent: false,
+        tokenType: 'missing'
+      }))
     })
   })
 
@@ -147,7 +156,12 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError)
+      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError, expect.objectContaining({
+        errorMessage: 'Unauthorized',
+        errorName: 'Error',
+        tokenPresent: false,
+        tokenType: 'missing'
+      }))
     })
   })
 
@@ -179,7 +193,14 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level 3 below required 5')
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level 3 below required 5', expect.objectContaining({
+        parsedAssuranceLevel: 3,
+        requiredAssuranceLevel: 5,
+        profile: expect.objectContaining({
+          uid: 'mock_user',
+          assuranceLevel: 3
+        })
+      }))
     })
 
     test('returns a deny policy when assurance level missing', async () => {
@@ -208,7 +229,14 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level missing from profile')
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level missing from profile', expect.objectContaining({
+        rawAssuranceLevel: undefined,
+        rawAssuranceLevelType: 'undefined',
+        profile: expect.objectContaining({
+          uid: 'mock_user',
+          assuranceLevel: undefined
+        })
+      }))
     })
   })
 })
