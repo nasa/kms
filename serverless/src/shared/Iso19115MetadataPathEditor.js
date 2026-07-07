@@ -250,7 +250,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         node,
         matchingNode: this.findMatchingNode(node, correction, config)
       }))
-      .find((data) => data.matchingNode !== null)
+      .find((data) => data.matchingNode !== undefined)
 
     // Return early if no match is found, preventing downstream errors
     if (!matchingData) return false

@@ -22,9 +22,9 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
  * @param {Array} [options.additionalPaths] - Optional array of XPath strings for secondary sync.
  */
 const createKeywordBlock = (type, {
-  fieldKeys, matchKeys, getValue, additionalPaths = []
+  fieldKeys, matchKeys, getValue, additionalPaths = [], nodeXPath
 }) => blockScheme({
-  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
+  nodeXPath: nodeXPath || `//gmd:descriptiveKeywords/gmd:MD_Keywords[
       gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}' 
     ]`.replace(/\s+/g, ' '),
 
@@ -158,13 +158,21 @@ export const ISO_19115_SCHEME_EDITORS = {
     'place',
     {
       fieldKeys: FULL_PATH_VALUE_FIELDS.locations,
-      matchKeys: FULL_PATH_VALUE_FIELDS.locations
+      matchKeys: FULL_PATH_VALUE_FIELDS.locations,
+      nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
+        gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'place' or 
+        gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'theme'
+      ]`.replace(/\s+/g, ' ')
     }
   ),
 
   platforms: createKeywordBlock('platform', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
+    nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
+      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'platform' or 
+      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'theme'
+    ]`.replace(/\s+/g, ' '),
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
@@ -237,6 +245,10 @@ export const ISO_19115_SCHEME_EDITORS = {
   instruments: createKeywordBlock('instrument', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
+    nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
+      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'instrument' or 
+      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'theme'
+    ]`.replace(/\s+/g, ' '),
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
