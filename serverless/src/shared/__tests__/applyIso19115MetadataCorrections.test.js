@@ -71,7 +71,7 @@ const mockIso19115 = `
               <gmd:citedResponsibleParty>
                 <gmd:CI_ResponsibleParty>
                   <gmd:organisationName>
-                    <gco:CharacterString>DOC/NOAA/NESDIS/NCEI &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce</gco:CharacterString>
+                    <gco:CharacterString>DOC/NOAA/NESDIS/NCEI/R &gt; National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce</gco:CharacterString>
                   </gmd:organisationName>
                   <gmd:contactInfo>
                     <gmd:CI_Contact>
@@ -849,69 +849,5 @@ describe('when applying providers ISO-19115 corrections', () => {
     // With fieldKeys = ['Category', 'Topic', 'Term', 'VariableLevel1', 'VariableLevel2', 'VariableLevel3', 'DetailedVariable']
     // Result: 'EARTH SCIENCE > BIOSPHERE > NONE > NONE > NONE > NONE > NONE'
     expect(updatedXml).toContain('EARTH SCIENCE &gt; BIOSPHERE &gt; NONE &gt; NONE &gt; NONE &gt; NONE &gt; NONE')
-  })
-
-  test('should handle providers with missing LongName in both keyword and CI_ResponsibleParty', () => {
-    // Test that verifies the getValue logic propagates correctly to additionalPaths
-    // For providers: getValue is provided, so additionalPaths will use that getValue (not the fallback)
-    const xmlWithResponsibleParty = `
-<gmi:MI_Metadata 
-  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
-  xmlns:gco="http://www.isotc211.org/2005/gco" 
-  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
-  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
-  xmlns:gml="http://www.opengis.net/gml/3.2" 
-  xmlns:gmx="http://www.isotc211.org/2005/gmx"
-  xmlns:xlink="http://www.w3.org/1999/xlink">
-  <gmd:identificationInfo>
-    <gmd:MD_DataIdentification>
-      <gmd:descriptiveKeywords>
-        <gmd:MD_Keywords>
-          <gmd:keyword>
-            <gco:CharacterString>NASA/JPL &gt; Jet Propulsion Laboratory</gco:CharacterString>
-          </gmd:keyword>
-          <gmd:type>
-            <gmd:MD_KeywordTypeCode codeListValue="dataCentre">dataCentre</gmd:MD_KeywordTypeCode>
-          </gmd:type>
-        </gmd:MD_Keywords>
-      </gmd:descriptiveKeywords>
-    </gmd:MD_DataIdentification>
-  </gmd:identificationInfo>
-  <gmd:contact>
-    <gmd:CI_ResponsibleParty>
-      <gmd:organisationName>
-        <gco:CharacterString>NASA/JPL &gt; Jet Propulsion Laboratory</gco:CharacterString>
-      </gmd:organisationName>
-      <gmd:role>
-        <gmd:CI_RoleCode codeListValue="pointOfContact">pointOfContact</gmd:CI_RoleCode>
-      </gmd:role>
-    </gmd:CI_ResponsibleParty>
-  </gmd:contact>
-</gmi:MI_Metadata>`
-
-    const editor = new Iso19115MetadataPathEditor(xmlWithResponsibleParty)
-
-    const correction = {
-      scheme: 'providers',
-      action: 'replace',
-      oldKeywordObject: { ShortName: 'NASA/JPL' },
-      newKeywordObject: {
-        ShortName: 'NASA/JPL/CALTECH'
-      },
-      newLongName: 'Jet Propulsion Laboratory, California Institute of Technology'
-    }
-
-    const config = ISO_19115_SCHEME_EDITORS.providers
-    const success = config(editor, correction)
-
-    expect(success).toBe(true)
-
-    const updatedXml = editor.serialize()
-
-    // Both keyword and organisationName should be updated consistently
-    expect(updatedXml).toContain('NASA/JPL/CALTECH &gt; Jet Propulsion Laboratory, California Institute of Technology')
-
-    // Verify organisationName in CI_ResponsibleParty was also updated
-    expect(updatedXml).toMatch(/<gmd:organisationName>\s*<gco:CharacterString>NASA\/JPL\/CALTECH &gt; Jet Propulsion Laboratory, California Institute of Technology<\/gco:CharacterString>/)
   })
 })

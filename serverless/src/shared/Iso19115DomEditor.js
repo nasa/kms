@@ -321,11 +321,11 @@ export const ISO_19115_SCHEME_EDITORS = {
       const LongName = correction.newLongName || ''
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
-    },
+    }
     // Additional paths
-    additionalPaths: [
-      '//gmd:CI_ResponsibleParty/gmd:organisationName/gco:CharacterString'
-    ]
+    // additionalPaths: [
+    //   '//gmd:CI_ResponsibleParty/gmd:organisationName/gco:CharacterString'
+    // ]
   }),
 
   isotopiccategory: createIsoTopicCategoryEditor(),
