@@ -117,13 +117,13 @@ const fetchProfileWithLaunchpadToken = async (host, launchpadToken) => {
  * @returns {Promise<Object>} normalized profile from validated bearer token data
  */
 const fetchProfileWithEdlAccessToken = async (host, edlToken) => {
-  const { uid: edlUid } = getEdlConfig()
   const {
+    EDL_CLIENT_ID: clientId,
     EDL_PASSWORD: password
   } = process.env
 
-  if (!edlUid) {
-    throw new Error('Missing EDL UID configuration')
+  if (!clientId) {
+    throw new Error('Missing EDL_CLIENT_ID configuration')
   }
 
   if (!password) {
@@ -134,10 +134,10 @@ const fetchProfileWithEdlAccessToken = async (host, edlToken) => {
     method: 'POST',
     headers: {
       Accept: 'application/json',
-      Authorization: buildBasicAuthorizationHeader(edlUid, password),
+      Authorization: buildBasicAuthorizationHeader(clientId, password),
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
     },
-    body: `client_id=${encodeURIComponent(edlUid)}&token=${encodeURIComponent(edlToken)}`
+    body: `client_id=${encodeURIComponent(clientId)}&token=${encodeURIComponent(edlToken)}`
   })
 
   logger.debug('EDL token validation response status:', response.status)

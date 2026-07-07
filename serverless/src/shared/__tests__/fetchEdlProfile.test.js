@@ -1,4 +1,3 @@
-import { getEdlConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 
 import fetchEdlClientToken from '../fetchEdlClientToken'
@@ -28,6 +27,7 @@ let loggerErrorSpy
 beforeEach(() => {
   vi.resetAllMocks()
   console.log = vi.fn()
+  process.env.EDL_CLIENT_ID = 'kms-client-id'
   process.env.EDL_PASSWORD = 'kms-client-password'
   fetchEdlClientToken.mockImplementation(() => ('mock_token'))
   loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
@@ -38,6 +38,7 @@ afterEach(() => {
   console.log = originalConsoleLog
   loggerErrorSpy?.mockRestore()
   loggerErrorSpy = undefined
+  delete process.env.EDL_CLIENT_ID
   delete process.env.EDL_PASSWORD
   delete process.env.IS_OFFLINE
 })
@@ -46,7 +47,6 @@ describe('fetchEdlProfile', () => {
   describe('when provided a Bearer access token', () => {
     describe('when the token is valid', () => {
       test('validates the token and returns the normalized profile', async () => {
-        const { uid: edlUid } = getEdlConfig()
         const rawToken = createJwt({
           uid: 'user.name',
           assurance_level: 3
@@ -73,10 +73,10 @@ describe('fetchEdlProfile', () => {
         expect(fetch).toHaveBeenCalledWith(
           'https://sit.urs.earthdata.nasa.gov/oauth/tokens/user',
           {
-            body: `client_id=${encodeURIComponent(edlUid)}&token=${encodeURIComponent(rawToken)}`,
+            body: `client_id=${encodeURIComponent('kms-client-id')}&token=${encodeURIComponent(rawToken)}`,
             headers: {
               Accept: 'application/json',
-              Authorization: `Basic ${Buffer.from(`${edlUid}:kms-client-password`).toString('base64')}`,
+              Authorization: `Basic ${Buffer.from('kms-client-id:kms-client-password').toString('base64')}`,
               'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
             },
             method: 'POST'
@@ -137,6 +137,18 @@ describe('fetchEdlProfile', () => {
     })
 
     describe('when bearer validation configuration is missing', () => {
+      test('throws when EDL_CLIENT_ID is missing', async () => {
+        delete process.env.EDL_CLIENT_ID
+        global.fetch = vi.fn()
+
+        await expect(fetchEdlProfile(`Bearer ${createJwt({
+          uid: 'user.name',
+          assurance_level: 3
+        })}`)).rejects.toThrow('Missing EDL_CLIENT_ID configuration')
+
+        expect(fetch).not.toHaveBeenCalled()
+      })
+
       test('throws when EDL_PASSWORD is missing', async () => {
         delete process.env.EDL_PASSWORD
         global.fetch = vi.fn()
