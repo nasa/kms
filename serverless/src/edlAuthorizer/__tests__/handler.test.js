@@ -120,13 +120,7 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('Authorization failed: No uid found in profile', expect.objectContaining({
-        profile: expect.objectContaining({
-          uid: undefined
-        }),
-        tokenPresent: false,
-        tokenType: 'missing'
-      }))
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: No uid found in profile')
     })
   })
 
@@ -156,12 +150,7 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError, expect.objectContaining({
-        errorMessage: 'Unauthorized',
-        errorName: 'Error',
-        tokenPresent: false,
-        tokenType: 'missing'
-      }))
+      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError)
     })
   })
 
@@ -193,14 +182,7 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level 3 below required 5', expect.objectContaining({
-        parsedAssuranceLevel: 3,
-        requiredAssuranceLevel: 5,
-        profile: expect.objectContaining({
-          uid: 'mock_user',
-          assuranceLevel: 3
-        })
-      }))
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level 3 below required 5')
     })
 
     test('returns a deny policy when assurance level missing', async () => {
@@ -229,14 +211,7 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level missing from profile', expect.objectContaining({
-        rawAssuranceLevel: undefined,
-        rawAssuranceLevelType: 'undefined',
-        profile: expect.objectContaining({
-          uid: 'mock_user',
-          assuranceLevel: undefined
-        })
-      }))
+      expect(logger.error).toHaveBeenCalledWith('Authorization failed: Assurance level missing from profile')
     })
   })
 })
