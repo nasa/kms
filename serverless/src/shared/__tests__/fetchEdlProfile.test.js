@@ -71,13 +71,15 @@ describe('fetchEdlProfile', () => {
         expect(fetchEdlClientToken).not.toHaveBeenCalled()
         expect(fetch).toHaveBeenCalledTimes(1)
         expect(fetch).toHaveBeenCalledWith(
-          `https://sit.urs.earthdata.nasa.gov/oauth/tokens/user?client_id=${encodeURIComponent(edlUid)}&token=${encodeURIComponent(rawToken)}`,
+          'https://sit.urs.earthdata.nasa.gov/oauth/tokens/user',
           {
+            body: `client_id=${encodeURIComponent(edlUid)}&token=${encodeURIComponent(rawToken)}`,
             headers: {
               Accept: 'application/json',
-              Authorization: `Basic ${Buffer.from(`${edlUid}:kms-client-password`).toString('base64')}`
+              Authorization: `Basic ${Buffer.from(`${edlUid}:kms-client-password`).toString('base64')}`,
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
             },
-            method: 'GET'
+            method: 'POST'
           }
         )
       })

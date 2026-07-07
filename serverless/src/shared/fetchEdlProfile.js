@@ -130,16 +130,15 @@ const fetchProfileWithEdlAccessToken = async (host, edlToken) => {
     throw new Error('Missing EDL_PASSWORD configuration')
   }
 
-  const response = await fetch(
-    `${host}/oauth/tokens/user?client_id=${encodeURIComponent(edlUid)}&token=${encodeURIComponent(edlToken)}`,
-    {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: buildBasicAuthorizationHeader(edlUid, password)
-      }
-    }
-  )
+  const response = await fetch(`${host}/oauth/tokens/user`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: buildBasicAuthorizationHeader(edlUid, password),
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+    },
+    body: `client_id=${encodeURIComponent(edlUid)}&token=${encodeURIComponent(edlToken)}`
+  })
 
   logger.debug('EDL token validation response status:', response.status)
 
