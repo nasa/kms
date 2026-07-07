@@ -273,13 +273,43 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       // For platforms/instruments, delete from acquisition section too
       if (isPlatformOrInstrument && oldShortName && config.replace) {
         // Find all MD_Identifier nodes that match this platform/instrument
+        // AND have the correct codeSpace to identify them as acquisition info
         const allIdentifiers = this.selectNodes('//gmd:MD_Identifier', this.document)
         const identifiersToDelete = allIdentifiers.filter((identifier) => {
           const codeNodes = this.selectNodes('.//gmd:code/gco:CharacterString', identifier)
-          if (codeNodes.length > 0) {
-            const codeValue = codeNodes[0].textContent?.trim() || ''
+          if (codeNodes.length === 0) {
+            return false
+          }
 
-            return codeValue === oldShortName || codeValue.startsWith(`${oldShortName} > `)
+          const codeValue = codeNodes[0].textContent?.trim() || ''
+          const codeMatches = codeValue === oldShortName || codeValue.startsWith(`${oldShortName} > `)
+
+          if (!codeMatches) {
+            return false
+          }
+
+          // Check codeSpace to ensure this is an acquisition identifier
+          const codeSpaceNodes = this.selectNodes('.//gmd:codeSpace/gco:CharacterString', identifier)
+          if (codeSpaceNodes.length > 0) {
+            const codeSpaceValue = codeSpaceNodes[0].textContent?.trim() || ''
+
+            // Match acquisition-specific codeSpace values based on scheme
+            const isAcquisitionIdentifier = correction.scheme === 'platforms'
+              ? codeSpaceValue === 'gov.nasa.esdis.umm.platformshortname'
+              : codeSpaceValue === 'gov.nasa.esdis.umm.instrumentshortname'
+
+            return isAcquisitionIdentifier
+          }
+
+          // If no codeSpace, check if identifier is within acquisitionInformation context
+          let current = identifier.parentNode
+          while (current && current !== this.document.documentElement) {
+            if (current.localName === 'acquisitionInformation'
+          || current.localName === 'MI_AcquisitionInformation') {
+              return true
+            }
+
+            current = current.parentNode
           }
 
           return false
@@ -293,7 +323,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             const { localName } = currentNode
             // Check if we found a platform or instrument node
             if (localName === 'EOS_Platform' || localName === 'MI_Platform'
-                || localName === 'EOS_Instrument' || localName === 'MI_Instrument') {
+          || localName === 'EOS_Instrument' || localName === 'MI_Instrument') {
               // Found the acquisition wrapper node, remove it entirely
               if (currentNode.parentNode) {
                 currentNode.parentNode.removeChild(currentNode)
