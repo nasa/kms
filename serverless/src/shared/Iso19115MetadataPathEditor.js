@@ -4,13 +4,38 @@ import XmlMetadataPathEditor from './XmlMetadataPathEditor'
 import { extractNamespaces } from './XmlUtils'
 
 /**
+ * Detects whether XML is SMAP or MENDS format based on root element structure.
+ * @param {string} xmlString - XML content to analyze.
+ * @returns {'SMAP'|'MENDS'} Detected format type.
+ */
+export const detectIsoFormat = (xmlString) => {
+  // SMAP files contain DS_Series root element wrapping the metadata
+  if (xmlString.includes('<gmd:DS_Series') || xmlString.includes(':DS_Series')) {
+    return 'SMAP'
+  }
+
+  return 'MENDS'
+}
+
+/**
  * Subclass of XmlMetadataPathEditor specialized for ISO 19115 XML structure.
  * Handles namespace resolution and provides specific methods for updating
  * keyword blocks and leaf nodes within ISO 19115 metadata.
+ *
+ * Supports both ISO-MENDS and ISO-SMAP formats through automatic XPath transformation.
  */
 export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
-  constructor(xmlString) {
+  /**
+   * @param {string} xmlString - Raw XML metadata string
+   * @param {object} options - Editor configuration options
+   * @param {string} [options.format] - Format type: 'MENDS' or 'SMAP'. Auto-detected if not provided.
+   */
+  constructor(xmlString, options = {}) {
     super(xmlString)
+
+    // Auto-detect format if not explicitly provided, defaulting to MENDS for backward compatibility
+    this.format = options.format || detectIsoFormat(xmlString)
+
     const root = this.document.documentElement
 
     // 1. Get dynamic namespaces
@@ -22,7 +47,8 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       gmd: 'http://www.isotc211.org/2005/gmd',
       gmi: 'http://www.isotc211.org/2005/gmi',
       gmx: 'http://www.isotc211.org/2005/gmx',
-      gml: 'http://www.opengis.net/gml/3.2'
+      gml: 'http://www.opengis.net/gml/3.2',
+      eos: 'http://earthdata.nasa.gov/schema/eos'
     }
 
     // 3. Merge them, prioritizing extracted ones (if any)
@@ -35,13 +61,50 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   }
 
   /**
+   * Transforms XPath expressions based on the target format (MENDS vs SMAP).
+   *
+   * SMAP format wraps all metadata in /gmd:DS_Series/gmd:seriesMetadata/, while
+   * MENDS uses the root MI_Metadata directly. This method automatically adjusts
+   * absolute XPath expressions to work with the target format.
+   *
+   * @param {string} xpathExpression - Original XPath expression
+   * @returns {string} Transformed XPath for the target format
+   *
+   * @example
+   * // MENDS format (no transformation)
+   * transformXPath('//gmd:descriptiveKeywords')
+   * // => '//gmd:descriptiveKeywords'
+   *
+   * // SMAP format (adds wrapper path)
+   * transformXPath('//gmd:descriptiveKeywords')
+   * // => '/gmd:DS_Series/gmd:seriesMetadata//gmd:descriptiveKeywords'
+   */
+  transformXPath(xpathExpression) {
+    if (this.format === 'SMAP') {
+      // Only transform absolute paths that aren't already SMAP-formatted
+      if (xpathExpression.startsWith('//') && !xpathExpression.includes('/gmd:DS_Series')) {
+        // Remove leading '//' and prepend SMAP wrapper path
+        const relativePath = xpathExpression.substring(2)
+
+        return `/gmd:DS_Series/gmd:seriesMetadata/gmi:MI_Metadata//${relativePath}`
+      }
+    }
+
+    return xpathExpression
+  }
+
+  /**
    * Executes an XPath expression and ensures only element nodes are returned.
+   * Automatically transforms paths based on the detected or specified format.
+   *
    * @param {string} expression - The XPath string.
    * @param {Node} contextNode - The XML node to execute the search against.
    * @returns {Node[]} Array of matching Element nodes.
    */
   selectNodes(expression, contextNode = this.document) {
-    return this.resolver(expression, contextNode)
+    const transformedExpression = this.transformXPath(expression)
+
+    return this.resolver(transformedExpression, contextNode)
       .filter((node) => node?.nodeType === 1) // Ensure only ELEMENT_NODE
   }
 
@@ -374,4 +437,5 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
     return false
   }
 }
+
 export default Iso19115MetadataPathEditor

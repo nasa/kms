@@ -444,3 +444,595 @@ describe('Iso19115MetadataPathEditor', () => {
     })
   })
 })
+
+describe('ISO Format Detection', () => {
+  test('should detect MENDS format from XML without DS_Series', () => {
+    const mendsXml = `
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:identificationInfo>
+          <gmd:MD_DataIdentification>
+            <gmd:citation/>
+          </gmd:MD_DataIdentification>
+        </gmd:identificationInfo>
+      </gmi:MI_Metadata>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(mendsXml)
+    expect(editor.format).toBe('MENDS')
+  })
+
+  test('should detect SMAP format from XML with DS_Series', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo/>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml)
+    expect(editor.format).toBe('SMAP')
+  })
+
+  test('should use explicitly provided format option over auto-detection', () => {
+    const mendsXml = `
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:identificationInfo/>
+      </gmi:MI_Metadata>
+    `
+
+    // Force SMAP format even though XML is MENDS structure
+    const editor = new Iso19115MetadataPathEditor(mendsXml, { format: 'SMAP' })
+    expect(editor.format).toBe('SMAP')
+  })
+
+  test('should default to MENDS when format detection is ambiguous', () => {
+    const ambiguousXml = '<root/>'
+
+    const editor = new Iso19115MetadataPathEditor(ambiguousXml)
+    expect(editor.format).toBe('MENDS')
+  })
+})
+
+describe('XPath Transformation for SMAP', () => {
+  test('should not transform XPath for MENDS format', () => {
+    const mendsXml = `
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:identificationInfo/>
+      </gmi:MI_Metadata>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(mendsXml, { format: 'MENDS' })
+    const xpath = '//gmd:identificationInfo'
+
+    expect(editor.transformXPath(xpath)).toBe(xpath)
+  })
+
+  test('should transform absolute XPath for SMAP format', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo/>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const xpath = '//gmd:identificationInfo'
+    const transformed = editor.transformXPath(xpath)
+
+    expect(transformed).toBe('/gmd:DS_Series/gmd:seriesMetadata/gmi:MI_Metadata//gmd:identificationInfo')
+  })
+
+  test('should not transform relative XPath for SMAP format', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi"/>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const xpath = './gmd:keyword'
+
+    expect(editor.transformXPath(xpath)).toBe('./gmd:keyword')
+  })
+
+  test('should not transform already-transformed SMAP XPath', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi"/>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const xpath = '/gmd:DS_Series/gmd:seriesMetadata/gmi:MI_Metadata//gmd:identificationInfo'
+
+    expect(editor.transformXPath(xpath)).toBe(xpath)
+  })
+
+  test('should transform XPath with complex predicates', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi"/>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const xpath = '//gmd:descriptiveKeywords/gmd:MD_Keywords[gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = "theme"]'
+    const transformed = editor.transformXPath(xpath)
+
+    expect(transformed).toContain('/gmd:DS_Series/gmd:seriesMetadata/gmi:MI_Metadata//')
+    expect(transformed).toContain('gmd:descriptiveKeywords/gmd:MD_Keywords')
+  })
+})
+
+describe('SMAP Node Selection', () => {
+  test('should select nodes from SMAP XML structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:descriptiveKeywords>
+                  <gmd:MD_Keywords>
+                    <gmd:keyword>
+                      <gco:CharacterString>Test Keyword</gco:CharacterString>
+                    </gmd:keyword>
+                  </gmd:MD_Keywords>
+                </gmd:descriptiveKeywords>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const nodes = editor.selectNodes('//gmd:descriptiveKeywords')
+
+    expect(nodes.length).toBe(1)
+    expect(nodes[0].localName).toBe('descriptiveKeywords')
+  })
+
+  test('should select nested nodes within SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:topicCategory>
+                  <gmd:MD_TopicCategoryCode>farming</gmd:MD_TopicCategoryCode>
+                </gmd:topicCategory>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const nodes = editor.selectNodes('//gmd:topicCategory/gmd:MD_TopicCategoryCode')
+
+    expect(nodes.length).toBe(1)
+    expect(nodes[0].textContent).toBe('farming')
+  })
+
+  test('should return empty array when nodes not found in SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo/>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+    const nodes = editor.selectNodes('//gmd:nonExistentElement')
+
+    expect(nodes.length).toBe(0)
+  })
+})
+
+describe('SMAP Metadata Updates', () => {
+  test('should update leaf node in SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:topicCategory>
+                  <gmd:MD_TopicCategoryCode codeListValue="farming">farming</gmd:MD_TopicCategoryCode>
+                </gmd:topicCategory>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:topicCategory',
+      find: { getNodeValueObject: () => ({ Value: 'farming' }) },
+      replace: [{
+        fieldPath: 'gmd:MD_TopicCategoryCode',
+        source: { getValue: () => 'climatologyMeteorologyAtmosphere' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'farming' }
+    }
+
+    const result = editor.updateLeafNode(correction, config)
+
+    expect(result).toBe(true)
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('climatologyMeteorologyAtmosphere')
+    expect(updatedXml).not.toContain('>farming<')
+  })
+
+  test('should delete leaf node in SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:topicCategory>
+                  <gmd:MD_TopicCategoryCode>farming</gmd:MD_TopicCategoryCode>
+                </gmd:topicCategory>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:topicCategory',
+      find: { getNodeValueObject: () => ({ Value: 'farming' }) }
+    }
+
+    const correction = {
+      action: 'delete',
+      oldKeywordObject: { Value: 'farming' }
+    }
+
+    const result = editor.updateLeafNode(correction, config)
+
+    expect(result).toBe(true)
+    const nodes = editor.selectNodes('//gmd:topicCategory')
+    expect(nodes.length).toBe(0)
+  })
+
+  test('should update block node in SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:descriptiveKeywords>
+                  <gmd:MD_Keywords>
+                    <gmd:keyword>
+                      <gco:CharacterString>Old Keyword</gco:CharacterString>
+                    </gmd:keyword>
+                    <gmd:type>
+                      <gmd:MD_KeywordTypeCode codeListValue="theme">theme</gmd:MD_KeywordTypeCode>
+                    </gmd:type>
+                  </gmd:MD_Keywords>
+                </gmd:descriptiveKeywords>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords[gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = "theme"]',
+      find: {
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() }),
+        matchKeys: ['Value']
+      },
+      replace: [{
+        fieldPath: 'gco:CharacterString',
+        source: { getValue: () => 'New Keyword' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'Old Keyword' },
+      newKeywordObject: { Value: 'New Keyword' }
+    }
+
+    const result = editor.updateBlockNode(correction, config)
+
+    expect(result).toBe(true)
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('New Keyword')
+    expect(updatedXml).not.toContain('Old Keyword')
+  })
+
+  test('should delete block node in SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:descriptiveKeywords>
+                  <gmd:MD_Keywords>
+                    <gmd:keyword>
+                      <gco:CharacterString>Keyword to Delete</gco:CharacterString>
+                    </gmd:keyword>
+                  </gmd:MD_Keywords>
+                </gmd:descriptiveKeywords>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() }),
+        matchKeys: ['Value']
+      }
+    }
+
+    const correction = {
+      action: 'delete',
+      oldKeywordObject: { Value: 'Keyword to Delete' }
+    }
+
+    const result = editor.updateBlockNode(correction, config)
+
+    expect(result).toBe(true)
+    const nodes = editor.selectNodes('//gmd:descriptiveKeywords')
+    expect(nodes.length).toBe(0)
+  })
+
+  test('should handle multiple keywords in SMAP structure', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:descriptiveKeywords>
+                  <gmd:MD_Keywords>
+                    <gmd:keyword>
+                      <gco:CharacterString>Keyword 1</gco:CharacterString>
+                    </gmd:keyword>
+                    <gmd:keyword>
+                      <gco:CharacterString>Keyword 2</gco:CharacterString>
+                    </gmd:keyword>
+                    <gmd:type>
+                      <gmd:MD_KeywordTypeCode codeListValue="theme">theme</gmd:MD_KeywordTypeCode>
+                    </gmd:type>
+                  </gmd:MD_Keywords>
+                </gmd:descriptiveKeywords>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords[gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = "theme"]',
+      find: {
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() }),
+        matchKeys: ['Value']
+      },
+      replace: [{
+        fieldPath: 'gco:CharacterString',
+        source: { getValue: () => 'Updated Keyword 1' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'Keyword 1' },
+      newKeywordObject: { Value: 'Updated Keyword 1' }
+    }
+
+    const result = editor.updateBlockNode(correction, config)
+
+    expect(result).toBe(true)
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('Updated Keyword 1')
+    expect(updatedXml).toContain('Keyword 2') // Second keyword unchanged
+  })
+
+  test('should preserve SMAP structure after updates', () => {
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:descriptiveKeywords>
+                  <gmd:MD_Keywords>
+                    <gmd:keyword>
+                      <gco:CharacterString>Test</gco:CharacterString>
+                    </gmd:keyword>
+                  </gmd:MD_Keywords>
+                </gmd:descriptiveKeywords>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const editor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() }),
+        matchKeys: ['Value']
+      },
+      replace: [{
+        fieldPath: 'gco:CharacterString',
+        source: { getValue: () => 'Updated' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'Test' },
+      newKeywordObject: { Value: 'Updated' }
+    }
+
+    editor.updateBlockNode(correction, config)
+    const updatedXml = editor.serialize()
+
+    // Verify SMAP wrapper structure is preserved
+    expect(updatedXml).toContain('<gmd:DS_Series')
+    expect(updatedXml).toContain('<gmd:seriesMetadata>')
+    expect(updatedXml).toContain('<gmi:MI_Metadata')
+  })
+})
+
+describe('SMAP vs MENDS Comparison', () => {
+  test('should handle same XPath differently for MENDS and SMAP', () => {
+    const mendsXml = `
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:identificationInfo>
+          <gmd:MD_DataIdentification>
+            <gmd:topicCategory>
+              <gmd:MD_TopicCategoryCode>farming</gmd:MD_TopicCategoryCode>
+            </gmd:topicCategory>
+          </gmd:MD_DataIdentification>
+        </gmd:identificationInfo>
+      </gmi:MI_Metadata>
+    `
+
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:identificationInfo>
+              <gmd:MD_DataIdentification>
+                <gmd:topicCategory>
+                  <gmd:MD_TopicCategoryCode>farming</gmd:MD_TopicCategoryCode>
+                </gmd:topicCategory>
+              </gmd:MD_DataIdentification>
+            </gmd:identificationInfo>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const mendsEditor = new Iso19115MetadataPathEditor(mendsXml, { format: 'MENDS' })
+    const smapEditor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const xpath = '//gmd:topicCategory'
+
+    // Both should find the node despite different structures
+    const mendsNodes = mendsEditor.selectNodes(xpath)
+    const smapNodes = smapEditor.selectNodes(xpath)
+
+    expect(mendsNodes.length).toBe(1)
+    expect(smapNodes.length).toBe(1)
+    expect(mendsNodes[0].localName).toBe('topicCategory')
+    expect(smapNodes[0].localName).toBe('topicCategory')
+  })
+
+  test('should apply same correction to both MENDS and SMAP formats', () => {
+    const mendsXml = `
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:descriptiveKeywords>
+          <gmd:MD_Keywords>
+            <gmd:keyword>
+              <gco:CharacterString>Original</gco:CharacterString>
+            </gmd:keyword>
+          </gmd:MD_Keywords>
+        </gmd:descriptiveKeywords>
+      </gmi:MI_Metadata>
+    `
+
+    const smapXml = `
+      <gmd:DS_Series xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:seriesMetadata>
+          <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi">
+            <gmd:descriptiveKeywords>
+              <gmd:MD_Keywords>
+                <gmd:keyword>
+                  <gco:CharacterString>Original</gco:CharacterString>
+                </gmd:keyword>
+              </gmd:MD_Keywords>
+            </gmd:descriptiveKeywords>
+          </gmi:MI_Metadata>
+        </gmd:seriesMetadata>
+      </gmd:DS_Series>
+    `
+
+    const mendsEditor = new Iso19115MetadataPathEditor(mendsXml, { format: 'MENDS' })
+    const smapEditor = new Iso19115MetadataPathEditor(smapXml, { format: 'SMAP' })
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() }),
+        matchKeys: ['Value']
+      },
+      replace: [{
+        fieldPath: 'gco:CharacterString',
+        source: { getValue: () => 'Updated' }
+      }]
+    }
+
+    const correction = {
+      action: 'replace',
+      oldKeywordObject: { Value: 'Original' },
+      newKeywordObject: { Value: 'Updated' }
+    }
+
+    const mendsResult = mendsEditor.updateBlockNode(correction, config)
+    const smapResult = smapEditor.updateBlockNode(correction, config)
+
+    expect(mendsResult).toBe(true)
+    expect(smapResult).toBe(true)
+
+    const mendsUpdated = mendsEditor.serialize()
+    const smapUpdated = smapEditor.serialize()
+
+    expect(mendsUpdated).toContain('Updated')
+    expect(smapUpdated).toContain('Updated')
+    expect(mendsUpdated).not.toContain('>Original<')
+    expect(smapUpdated).not.toContain('>Original<')
+  })
+})

@@ -20,7 +20,7 @@ export const applyIso19115MetadataCorrections = async (params) => {
     }
   }
 
-  const editor = createIso19115Editor(metadataPayload)
+  const editor = createIso19115Editor(metadataPayload, { format: 'MENDS' })
   const applied = corrections.reduce((acc, correction) => {
     const scheme = String(correction.scheme || '').toLowerCase()
     const delegate = ISO_19115_SCHEME_EDITORS[scheme]

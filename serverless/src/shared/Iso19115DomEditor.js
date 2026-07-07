@@ -337,8 +337,11 @@ export const ISO_19115_SCHEME_EDITORS = {
  * Creates a DOM-backed editor for a raw ISO 19115 XML payload.
  *
  * @param {string} payload Raw ISO 19115 XML string.
+ * @param {object} [options] Editor configuration options.
+ * @param {string} [options.format] Format type: 'MENDS' or 'SMAP'. Auto-detected if not provided.
  * @returns {Iso19115Editor} Specialized ISO 19115 XML path editor instance.
  */
-export const createIso19115Editor = (payload) => new Iso19115MetadataPathEditor(payload)
+// eslint-disable-next-line max-len
+export const createIso19115Editor = (payload, options = {}) => new Iso19115MetadataPathEditor(payload, options)
 
 export default ISO_19115_SCHEME_EDITORS
