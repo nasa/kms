@@ -338,7 +338,7 @@ export const ISO_19115_SCHEME_EDITORS = {
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
     }
-    // // Additional paths
+    // Additional paths
     // additionalPaths: [
     //   '//gmd:CI_ResponsibleParty/gmd:organisationName/gco:CharacterString'
     // ]
