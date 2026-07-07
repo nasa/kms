@@ -669,6 +669,282 @@ describe('when applying projects ISO-19115 corrections', () => {
   })
 })
 
+describe('when applying projects ISO-19115 corrections', () => {
+  // Create a more complete mock with acquisition information
+  const mockIso19115WithAcquisition = `
+<gmi:MI_Metadata 
+  xmlns:eos="http://earthdata.nasa.gov/schema/eos" 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi" 
+  xmlns:gml="http://www.opengis.net/gml/3.2" 
+  xmlns:xlink="http://www.w3.org/1999/xlink" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>MEASURES > Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="project">project</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+          <gmd:thesaurusName>
+            <gmd:CI_Citation>
+              <gmd:title>
+                <gco:CharacterString>NASA / GCMD Project Keywords</gco:CharacterString>
+              </gmd:title>
+            </gmd:CI_Citation>
+          </gmd:thesaurusName>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:operation>
+        <gmi:MI_Operation>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>MEASURES > Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+              </gmd:code>
+              <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString>
+              </gmd:codeSpace>
+              <gmd:description>
+                <gco:CharacterString>Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Operation>
+      </gmi:operation>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+  test('should replace existing project keyword correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'MEASURES' },
+      newKeywordObject: {
+        ShortName: 'MEASURES-1'
+      },
+      newLongName: 'New Project Description'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('MEASURES-1 &gt; New Project Description')
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+  })
+
+  test('should replace project keyword and sync acquisition information', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115WithAcquisition)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'MEASURES' },
+      newKeywordObject: {
+        ShortName: 'MEASURES-1'
+      },
+      newLongName: 'New Project Description'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Verify keyword block was updated
+    expect(updatedXml).toContain('MEASURES-1 &gt; New Project Description')
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+
+    // Verify acquisition MI_Operation code was updated
+    expect(updatedXml).toMatch(
+      /<gmi:MI_Operation>[\s\S]*?<gmd:code>[\s\S]*?<gco:CharacterString>MEASURES-1 &gt; New Project Description<\/gco:CharacterString>[\s\S]*?<\/gmd:code>[\s\S]*?<gmd:codeSpace>[\s\S]*?<gco:CharacterString>gov\.nasa\.esdis\.umm\.projectshortname<\/gco:CharacterString>/
+    )
+
+    // Verify acquisition MI_Operation description was updated
+    expect(updatedXml).toMatch(
+      /<gmi:MI_Operation>[\s\S]*?<gmd:description>[\s\S]*?<gco:CharacterString>New Project Description<\/gco:CharacterString>[\s\S]*?<\/gmd:description>/
+    )
+  })
+
+  test('should handle project with only ShortName (no LongName)', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115WithAcquisition)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'MEASURES' },
+      newKeywordObject: {
+        ShortName: 'MEASURES-2'
+      }
+      // No newLongName provided
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Should use ShortName only (no " > LongName")
+    expect(updatedXml).toContain('<gco:CharacterString>MEASURES-2</gco:CharacterString>')
+    expect(updatedXml).not.toContain('MEASURES-2 &gt;')
+
+    // Verify acquisition code was updated to ShortName only
+    expect(updatedXml).toMatch(
+      /<gmi:MI_Operation>[\s\S]*?<gmd:code>[\s\S]*?<gco:CharacterString>MEASURES-2<\/gco:CharacterString>[\s\S]*?<\/gmd:code>/
+    )
+  })
+
+  test('should not update unrelated acquisition operations', () => {
+    const xmlWithMultipleOperations = `
+<gmi:MI_Metadata 
+  xmlns:gco="http://www.isotc211.org/2005/gco" 
+  xmlns:gmd="http://www.isotc211.org/2005/gmd" 
+  xmlns:gmi="http://www.isotc211.org/2005/gmi">
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>MEASURES > Old Description</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="project">project</gmd:MD_KeywordTypeCode>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmi:acquisitionInformation>
+    <gmi:MI_AcquisitionInformation>
+      <gmi:operation>
+        <gmi:MI_Operation>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>MEASURES > Old Description</gco:CharacterString>
+              </gmd:code>
+              <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString>
+              </gmd:codeSpace>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Operation>
+      </gmi:operation>
+      <gmi:operation>
+        <gmi:MI_Operation>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>MEASURES > Different Operation</gco:CharacterString>
+              </gmd:code>
+              <gmd:codeSpace>
+                <gco:CharacterString>some.other.identifier.type</gco:CharacterString>
+              </gmd:codeSpace>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Operation>
+      </gmi:operation>
+    </gmi:MI_AcquisitionInformation>
+  </gmi:acquisitionInformation>
+</gmi:MI_Metadata>`
+
+    const editor = new Iso19115MetadataPathEditor(xmlWithMultipleOperations)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'MEASURES' },
+      newKeywordObject: { ShortName: 'MEASURES-1' },
+      newLongName: 'New Description'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Verify keyword block was updated
+    expect(updatedXml).toContain('MEASURES-1 &gt; New Description')
+    expect(updatedXml).not.toContain('MEASURES &gt; Old Description')
+
+    // Verify the project operation with correct codeSpace was updated
+    // Use a more flexible regex that doesn't depend on element order
+    expect(updatedXml).toMatch(
+      /<gmi:MI_Operation>[\s\S]*?<gmd:MD_Identifier>[\s\S]*?<gmd:code>[\s\S]*?<gco:CharacterString>MEASURES-1 &gt; New Description<\/gco:CharacterString>[\s\S]*?<\/gmd:code>[\s\S]*?<gmd:codeSpace>[\s\S]*?<gco:CharacterString>gov\.nasa\.esdis\.umm\.projectshortname<\/gco:CharacterString>[\s\S]*?<\/gmd:codeSpace>[\s\S]*?<\/gmd:MD_Identifier>[\s\S]*?<\/gmi:MI_Operation>/
+    )
+
+    // Verify the operation has the correct codeSpace
+    expect(updatedXml).toContain('gov.nasa.esdis.umm.projectshortname')
+
+    // Unrelated operation (different codeSpace) should NOT be changed
+    expect(updatedXml).toContain('some.other.identifier.type')
+    expect(updatedXml).toContain('MEASURES &gt; Different Operation')
+  })
+
+  test('should delete existing project keyword block correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+    const correction = {
+      scheme: 'projects',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'MEASURES' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the specific keyword is gone
+    const updatedXml = editor.serialize()
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+    expect(updatedXml).toContain('MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula')
+  })
+
+  test('should delete project and remove from acquisition information', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115WithAcquisition)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'MEASURES' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    // Keyword should be removed
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+
+    // Note: The current implementation only handles updates via additionalPaths on replace actions.
+    // For delete actions, the acquisition information would need to be handled separately
+    // in the delete logic if that requirement exists. Currently testing the keyword deletion.
+  })
+})
+
 describe('when applying isotopiccategory ISO-19115 corrections', () => {
   test('should replace existing isotopiccategory correctly', () => {
     const editor = new Iso19115MetadataPathEditor(mockIso19115)
