@@ -1,5 +1,5 @@
-import { logger } from '@/shared/logger'
 import * as getConfig from '@/shared/getConfig'
+import { logger } from '@/shared/logger'
 
 import fetchEdlClientToken from '../fetchEdlClientToken'
 import fetchEdlProfile from '../fetchEdlProfile'
@@ -37,14 +37,17 @@ beforeEach(() => {
   getEdlConfigSpy = vi.spyOn(getConfig, 'getEdlConfig').mockImplementation(() => ({
     host: TEST_EDL_HOST
   }))
+
   loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
   vi.clearAllMocks()
   console.log = originalConsoleLog
+
   getEdlConfigSpy?.mockRestore()
   getEdlConfigSpy = undefined
+
   loggerErrorSpy?.mockRestore()
   loggerErrorSpy = undefined
   delete process.env.EDL_CLIENT_ID
