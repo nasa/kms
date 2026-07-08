@@ -1,9 +1,12 @@
 import { logger } from '@/shared/logger'
+import * as getConfig from '@/shared/getConfig'
 
 import fetchEdlClientToken from '../fetchEdlClientToken'
 import fetchEdlProfile from '../fetchEdlProfile'
 
 vi.mock('../fetchEdlClientToken', () => ({ default: vi.fn() }))
+
+const TEST_EDL_HOST = 'https://edl.example.test'
 
 const encodeBase64Url = (value) => Buffer
   .from(JSON.stringify(value))
@@ -22,6 +25,7 @@ const createJwt = (payload) => [
 ].join('.')
 
 const originalConsoleLog = console.log
+let getEdlConfigSpy
 let loggerErrorSpy
 
 beforeEach(() => {
@@ -30,12 +34,17 @@ beforeEach(() => {
   process.env.EDL_CLIENT_ID = 'kms-client-id'
   process.env.EDL_PASSWORD = 'kms-client-password'
   fetchEdlClientToken.mockImplementation(() => ('mock_token'))
+  getEdlConfigSpy = vi.spyOn(getConfig, 'getEdlConfig').mockImplementation(() => ({
+    host: TEST_EDL_HOST
+  }))
   loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
   vi.clearAllMocks()
   console.log = originalConsoleLog
+  getEdlConfigSpy?.mockRestore()
+  getEdlConfigSpy = undefined
   loggerErrorSpy?.mockRestore()
   loggerErrorSpy = undefined
   delete process.env.EDL_CLIENT_ID
@@ -71,7 +80,7 @@ describe('fetchEdlProfile', () => {
         expect(fetchEdlClientToken).not.toHaveBeenCalled()
         expect(fetch).toHaveBeenCalledTimes(1)
         expect(fetch).toHaveBeenCalledWith(
-          'https://sit.urs.earthdata.nasa.gov/oauth/tokens/user',
+          `${TEST_EDL_HOST}/oauth/tokens/user`,
           {
             body: `client_id=${encodeURIComponent('kms-client-id')}&token=${encodeURIComponent(rawToken)}`,
             headers: {
@@ -216,7 +225,7 @@ describe('fetchEdlProfile', () => {
         })
 
         expect(fetch).toHaveBeenCalledTimes(1)
-        expect(fetch).toHaveBeenCalledWith('https://sit.urs.earthdata.nasa.gov/api/nams/edl_user', {
+        expect(fetch).toHaveBeenCalledWith(`${TEST_EDL_HOST}/api/nams/edl_user`, {
           body: 'token=mock-token',
           headers: {
             Authorization: 'Bearer mock_token',
@@ -250,7 +259,7 @@ describe('fetchEdlProfile', () => {
         })
 
         expect(fetch).toHaveBeenCalledTimes(1)
-        expect(fetch).toHaveBeenCalledWith('https://sit.urs.earthdata.nasa.gov/api/nams/edl_user', {
+        expect(fetch).toHaveBeenCalledWith(`${TEST_EDL_HOST}/api/nams/edl_user`, {
           body: 'token=mock-token',
           headers: {
             Authorization: 'Bearer mock_token',
