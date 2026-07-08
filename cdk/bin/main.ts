@@ -200,6 +200,7 @@ async function main() {
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: cmrBaseUrl,
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
+      EDL_CLIENT_ID: process.env.EDL_CLIENT_ID || '',
       BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE: process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE,
       LOG_LEVEL: process.env.LOG_LEVEL || 'INFO',
       REDIS_ENABLED: redisEnabledValue,

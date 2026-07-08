@@ -44,6 +44,36 @@ const buildEdlError = (response, source) => {
 }
 
 /**
+ * Builds the Basic authorization header value for app-authenticated EDL calls.
+ * @param {string} clientId Registered EDL application client id
+ * @param {string} password Registered EDL application password
+ * @returns {string} HTTP Basic authorization header value
+ */
+const buildBasicAuthorizationHeader = (clientId, password) => (
+  `Basic ${Buffer.from(`${clientId}:${password}`).toString('base64')}`
+)
+
+/**
+ * Decodes JWT claims from the token payload.
+ * @param {string} edlToken Direct EDL access token
+ * @returns {Object} Parsed JWT claims
+ */
+const decodeJwtClaims = (edlToken) => {
+  const payload = edlToken.split('.')[1]
+
+  if (!payload) {
+    throw new Error('Invalid EDL token format')
+  }
+
+  const normalizedPayload = payload
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+  const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=')
+
+  return JSON.parse(Buffer.from(paddedPayload, 'base64').toString('utf8'))
+}
+
+/**
  * Fetches the user profile using a Launchpad token via the Launchpad gateway
  * @param {string} host EDL host base URL
  * @param {string} launchpadToken Launchpad-provided token for the user
@@ -81,31 +111,56 @@ const fetchProfileWithLaunchpadToken = async (host, launchpadToken) => {
 }
 
 /**
- * Fetches the user profile directly from EDL using an access token
+ * Validates the bearer token with EDL and derives assurance level from the JWT.
  * @param {string} host EDL host base URL
  * @param {string} edlToken Direct EDL access token (Bearer token)
- * @returns {Promise<Object>} normalized profile from the oauth endpoint
+ * @returns {Promise<Object>} normalized profile from validated bearer token data
  */
 const fetchProfileWithEdlAccessToken = async (host, edlToken) => {
-  const response = await fetch(`${host}/oauth/userInfo`, {
-    method: 'GET',
+  const {
+    EDL_CLIENT_ID: clientId,
+    EDL_PASSWORD: password
+  } = process.env
+
+  if (!clientId) {
+    throw new Error('Missing EDL_CLIENT_ID configuration')
+  }
+
+  if (!password) {
+    throw new Error('Missing EDL_PASSWORD configuration')
+  }
+
+  const response = await fetch(`${host}/oauth/tokens/user`, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${edlToken}`,
+      Accept: 'application/json',
+      Authorization: buildBasicAuthorizationHeader(clientId, password),
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-    }
+    },
+    body: `client_id=${encodeURIComponent(clientId)}&token=${encodeURIComponent(edlToken)}`
   })
 
-  logger.debug('EDL oauth response status:', response.status)
+  logger.debug('EDL token validation response status:', response.status)
 
   if (!response.ok) {
-    logger.error('EDL oauth error response:', response)
-    throw buildEdlError(response, 'EDL oauth request')
+    logger.error('EDL token validation error response:', response)
+    throw buildEdlError(response, 'EDL token validation request')
   }
 
   const profile = await response.json()
-  logger.debug('Received EDL oauth profile:', JSON.stringify(profile, null, 2))
+  logger.debug('Received EDL token validation payload:', JSON.stringify(profile, null, 2))
 
-  return buildProfile(profile)
+  if (!profile.uid) {
+    throw new Error('EDL token validation response missing uid')
+  }
+
+  const claims = decodeJwtClaims(edlToken)
+
+  return {
+    name: profile.uid,
+    uid: profile.uid,
+    assuranceLevel: claims.assurance_level
+  }
 }
 
 /**
