@@ -29,13 +29,17 @@ const createKeywordBlock = (type, {
     ]`.replace(/\s+/g, ' '),
 
   find: {
-    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
+  // Including all paths ensures the editor can "find" the data regardless of format
+    fieldPaths: ['gmx:Anchor', 'gco:CharacterString', 'gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'],
     valueKeys: fieldKeys,
     matchKeys,
     getNodeValueObject: ({ node, editor }) => {
-      const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
-      const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
-      const fullString = (anchorNode || charStringNode)?.textContent || ''
+      // Attempt to find any of the paths
+      const anchor = editor.selectNodes('./gmx:Anchor', node)[0]
+      const charString = editor.selectNodes('./gco:CharacterString', node)[0]
+      const smapCode = editor.selectNodes('./gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString', node)[0]
+
+      const fullString = (anchor || charString || smapCode)?.textContent || ''
       const parts = fullString.split(' > ').map((s) => s.trim())
 
       return fieldKeys.reduce((acc, key, index) => {
@@ -47,13 +51,20 @@ const createKeywordBlock = (type, {
   },
   replace: [
     {
-      fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
+      fieldPath: ({ node, editor }) => {
+        // Logic: If the SMAP path exists, use it. Otherwise, fallback to MENDS.
+        const smapPath = './gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'
+        if (editor.selectNodes(smapPath, node).length > 0) {
+          return smapPath
+        }
+
+        return editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'
+      },
       source: {
         type: 'computed',
         getValue: getValue || (({ correction }) => fieldKeys
           .map((k) => correction.newKeywordObject[k] || 'NONE')
-          .join(' > ')
-        )
+          .join(' > '))
       }
     },
     // Dynamically add secondary paths for synchronization
@@ -170,7 +181,7 @@ export const ISO_19115_SCHEME_EDITORS = {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
     nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
-      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'platform' or 
+      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'platform' or
       gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'theme'
     ]`.replace(/\s+/g, ' '),
     getValue: ({ correction }) => {
@@ -317,6 +328,16 @@ export const ISO_19115_SCHEME_EDITORS = {
   projects: createKeywordBlock('project', {
     fieldKeys: ['ShortName', 'LongName'],
     matchKeys: ['ShortName'],
+    // Use | to support both MENDS (standard) and SMAP (wrapped) formats
+    nodeXPath: `(
+    //gmd:descriptiveKeywords/gmd:MD_Keywords[
+      gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = 'project'
+    ]
+    |
+    //gmd:aggregationInfo/gmd:MD_AggregateInformation[
+      gmd:initiativeType/gmd:DS_InitiativeTypeCode/@codeListValue = 'mission'
+    ]
+  )`.replace(/\s+/g, ' '),
     getValue: ({ correction }) => {
       const { ShortName } = correction.newKeywordObject
       const LongName = correction.newLongName || ''
