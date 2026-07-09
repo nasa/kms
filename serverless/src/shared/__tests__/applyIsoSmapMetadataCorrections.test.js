@@ -315,3 +315,47 @@ describe('when applying locations ISO-SMAP corrections', () => {
     expect(updatedXml).not.toContain('Continent &gt; North America &gt; Greenland')
   })
 })
+
+describe('when applying projects ISO-SMAP corrections', () => {
+  test('should replace existing projects in descriptive keyword list correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIsoSmap)
+
+    const correction = {
+      scheme: 'projects',
+      action: 'replace',
+      oldKeywordObject: { ShortName: 'MEASURES' },
+      newKeywordObject: {
+        ShortName: 'MEASURES-1'
+      },
+      newLongName: 'New Project Description'
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    expect(updatedXml).toContain('MEASURES-1 &gt; New Project Description')
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+  })
+
+  test('should delete existing project keyword block correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIsoSmap)
+    const correction = {
+      scheme: 'projects',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'MEASURES' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    // Verify the specific keyword is gone
+    const updatedXml = editor.serialize()
+    expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
+    expect(updatedXml).toContain('MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula')
+  })
+})

@@ -178,6 +178,23 @@
                   </gmd:thesaurusName>
                 </gmd:MD_Keywords>
               </gmd:descriptiveKeywords>
+              <gmd:aggregationInfo>
+                <gmd:MD_AggregateInformation>
+                  <gmd:aggregateDataSetIdentifier>
+                    <gmd:MD_Identifier>
+                      <gmd:code>
+                        <gco:CharacterString>SMAP</gco:CharacterString>
+                      </gmd:code>
+                    </gmd:MD_Identifier>
+                  </gmd:aggregateDataSetIdentifier>
+                  <gmd:associationType>
+                    <gmd:DS_AssociationTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#DS_AssociationTypeCode" codeListValue="largerWorkCitation">largerWorkCitation</gmd:DS_AssociationTypeCode>
+                  </gmd:associationType>
+                  <gmd:initiativeType>
+                    <gmd:DS_InitiativeTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#DS_AssociationTypeCode" codeListValue="mission">mission</gmd:DS_InitiativeTypeCode>
+                  </gmd:initiativeType>
+                </gmd:MD_AggregateInformation>
+              </gmd:aggregationInfo>
             </gmd:MD_DataIdentification>
           </gmd:identificationInfo>
           <gmd:contentInfo>

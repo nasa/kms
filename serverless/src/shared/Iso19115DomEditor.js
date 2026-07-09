@@ -29,17 +29,13 @@ const createKeywordBlock = (type, {
     ]`.replace(/\s+/g, ' '),
 
   find: {
-  // Including all paths ensures the editor can "find" the data regardless of format
-    fieldPaths: ['gmx:Anchor', 'gco:CharacterString', 'gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'],
+    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
     valueKeys: fieldKeys,
     matchKeys,
     getNodeValueObject: ({ node, editor }) => {
-      // Attempt to find any of the paths
-      const anchor = editor.selectNodes('./gmx:Anchor', node)[0]
-      const charString = editor.selectNodes('./gco:CharacterString', node)[0]
-      const smapCode = editor.selectNodes('./gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString', node)[0]
-
-      const fullString = (anchor || charString || smapCode)?.textContent || ''
+      const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
+      const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
+      const fullString = (anchorNode || charStringNode)?.textContent || ''
       const parts = fullString.split(' > ').map((s) => s.trim())
 
       return fieldKeys.reduce((acc, key, index) => {
@@ -51,20 +47,13 @@ const createKeywordBlock = (type, {
   },
   replace: [
     {
-      fieldPath: ({ node, editor }) => {
-        // Logic: If the SMAP path exists, use it. Otherwise, fallback to MENDS.
-        const smapPath = './gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'
-        if (editor.selectNodes(smapPath, node).length > 0) {
-          return smapPath
-        }
-
-        return editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'
-      },
+      fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
         getValue: getValue || (({ correction }) => fieldKeys
           .map((k) => correction.newKeywordObject[k] || 'NONE')
-          .join(' > '))
+          .join(' > ')
+        )
       }
     },
     // Dynamically add secondary paths for synchronization
