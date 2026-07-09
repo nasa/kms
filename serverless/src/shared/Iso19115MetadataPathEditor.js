@@ -116,7 +116,13 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
    * @returns {Node|undefined} The matching node if found.
    */
   findMatchingNode(targetNode, correction, config) {
-    const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
+    // 1. Try standard keyword search
+    let keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
+
+    // 2. SMAP Fallback: Look for the aggregate identifier if keyword search fails
+    if (keywordNodes.length === 0 && this.format === 'SMAP' && targetNode.localName === 'MD_AggregateInformation') {
+      keywordNodes = this.selectNodes('./gmd:aggregateDataSetIdentifier/gmd:MD_Identifier', targetNode)
+    }
 
     return keywordNodes.find((node) => {
       const parsedObject = config.find.getNodeValueObject({
@@ -125,7 +131,6 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         fieldPaths: config.find.fieldPaths
       })
 
-      // Use defined matchKeys or default to existing object keys
       const matchKeys = config.find.matchKeys || Object.keys(correction.oldKeywordObject)
 
       return matchKeys.every((key) => {
@@ -418,6 +423,14 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           fieldNodes = this.selectNodes(relativePath, context)
         }
 
+        // 2. SMAP-Aware Fallback
+        // If no nodes found via standard logic, check if we are in SMAP
+        // and attempt to locate the nested gmd:code path relative to the aggregate node
+        if (fieldNodes.length === 0 && this.format === 'SMAP' && matchingNode.localName === 'MD_Identifier') {
+          // Since matchingNode IS the MD_Identifier, we only need to look inside it
+          fieldNodes = this.selectNodes('./gmd:code/gco:CharacterString', matchingNode)
+        }
+
         // 2. Fallback: If no nodes were found via path,
         // ONLY check for the default text node if the path is relative (not global)
         // Global paths (starting with //) should not fall back to keyword block updates
@@ -447,11 +460,12 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           }
 
           fieldNodes.forEach((node) => {
-            this.setElementText(node, replaceConfig.source.getValue({
+            const newValue = replaceConfig.source.getValue({
               correction,
               node,
               editor: this
-            }))
+            })
+            this.setElementText(node, newValue)
           })
 
           return fieldNodes.length > 0
@@ -463,7 +477,6 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
       return results.some((success) => success === true)
     }
 
-    // If action is neither 'delete' nor 'replace'
     return false
   }
 }

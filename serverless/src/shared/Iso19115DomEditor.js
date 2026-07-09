@@ -29,13 +29,21 @@ const createKeywordBlock = (type, {
     ]`.replace(/\s+/g, ' '),
 
   find: {
-    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
+    fieldPaths: ['gmx:Anchor', 'gco:CharacterString', 'gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'],
     valueKeys: fieldKeys,
     matchKeys,
     getNodeValueObject: ({ node, editor }) => {
-      const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
-      const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
-      const fullString = (anchorNode || charStringNode)?.textContent || ''
+      let fullString = ''
+      // 1. If we are in SMAP aggregation format, look for the code path
+      if (editor.format === 'SMAP' && node.localName === 'MD_Identifier') {
+        const codeNode = editor.selectNodes('./gmd:code/gco:CharacterString', node)[0]
+        fullString = codeNode?.textContent || ''
+      } else {
+        const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
+        const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
+        fullString = (anchorNode || charStringNode)?.textContent || ''
+      }
+
       const parts = fullString.split(' > ').map((s) => s.trim())
 
       return fieldKeys.reduce((acc, key, index) => {
@@ -347,6 +355,16 @@ export const ISO_19115_SCHEME_EDITORS = {
       {
         path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:operation/gmi:MI_Operation/gmi:identifier/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.projectshortname"]/gmd:description/gco:CharacterString',
         getValue: ({ correction }) => correction.newLongName || ''
+      },
+      {
+        path: 'gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        getValue: ({ correction }) => {
+          const { ShortName } = correction.newKeywordObject
+          const LongName = correction.newLongName || ''
+
+          // Always format as 'ShortName > LongName' if LongName exists
+          return LongName ? `${ShortName} > ${LongName}` : ShortName
+        }
       }
     ]
   }),
