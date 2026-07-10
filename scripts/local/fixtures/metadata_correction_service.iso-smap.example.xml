@@ -33,9 +33,6 @@
               <gmd:keyword>
                 <gco:CharacterString>EARTH SCIENCE &gt; Cryosphere &gt; Glaciers/Ice Sheets &gt; Glacier Topography/Ice Sheet Topography &gt; Surface Morphology</gco:CharacterString>
               </gmd:keyword>
-              <gmd:keyword>
-                <gco:CharacterString>EARTH SCIENCE &gt; Cryosphere &gt; Glaciers/Ice Sheets &gt; Glacier Topography/Ice Sheet Topography &gt; Surface Morphology</gco:CharacterString>
-              </gmd:keyword>
               <gmd:type>
                 <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="theme">theme</gmd:MD_KeywordTypeCode>
               </gmd:type>

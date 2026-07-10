@@ -1,0 +1,125 @@
+{
+  "collectionConceptId": "C1234567223-LOCAL",
+  "nativeFormat": "ISO_SMAP",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "OCEANS",
+        "Term": "MARINE SEDIMENTS",
+        "VariableLevel1": "PARTICLE SIZE",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "sciencekeywords",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "CRYOSPHERE",
+        "Term": "GLACIERS/ICE SHEETS",
+        "VariableLevel1": "Glacier Topography/Ice Sheet Topography",
+        "VariableLevel2": "Surface Morphology",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "CANADA",
+        "Subregion2": "ALBERTA",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      },
+      "newKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "MEXICO",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "AQUA"
+      },
+      "newKeywordObject": {
+        "ShortName": "AQUA"
+      },
+      "newLongName": "New Platform Description"
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "TERRA"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "MODIS"
+      },
+      "newKeywordObject": {
+        "ShortName": "MODIS-1"
+      },
+      "newLongName": "New Instrument Description"
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "oldKeywordObject": { "ShortName": "MEASURES" },
+      "newKeywordObject": {
+        "ShortName": "MEASURES-1"
+      },
+      "newLongName": "New Project Description"
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "oldKeywordObject": { "ShortName": "SMAP" },
+      "newKeywordObject": {
+        "ShortName": "MS-1"
+      },
+      "newLongName": "New Project Description"
+    },                       
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "newKeywordObject": { "Value": "oceans" },
+      "oldKeywordObject": { "Value": "climatology" }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "3"
+      },
+      "newKeywordObject": {
+        "Value": "5"
+      }
+    }
+  ]
+}
