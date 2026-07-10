@@ -104,8 +104,10 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
   selectNodes(expression, contextNode = this.document) {
     const transformedExpression = this.transformXPath(expression)
 
+    // Use resolver to find nodes; filter to ELEMENT_NODE (nodeType 1)
+    // to prevent errors during DOM manipulation
     return this.resolver(transformedExpression, contextNode)
-      .filter((node) => node?.nodeType === 1) // Ensure only ELEMENT_NODE
+      .filter((node) => node?.nodeType === 1)
   }
 
   /**
@@ -347,8 +349,8 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         })
       }
 
-      // Clean up synchronized paths globally, but with a value constraint
-      // This handles providers and other non-acquisition paths
+      // Clean up synchronized paths globally, but with a value constraint.
+      // This ensures we only remove nodes matching the specific keyword value being deleted.
       if (config.replace) {
         config.replace
           .filter((replConfig) => typeof replConfig.fieldPath === 'string' && replConfig.fieldPath.startsWith('//'))

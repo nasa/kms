@@ -4,13 +4,15 @@ import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
 /**
  * Helper factory function to create a block editor configuration.
  * Maps a correction to an update operation within the editor instance.
- * @param {Object} config - Configuration object defining XPath and transformation logic.
+ * @param {Object} config - Configuration object defining XPath, search, and transformation logic.
  * @returns {Function} Function to apply the update.
  */
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
+
 /**
  * Helper factory function to create a leaf editor configuration.
- * @param {Object} config - Configuration object for updating single nodes.
+ * Designed for updating single node values rather than complex blocks.
+ * @param {Object} config - Configuration object for updating single nodes, including XPath and replace logic.
  * @returns {Function} Function to apply the update.
  */
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
@@ -19,7 +21,11 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
  * Factory to generate standardized keyword block editors.
  * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
  * @param {Object} options - Configuration options.
- * @param {Array} [options.additionalPaths] - Optional array of XPath strings for secondary sync.
+ * @param {Array} [options.fieldKeys] - Array of keys representing the structure of the keyword object.
+ * @param {Array} [options.matchKeys] - Array of keys used to match existing keywords.
+ * @param {Function} [options.getValue] - Optional custom function to format the string value before saving.
+ * @param {Array} [options.additionalPaths] - Optional array of XPath strings or objects for secondary sync.
+ * @param {string} [options.nodeXPath] - Optional custom XPath string to identify the keyword node, overrides default.
  */
 const createKeywordBlock = (type, {
   fieldKeys, matchKeys, getValue, additionalPaths = [], nodeXPath
@@ -362,7 +368,6 @@ export const ISO_19115_SCHEME_EDITORS = {
           const { ShortName } = correction.newKeywordObject
           const LongName = correction.newLongName || ''
 
-          // Always format as 'ShortName > LongName' if LongName exists
           return LongName ? `${ShortName} > ${LongName}` : ShortName
         }
       }
@@ -378,10 +383,6 @@ export const ISO_19115_SCHEME_EDITORS = {
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
     }
-    // Additional paths
-    // additionalPaths: [
-    //   '//gmd:CI_ResponsibleParty/gmd:organisationName/gco:CharacterString'
-    // ]
   }),
 
   isotopiccategory: createIsoTopicCategoryEditor(),
