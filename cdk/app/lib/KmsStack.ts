@@ -29,6 +29,7 @@ export interface KmsStackProps extends cdk.StackProps {
   logDestinationArn: string
   environment: {
     CMR_BASE_URL: string
+    EDL_CLIENT_ID: string
     EDL_PASSWORD: string
     BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE?: string
     LOG_LEVEL: string

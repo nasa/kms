@@ -8,9 +8,11 @@ vi.mock('@/shared/fetchEdlProfile')
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
   let loggerErrorSpy
+  let loggerInfoSpy
 
   beforeEach(() => {
     loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
+    loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     fetchEdlProfile.mockReset()
     fetchEdlProfile.mockResolvedValue({
@@ -28,6 +30,7 @@ describe('edlAuthorizer', () => {
 
   afterAll(() => {
     loggerErrorSpy?.mockRestore()
+    loggerInfoSpy?.mockRestore()
   })
 
   describe('when the token is for a valid user', () => {
