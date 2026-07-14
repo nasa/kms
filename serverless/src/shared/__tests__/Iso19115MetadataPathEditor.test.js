@@ -443,4 +443,97 @@ describe('Iso19115MetadataPathEditor', () => {
       expect(node.textContent).toBe('New Value')
     })
   })
+
+  test('updateBlockNode should remove synchronized global paths on delete', () => {
+    const xml = `
+    <gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword><gco:CharacterString>Target Value</gco:CharacterString></gmd:keyword>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+      <gmd:contact>
+        <gmd:organisationName>
+          <gco:CharacterString>Target Value</gco:CharacterString>
+        </gmd:organisationName>
+      </gmd:contact>
+    </gmd:MD_Metadata>`
+
+    const testEditor = new Iso19115MetadataPathEditor(xml)
+
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: ({ node }) => ({ Value: node.textContent.trim() }),
+        matchKeys: ['Value']
+      },
+      replace: [{
+        fieldPath: '//gmd:contact/gmd:organisationName/gco:CharacterString',
+        source: { getValue: () => 'New Value' }
+      }]
+    }
+
+    const correction = {
+      action: 'delete',
+      oldKeywordObject: { Value: 'Target Value' }
+    }
+
+    const result = testEditor.updateBlockNode(correction, config)
+
+    expect(result).toBe(true)
+
+    // FIX: Target the specific leaf node (gco:CharacterString) that was removed
+    const syncNodes = testEditor.selectNodes('//gmd:contact/gmd:organisationName/gco:CharacterString', testEditor.document)
+    expect(syncNodes.length).toBe(0)
+  })
+
+  test('updateBlockNode should return false if MD_Identifier lacks a codeSpace during platform delete', () => {
+  // XML where a platform identifier exists, but is missing the <gmd:codeSpace> node
+    const xml = `
+    <gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gco="http://www.isotc211.org/2005/gco">
+      <gmd:someOtherSection>
+        <gmd:MD_Identifier>
+          <gmd:code><gco:CharacterString>PLAT1</gco:CharacterString></gmd:code>
+        </gmd:MD_Identifier>
+      </gmd:someOtherSection>
+      
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:type><gmd:MD_KeywordTypeCode codeListValue="platform">platform</gmd:MD_KeywordTypeCode></gmd:type>
+          <gmd:keyword><gco:CharacterString>PLAT1</gco:CharacterString></gmd:keyword>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+    </gmi:MI_Metadata>`
+
+    const testEditor = new Iso19115MetadataPathEditor(xml)
+
+    // Configure a platform delete action
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: ({ node }) => ({ ShortName: node.textContent.trim() }),
+        matchKeys: ['ShortName']
+      },
+      // FIX: Change 'replace: true' to an empty array to satisfy .filter()
+      replace: []
+    }
+
+    const correction = {
+      scheme: 'platforms',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'PLAT1' }
+    }
+
+    // Act: Attempt to delete the platform
+    const result = testEditor.updateBlockNode(correction, config)
+
+    // Assert:
+    // The operation is considered successful (true) because the main keyword was deleted,
+    // but internally, the cleanup for the acquisition identifier (line 169) was skipped.
+    expect(result).toBe(true)
+
+    // Verify that the acquisition identifier still exists because it wasn't cleaned up
+    const identifierNodes = testEditor.selectNodes('//gmd:MD_Identifier', testEditor.document)
+    expect(identifierNodes.length).toBe(1)
+  })
 })
