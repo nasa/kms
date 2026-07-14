@@ -943,6 +943,56 @@ describe('when applying projects ISO-19115 corrections', () => {
     // For delete actions, the acquisition information would need to be handled separately
     // in the delete logic if that requirement exists. Currently testing the keyword deletion.
   })
+
+  test('removes synced MI_Operation when a project keyword is deleted', () => {
+    const mockIso19115ForProjectCleanup = `
+    <gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gco="http://www.isotc211.org/2005/gco">
+      <gmd:identificationInfo>
+        <gmd:MD_DataIdentification>
+          <gmd:descriptiveKeywords>
+            <gmd:MD_Keywords>
+              <gmd:keyword><gco:CharacterString>PROJ1</gco:CharacterString></gmd:keyword>
+              <gmd:type><gmd:MD_KeywordTypeCode codeListValue="project">project</gmd:MD_KeywordTypeCode></gmd:type>
+            </gmd:MD_Keywords>
+          </gmd:descriptiveKeywords>
+        </gmd:MD_DataIdentification>
+      </gmd:identificationInfo>
+      <gmi:acquisitionInformation>
+        <gmi:MI_AcquisitionInformation>
+          <gmi:operation>
+            <gmi:MI_Operation>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code><gco:CharacterString>PROJ1</gco:CharacterString></gmd:code>
+                  <gmd:codeSpace><gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString></gmd:codeSpace>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </gmi:MI_Operation>
+          </gmi:operation>
+        </gmi:MI_AcquisitionInformation>
+      </gmi:acquisitionInformation>
+    </gmi:MI_Metadata>
+  `
+
+    const editor = new Iso19115MetadataPathEditor(mockIso19115ForProjectCleanup)
+    const correction = {
+      scheme: 'projects',
+      action: 'delete',
+      oldKeywordObject: { ShortName: 'PROJ1' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.projects
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+    const updatedXml = editor.serialize()
+
+    // Verify project keyword is gone
+    expect(updatedXml).not.toContain('PROJ1')
+    // Verify the synced operation is gone
+    expect(updatedXml).not.toContain('MI_Operation')
+    expect(updatedXml).not.toContain('gov.nasa.esdis.umm.projectshortname')
+  })
 })
 
 describe('when applying isotopiccategory ISO-19115 corrections', () => {

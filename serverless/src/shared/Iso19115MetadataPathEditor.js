@@ -187,7 +187,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         node,
         matchingNode: this.findMatchingNode(node, correction, config)
       }))
-      .find((data) => data.matchingNode !== null)
+      .find((data) => data.matchingNode !== null && data.matchingNode !== undefined)
 
     // Return early if no match is found, preventing downstream errors
     if (!matchingData) return false
@@ -275,6 +275,43 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             if (currentNode === this.document.documentElement) {
               break
             }
+          }
+        })
+      }
+
+      if (correction.scheme === 'projects' && oldShortName) {
+        // Find all project identifiers in acquisitionInformation
+        const allIdentifiers = this.selectNodes('//gmi:operation//gmd:MD_Identifier', this.document)
+
+        const identifiersToDelete = allIdentifiers.filter((identifier) => {
+          // Check for the specific codeSpace used in your config
+          const codeSpaceNodes = this.selectNodes('.//gmd:codeSpace/gco:CharacterString', identifier)
+          const codeSpace = codeSpaceNodes[0]?.textContent?.trim()
+
+          if (codeSpace !== 'gov.nasa.esdis.umm.projectshortname') return false
+
+          // Verify it matches the project we are deleting
+          const codeNodes = this.selectNodes('.//gmd:code/gco:CharacterString', identifier)
+          const codeValue = codeNodes[0]?.textContent?.trim() || ''
+
+          // Check for exact match or the combined 'ShortName > LongName' format
+          return codeValue === oldShortName || codeValue.startsWith(`${oldShortName} > `)
+        })
+
+        // Remove the parent MI_Operation node
+        identifiersToDelete.forEach((identifier) => {
+          let currentNode = identifier.parentNode
+          while (currentNode) {
+            if (currentNode.localName === 'MI_Operation') {
+              if (currentNode.parentNode) {
+                currentNode.parentNode.removeChild(currentNode)
+              }
+
+              break
+            }
+
+            currentNode = currentNode.parentNode
+            if (currentNode === this.document.documentElement) break
           }
         })
       }
