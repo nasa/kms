@@ -3,6 +3,7 @@ import { join } from 'path'
 
 import { describe, expect } from 'vitest'
 
+import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrections'
 import { ISO_19115_SCHEME_EDITORS } from '../Iso19115DomEditor'
 import Iso19115MetadataPathEditor from '../Iso19115MetadataPathEditor'
 
@@ -380,5 +381,60 @@ describe('when applying projects ISO-SMAP corrections', () => {
     const updatedXml = editor.serialize()
     expect(updatedXml).toContain('MS-1 &gt; New Project Description')
     expect(updatedXml).not.toContain('SMAP')
+  })
+})
+
+describe('applyIsoSmapMetadataCorrections coverage', () => {
+  test('should gracefully handle an unknown scheme in corrections', async () => {
+    const params = {
+      metadataPayload: '<gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"></gmi:MI_Metadata>',
+      corrections: [
+        {
+          scheme: 'unknownScheme', // This will trigger the !delegate check on line 38
+          action: 'replace'
+        }
+      ]
+    }
+
+    const result = await applyIsoSmapMetadataCorrections(params)
+
+    // Ensure it processed without crashing
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toEqual([])
+  })
+
+  test('should return stubbed response when metadataPayload is missing', async () => {
+    const params = {
+      metadataPayload: null, // Triggers line 27-32
+      corrections: []
+    }
+
+    const result = await applyIsoSmapMetadataCorrections(params)
+
+    expect(result.correctedMetadata).toBeUndefined()
+    expect(result.correctionCount).toBe(0)
+  })
+
+  test('should push to correctionsApplied when a correction is successfully applied', async () => {
+    const params = {
+      metadataPayload: mockIsoSmap,
+      corrections: [
+        {
+          scheme: 'projects',
+          action: 'delete',
+          oldKeywordObject: { ShortName: 'MEASURES' }
+        }
+      ]
+    }
+
+    const result = await applyIsoSmapMetadataCorrections(params)
+
+    // Now result.correctionCount will be 1
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+    expect(result.correctionsApplied[0].scheme).toBe('projects')
+
+    // Verify metadata was updated
+    expect(result.correctedMetadata).not.toContain('MEASURES')
   })
 })
