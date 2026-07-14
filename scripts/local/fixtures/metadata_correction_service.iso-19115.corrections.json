@@ -1,0 +1,145 @@
+{
+  "collectionConceptId": "C1234567222-LOCAL",
+  "nativeFormat": "ISO19115",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "OCEANS",
+        "Term": "MARINE SEDIMENTS",
+        "VariableLevel1": "PARTICLE SIZE",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "CANADA",
+        "Subregion2": "ALBERTA",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      },
+      "newKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "MEXICO",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {                                     
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Earth Observing System AQUA Updated",
+      "oldKeywordObject": {
+        "ShortName": "AQUA"
+      },
+      "newKeywordObject": {
+        "ShortName": "AQUA-2"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Earth Observing System TERRA Updated",
+      "oldKeywordObject": {
+        "ShortName": "TERRA"
+      },
+      "newKeywordObject": {
+        "ShortName": "TERRA-2"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Moderate-Resolution Imaging Spectroradiometer Updated",
+      "oldKeywordObject": {
+        "ShortName": "MODIS"
+      },
+      "newKeywordObject": {
+        "ShortName": "MODIS-2"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Advanced Topographic Laser Altimeter System Updated",
+      "oldKeywordObject": {
+        "ShortName": "ATLAS"
+      },
+      "newKeywordObject": {
+        "ShortName": "ATLAS-2"
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "New Project Long Name",
+      "oldKeywordObject": {
+        "Category": "M - N",
+        "ShortName": "MEASURES"
+      },
+      "newKeywordObject": {
+        "Category": "M - N",
+        "ShortName": "MEASURES-UPDATED"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "newLongName": "New Provider Long Name",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DOC/NOAA/NESDIS/NCEI"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DOC/NOAA/NESDIS/NCEI-1"
+      }
+    },                                    
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "FARMING"
+      },
+      "newKeywordObject": {
+        "Value": "BIOTA"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "3"
+      },
+      "newKeywordObject": {
+        "Value": "5"
+      }
+    }
+  ]
+}

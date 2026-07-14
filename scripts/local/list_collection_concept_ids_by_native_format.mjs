@@ -31,7 +31,9 @@ const ENVIRONMENT_BASE_URLS = {
 const FORMAT_ALIASES = {
   dif10: 'application/dif10+xml',
   echo10: 'application/echo10+xml',
-  umm: 'application/vnd.nasa.cmr.umm+json'
+  umm: 'application/vnd.nasa.cmr.umm+json',
+  iso19115: 'application/iso19115+xml',
+  isosmap: 'application/iso:smap+xml'
 }
 
 /**

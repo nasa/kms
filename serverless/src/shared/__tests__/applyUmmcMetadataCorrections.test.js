@@ -3153,7 +3153,6 @@ describe('when applying DataFormat UMM-C corrections', () => {
     // expect(result.correctionCount).toBe(1)
 
     const parsed = JSON.parse(result.correctedMetadata)
-    console.log('parsed:', parsed)
     // Verify the specific path was updated
     expect(parsed.ArchiveAndDistributionInformation.FileArchiveInformation[0].Format).toBe('ZARR')
     // Verify the path that did not match the oldKeywordObject remains unchanged
