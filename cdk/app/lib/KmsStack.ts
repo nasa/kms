@@ -99,7 +99,9 @@ export class KmsStack extends cdk.Stack {
 
     const useLocalstack = this.node.tryGetContext('useLocalstack') === 'true'
     const keywordEventsTopicName = `${prefix}-${stage}-keyword-events`
+    const metadataCorrectionRequestsTopicName = `${prefix}-${stage}-metadata-correction-requests.fifo`
     const localTopicArn = `arn:aws:sns:${this.region}:${this.account}:${keywordEventsTopicName}`
+    const metadataCorrectionRequestsTopicArn = `arn:aws:sns:${this.region}:${this.account}:${metadataCorrectionRequestsTopicName}`
 
     // Set up VPC and Security Group
     const vpcSetup = new VpcSetup(this, prefix, vpcId, useLocalstack)
@@ -167,7 +169,8 @@ export class KmsStack extends cdk.Stack {
       lambdaRole: this.lambdaRole,
       metadataCorrectionEnvironment: {
         CMR_WRITER_TOKEN: props.cmrWriterToken || '',
-        CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || ''
+        CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || '',
+        METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopicArn
       },
       prefix,
       securityGroup: this.securityGroup,

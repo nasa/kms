@@ -17,6 +17,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
+  metadataCorrectionRequestDelayMs?: string
   cmrWriterToken?: string
   cmrWritebackProviders?: string
   prefix: string
@@ -64,6 +65,7 @@ export class MetadataCorrectionSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      metadataCorrectionRequestDelayMs,
       cmrWriterToken,
       cmrWritebackProviders,
       prefix,
@@ -135,6 +137,9 @@ export class MetadataCorrectionSetup extends Construct {
           ...(redisEnabled ? { REDIS_ENABLED: redisEnabled } : {}),
           ...(redisHost ? { REDIS_HOST: redisHost } : {}),
           ...(redisPort ? { REDIS_PORT: redisPort } : {}),
+          ...(metadataCorrectionRequestDelayMs
+            ? { METADATA_CORRECTION_REQUEST_DELAY_MS: metadataCorrectionRequestDelayMs }
+            : {}),
           RDF4J_PASSWORD: rdf4jPassword,
           RDF4J_SERVICE_URL: rdf4jServiceUrl,
           RDF4J_USER_NAME: rdf4jUserName

@@ -23,6 +23,7 @@ interface LambdaFunctionsProps {
   metadataCorrectionEnvironment?: {
     CMR_WRITER_TOKEN: string;
     CMR_WRITEBACK_PROVIDERS: string;
+    METADATA_CORRECTION_REQUESTS_TOPIC_ARN?: string;
   };
   prefix: string;
   securityGroup: ec2.SecurityGroup;
@@ -415,6 +416,19 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'requestMetadataCorrection/handler.js',
+      'request-metadata-correction',
+      'requestMetadataCorrection',
+      '/metadata_correction',
+      'POST',
+      true,
+      Duration.seconds(30),
+      1024,
+      this.props.metadataCorrectionEnvironment || {}
+    )
+
+    this.createApiLambda(
+      scope,
       'runMetadataCorrection/handler.js',
       'run-metadata-correction',
       'runMetadataCorrection',
@@ -551,6 +565,20 @@ export class LambdaFunctions {
       actions: ['sns:Publish'],
       resources: [topicArn]
     }))
+
+    // The async metadata-correction API publishes one request per collection id to the
+    // shared FIFO topic owned by the processing stack, so the shared Lambda role also
+    // needs explicit publish permission to that topic when the ARN is configured.
+    const metadataCorrectionTopicArn = this.props
+      .metadataCorrectionEnvironment
+      ?.METADATA_CORRECTION_REQUESTS_TOPIC_ARN
+
+    if (metadataCorrectionTopicArn) {
+      this.props.lambdaRole.addToPolicy(new iam.PolicyStatement({
+        actions: ['sns:Publish'],
+        resources: [metadataCorrectionTopicArn]
+      }))
+    }
   }
 
   /**

@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { delay } from '@/shared/delay'
 import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
@@ -53,6 +54,10 @@ vi.mock('@/shared/emitConsumerMetrics', () => ({
     KEYWORDS_RESOLVED: 'KeywordsResolved'
   },
   emitConsumerMetrics: vi.fn()
+}))
+
+vi.mock('@/shared/delay', () => ({
+  delay: vi.fn()
 }))
 
 vi.mock('@/shared/emitConsumerMetricsSafely', () => ({
@@ -118,6 +123,8 @@ const NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT = {
 describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    delete process.env.METADATA_CORRECTION_REQUEST_DELAY_MS
+    vi.mocked(delay).mockResolvedValue(undefined)
     vi.mocked(emitConsumerMetricsSafely).mockResolvedValue(undefined)
 
     vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
@@ -1210,6 +1217,181 @@ describe('when the metadata correction service is invoked', () => {
           recordCount: 1
         })
       }))
+    })
+
+    test('should delay queued manual api requests when configured before running correction', async () => {
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:08.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).toHaveBeenCalledWith(3000)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] Delaying queued manual metadata correction request',
+        expect.objectContaining({
+          collectionConceptId: 'C1234567890-PROV',
+          messageId: 'message-manual-delay',
+          configuredDelayMs: 5000,
+          remainingDelayMs: 3000
+        })
+      )
+
+      dateNowSpy.mockRestore()
+    })
+
+    test('should skip the delay when requestedAt cannot be parsed', async () => {
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-invalid-requested-at',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: 'not-a-date',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).not.toHaveBeenCalled()
+    })
+
+    test('should skip the delay when the configured delay value is invalid', async () => {
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = 'not-a-number'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-invalid-config',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:08.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).not.toHaveBeenCalled()
+    })
+
+    test('should skip the delay when the configured window has already elapsed', async () => {
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(20_000)
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-elapsed',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:08.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).not.toHaveBeenCalled()
+
+      dateNowSpy.mockRestore()
     })
   })
 
