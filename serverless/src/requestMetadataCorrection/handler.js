@@ -167,11 +167,9 @@ export const requestMetadataCorrection = async (event, context) => {
     })
 
     if (failed.length > 0 && accepted.length === 0) {
-      const firstRejectedResult = publishResults.find(({ status }) => status === 'rejected')
+      const firstRejectedResultIndex = publishResults.findIndex(({ status }) => status === 'rejected')
 
-      throw firstRejectedResult?.status === 'rejected'
-        ? firstRejectedResult.reason
-        : new Error('Failed to publish metadata correction requests')
+      throw publishResults[firstRejectedResultIndex].reason
     }
 
     if (failed.length > 0) {

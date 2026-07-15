@@ -141,6 +141,44 @@ describe('requestMetadataCorrection', () => {
     )
   })
 
+  test('returns 202 and stringifies non-Error publish failures in partial batch results', async () => {
+    vi.mocked(publishMetadataCorrectionRequest)
+      .mockResolvedValueOnce({
+        messageId: 'message-1',
+        messageGroupId: 'C123-PROV'
+      })
+      .mockRejectedValueOnce('SNS unavailable')
+
+    const result = await requestMetadataCorrection({
+      body: JSON.stringify({
+        collectionConceptIds: [
+          'C123-PROV',
+          'C456-PROV'
+        ]
+      })
+    })
+
+    expect(result.statusCode).toBe(202)
+    expect(JSON.parse(result.body)).toEqual({
+      requestedCount: 2,
+      acceptedCount: 1,
+      failedCount: 1,
+      accepted: [
+        {
+          collectionConceptId: 'C123-PROV',
+          messageId: 'message-1',
+          messageGroupId: 'C123-PROV'
+        }
+      ],
+      failed: [
+        {
+          collectionConceptId: 'C456-PROV',
+          error: 'SNS unavailable'
+        }
+      ]
+    })
+  })
+
   test('returns 400 when collectionConceptIds is missing', async () => {
     const result = await requestMetadataCorrection({
       body: JSON.stringify({})
