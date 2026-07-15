@@ -40,6 +40,8 @@ const buildBatchProcessingMetrics = ({
   return metrics
 }
 
+const MAX_METADATA_CORRECTION_REQUEST_DELAY_MS = 2000
+
 /**
  * Reads the optional async correction request delay from environment configuration.
  *
@@ -55,7 +57,7 @@ const getMetadataCorrectionRequestDelayMs = () => {
   const parsedValue = Number(rawValue)
 
   return Number.isFinite(parsedValue) && parsedValue > 0
-    ? parsedValue
+    ? Math.min(parsedValue, MAX_METADATA_CORRECTION_REQUEST_DELAY_MS)
     : 0
 }
 

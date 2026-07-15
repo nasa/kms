@@ -8,18 +8,26 @@ import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrec
  *
  * @param {string|undefined} body Raw API Gateway request body.
  * @returns {Object} Parsed request payload.
- * @throws {Error} When the body is missing or invalid JSON.
+ * @throws {Error} When the body is missing, not valid JSON, or not a JSON object.
  */
 const parseRequestBody = (body) => {
   if (typeof body !== 'string' || body.trim().length === 0) {
     throw new Error('Invalid metadata correction request: missing request body')
   }
 
+  let parsedBody
+
   try {
-    return JSON.parse(body)
+    parsedBody = JSON.parse(body)
   } catch {
     throw new Error('Invalid metadata correction request: body must be valid JSON')
   }
+
+  if (parsedBody === null || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+    throw new Error('Invalid metadata correction request: body must be a JSON object')
+  }
+
+  return parsedBody
 }
 
 /**
@@ -79,6 +87,20 @@ const getErrorStatusCode = (error) => {
 }
 
 /**
+ * Converts a rejected publish reason into a stable response/log string.
+ *
+ * @param {unknown} error Rejection reason.
+ * @returns {string} Serialized error message.
+ */
+const toErrorMessage = (error) => {
+  if (error instanceof Error) {
+    return error.toString()
+  }
+
+  return String(error)
+}
+
+/**
  * Queues metadata correction requests for one or more collection concept ids.
  *
  * This endpoint is intentionally fire-and-forget. It validates the request body, deduplicates
@@ -112,7 +134,7 @@ export const requestMetadataCorrection = async (event, context) => {
       collectionConceptIds: acceptedCollectionConceptIds
     })
 
-    const accepted = await Promise.all(
+    const publishResults = await Promise.allSettled(
       acceptedCollectionConceptIds.map(async (collectionConceptId) => {
         const publishResult = await publishMetadataCorrectionRequest({
           source: 'metadataCorrectionApi',
@@ -128,6 +150,40 @@ export const requestMetadataCorrection = async (event, context) => {
       })
     )
 
+    const accepted = []
+    const failed = []
+
+    publishResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        accepted.push(result.value)
+
+        return
+      }
+
+      failed.push({
+        collectionConceptId: acceptedCollectionConceptIds[index],
+        error: toErrorMessage(result.reason)
+      })
+    })
+
+    if (failed.length > 0 && accepted.length === 0) {
+      const firstRejectedResult = publishResults.find(({ status }) => status === 'rejected')
+
+      throw firstRejectedResult?.status === 'rejected'
+        ? firstRejectedResult.reason
+        : new Error('Failed to publish metadata correction requests')
+    }
+
+    if (failed.length > 0) {
+      logger.error('[metadata-correction] Partially failed asynchronous metadata correction request', {
+        requestedCount,
+        acceptedCount: accepted.length,
+        failedCount: failed.length,
+        accepted,
+        failed
+      })
+    }
+
     return {
       statusCode: 202,
       headers: {
@@ -137,7 +193,9 @@ export const requestMetadataCorrection = async (event, context) => {
       body: JSON.stringify({
         requestedCount,
         acceptedCount: accepted.length,
-        accepted
+        failedCount: failed.length,
+        accepted,
+        failed
       }, null, 2)
     }
   } catch (error) {

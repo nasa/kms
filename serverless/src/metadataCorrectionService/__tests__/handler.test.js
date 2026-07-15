@@ -1221,7 +1221,7 @@ describe('when the metadata correction service is invoked', () => {
 
     test('should delay queued manual api requests when configured before running correction', async () => {
       const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(10_000)
-      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '1500'
 
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C1234567890-PROV',
@@ -1250,21 +1250,73 @@ describe('when the metadata correction service is invoked', () => {
             messageId: 'message-manual-delay',
             body: JSON.stringify({
               source: 'metadataCorrectionApi',
-              requestedAt: '1970-01-01T00:00:08.000Z',
+              requestedAt: '1970-01-01T00:00:09.000Z',
               collectionConceptId: 'C1234567890-PROV'
             })
           }
         ]
       })
 
-      expect(delay).toHaveBeenCalledWith(3000)
+      expect(delay).toHaveBeenCalledWith(500)
       expect(logger.info).toHaveBeenCalledWith(
         '[metadata-correction] Delaying queued manual metadata correction request',
         expect.objectContaining({
           collectionConceptId: 'C1234567890-PROV',
           messageId: 'message-manual-delay',
-          configuredDelayMs: 5000,
-          remainingDelayMs: 3000
+          configuredDelayMs: 1500,
+          remainingDelayMs: 500
+        })
+      )
+
+      dateNowSpy.mockRestore()
+    })
+
+    test('should clamp oversized delay configuration to 2000ms', async () => {
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-clamped',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:09.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).toHaveBeenCalledWith(1000)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] Delaying queued manual metadata correction request',
+        expect.objectContaining({
+          collectionConceptId: 'C1234567890-PROV',
+          messageId: 'message-manual-delay-clamped',
+          configuredDelayMs: 2000,
+          remainingDelayMs: 1000
         })
       )
 
