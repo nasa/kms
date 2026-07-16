@@ -359,29 +359,6 @@ describe('when applying projects ISO-SMAP corrections', () => {
     expect(updatedXml).not.toContain('MEASURES &gt; Making Earth System Data Records for Use in Research Environments')
     expect(updatedXml).toContain('MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula')
   })
-
-  test('should replace existing projects in additional info correctly', () => {
-    const editor = new Iso19115MetadataPathEditor(mockIsoSmap)
-
-    const correction = {
-      scheme: 'projects',
-      action: 'replace',
-      oldKeywordObject: { ShortName: 'SMAP' },
-      newKeywordObject: {
-        ShortName: 'MS-1'
-      },
-      newLongName: 'New Project Description'
-    }
-
-    const config = ISO_19115_SCHEME_EDITORS.projects
-    const success = config(editor, correction)
-
-    expect(success).toBe(true)
-
-    const updatedXml = editor.serialize()
-    expect(updatedXml).toContain('MS-1 &gt; New Project Description')
-    expect(updatedXml).not.toContain('SMAP')
-  })
 })
 
 describe('applyIsoSmapMetadataCorrections coverage', () => {

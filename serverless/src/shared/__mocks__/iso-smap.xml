@@ -67,7 +67,7 @@
                 <gco:CharacterString>AQUA &gt; Earth Observing System</gco:CharacterString>
               </gmd:keyword>
               <gmd:type>
-                <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="theme">theme</gmd:MD_KeywordTypeCode>
+                <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
               </gmd:type>
               <gmd:thesaurusName>
                 <gmd:CI_Citation>
@@ -127,7 +127,7 @@
                 <gco:CharacterString>Continent &gt; North America &gt; Canada &gt; Alberta</gco:CharacterString>
               </gmd:keyword>
               <gmd:type>
-                <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="theme">theme</gmd:MD_KeywordTypeCode>
+                <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="place">place</gmd:MD_KeywordTypeCode>
               </gmd:type>
               <gmd:thesaurusName>
                 <gmd:CI_Citation>
