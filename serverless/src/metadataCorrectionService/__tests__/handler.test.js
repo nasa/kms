@@ -1271,9 +1271,9 @@ describe('when the metadata correction service is invoked', () => {
       dateNowSpy.mockRestore()
     })
 
-    test('should clamp oversized delay configuration to 2000ms', async () => {
+    test('should clamp oversized delay configuration to 20000ms', async () => {
       const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(10_000)
-      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '30000'
 
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C1234567890-PROV',
@@ -1309,14 +1309,14 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(delay).toHaveBeenCalledWith(1000)
+      expect(delay).toHaveBeenCalledWith(19_000)
       expect(logger.info).toHaveBeenCalledWith(
         '[metadata-correction] Delaying queued manual metadata correction request',
         expect.objectContaining({
           collectionConceptId: 'C1234567890-PROV',
           messageId: 'message-manual-delay-clamped',
-          configuredDelayMs: 2000,
-          remainingDelayMs: 1000
+          configuredDelayMs: 20_000,
+          remainingDelayMs: 19_000
         })
       )
 
