@@ -95,16 +95,7 @@
         "ShortName": "MEASURES-1"
       },
       "newLongName": "New Project Description"
-    },
-    {
-      "scheme": "projects",
-      "action": "replace",
-      "oldKeywordObject": { "ShortName": "SMAP" },
-      "newKeywordObject": {
-        "ShortName": "MS-1"
-      },
-      "newLongName": "New Project Description"
-    },                       
+    },        
     {
       "scheme": "isotopiccategory",
       "action": "replace",
