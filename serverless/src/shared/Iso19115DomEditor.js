@@ -331,15 +331,6 @@ export const ISO_19115_SCHEME_EDITORS = {
       {
         path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:operation/gmi:MI_Operation/gmi:identifier/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.projectshortname"]/gmd:description/gco:CharacterString',
         getValue: ({ correction }) => correction.newLongName || ''
-      },
-      {
-        path: 'gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
-        getValue: ({ correction }) => {
-          const { ShortName } = correction.newKeywordObject
-          const LongName = correction.newLongName || ''
-
-          return LongName ? `${ShortName} > ${LongName}` : ShortName
-        }
       }
     ]
   }),
