@@ -35,21 +35,13 @@ const createKeywordBlock = (type, {
     ]`.replace(/\s+/g, ' '),
 
   find: {
-    fieldPaths: ['gmx:Anchor', 'gco:CharacterString', 'gmd:aggregateDataSetIdentifier/gmd:MD_Identifier/gmd:code/gco:CharacterString'],
+    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
     valueKeys: fieldKeys,
     matchKeys,
     getNodeValueObject: ({ node, editor }) => {
-      let fullString = ''
-      // 1. If we are in SMAP aggregation format, look for the code path
-      if (editor.format === 'SMAP' && node.localName === 'MD_Identifier') {
-        const codeNode = editor.selectNodes('./gmd:code/gco:CharacterString', node)[0]
-        fullString = codeNode?.textContent || ''
-      } else {
-        const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
-        const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
-        fullString = (anchorNode || charStringNode)?.textContent || ''
-      }
-
+      const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
+      const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
+      const fullString = (anchorNode || charStringNode)?.textContent || ''
       const parts = fullString.split(' > ').map((s) => s.trim())
 
       return fieldKeys.reduce((acc, key, index) => {
