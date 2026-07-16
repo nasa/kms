@@ -118,13 +118,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
    * @returns {Node|undefined} The matching node if found.
    */
   findMatchingNode(targetNode, correction, config) {
-    // 1. Try standard keyword search
-    let keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
-
-    // 2. SMAP Fallback: Look for the aggregate identifier if keyword search fails
-    if (keywordNodes.length === 0 && this.format === 'SMAP' && targetNode.localName === 'MD_AggregateInformation') {
-      keywordNodes = this.selectNodes('./gmd:aggregateDataSetIdentifier/gmd:MD_Identifier', targetNode)
-    }
+    const keywordNodes = this.selectNodes('./gmd:keyword', targetNode)
 
     return keywordNodes.find((node) => {
       const parsedObject = config.find.getNodeValueObject({
@@ -460,14 +454,6 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           const relativePath = path.startsWith('//') ? path : `./${path}`
 
           fieldNodes = this.selectNodes(relativePath, context)
-        }
-
-        // 2. SMAP-Aware Fallback
-        // If no nodes found via standard logic, check if we are in SMAP
-        // and attempt to locate the nested gmd:code path relative to the aggregate node
-        if (fieldNodes.length === 0 && this.format === 'SMAP' && matchingNode.localName === 'MD_Identifier') {
-          // Since matchingNode IS the MD_Identifier, we only need to look inside it
-          fieldNodes = this.selectNodes('./gmd:code/gco:CharacterString', matchingNode)
         }
 
         // 2. Fallback: If no nodes were found via path,
