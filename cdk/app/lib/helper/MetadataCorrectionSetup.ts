@@ -159,7 +159,8 @@ export class MetadataCorrectionSetup extends Construct {
     this.metadataCorrectionServiceLambda.addEventSource(new eventsources.SqsEventSource(
       this.metadataCorrectionRequestsQueue,
       {
-        batchSize: 1
+        batchSize: 1,
+        reportBatchItemFailures: true
       }
     ))
 

@@ -114,7 +114,8 @@ const delayQueuedManualRequestIfNeeded = async ({
  * flow can also be reused by synchronous API endpoints.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
- * @returns {Promise<{batchItemFailures: Array}>} Empty batch failures for acknowledged messages.
+ * @returns {Promise<{batchItemFailures: Array<{itemIdentifier: string}>}>}
+ *   Failed message identifiers to retry through SQS partial batch response handling.
  */
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
@@ -165,16 +166,18 @@ export const metadataCorrectionService = async (event) => {
         recordCount: records.length
       }
     })
-
-    const firstRejectedResult = settledResults.find(({ status }) => status === 'rejected')
-
-    if (firstRejectedResult) {
-      throw firstRejectedResult.reason
-    }
   }
 
   return {
-    batchItemFailures: []
+    batchItemFailures: settledResults.reduce((failures, result, index) => {
+      const itemIdentifier = records[index]?.messageId
+
+      if (result.status === 'rejected' && itemIdentifier) {
+        failures.push({ itemIdentifier })
+      }
+
+      return failures
+    }, [])
   }
 }
 

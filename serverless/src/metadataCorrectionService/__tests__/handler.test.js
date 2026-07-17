@@ -1448,7 +1448,7 @@ describe('when the metadata correction service is invoked', () => {
   })
 
   describe('when the invocation is unsuccessful', () => {
-    test('should reject requests that omit the collection concept id', async () => {
+    test('should mark requests that omit the collection concept id for retry', async () => {
       await expect(metadataCorrectionService({
         Records: [
           {
@@ -1456,14 +1456,14 @@ describe('when the metadata correction service is invoked', () => {
             body: JSON.stringify({})
           }
         ]
-      })).rejects.toThrow(
-        'Incomplete metadata correction request: missing collectionConceptId'
-      )
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-missing-concept-id' }]
+      })
 
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
     })
 
-    test('should reject collection requests whose detected native format is unsupported', async () => {
+    test('should mark collection requests whose detected native format is unsupported for retry', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-UNKNOWN',
         providerId: 'PROV',
@@ -1484,13 +1484,15 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).rejects.toThrow('Unsupported native format: UNKNOWN')
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-unknown-format' }]
+      })
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
     })
 
-    test('should reject DIF9 collections until a dedicated DIF9 delegate exists', async () => {
+    test('should mark DIF9 collections for retry until a dedicated DIF9 delegate exists', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-DIF9',
         providerId: 'PROV',
@@ -1511,22 +1513,24 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).rejects.toThrow('Unsupported native format: DIF9')
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-dif9-format' }]
+      })
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
     })
 
-    test('should reject a missing record body as an incomplete request', async () => {
+    test('should mark a missing record body as an incomplete request for retry', async () => {
       await expect(metadataCorrectionService({
         Records: [
           {
             messageId: 'message-999'
           }
         ]
-      })).rejects.toThrow(
-        'Incomplete metadata correction request: missing collectionConceptId'
-      )
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-999' }]
+      })
 
       expect(logger.info).toHaveBeenCalledWith(
         '[metadata-correction] Received metadata correction request',
@@ -1537,7 +1541,7 @@ describe('when the metadata correction service is invoked', () => {
       )
     })
 
-    test('should log the error and throw when the record body cannot be parsed', async () => {
+    test('should log the error and mark the record body for retry when it cannot be parsed', async () => {
       await expect(metadataCorrectionService({
         Records: [
           {
@@ -1545,7 +1549,9 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).rejects.toThrow()
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-123' }]
+      })
 
       expect(logger.error).toHaveBeenCalledWith(
         '[metadata-correction] Failed to process metadata correction request',
@@ -1561,7 +1567,9 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).rejects.toThrow()
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-processing-failure' }]
+      })
 
       expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
         metrics: [
@@ -1582,6 +1590,56 @@ describe('when the metadata correction service is invoked', () => {
           recordCount: 1
         })
       }))
+    })
+
+    test('should only return the failed message ids when a batch partially fails', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue({
+        revisionId: 7,
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        nativeFormat: 'DIF10',
+        nativeMetadataContentType: 'application/dif10+xml',
+        conceptId: 'C1234567890-PROV',
+        rawMetadata: '<DIF></DIF>'
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-success',
+            body: JSON.stringify({
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          },
+          {
+            messageId: 'message-failure',
+            body: 'not-json'
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-failure' }]
+      })
     })
 
     test('should log and continue when processing metric emission fails', async () => {
