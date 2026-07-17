@@ -111,6 +111,12 @@
       "newKeywordObject": {
         "Value": "5"
       }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "newKeywordObject": { "Value": "HDF6pro" },
+      "oldKeywordObject": { "Value": "HDF5" }
     }
   ]
 }

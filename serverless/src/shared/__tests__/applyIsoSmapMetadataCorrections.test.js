@@ -361,6 +361,48 @@ describe('when applying projects ISO-SMAP corrections', () => {
   })
 })
 
+describe('when applying dataformat ISO-19115 corrections', () => {
+  test('should replace existing dataformat correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIsoSmap)
+
+    const correction = {
+      scheme: 'dataformat',
+      action: 'replace',
+      oldKeywordObject: { Value: 'HDF5' },
+      newKeywordObject: { Value: 'NetCDF-4' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.dataformat
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+    // Verify the value was updated within the gco:CharacterString element
+    expect(updatedXml).toContain('<gco:CharacterString>NetCDF-4</gco:CharacterString>')
+    expect(updatedXml).not.toContain('<gco:CharacterString>HDF5</gco:CharacterString>')
+  })
+
+  test('should delete existing dataformat correctly', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIsoSmap)
+
+    const correction = {
+      scheme: 'dataformat',
+      action: 'delete',
+      oldKeywordObject: { Value: 'HDF5' }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.dataformat
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+
+    const updatedXml = editor.serialize()
+
+    expect(updatedXml).not.toContain('<gco:CharacterString>HDF5</gco:CharacterString>')
+  })
+})
+
 describe('applyIsoSmapMetadataCorrections coverage', () => {
   test('should gracefully handle an unknown scheme in corrections', async () => {
     const params = {

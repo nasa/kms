@@ -346,6 +346,23 @@ export const ISO_19115_SCHEME_EDITORS = {
     }
   }),
 
+  dataformat: leafScheme({
+    // Target the specific element that contains the text
+    nodeXPath: '//gmd:distributionInfo/gmd:MD_Distribution/gmd:distributionFormat/gmd:MD_Format/gmd:name/gco:CharacterString',
+    find: {
+      getNodeValueObject: ({ node }) => ({ Value: node.textContent?.trim() || '' })
+    },
+    replace: [
+      {
+        fieldPath: '.',
+        source: {
+          type: 'computed',
+          getValue: ({ correction }) => correction.newKeywordObject.Value
+        }
+      }
+    ]
+  }),
+
   isotopiccategory: createIsoTopicCategoryEditor(),
 
   productlevelid: createProductLevelIdEditor()
