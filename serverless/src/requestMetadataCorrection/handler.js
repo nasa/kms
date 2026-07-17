@@ -87,20 +87,6 @@ const getErrorStatusCode = (error) => {
 }
 
 /**
- * Converts a rejected publish reason into a stable response/log string.
- *
- * @param {unknown} error Rejection reason.
- * @returns {string} Serialized error message.
- */
-const toErrorMessage = (error) => {
-  if (error instanceof Error) {
-    return error.toString()
-  }
-
-  return String(error)
-}
-
-/**
  * Queues metadata correction requests for one or more collection concept ids.
  *
  * This endpoint is intentionally fire-and-forget. It validates the request body, deduplicates
@@ -162,7 +148,9 @@ export const requestMetadataCorrection = async (event, context) => {
 
       failed.push({
         collectionConceptId: acceptedCollectionConceptIds[index],
-        error: toErrorMessage(result.reason)
+        error: result.reason instanceof Error
+          ? result.reason.toString()
+          : String(result.reason)
       })
     })
 
