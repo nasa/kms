@@ -353,7 +353,7 @@ export const ISO_19115_SCHEME_EDITORS = {
       getNodeValueObject: ({ node, editor }) => {
         const charStringNode = editor.selectNodes('.//gmd:name/gco:CharacterString', node)[0]
 
-        return { Value: charStringNode?.textContent?.trim() || '' }
+        return { ShortName: charStringNode?.textContent?.trim() || '' }
       }
     },
     replace: [
@@ -361,7 +361,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         fieldPath: 'gmd:MD_Format/gmd:name/gco:CharacterString',
         source: {
           type: 'computed',
-          getValue: ({ correction }) => correction.newKeywordObject.Value
+          getValue: ({ correction }) => correction.newKeywordObject.ShortName
         }
       }
     ]

@@ -115,8 +115,8 @@
     {
       "scheme": "dataformat",
       "action": "replace",
-      "newKeywordObject": { "Value": "HDF6pro" },
-      "oldKeywordObject": { "Value": "HDF5" }
+      "newKeywordObject": { "ShortName": "HDF6pro" },
+      "oldKeywordObject": { "ShortName": "HDF5" }
     }
   ]
 }

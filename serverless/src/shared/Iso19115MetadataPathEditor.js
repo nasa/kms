@@ -147,7 +147,9 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
    */
   updateLeafNode(correction, config) {
     const { action, oldKeywordObject } = correction
-    const oldVal = (oldKeywordObject.Value || '').toLowerCase().trim()
+    const keys = Object.keys(oldKeywordObject)
+    const valueKey = keys[0] // E.g., 'ShortName'
+    const oldVal = (oldKeywordObject[valueKey] || '').toLowerCase().trim()
     const allNodes = this.selectNodes(config.nodeXPath)
 
     if (action === 'delete') {
@@ -158,7 +160,7 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           editor: this
         })
 
-        const foundVal = (valueObj.Value || '').toLowerCase().trim()
+        const foundVal = (valueObj[valueKey] || '').toLowerCase().trim()
         const match = foundVal === oldVal
 
         return match
@@ -192,7 +194,9 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           editor: this
         })
 
-        return (valueObj.Value || '').toLowerCase().trim() === oldVal
+        const foundVal = (valueObj[valueKey] || '').toLowerCase().trim()
+
+        return foundVal === oldVal
       })
 
       if (matchingNode) {

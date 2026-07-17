@@ -368,8 +368,8 @@ describe('when applying dataformat ISO-19115 corrections', () => {
     const correction = {
       scheme: 'dataformat',
       action: 'replace',
-      oldKeywordObject: { Value: 'HDF5' },
-      newKeywordObject: { Value: 'NetCDF-4' }
+      oldKeywordObject: { ShortName: 'HDF5' },
+      newKeywordObject: { ShortName: 'NetCDF-4' }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.dataformat
@@ -389,7 +389,7 @@ describe('when applying dataformat ISO-19115 corrections', () => {
     const correction = {
       scheme: 'dataformat',
       action: 'delete',
-      oldKeywordObject: { Value: 'HDF5' }
+      oldKeywordObject: { ShortName: 'HDF5' }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.dataformat
