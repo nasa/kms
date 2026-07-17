@@ -159,10 +159,10 @@
       "scheme": "dataformat",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "COG"
+        "ShortName": "COG"
       },
       "newKeywordObject": {
-        "Value": "DXF"
+        "ShortName": "DXF"
       }
     }
   ]
