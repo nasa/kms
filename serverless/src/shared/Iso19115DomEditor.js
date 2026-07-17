@@ -347,14 +347,18 @@ export const ISO_19115_SCHEME_EDITORS = {
   }),
 
   dataformat: leafScheme({
-    // Target the specific element that contains the text
-    nodeXPath: '//gmd:distributionInfo/gmd:MD_Distribution/gmd:distributionFormat/gmd:MD_Format/gmd:name/gco:CharacterString',
+    // Target the wrapper block so deletion removes the entire format entry cleanly
+    nodeXPath: '//gmd:distributionInfo/gmd:MD_Distribution/gmd:distributionFormat',
     find: {
-      getNodeValueObject: ({ node }) => ({ Value: node.textContent?.trim() || '' })
+      getNodeValueObject: ({ node, editor }) => {
+        const charStringNode = editor.selectNodes('.//gmd:name/gco:CharacterString', node)[0]
+
+        return { Value: charStringNode?.textContent?.trim() || '' }
+      }
     },
     replace: [
       {
-        fieldPath: '.',
+        fieldPath: 'gmd:MD_Format/gmd:name/gco:CharacterString',
         source: {
           type: 'computed',
           getValue: ({ correction }) => correction.newKeywordObject.Value
