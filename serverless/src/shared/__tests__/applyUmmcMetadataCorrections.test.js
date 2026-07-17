@@ -3095,10 +3095,10 @@ describe('when applying DataFormat UMM-C corrections', () => {
         scheme: 'dataformat',
         action: 'replace',
         oldKeywordObject: {
-          Value: 'NETCDF-4'
+          ShortName: 'NETCDF-4'
         },
         newKeywordObject: {
-          Value: 'ZARR'
+          ShortName: 'ZARR'
         }
       }
     ]
@@ -3136,10 +3136,10 @@ describe('when applying DataFormat UMM-C corrections', () => {
         scheme: 'dataformat',
         action: 'replace',
         oldKeywordObject: {
-          Value: 'NETCDF-4'
+          ShortName: 'NETCDF-4'
         },
         newKeywordObject: {
-          Value: 'ZARR'
+          ShortName: 'ZARR'
         }
       }
     ]

@@ -4,13 +4,15 @@ import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
 /**
  * Helper factory function to create a block editor configuration.
  * Maps a correction to an update operation within the editor instance.
- * @param {Object} config - Configuration object defining XPath and transformation logic.
+ * @param {Object} config - Configuration object defining XPath, search, and transformation logic.
  * @returns {Function} Function to apply the update.
  */
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
+
 /**
  * Helper factory function to create a leaf editor configuration.
- * @param {Object} config - Configuration object for updating single nodes.
+ * Designed for updating single node values rather than complex blocks.
+ * @param {Object} config - Configuration object for updating single nodes, including XPath and replace logic.
  * @returns {Function} Function to apply the update.
  */
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
@@ -19,12 +21,16 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
  * Factory to generate standardized keyword block editors.
  * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
  * @param {Object} options - Configuration options.
- * @param {Array} [options.additionalPaths] - Optional array of XPath strings for secondary sync.
+ * @param {Array} [options.fieldKeys] - Array of keys representing the structure of the keyword object.
+ * @param {Array} [options.matchKeys] - Array of keys used to match existing keywords.
+ * @param {Function} [options.getValue] - Optional custom function to format the string value before saving.
+ * @param {Array} [options.additionalPaths] - Optional array of XPath strings or objects for secondary sync.
+ * @param {string} [options.nodeXPath] - Optional custom XPath string to identify the keyword node, overrides default.
  */
 const createKeywordBlock = (type, {
-  fieldKeys, matchKeys, getValue, additionalPaths = []
+  fieldKeys, matchKeys, getValue, additionalPaths = [], nodeXPath
 }) => blockScheme({
-  nodeXPath: `//gmd:descriptiveKeywords/gmd:MD_Keywords[
+  nodeXPath: nodeXPath || `//gmd:descriptiveKeywords/gmd:MD_Keywords[
       gmd:type/gmd:MD_KeywordTypeCode/@codeListValue = '${type}' 
     ]`.replace(/\s+/g, ' '),
 
@@ -338,10 +344,27 @@ export const ISO_19115_SCHEME_EDITORS = {
 
       return LongName ? `${ShortName} > ${LongName}` : ShortName
     }
-    // Additional paths
-    // additionalPaths: [
-    //   '//gmd:CI_ResponsibleParty/gmd:organisationName/gco:CharacterString'
-    // ]
+  }),
+
+  dataformat: leafScheme({
+    // Target the wrapper block so deletion removes the entire format entry cleanly
+    nodeXPath: '//gmd:distributionInfo/gmd:MD_Distribution/gmd:distributionFormat',
+    find: {
+      getNodeValueObject: ({ node, editor }) => {
+        const charStringNode = editor.selectNodes('.//gmd:name/gco:CharacterString', node)[0]
+
+        return { ShortName: charStringNode?.textContent?.trim() || '' }
+      }
+    },
+    replace: [
+      {
+        fieldPath: 'gmd:MD_Format/gmd:name/gco:CharacterString',
+        source: {
+          type: 'computed',
+          getValue: ({ correction }) => correction.newKeywordObject.ShortName
+        }
+      }
+    ]
   }),
 
   isotopiccategory: createIsoTopicCategoryEditor(),
@@ -353,8 +376,11 @@ export const ISO_19115_SCHEME_EDITORS = {
  * Creates a DOM-backed editor for a raw ISO 19115 XML payload.
  *
  * @param {string} payload Raw ISO 19115 XML string.
+ * @param {object} [options] Editor configuration options.
+ * @param {string} [options.format] Format type: 'MENDS' or 'SMAP'. Auto-detected if not provided.
  * @returns {Iso19115Editor} Specialized ISO 19115 XML path editor instance.
  */
-export const createIso19115Editor = (payload) => new Iso19115MetadataPathEditor(payload)
+// eslint-disable-next-line max-len
+export const createIso19115Editor = (payload, options = {}) => new Iso19115MetadataPathEditor(payload, options)
 
 export default ISO_19115_SCHEME_EDITORS

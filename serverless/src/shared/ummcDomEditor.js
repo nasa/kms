@@ -330,13 +330,13 @@ export const UMMC_SCHEME_EDITORS = {
       childKey: 'FileArchiveInformation',
       find: {
         fieldPaths: ['Format'],
-        valueKeys: ['Value']
+        valueKeys: ['ShortName']
       },
       replace: [{
         fieldPath: 'Format',
         source: {
           type: 'value',
-          key: 'Value'
+          key: 'ShortName'
         }
       }]
     },
@@ -345,13 +345,13 @@ export const UMMC_SCHEME_EDITORS = {
       childKey: 'FileDistributionInformation',
       find: {
         fieldPaths: ['Format'],
-        valueKeys: ['Value']
+        valueKeys: ['ShortName']
       },
       replace: [{
         fieldPath: 'Format',
         source: {
           type: 'value',
-          key: 'Value'
+          key: 'ShortName'
         }
       }]
     }

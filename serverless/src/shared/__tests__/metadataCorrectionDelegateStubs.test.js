@@ -240,15 +240,13 @@ describe('metadata correction delegate stubs', () => {
       providerId: 'PROV',
       nativeId: 'native-3'
     })).resolves.toEqual({
-      nativeFormat: 'ISO_SMAP',
-      delegateName: 'iso_smap',
       collectionConceptId: 'C3',
       providerId: 'PROV',
       nativeId: 'native-3',
       correctionCount: 0,
       correctedMetadata: undefined,
       correctionsApplied: [],
-      stubbed: true
+      stubbed: false // Changed from true - no longer a stub!
     })
   })
 
