@@ -1,3 +1,4 @@
+import { delay } from '@/shared/delay'
 import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { logger } from '@/shared/logger'
@@ -39,6 +40,72 @@ const buildBatchProcessingMetrics = ({
   return metrics
 }
 
+const MAX_METADATA_CORRECTION_REQUEST_DELAY_MS = 20_000
+
+/**
+ * Reads the optional async correction request delay from environment configuration.
+ *
+ * @returns {number} Delay in milliseconds, or `0` when unset/invalid.
+ */
+const getMetadataCorrectionRequestDelayMs = () => {
+  const rawValue = process.env.METADATA_CORRECTION_REQUEST_DELAY_MS
+
+  if (!rawValue) {
+    return 0
+  }
+
+  const parsedValue = Number(rawValue)
+
+  return Number.isFinite(parsedValue) && parsedValue > 0
+    ? Math.min(parsedValue, MAX_METADATA_CORRECTION_REQUEST_DELAY_MS)
+    : 0
+}
+
+/**
+ * Applies the optional delay window for queued manual API requests before processing starts.
+ *
+ * @param {Object} params Delay inputs.
+ * @param {string|undefined} params.collectionConceptId Collection concept id being processed.
+ * @param {string|undefined} params.messageId SQS message id for logging.
+ * @param {Object} params.metadataCorrectionRequest Parsed metadata correction request.
+ * @returns {Promise<void>}
+ */
+const delayQueuedManualRequestIfNeeded = async ({
+  collectionConceptId,
+  messageId,
+  metadataCorrectionRequest
+}) => {
+  const configuredDelayMs = getMetadataCorrectionRequestDelayMs()
+
+  if (configuredDelayMs <= 0
+    || metadataCorrectionRequest?.source !== 'metadataCorrectionApi'
+    || typeof metadataCorrectionRequest?.requestedAt !== 'string') {
+    return
+  }
+
+  const requestedAtMs = Date.parse(metadataCorrectionRequest.requestedAt)
+
+  if (Number.isNaN(requestedAtMs)) {
+    return
+  }
+
+  const remainingDelayMs = (requestedAtMs + configuredDelayMs) - Date.now()
+
+  if (remainingDelayMs <= 0) {
+    return
+  }
+
+  logger.info('[metadata-correction] Delaying queued manual metadata correction request', {
+    collectionConceptId,
+    messageId,
+    requestedAt: metadataCorrectionRequest.requestedAt,
+    configuredDelayMs,
+    remainingDelayMs
+  })
+
+  await delay(remainingDelayMs)
+}
+
 /**
  * Metadata correction service that consumes collection-scoped correction requests from SQS.
  *
@@ -47,7 +114,8 @@ const buildBatchProcessingMetrics = ({
  * flow can also be reused by synchronous API endpoints.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
- * @returns {Promise<{batchItemFailures: Array}>} Empty batch failures for acknowledged messages.
+ * @returns {Promise<{batchItemFailures: Array<{itemIdentifier: string}>}>}
+ *   Failed message identifiers to retry through SQS partial batch response handling.
  */
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
@@ -57,6 +125,12 @@ export const metadataCorrectionService = async (event) => {
       const metadataCorrectionRequest = JSON.parse(record.body || '{}')
 
       logger.info('[metadata-correction] Received metadata correction request', {
+        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        messageId: record.messageId,
+        metadataCorrectionRequest
+      })
+
+      await delayQueuedManualRequestIfNeeded({
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
         messageId: record.messageId,
         metadataCorrectionRequest
@@ -92,16 +166,18 @@ export const metadataCorrectionService = async (event) => {
         recordCount: records.length
       }
     })
-
-    const firstRejectedResult = settledResults.find(({ status }) => status === 'rejected')
-
-    if (firstRejectedResult) {
-      throw firstRejectedResult.reason
-    }
   }
 
   return {
-    batchItemFailures: []
+    batchItemFailures: settledResults.reduce((failures, result, index) => {
+      const itemIdentifier = records[index]?.messageId
+
+      if (result.status === 'rejected' && itemIdentifier) {
+        failures.push({ itemIdentifier })
+      }
+
+      return failures
+    }, [])
   }
 }
 

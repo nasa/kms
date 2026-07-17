@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { delay } from '@/shared/delay'
 import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { extractKeywordValidationFailures } from '@/shared/extractKeywordValidationFailures'
@@ -53,6 +54,10 @@ vi.mock('@/shared/emitConsumerMetrics', () => ({
     KEYWORDS_RESOLVED: 'KeywordsResolved'
   },
   emitConsumerMetrics: vi.fn()
+}))
+
+vi.mock('@/shared/delay', () => ({
+  delay: vi.fn()
 }))
 
 vi.mock('@/shared/emitConsumerMetricsSafely', () => ({
@@ -118,6 +123,8 @@ const NEW_TRIGGER_SCIENCE_KEYWORD_OBJECT = {
 describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    delete process.env.METADATA_CORRECTION_REQUEST_DELAY_MS
+    vi.mocked(delay).mockResolvedValue(undefined)
     vi.mocked(emitConsumerMetricsSafely).mockResolvedValue(undefined)
 
     vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
@@ -1211,10 +1218,237 @@ describe('when the metadata correction service is invoked', () => {
         })
       }))
     })
+
+    test('should delay queued manual api requests when configured before running correction', async () => {
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '1500'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:09.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).toHaveBeenCalledWith(500)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] Delaying queued manual metadata correction request',
+        expect.objectContaining({
+          collectionConceptId: 'C1234567890-PROV',
+          messageId: 'message-manual-delay',
+          configuredDelayMs: 1500,
+          remainingDelayMs: 500
+        })
+      )
+
+      dateNowSpy.mockRestore()
+    })
+
+    test('should clamp oversized delay configuration to 20000ms', async () => {
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(10_000)
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '30000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-clamped',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:09.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).toHaveBeenCalledWith(19_000)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] Delaying queued manual metadata correction request',
+        expect.objectContaining({
+          collectionConceptId: 'C1234567890-PROV',
+          messageId: 'message-manual-delay-clamped',
+          configuredDelayMs: 20_000,
+          remainingDelayMs: 19_000
+        })
+      )
+
+      dateNowSpy.mockRestore()
+    })
+
+    test('should skip the delay when requestedAt cannot be parsed', async () => {
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-invalid-requested-at',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: 'not-a-date',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).not.toHaveBeenCalled()
+    })
+
+    test('should skip the delay when the configured delay value is invalid', async () => {
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = 'not-a-number'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-invalid-config',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:08.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).not.toHaveBeenCalled()
+    })
+
+    test('should skip the delay when the configured window has already elapsed', async () => {
+      const dateNowSpy = vi.spyOn(Date, 'now').mockReturnValue(20_000)
+      process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = '5000'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-manual-delay-elapsed',
+            body: JSON.stringify({
+              source: 'metadataCorrectionApi',
+              requestedAt: '1970-01-01T00:00:08.000Z',
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })
+
+      expect(delay).not.toHaveBeenCalled()
+
+      dateNowSpy.mockRestore()
+    })
   })
 
   describe('when the invocation is unsuccessful', () => {
-    test('should reject requests that omit the collection concept id', async () => {
+    test('should mark requests that omit the collection concept id for retry', async () => {
       await expect(metadataCorrectionService({
         Records: [
           {
@@ -1222,14 +1456,14 @@ describe('when the metadata correction service is invoked', () => {
             body: JSON.stringify({})
           }
         ]
-      })).rejects.toThrow(
-        'Incomplete metadata correction request: missing collectionConceptId'
-      )
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-missing-concept-id' }]
+      })
 
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
     })
 
-    test('should reject collection requests whose detected native format is unsupported', async () => {
+    test('should mark collection requests whose detected native format is unsupported for retry', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-UNKNOWN',
         providerId: 'PROV',
@@ -1250,13 +1484,15 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).rejects.toThrow('Unsupported native format: UNKNOWN')
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-unknown-format' }]
+      })
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
     })
 
-    test('should reject DIF9 collections until a dedicated DIF9 delegate exists', async () => {
+    test('should mark DIF9 collections for retry until a dedicated DIF9 delegate exists', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-DIF9',
         providerId: 'PROV',
@@ -1277,22 +1513,24 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).rejects.toThrow('Unsupported native format: DIF9')
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-dif9-format' }]
+      })
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
     })
 
-    test('should reject a missing record body as an incomplete request', async () => {
+    test('should mark a missing record body as an incomplete request for retry', async () => {
       await expect(metadataCorrectionService({
         Records: [
           {
             messageId: 'message-999'
           }
         ]
-      })).rejects.toThrow(
-        'Incomplete metadata correction request: missing collectionConceptId'
-      )
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-999' }]
+      })
 
       expect(logger.info).toHaveBeenCalledWith(
         '[metadata-correction] Received metadata correction request',
@@ -1303,7 +1541,7 @@ describe('when the metadata correction service is invoked', () => {
       )
     })
 
-    test('should log the error and throw when the record body cannot be parsed', async () => {
+    test('should log the error and mark the record body for retry when it cannot be parsed', async () => {
       await expect(metadataCorrectionService({
         Records: [
           {
@@ -1311,7 +1549,9 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).rejects.toThrow()
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-123' }]
+      })
 
       expect(logger.error).toHaveBeenCalledWith(
         '[metadata-correction] Failed to process metadata correction request',
@@ -1327,7 +1567,9 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).rejects.toThrow()
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-processing-failure' }]
+      })
 
       expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
         metrics: [
@@ -1348,6 +1590,56 @@ describe('when the metadata correction service is invoked', () => {
           recordCount: 1
         })
       }))
+    })
+
+    test('should only return the failed message ids when a batch partially fails', async () => {
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue({
+        revisionId: 7,
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        nativeFormat: 'DIF10',
+        nativeMetadataContentType: 'application/dif10+xml',
+        conceptId: 'C1234567890-PROV',
+        rawMetadata: '<DIF></DIF>'
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-success',
+            body: JSON.stringify({
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          },
+          {
+            messageId: 'message-failure',
+            body: 'not-json'
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: [{ itemIdentifier: 'message-failure' }]
+      })
     })
 
     test('should log and continue when processing metric emission fails', async () => {
