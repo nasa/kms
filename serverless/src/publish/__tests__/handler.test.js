@@ -1,3 +1,4 @@
+import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
 import {
   beforeEach,
   describe,
@@ -5,8 +6,6 @@ import {
   test,
   vi
 } from 'vitest'
-
-import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
 
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
@@ -21,11 +20,10 @@ vi.mock('@aws-sdk/client-eventbridge', () => {
       send: mSend
     }
   }
+
   return {
     EventBridgeClient: MockEventBridgeClient,
-    PutEventsCommand: vi.fn(function PutEventsCommand(input) {
-      return input
-    })
+    PutEventsCommand: vi.fn((input) => input)
   }
 })
 
@@ -38,8 +36,8 @@ describe('publish handler', () => {
   beforeEach(async () => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: {} })
-    vi.spyOn(logger, 'error').mockImplementation(function() {})
-    vi.spyOn(logger, 'info').mockImplementation(function() {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
+    vi.spyOn(logger, 'info').mockImplementation(() => {})
 
     const clientInstance = new EventBridgeClient()
     mockSend = clientInstance.send
@@ -89,7 +87,7 @@ describe('publish handler', () => {
 
     test('should handle errors when emitting EventBridge event', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      
+
       mockSend.mockRejectedValueOnce(new Error('EventBridge error'))
 
       const result = await publish(event)
@@ -103,7 +101,7 @@ describe('publish handler', () => {
 
     test('should handle EventBridge failed entries', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      
+
       mockSend.mockResolvedValueOnce({ FailedEntryCount: 1 })
 
       const result = await publish(event)
