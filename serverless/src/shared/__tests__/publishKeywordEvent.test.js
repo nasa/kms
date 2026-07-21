@@ -72,7 +72,7 @@ describe('when the keyword event publisher is used', () => {
 
         const { publishKeywordEvent } = await import('../publishKeywordEvent')
 
-        // 1. You MUST call the function to trigger the SNS client initialization and publish
+        // 1. Call the function to trigger the SNS client initialization and publish
         const payload = { event_type: 'keyword_updated' }
         await publishKeywordEvent(payload)
 
