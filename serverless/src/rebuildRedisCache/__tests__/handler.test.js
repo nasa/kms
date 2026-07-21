@@ -17,10 +17,16 @@ import {
 import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
 import { getRedisClient } from '@/shared/redisCacheStore'
 
-const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
-  sendEventBridgeMock: vi.fn(),
-  PutEventsCommandMock: vi.fn((input) => input)
-}))
+const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => {
+  function PutEventsCommand(input) {
+    return input
+  }
+
+  return {
+    sendEventBridgeMock: vi.fn(),
+    PutEventsCommandMock: vi.fn(PutEventsCommand)
+  }
+})
 
 vi.mock('@/shared/awsClients', () => ({
   getEventBridgeClient: vi.fn(() => ({

@@ -66,11 +66,21 @@ describe('logger', () => {
     test('should log error when an exception occurs in getCallerFunctionName', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      // Mock Error constructor to throw an error
       const OriginalError = global.Error
-      global.Error = vi.fn(() => {
-        throw new OriginalError('Mocked error in Error constructor')
-      })
+
+      // 1. Explicitly name the function to avoid "unnamed function" errors
+      global.Error = function Error(message) {
+        const instance = new OriginalError(message)
+        Object.defineProperty(instance, 'stack', {
+          get: () => { throw new Error('Mocked error in stack access') },
+          configurable: true
+        })
+
+        return instance
+      }
+
+      // 2. Explicitly bind the prototype to ensure it is recognized as a constructor
+      global.Error.prototype = OriginalError.prototype
 
       function testFunction() {
         logger.info('Test message')
@@ -81,11 +91,10 @@ describe('logger', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         'Error in getCallerFunctionName:',
         expect.objectContaining({
-          message: 'Mocked error in Error constructor'
+          message: 'Mocked error in stack access'
         })
       )
 
-      // Clean up
       consoleErrorSpy.mockRestore()
       global.Error = OriginalError
     })

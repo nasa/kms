@@ -6,36 +6,49 @@ import {
   vi
 } from 'vitest'
 
+import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
+
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 
 import { publish } from '../handler'
 
-const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
-  sendEventBridgeMock: vi.fn(),
-  PutEventsCommandMock: vi.fn((input) => input)
-}))
+// 1. Use a regular function for the mock constructor
+vi.mock('@aws-sdk/client-eventbridge', () => {
+  const mSend = vi.fn()
+  function MockEventBridgeClient() {
+    return {
+      send: mSend
+    }
+  }
+  return {
+    EventBridgeClient: MockEventBridgeClient,
+    PutEventsCommand: vi.fn(function PutEventsCommand(input) {
+      return input
+    })
+  }
+})
 
-// Mock the imported functions
+// Mock the other imported functions
 vi.mock('@/shared/getConfig')
-vi.mock('@aws-sdk/client-eventbridge', () => ({
-  EventBridgeClient: vi.fn(() => ({
-    send: sendEventBridgeMock
-  })),
-  PutEventsCommand: PutEventsCommandMock
-}))
 
 describe('publish handler', () => {
-  beforeEach(() => {
+  let mockSend
+
+  beforeEach(async () => {
     vi.resetAllMocks()
     getApplicationConfig.mockReturnValue({ defaultResponseHeaders: {} })
-    sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
-    vi.spyOn(logger, 'error').mockImplementation(() => {})
-    vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(function() {})
+    vi.spyOn(logger, 'info').mockImplementation(function() {})
+
+    const clientInstance = new EventBridgeClient()
+    mockSend = clientInstance.send
   })
 
   describe('when successful', () => {
     test('should successfully initiate publish process', async () => {
+      mockSend.mockResolvedValueOnce({ FailedEntryCount: 0 })
+
       const event = { queryStringParameters: { name: 'v1.0.0' } }
 
       const result = await publish(event)
@@ -46,9 +59,10 @@ describe('publish handler', () => {
       expect(body.version).toBe('v1.0.0')
       expect(body.publishDate).toBeDefined()
 
-      // Should emit EventBridge event
-      expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
-      expect(PutEventsCommandMock).toHaveBeenCalledWith(
+      // Should emit EventBridge event via send()
+      expect(mockSend).toHaveBeenCalledTimes(1)
+      const sentCommandInput = mockSend.mock.calls[0][0]
+      expect(sentCommandInput).toEqual(
         expect.objectContaining({
           Entries: expect.arrayContaining([
             expect.objectContaining({
@@ -75,7 +89,8 @@ describe('publish handler', () => {
 
     test('should handle errors when emitting EventBridge event', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      sendEventBridgeMock.mockRejectedValue(new Error('EventBridge error'))
+      
+      mockSend.mockRejectedValueOnce(new Error('EventBridge error'))
 
       const result = await publish(event)
 
@@ -88,7 +103,8 @@ describe('publish handler', () => {
 
     test('should handle EventBridge failed entries', async () => {
       const event = { queryStringParameters: { name: 'v1.0.0' } }
-      sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
+      
+      mockSend.mockResolvedValueOnce({ FailedEntryCount: 1 })
 
       const result = await publish(event)
 
