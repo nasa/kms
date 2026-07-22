@@ -96,7 +96,8 @@ describe('when writing corrected metadata to cmr', () => {
       contentType: 'application/dif10+xml',
       accept: 'application/json',
       headers: {
-        Authorization: 'Bearer writer-token'
+        Authorization: 'Bearer writer-token',
+        'cmr-validate-keywords': 'false'
       }
     })
   })
@@ -233,7 +234,8 @@ describe('when writing corrected metadata to cmr', () => {
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2',
       accept: 'application/json',
       headers: {
-        Authorization: 'Bearer writer-token'
+        Authorization: 'Bearer writer-token',
+        'cmr-validate-keywords': 'false'
       }
     })
   })

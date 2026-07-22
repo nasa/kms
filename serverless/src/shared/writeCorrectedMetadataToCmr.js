@@ -343,7 +343,8 @@ export const writeCorrectedMetadataToCmr = async ({
     contentType,
     accept: 'application/json',
     headers: {
-      Authorization: `Bearer ${authorizationToken}`
+      Authorization: `Bearer ${authorizationToken}`,
+      'cmr-validate-keywords': 'false'
     }
   })
 
