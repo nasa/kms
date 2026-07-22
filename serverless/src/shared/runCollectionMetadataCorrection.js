@@ -227,6 +227,34 @@ const buildRunMetrics = ({
 }
 
 /**
+ * Converts an unknown writeback failure into a stable audit-log message string.
+ *
+ * @param {unknown} error Writeback failure candidate.
+ * @returns {string} Best-effort error message for audit persistence.
+ */
+const getWritebackErrorMessage = (error) => {
+  const cmrResponseBody = error?.cmrResponseBody
+
+  if (typeof cmrResponseBody === 'string' && cmrResponseBody.trim().length > 0) {
+    return cmrResponseBody
+  }
+
+  if (cmrResponseBody !== null && typeof cmrResponseBody !== 'undefined') {
+    try {
+      return JSON.stringify(cmrResponseBody)
+    } catch {
+      return String(cmrResponseBody)
+    }
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim().length > 0) {
+    return error.message
+  }
+
+  return String(error)
+}
+
+/**
  * Runs the full metadata-correction flow for one collection and returns a rich summary.
  *
  * This is the shared execution seam used by both the asynchronous SQS consumer and the
@@ -392,17 +420,52 @@ export const runCollectionMetadataCorrection = async ({
     correctedMetadata
   })
 
-  const writeResult = await writeCorrectedMetadataToCmr({
-    collectionConceptId: collectionDetails.collectionConceptId,
-    providerId: collectionDetails.providerId,
-    nativeId: collectionDetails.nativeId,
-    nativeFormat,
-    nativeMetadataContentType,
-    correctedMetadata,
-    correctionCount: normalizedCorrectionCount,
-    correctionsApplied,
-    source
-  })
+  let writeResult
+
+  try {
+    writeResult = await writeCorrectedMetadataToCmr({
+      collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      nativeId: collectionDetails.nativeId,
+      nativeFormat,
+      nativeMetadataContentType,
+      correctedMetadata,
+      correctionCount: normalizedCorrectionCount,
+      correctionsApplied,
+      source
+    })
+  } catch (error) {
+    if (correctionsApplied.length > 0) {
+      try {
+        await persistMetadataCorrectionAuditLog({
+          collectionConceptId: collectionDetails.collectionConceptId,
+          keywordEvent: auditKeywordEvent,
+          nativeFormat,
+          delegateName,
+          corrections: correctionsApplied,
+          status: 'failed',
+          writebackErrorMessage: getWritebackErrorMessage(error)
+        })
+
+        logger.info('[metadata-correction] Persisted failed metadata correction audit log', {
+          collectionConceptId: collectionDetails.collectionConceptId,
+          messageId,
+          nativeFormat,
+          writebackErrorMessage: getWritebackErrorMessage(error)
+        })
+      } catch (auditError) {
+        logger.error('[metadata-correction] Failed to persist failed metadata correction audit log', {
+          collectionConceptId: collectionDetails.collectionConceptId,
+          messageId,
+          nativeFormat,
+          auditError: auditError?.message || String(auditError),
+          writebackErrorMessage: getWritebackErrorMessage(error)
+        })
+      }
+    }
+
+    throw error
+  }
 
   if (correctionsApplied.length > 0 && writeResult?.ingestResult?.updated === true) {
     appliedAuditResult = await persistMetadataCorrectionAuditLog({

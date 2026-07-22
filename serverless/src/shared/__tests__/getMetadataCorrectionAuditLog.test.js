@@ -38,6 +38,7 @@ describe('getMetadataCorrectionAuditLog', () => {
               nativeFormat: { value: 'UMM' },
               delegateName: { value: 'umm' },
               status: { value: 'pending' },
+              writebackErrorMessage: { value: 'CMR writeback failed with status 400: {"errors":["boom"]}' },
               triggerScheme: { value: 'sciencekeywords' },
               triggerKeywordUuid: { value: 'uuid-trigger' }
             }
@@ -67,6 +68,7 @@ describe('getMetadataCorrectionAuditLog', () => {
         nativeFormat: 'UMM',
         delegateName: 'umm',
         status: 'pending',
+        writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}',
         triggerScheme: 'sciencekeywords',
         triggerKeywordUuid: 'uuid-trigger'
       }
@@ -131,6 +133,7 @@ describe('getMetadataCorrectionAuditLog', () => {
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
         status: 'applied',
+        writebackErrorMessage: undefined,
         triggerScheme: undefined,
         triggerKeywordUuid: undefined
       }
@@ -179,6 +182,7 @@ describe('getMetadataCorrectionAuditLog', () => {
               nativeFormat: { value: 'DIF10' },
               delegateName: { value: 'dif10' },
               status: { value: 'applied' },
+              writebackErrorMessage: { value: 'CMR writeback failed with status 400: {"errors":["boom"]}' },
               triggerScheme: { value: 'sciencekeywords' },
               triggerKeywordUuid: { value: 'uuid-trigger' }
             },
@@ -195,6 +199,7 @@ describe('getMetadataCorrectionAuditLog', () => {
               nativeFormat: { value: 'DIF10' },
               delegateName: { value: 'dif10' },
               status: { value: 'pending' },
+              writebackErrorMessage: undefined,
               triggerScheme: { value: 'sciencekeywords' },
               triggerKeywordUuid: { value: 'uuid-trigger' }
             },
@@ -235,6 +240,7 @@ describe('getMetadataCorrectionAuditLog', () => {
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
         status: 'applied',
+        writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}',
         triggerScheme: 'sciencekeywords',
         triggerKeywordUuid: 'uuid-trigger'
       },
@@ -251,6 +257,7 @@ describe('getMetadataCorrectionAuditLog', () => {
         nativeFormat: 'UMM',
         delegateName: 'umm',
         status: 'pending',
+        writebackErrorMessage: undefined,
         triggerScheme: undefined,
         triggerKeywordUuid: undefined
       }

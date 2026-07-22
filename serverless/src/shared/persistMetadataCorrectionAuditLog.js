@@ -65,6 +65,8 @@ const buildAuditKeywordPath = ({
  * }>} params.corrections - Fully resolved corrections to persist. Audit rows store only the
  * derived keyword paths, not the original keyword objects.
  * @param {string} [params.status='pending'] - Audit lifecycle status.
+ * @param {string} [params.writebackErrorMessage] - Optional CMR ingest/writeback error message for
+ * failed writeback attempts.
  * @param {string} [params.timestamp] - ISO timestamp override for tests.
  * @returns {Promise<{ insertedCount: number, publishedVersionName: string, status: string }>}
  * Insert summary for logging/verification.
@@ -76,6 +78,7 @@ export const persistMetadataCorrectionAuditLog = async ({
   delegateName,
   corrections = [],
   status = 'pending',
+  writebackErrorMessage,
   timestamp
 }) => {
   if (!collectionConceptId) {
@@ -126,6 +129,7 @@ export const persistMetadataCorrectionAuditLog = async ({
       `      <${recordUri}> gcmd:nativeFormat "${escapeSparqlLiteral(nativeFormat)}" .`,
       `      <${recordUri}> gcmd:delegateName "${escapeSparqlLiteral(delegateName)}" .`,
       `      <${recordUri}> gcmd:status "${escapeSparqlLiteral(status)}" .`,
+      optionalLiteralTriple(recordUri, 'gcmd:writebackErrorMessage', writebackErrorMessage),
       optionalLiteralTriple(recordUri, 'gcmd:triggerScheme', keywordEvent.scheme),
       optionalLiteralTriple(recordUri, 'gcmd:triggerKeywordUuid', keywordEvent.uuid)
     ].join('\n')
