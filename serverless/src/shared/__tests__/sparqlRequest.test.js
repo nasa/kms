@@ -11,15 +11,16 @@ import { delay } from '@/shared/delay'
 
 import { resetSparqlRequestStateForTests, sparqlRequest } from '../sparqlRequest'
 
+vi.mock('@/shared/delay', () => ({
+  delay: vi.fn(() => Promise.resolve())
+}))
+
 global.fetch = vi.fn()
 
 describe('sparqlRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetSparqlRequestStateForTests()
-    vi.mock('@/shared/delay', () => ({
-      delay: vi.fn(() => Promise.resolve())
-    }))
 
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})

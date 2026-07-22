@@ -196,6 +196,7 @@ describe('updateConcept', () => {
     })
 
     afterEach(() => {
+      vi.clearAllTimers()
       vi.useRealTimers()
     })
 
