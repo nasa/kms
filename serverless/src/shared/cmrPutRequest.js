@@ -1,5 +1,7 @@
 import { logger } from './logger'
 
+const DEFAULT_CMR_PUT_TIMEOUT_MS = 25000
+
 /**
  * Resolves the configured CMR base endpoint for outbound requests.
  *
@@ -49,6 +51,7 @@ const extractErrorDetails = (error) => {
  * @param {string} [options.contentType='application/json'] - The Content-Type header.
  * @param {string} [options.accept='application/json'] - The Accept header.
  * @param {Object} [options.headers={}] - Additional request headers.
+ * @param {number} [options.timeoutMs=25000] - Request timeout before aborting the CMR PUT.
  * @returns {Promise<Response>} A promise that resolves with the fetch Response object.
  */
 export const cmrPutRequest = async ({
@@ -56,7 +59,8 @@ export const cmrPutRequest = async ({
   body,
   contentType = 'application/json',
   accept = 'application/json',
-  headers = {}
+  headers = {},
+  timeoutMs = DEFAULT_CMR_PUT_TIMEOUT_MS
 }) => {
   const { endpoint } = getEndpointConfig()
   const fullUrl = `${endpoint}${path}`
@@ -81,10 +85,24 @@ export const cmrPutRequest = async ({
     endpoint,
     path,
     fullUrl,
-    bodyLength: typeof body === 'string' ? body.length : undefined
+    bodyLength: typeof body === 'string' ? body.length : undefined,
+    timeoutMs
   })
 
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  let timeoutId
+
+  if (controller && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    timeoutId = setTimeout(() => {
+      controller.abort(new Error(`CMR PUT request timeout after ${timeoutMs}ms`))
+    }, timeoutMs)
+  }
+
   try {
+    if (controller && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+      fetchOptions.signal = controller.signal
+    }
+
     return await fetch(fullUrl, fetchOptions)
   } catch (error) {
     const requestContext = {
@@ -92,7 +110,8 @@ export const cmrPutRequest = async ({
       endpoint,
       path,
       fullUrl,
-      bodyLength: typeof body === 'string' ? body.length : undefined
+      bodyLength: typeof body === 'string' ? body.length : undefined,
+      timeoutMs
     }
 
     logger.error('[cmr-put] CMR write failed', {
@@ -107,6 +126,10 @@ export const cmrPutRequest = async ({
     }
 
     throw error
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
   }
 }
 

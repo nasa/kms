@@ -2,6 +2,10 @@ import { cmrPutRequest } from './cmrPutRequest'
 import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
+// Keep the writeback timeout comfortably inside the metadataCorrectionService Lambda's
+// 30s timeout so a stalled ingest request can still be recorded as a failed audit row.
+const CMR_WRITEBACK_TIMEOUT_MS = 10_000
+
 /**
  * Serializes corrected metadata into the payload shape expected by CMR ingest.
  *
@@ -342,6 +346,7 @@ export const writeCorrectedMetadataToCmr = async ({
     body: serializedMetadata,
     contentType,
     accept: 'application/json',
+    timeoutMs: CMR_WRITEBACK_TIMEOUT_MS,
     headers: {
       Authorization: `Bearer ${authorizationToken}`,
       'cmr-validate-keywords': 'false'

@@ -95,6 +95,7 @@ describe('when writing corrected metadata to cmr', () => {
       body: '<DIF><Entry_ID/></DIF>',
       contentType: 'application/dif10+xml',
       accept: 'application/json',
+      timeoutMs: 10000,
       headers: {
         Authorization: 'Bearer writer-token',
         'cmr-validate-keywords': 'false'
@@ -233,6 +234,7 @@ describe('when writing corrected metadata to cmr', () => {
       body: JSON.stringify(correctedMetadata),
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2',
       accept: 'application/json',
+      timeoutMs: 10000,
       headers: {
         Authorization: 'Bearer writer-token',
         'cmr-validate-keywords': 'false'
