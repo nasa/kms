@@ -28,7 +28,7 @@ export default defineConfig({
       formats: ['cjs'],
       fileName: (format, entryName) => `${entryName}.js`
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         'aws-sdk'
         // Add other external dependencies here
