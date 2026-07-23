@@ -269,4 +269,28 @@ describe('cmrPutRequest', () => {
 
     await rejectionExpectation
   })
+
+  test('should skip abort wiring when AbortController is unavailable', async () => {
+    const originalAbortController = global.AbortController
+    global.AbortController = undefined
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ data: 'test' })
+    })
+
+    await cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1',
+      body: '{}'
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
+      expect.not.objectContaining({
+        signal: expect.anything()
+      })
+    )
+
+    global.AbortController = originalAbortController
+  })
 })
