@@ -349,7 +349,8 @@ export const writeCorrectedMetadataToCmr = async ({
     timeoutMs: CMR_WRITEBACK_TIMEOUT_MS,
     headers: {
       Authorization: `Bearer ${authorizationToken}`,
-      'cmr-validate-keywords': 'false'
+      'cmr-validate-keywords': 'false',
+      'Cmr-Validate-Umm-C': 'false'
     }
   })
 

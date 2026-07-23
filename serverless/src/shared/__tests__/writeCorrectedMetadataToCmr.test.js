@@ -98,7 +98,8 @@ describe('when writing corrected metadata to cmr', () => {
       timeoutMs: 10000,
       headers: {
         Authorization: 'Bearer writer-token',
-        'cmr-validate-keywords': 'false'
+        'cmr-validate-keywords': 'false',
+        'Cmr-Validate-Umm-C': 'false'
       }
     })
   })
@@ -237,7 +238,8 @@ describe('when writing corrected metadata to cmr', () => {
       timeoutMs: 10000,
       headers: {
         Authorization: 'Bearer writer-token',
-        'cmr-validate-keywords': 'false'
+        'cmr-validate-keywords': 'false',
+        'Cmr-Validate-Umm-C': 'false'
       }
     })
   })

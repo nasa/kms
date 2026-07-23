@@ -226,6 +226,8 @@ async function main() {
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
     metadataCorrectionRequestDelayMs: process.env.METADATA_CORRECTION_REQUEST_DELAY_MS || '',
+    metadataCorrectionServiceReservedConcurrency:
+      process.env.METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY || '',
     cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     env,
