@@ -21,7 +21,7 @@ const normalizeLimit = (limit) => {
     return 100
   }
 
-  return Math.max(1, Math.min(parsed, 500))
+  return Math.max(1, parsed)
 }
 
 /**
@@ -98,7 +98,7 @@ const collapseAuditRows = (items) => {
  * @param {string|boolean} [filters.latestOnly=false] - When truthy, collapses duplicate
  * append-only lifecycle rows so only the newest row for each logical correction is returned.
  * @param {string|number} [filters.limit=100] - Maximum number of rows to return. Values are
- * normalized into the inclusive range `1..500`, with invalid values falling back to `100`.
+ * normalized to a minimum of `1`, with invalid values falling back to `100`.
  * @returns {Promise<Array<{
  *   recordUri: string | undefined,
  *   timestamp: string | undefined,

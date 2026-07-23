@@ -148,6 +148,24 @@ describe('getMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).not.toContain('FILTER(?status =')
   })
 
+  test('keeps large explicit limits instead of clamping them', async () => {
+    vi.mocked(sparqlRequest).mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        results: {
+          bindings: []
+        }
+      })
+    })
+
+    await expect(getMetadataCorrectionAuditLog({
+      limit: '5000'
+    })).resolves.toEqual([])
+
+    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
+    expect(sparqlCall.body).toContain('LIMIT 5000')
+  })
+
   test('uses default filters and returns an empty array when the query result has no bindings', async () => {
     vi.mocked(sparqlRequest).mockResolvedValue({
       ok: true,
