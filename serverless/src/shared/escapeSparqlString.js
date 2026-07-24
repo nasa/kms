@@ -34,14 +34,22 @@ export const escapeSparqlString = (str) => {
     .replace(/[\x01-\x07\x0B\x0E-\x1F]/g, '')
     // Order matters: backslash MUST be escaped first
     .replace(/\\/g, '\\\\')
+    // Escape double quotes to prevent breaking the SPARQL string literal
     .replace(/"/g, '\\"')
+    // Escape single quotes to prevent breaking the SPARQL string literal
     .replace(/'/g, "\\'")
+    // Escape null bytes to a safe representation string (\0)
     .replace(/\0/g, '\\0')
+    // Escape newline characters into literal backslash-n format
     .replace(/\n/g, '\\n')
+    // Escape carriage return characters into literal backslash-r format
     .replace(/\r/g, '\\r')
+    // Escape tab characters into literal backslash-t format
     .replace(/\t/g, '\\t')
+    // Escape backspace control characters into literal backslash-b format
     // eslint-disable-next-line no-control-regex
     .replace(/\x08/g, '\\b')
+    // Escape form feed characters into literal backslash-f format
     .replace(/\f/g, '\\f')
 
   return escaped
