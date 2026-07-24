@@ -23,7 +23,7 @@ describe('getNarrowerConceptsQuery', () => {
   })
 
   test('should return the correct query with a scheme', () => {
-    const scheme = 'testScheme'
+    const scheme = 'test_scheme'
     const result = getNarrowerConceptsQuery(scheme)
     const expected = `
       ${prefixes}
@@ -33,7 +33,7 @@ describe('getNarrowerConceptsQuery', () => {
         ?subject skos:narrower ?narrower .
         ?narrower skos:prefLabel ?narrowerPrefLabel .
         ?subject skos:inScheme ?schemeUri .
-        FILTER(LCASE(STR(?schemeUri)) = LCASE(STR(<https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/testScheme>)))
+        FILTER(LCASE(STR(?schemeUri)) = LCASE(STR(<https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/test_scheme>)))
       }
     `
     expect(removeWhitespace(result)).toEqual(removeWhitespace(expected))

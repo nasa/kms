@@ -10,6 +10,6 @@ export const sanitizeScheme = (scheme) => {
     return ''
   }
 
-  // Remove any character that is not a-z, A-Z, or a space
-  return scheme.replace(/[^a-zA-Z\s]/g, '')
+  // Remove any character that is not a-z, A-Z, space, hyphen, or underscore
+  return scheme.replace(/[^a-zA-Z\s-_]/g, '')
 }

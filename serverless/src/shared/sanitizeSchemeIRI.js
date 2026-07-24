@@ -29,7 +29,7 @@ export const sanitizeSchemeIRI = (schemeIRI) => {
   }
 
   // Allow only a-z, A-Z, and spaces for the scheme ID segment, matching sanitizeScheme
-  const safeSchemeId = schemeId.replace(/[^a-zA-Z\s]/g, '')
+  const safeSchemeId = schemeId.replace(/[^a-zA-Z\s-_]/g, '')
 
   return `${base}${safeSchemeId}`
 }

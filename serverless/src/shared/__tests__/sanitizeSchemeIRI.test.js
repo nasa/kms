@@ -8,14 +8,22 @@ import { sanitizeSchemeIRI } from '../sanitizeSchemeIRI'
 
 describe('sanitizeSchemeIRI', () => {
   describe('When successful', () => {
-    test('should allow valid scheme IRIs with letters and spaces in the ID segment', () => {
-      const validIRI = 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/Earth Science Concepts'
+    test('should allow valid scheme IRIs with letters, spaces, hyphens, and underscores in the ID segment', () => {
+      const validIRI = 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/Earth-Science_Concepts'
       expect(sanitizeSchemeIRI(validIRI)).toBe(validIRI)
     })
 
-    test('should sanitize invalid characters in the scheme ID segment while preserving the base URL', () => {
+    test('should allow alternate base URLs and URN formats with valid scheme IDs', () => {
+      const urnIRI = 'urn:example:concept:Earth-Science_Concepts'
+      expect(sanitizeSchemeIRI(urnIRI)).toBe(urnIRI)
+
+      const httpIRI = 'http://example.com/concept/Earth-Science_Concepts'
+      expect(sanitizeSchemeIRI(httpIRI)).toBe(httpIRI)
+    })
+
+    test('should sanitize invalid characters in the scheme ID segment while preserving the base URL/namespace', () => {
       const inputIRI = 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/Earth-Science_123!'
-      const expectedIRI = 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/EarthScience'
+      const expectedIRI = 'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/Earth-Science_'
       expect(sanitizeSchemeIRI(inputIRI)).toBe(expectedIRI)
     })
 
@@ -31,6 +39,11 @@ describe('sanitizeSchemeIRI', () => {
       expect(sanitizeSchemeIRI(123)).toBe('')
       expect(sanitizeSchemeIRI({})).toBe('')
       expect(sanitizeSchemeIRI([])).toBe('')
+    })
+
+    test('should return an empty string for invalid base URL or namespace structures', () => {
+      const invalidBase = 'invalid-prefix/Earth-Science_Concepts'
+      expect(sanitizeSchemeIRI(invalidBase)).toBe('')
     })
   })
 })

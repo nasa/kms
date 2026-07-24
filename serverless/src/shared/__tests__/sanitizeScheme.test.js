@@ -8,12 +8,12 @@ import { sanitizeScheme } from '../sanitizeScheme'
 
 describe('sanitizeScheme', () => {
   describe('When successful', () => {
-    test('should allow letters and spaces', () => {
-      expect(sanitizeScheme('Earth Science Concepts')).toBe('Earth Science Concepts')
+    test('should allow letters, spaces, hyphens, and underscores', () => {
+      expect(sanitizeScheme('Earth-Science_Concepts')).toBe('Earth-Science_Concepts')
     })
 
-    test('should remove numbers, hyphens, underscores, and special characters', () => {
-      expect(sanitizeScheme('Science-123_abc!@#')).toBe('Scienceabc')
+    test('should remove numbers and special characters while preserving letters, spaces, hyphens, and underscores', () => {
+      expect(sanitizeScheme('Science-123_abc!@#')).toBe('Science-_abc')
     })
 
     test('should return an empty string for an empty input', () => {
