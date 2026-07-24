@@ -1,11 +1,16 @@
 import prefixes from '@/shared/constants/prefixes'
+import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
-export const getConceptPrefLabelAndBroaderIdQuery = (conceptIRI) => `
+export const getConceptPrefLabelAndBroaderIdQuery = (conceptIRI) => {
+  const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
+
+  return `
     ${prefixes}
     SELECT ?s ?prefLabel ?broader WHERE {
-      <${conceptIRI}> skos:prefLabel ?prefLabel .
+      <${safeConceptIRI}> skos:prefLabel ?prefLabel .
       OPTIONAL {
-        <${conceptIRI}> skos:broader ?broader .
+        <${safeConceptIRI}> skos:broader ?broader .
       }
     }
-`
+  `
+}

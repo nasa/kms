@@ -1,15 +1,20 @@
 import prefixes from '@/shared/constants/prefixes'
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
+import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getTotalCountQuery = ({ conceptScheme, pattern }) => {
+  const safeConceptScheme = sanitizeScheme(conceptScheme)
+  const safePattern = escapeSparqlString(pattern)
+
   const whereClause = () => {
     const conditions = ['?s rdf:type skos:Concept']
-    if (conceptScheme) {
-      conditions.push(`?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${conceptScheme}>`)
+    if (safeConceptScheme) {
+      conditions.push(`?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${safeConceptScheme}>`)
     }
 
-    if (pattern) {
+    if (safePattern) {
       conditions.push('?s skos:prefLabel ?prefLabel')
-      conditions.push(`FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${pattern}")))`)
+      conditions.push(`FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${safePattern}")))`)
     }
 
     return conditions.join(' .\n    ')

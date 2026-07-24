@@ -1,7 +1,10 @@
-export const getConceptChangeNotesQuery = (scheme) => {
+import { sanitizeSchemeIRI } from '@/shared/sanitizeSchemeIRI'
+
+export const getConceptChangeNotesQuery = (schemeIRI) => {
   let schemeFilter = ''
-  if (scheme) {
-    schemeFilter = `?concept <http://www.w3.org/2004/02/skos/core#inScheme> <${scheme}> .`
+  if (schemeIRI) {
+    const safeScheme = sanitizeSchemeIRI(schemeIRI)
+    schemeFilter = `?concept <http://www.w3.org/2004/02/skos/core#inScheme> <${safeScheme}> .`
   }
 
   return `

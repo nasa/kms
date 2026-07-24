@@ -1,5 +1,7 @@
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
+import { sanitizeConceptId } from './sanitizeConceptId'
+
 /**
  * Captures all relevant relations for a given concept.
  * This function queries the triplestore to retrieve both outgoing and incoming relations
@@ -39,6 +41,8 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
     return uri.split('#').pop()
   }
 
+  const safeConceptId = sanitizeConceptId(conceptId)
+
   const query = `
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
     PREFIX gcmd: <http://gcmd.nasa.gov/schema/gcmd#>
@@ -47,8 +51,8 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
     WHERE {
       {
         # Outgoing relations
-        <https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> ?relation ?to .
-        BIND(<https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> AS ?from)
+        <https://gcmd.earthdata.nasa.gov/kms/concept/${safeConceptId}> ?relation ?to .
+        BIND(<https://gcmd.earthdata.nasa.gov/kms/concept/${safeConceptId}> AS ?from)
         ?from skos:prefLabel ?fromPrefLabel .
         ?to skos:prefLabel ?toPrefLabel .
         FILTER(?relation IN (skos:broader, skos:narrower, skos:related, gcmd:hasInstrument, gcmd:isOnPlatform))
@@ -56,8 +60,8 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
       UNION
       {
         # Incoming relations
-        ?from ?relation <https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> .
-        BIND(<https://gcmd.earthdata.nasa.gov/kms/concept/${conceptId}> AS ?to)
+        ?from ?relation <https://gcmd.earthdata.nasa.gov/kms/concept/${safeConceptId}> .
+        BIND(<https://gcmd.earthdata.nasa.gov/kms/concept/${safeConceptId}> AS ?to)
         ?from skos:prefLabel ?fromPrefLabel .
         ?to skos:prefLabel ?toPrefLabel .
         FILTER(?relation IN (skos:broader, skos:narrower, skos:related, gcmd:hasInstrument, gcmd:isOnPlatform))

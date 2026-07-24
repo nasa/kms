@@ -1,19 +1,24 @@
 import prefixes from '@/shared/constants/prefixes'
+import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
-export const getTriplesForConceptQuery = (conceptIRI) => `
+export const getTriplesForConceptQuery = (conceptIRI) => {
+  const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
+
+  return `
   ${prefixes}
   SELECT DISTINCT ?s ?p ?o
   WHERE {
     {
-      <${conceptIRI}> ?p ?o .
-      BIND(<${conceptIRI}> AS ?s)
+      <${safeConceptIRI}> ?p ?o .
+      BIND(<${safeConceptIRI}> AS ?s)
     } 
     UNION 
     {
-      <${conceptIRI}> ?p1 ?bnode .
+      <${safeConceptIRI}> ?p1 ?bnode .
       ?bnode ?p ?o .
       BIND(?bnode AS ?s)
       FILTER(isBlank(?bnode))
     }
   }
 `
+}

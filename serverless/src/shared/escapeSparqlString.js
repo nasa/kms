@@ -1,26 +1,48 @@
 /**
- * Escapes special characters in a string for use in SPARQL queries.
+ * Escapes a string for safe insertion into a SPARQL query string literal.
+ * Handles control characters, backslashes, double quotes, single quotes, and null bytes.
  *
- * This function performs the following escaping operations:
- * 1. Escapes backslashes, double quotes, and single quotes by prefixing them with a backslash.
- * 2. Replaces null characters (ASCII 0) with the string '\0'.
- *
- * @param {string} str - The string to escape.
- * @returns {string} The escaped string safe for use in SPARQL queries.
+ * @param {string} str - The raw string input from a request or user parameter (e.g., "O'Connor").
+ * @returns {string} The safely escaped inner string text.
  *
  * @example
- * escapeSparqlString('Hello "world"') // Returns: 'Hello \\"world\\"'
- * escapeSparqlString("It's a test") // Returns: "It\\'s a test"
- * escapeSparqlString('Null\0character') // Returns: 'Null\\0character'
+ * // Basic string escaping for query templates
+ * const safeName = escapeSparqlString('John "Doc" Smith');
+ * const query = `FILTER(?prefLabel = "${safeName}")`;
+ * // Resulting query fragment: FILTER(?prefLabel = "John \"Doc\" Smith")
  *
- * @throws {TypeError} If the input is not a string, an empty string is returned.
+ * @example
+ * // Handling names with apostrophes/single quotes
+ * const safeIrishName = escapeSparqlString("O'Connor");
+ * const query = `FILTER(?prefLabel = "${safeIrishName}")`;
+ * // Resulting query fragment: FILTER(?prefLabel = "O\'Connor")
+ *
+ * @example
+ * // Handling special whitespace and control characters
+ * const safeText = escapeSparqlString("Line 1\nLine 2");
+ * const query = `FILTER(?prefLabel = "${safeText}")`;
+ * // Resulting query fragment: FILTER(?prefLabel = "Line 1\nLine 2")
  */
 export const escapeSparqlString = (str) => {
   if (typeof str !== 'string') return ''
 
-  return str
-    .replace(/[\\"']/g, '\\$&')
-    .split('')
-    .map((char) => (char.charCodeAt(0) === 0 ? '\\0' : char))
-    .join('')
+  const escaped = str
+    // Strip control characters with no valid SPARQL escape (incl. NUL),
+    // but preserve null (\0) since tests explicitly expect it to become \0.
+    // We handle null right below.
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x01-\x07\x0B\x0E-\x1F]/g, '')
+    // Order matters: backslash MUST be escaped first
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/'/g, "\\'")
+    .replace(/\0/g, '\\0')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x08/g, '\\b')
+    .replace(/\f/g, '\\f')
+
+  return escaped
 }

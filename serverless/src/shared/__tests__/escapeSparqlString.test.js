@@ -33,6 +33,15 @@ describe('escapeSparqlString', () => {
     test('should return an empty string for an empty input', () => {
       expect(escapeSparqlString('')).toBe('')
     })
+
+    test('should handle newlines, tabs, and carriage returns', () => {
+      expect(escapeSparqlString('Line1\nLine2\r\tTab')).toBe('Line1\\nLine2\\r\\tTab')
+    })
+
+    test('should strip unauthorized control characters', () => {
+      // \x01 is in the stripped range [\x01-\x07\x0B\x0E-\x1F]
+      expect(escapeSparqlString('Hello\x01World')).toBe('HelloWorld')
+    })
   })
 
   describe('When unsuccessful', () => {
