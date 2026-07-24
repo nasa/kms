@@ -1,3 +1,4 @@
+import { conceptIdRegex } from '@/shared/constants/regex'
 /**
  * Sanitizes a given concept ID string by ensuring it is a string
  * and removing any characters that are not alphanumeric or hyphens.
@@ -11,5 +12,5 @@ export const sanitizeConceptId = (conceptId) => {
   }
 
   // Allow only alphanumeric, hyphens, and underscores, removing anything else
-  return conceptId.replace(/[^a-zA-Z0-9-]/g, '')
+  return conceptId.replace(conceptIdRegex, '')
 }

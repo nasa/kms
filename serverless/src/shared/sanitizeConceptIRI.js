@@ -1,3 +1,4 @@
+import { baseRegex, conceptIdRegex } from '@/shared/constants/regex'
 /**
  * Sanitizes a given concept IRI string by validating its base URL/namespace
  * using a regular expression and sanitizing the concept ID portion.
@@ -9,11 +10,6 @@ export const sanitizeConceptIRI = (conceptIRI) => {
   if (typeof conceptIRI !== 'string') {
     return ''
   }
-
-  // Regex to validate and capture the base part:
-  // 1. Matches HTTP/HTTPS URLs up to the final path segment (e.g., https://example.com/concept/)
-  // 2. OR matches URN namespaces up to the final segment (e.g., urn:example:concept:)
-  const baseRegex = /^(https?:\/\/[^\s/]+\/[^\s]*\/|urn:[a-zA-Z0-9-:]+:)$/
 
   const lastDelimiterIndex = Math.max(
     conceptIRI.lastIndexOf('/'),
@@ -33,7 +29,7 @@ export const sanitizeConceptIRI = (conceptIRI) => {
   }
 
   // Sanitize the concept ID portion
-  const safeConceptId = conceptId.replace(/[^a-zA-Z0-9-]/g, '')
+  const safeConceptId = conceptId.replace(conceptIdRegex, '')
 
   return `${base}${safeConceptId}`
 }

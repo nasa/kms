@@ -1,3 +1,4 @@
+import { baseRegex, schemeRegex } from '@/shared/constants/regex'
 /**
  * Sanitizes a given scheme IRI string by verifying its base URL using a regex
  * and sanitizing the scheme ID portion to contain only allowed characters (letters and spaces).
@@ -9,8 +10,6 @@ export const sanitizeSchemeIRI = (schemeIRI) => {
   if (typeof schemeIRI !== 'string') {
     return ''
   }
-
-  const baseRegex = /^(https?:\/\/[^\s/]+\/[^\s]*\/|urn:[a-zA-Z0-9-:]+:)$/
 
   const lastDelimiterIndex = Math.max(
     schemeIRI.lastIndexOf('/'),
@@ -29,7 +28,7 @@ export const sanitizeSchemeIRI = (schemeIRI) => {
   }
 
   // Allow only a-z, A-Z, and spaces for the scheme ID segment, matching sanitizeScheme
-  const safeSchemeId = schemeId.replace(/[^a-zA-Z\s-_]/g, '')
+  const safeSchemeId = schemeId.replace(schemeRegex, '')
 
   return `${base}${safeSchemeId}`
 }
