@@ -1,19 +1,24 @@
 import prefixes from '@/shared/constants/prefixes'
+import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
-export const getDeleteTriplesForConceptQuery = (conceptIRI) => `
-${prefixes}
-DELETE {
-  ?s ?p ?o .
-}
-WHERE {
-  {
+export const getDeleteTriplesForConceptQuery = (conceptIRI) => {
+  const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
+
+  return `
+  ${prefixes}
+  DELETE {
     ?s ?p ?o .
-    FILTER(?s = <${conceptIRI}>)
   }
-  UNION
-  {
-    ?s ?p ?o .
-    FILTER(?o = <${conceptIRI}>)
+  WHERE {
+    {
+      ?s ?p ?o .
+      FILTER(?s = <${safeConceptIRI}>)
+    }
+    UNION
+    {
+      ?s ?p ?o .
+      FILTER(?o = <${safeConceptIRI}>)
+    }
   }
+  `
 }
-`

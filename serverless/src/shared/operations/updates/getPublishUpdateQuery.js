@@ -1,6 +1,9 @@
 import prefixes from '@/shared/constants/prefixes'
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
 
 export const getPublishUpdateQuery = (name, updateDate) => {
+  const safeName = escapeSparqlString(name)
+  const safeUpdateDate = escapeSparqlString(updateDate)
   const batchQuery = `${prefixes}
 
   # 1. Delete the existing published graph
@@ -20,9 +23,9 @@ export const getPublishUpdateQuery = (name, updateDate) => {
   }
   INSERT {
     GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/published> {
-      <https://gcmd.earthdata.nasa.gov/kms/version_metadata> gcmd:versionName "${name}" .
+      <https://gcmd.earthdata.nasa.gov/kms/version_metadata> gcmd:versionName "${safeName}" .
       <https://gcmd.earthdata.nasa.gov/kms/version_metadata> gcmd:versionType "published" .
-      <https://gcmd.earthdata.nasa.gov/kms/version_metadata> dcterms:created "${updateDate}"^^xsd:dateTime .
+      <https://gcmd.earthdata.nasa.gov/kms/version_metadata> dcterms:created "${safeUpdateDate}"^^xsd:dateTime .
     }
   }
   WHERE {
