@@ -20,13 +20,13 @@ describe('escapeSparqlString', () => {
       expect(escapeSparqlString('C:\\Program Files')).toBe('C:\\\\Program Files')
     })
 
-    test('should replace null characters with \\0', () => {
-      expect(escapeSparqlString('Null\0character')).toBe('Null\\0character')
+    test('should strip null characters', () => {
+      expect(escapeSparqlString('Null\0character')).toBe('Nullcharacter')
     })
 
     test('should handle multiple special characters', () => {
       expect(escapeSparqlString('Test "quote" and \'apostrophe\' and \\ backslash and \0 null')).toBe(
-        'Test \\"quote\\" and \\\'apostrophe\\\' and \\\\ backslash and \\0 null'
+        'Test \\"quote\\" and \\\'apostrophe\\\' and \\\\ backslash and  null'
       )
     })
 
@@ -39,7 +39,7 @@ describe('escapeSparqlString', () => {
     })
 
     test('should strip unauthorized control characters', () => {
-      // \x01 is in the stripped range [\x01-\x07\x0B\x0E-\x1F]
+      // \x01 is in the stripped range [\x00-\x07\x0B\x0E-\x1F]
       expect(escapeSparqlString('Hello\x01World')).toBe('HelloWorld')
     })
   })

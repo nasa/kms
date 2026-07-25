@@ -27,19 +27,16 @@ export const escapeSparqlString = (str) => {
   if (typeof str !== 'string') return ''
 
   const escaped = str
-    // Strip control characters with no valid SPARQL escape (incl. NUL),
-    // but preserve null (\0) since tests explicitly expect it to become \0.
-    // We handle null right below.
+    // Strip control characters with no valid SPARQL escape, including NUL bytes,
+    // since \0 is not a valid SPARQL string escape.
     // eslint-disable-next-line no-control-regex
-    .replace(/[\x01-\x07\x0B\x0E-\x1F]/g, '')
+    .replace(/[\x00-\x07\x0B\x0E-\x1F]/g, '')
     // Order matters: backslash MUST be escaped first
     .replace(/\\/g, '\\\\')
     // Escape double quotes to prevent breaking the SPARQL string literal
     .replace(/"/g, '\\"')
     // Escape single quotes to prevent breaking the SPARQL string literal
     .replace(/'/g, "\\'")
-    // Escape null bytes to a safe representation string (\0)
-    .replace(/\0/g, '\\0')
     // Escape newline characters into literal backslash-n format
     .replace(/\n/g, '\\n')
     // Escape carriage return characters into literal backslash-r format
