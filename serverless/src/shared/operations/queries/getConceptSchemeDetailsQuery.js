@@ -5,10 +5,9 @@ import { prefixes } from '../../constants/prefixes'
 
 export const getConceptSchemeDetailsQuery = (schemeName) => {
   const safeSchemeName = sanitizeScheme(schemeName)
-  if (schemeName) {
-    if (!safeSchemeName) {
-      throw new Error('Invalid scheme provided')
-    }
+
+  if (safeSchemeName === null) {
+    throw new Error('Invalid scheme provided')
   }
 
   return `

@@ -4,7 +4,7 @@ export const getConceptChangeNotesQuery = (schemeIRI) => {
   let schemeFilter = ''
   if (schemeIRI) {
     const safeScheme = sanitizeSchemeIRI(schemeIRI)
-    if (!safeScheme) {
+    if (safeScheme === null) {
       throw new Error('Invalid schemeIRI provided')
     }
 

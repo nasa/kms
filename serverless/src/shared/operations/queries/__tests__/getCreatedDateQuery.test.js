@@ -21,18 +21,21 @@ describe('getCreateDateQuery', () => {
   })
 
   describe('When unsuccessful', () => {
-    test('should throw an error for an invalid conceptId', () => {
-      expect(() => getCreateDateQuery('')).toThrow('Invalid conceptId provided')
+    test('should throw an error for non-string conceptId other than null or undefined', () => {
+      expect(() => getCreateDateQuery(123)).toThrow('Invalid conceptId provided')
+      expect(() => getCreateDateQuery({})).toThrow('Invalid conceptId provided')
     })
 
-    test('should throw an error when conceptId is null or undefined', () => {
-      expect(() => getCreateDateQuery(null)).toThrow('Invalid conceptId provided')
-      expect(() => getCreateDateQuery(undefined)).toThrow('Invalid conceptId provided')
-    })
-
-    test('should throw an error for a conceptId containing only unauthorized characters', () => {
-      expect(() => getCreateDateQuery('   ')).toThrow('Invalid conceptId provided')
+    test('should throw an error for a conceptId containing disallowed characters', () => {
       expect(() => getCreateDateQuery('?!=@#')).toThrow('Invalid conceptId provided')
+    })
+  })
+
+  describe('When missing or empty', () => {
+    test('should handle missing or empty conceptId gracefully without throwing', () => {
+      expect(() => getCreateDateQuery('')).not.toThrow()
+      expect(() => getCreateDateQuery(null)).not.toThrow()
+      expect(() => getCreateDateQuery(undefined)).not.toThrow()
     })
   })
 })

@@ -3,10 +3,8 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getRootConceptsBySchemeQuery = (scheme) => {
   const safeScheme = sanitizeScheme(scheme)
-  if (scheme) {
-    if (!safeScheme) {
-      throw new Error('Invalid scheme provided')
-    }
+  if (safeScheme === null) {
+    throw new Error('Invalid scheme provided')
   }
 
   return `

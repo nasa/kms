@@ -25,9 +25,14 @@ describe('getDeleteTriplesForConceptQuery', () => {
     expect(() => getDeleteTriplesForConceptQuery(invalidIRI)).toThrow('Invalid conceptIRI provided')
   })
 
-  test('should throw an error when conceptIRI is missing or not a string', () => {
-    expect(() => getDeleteTriplesForConceptQuery(null)).toThrow('Invalid conceptIRI provided')
-    expect(() => getDeleteTriplesForConceptQuery(undefined)).toThrow('Invalid conceptIRI provided')
-    expect(() => getDeleteTriplesForConceptQuery('')).toThrow('Invalid conceptIRI provided')
+  test('should throw an error when conceptIRI is not a string (other than null or undefined)', () => {
+    expect(() => getDeleteTriplesForConceptQuery(123)).toThrow('Invalid conceptIRI provided')
+    expect(() => getDeleteTriplesForConceptQuery({})).toThrow('Invalid conceptIRI provided')
+  })
+
+  test('should handle missing or empty conceptIRI gracefully without throwing', () => {
+    expect(() => getDeleteTriplesForConceptQuery(null)).not.toThrow()
+    expect(() => getDeleteTriplesForConceptQuery(undefined)).not.toThrow()
+    expect(() => getDeleteTriplesForConceptQuery('')).not.toThrow()
   })
 })

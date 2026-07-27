@@ -4,7 +4,7 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getSchemeUpdateModifiedDateQuery = (schemeId, date) => {
   const safeScheme = sanitizeScheme(schemeId)
-  if (!safeScheme) {
+  if (safeScheme === null) {
     throw new Error('Invalid schemeId provided')
   }
 

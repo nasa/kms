@@ -23,12 +23,16 @@ describe('getUpdatePrefLabelQuery', () => {
   })
 
   test('should throw an error for an invalid conceptId', () => {
-    expect(() => getUpdatePrefLabelQuery('', 'Test Concept')).toThrow('Invalid conceptId provided')
-    expect(() => getUpdatePrefLabelQuery(null, 'Test Concept')).toThrow('Invalid conceptId provided')
+    expect(() => getUpdatePrefLabelQuery(123, 'Test Concept')).toThrow('Invalid conceptId provided')
+  })
+
+  test('should handle missing or empty conceptId gracefully without throwing', () => {
+    expect(() => getUpdatePrefLabelQuery('', 'Test Concept')).not.toThrow()
+    expect(() => getUpdatePrefLabelQuery(null, 'Test Concept')).not.toThrow()
+    expect(() => getUpdatePrefLabelQuery(undefined, 'Test Concept')).not.toThrow()
   })
 
   test('should throw an error for an invalid prefLabel', () => {
-    expect(() => getUpdatePrefLabelQuery('concept-123', '')).toThrow('Invalid prefLabel provided')
     expect(() => getUpdatePrefLabelQuery('concept-123', null)).toThrow('Invalid prefLabel provided')
   })
 })

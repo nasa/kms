@@ -3,12 +3,9 @@ import { escapeSparqlString } from '@/shared/escapeSparqlString'
 import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getTotalCountQuery = ({ conceptScheme, pattern }) => {
-  let safeConceptScheme = ''
-  if (conceptScheme) {
-    safeConceptScheme = sanitizeScheme(conceptScheme)
-    if (!safeConceptScheme) {
-      throw new Error('Invalid conceptScheme provided')
-    }
+  const safeConceptScheme = sanitizeScheme(conceptScheme)
+  if (safeConceptScheme === null) {
+    throw new Error('Invalid conceptScheme provided')
   }
 
   let safePattern = ''

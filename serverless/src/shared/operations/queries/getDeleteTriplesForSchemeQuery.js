@@ -3,7 +3,7 @@ import { sanitizeSchemeIRI } from '@/shared/sanitizeSchemeIRI'
 
 export const getDeleteTriplesForSchemeQuery = (schemeIRI) => {
   const safeSchemeIRI = sanitizeSchemeIRI(schemeIRI)
-  if (!safeSchemeIRI) {
+  if (safeSchemeIRI === null) {
     throw new Error('Invalid schemeIRI provided')
   }
 

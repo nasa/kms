@@ -41,7 +41,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  * The function performs the following steps:
  * 1. Validates `version` against a strict allowlist, since it is interpolated into an IRI (<.../version/${version}>)
  * 2. Validates and normalizes each relation's `from`/`to` IRIs via sanitizeConceptIRI (also IRI context), rejecting
- *    the whole call if any IRI is not already a clean, well-formed concept IRI
+ *    the whole call if any IRI is not a clean, well-formed concept IRI
  * 3. Escapes free-text fields (relation type, from/to pref labels) via escapeSparqlString, since these are
  *    interpolated into a quoted SPARQL string literal, a different context from the IRIs above
  * 4. Constructs a SPARQL query to insert the resulting change notes
@@ -70,14 +70,14 @@ export const addChangeNotes = async (addedRelations, removedRelations, version, 
 
   // Validates + normalizes a relation's `from`/`to` IRIs before they're used
   // in either an IRIREF (<...>) or as the source of an extracted UUID.
-  // Fails closed: if sanitizeConceptIRI had to strip anything (or rejected
-  // the base outright), the input wasn't a legitimate concept IRI, so we
-  // throw rather than silently writing a mangled/meaningless UUID.
+  // Fails closed: if sanitizeConceptIRI returns null or if the output
+  // differs from the raw input, the input wasn't a legitimate concept IRI,
+  // so we throw rather than silently writing a mangled/meaningless UUID.
   function sanitizeRelationIRIs(relation) {
     const safeFrom = sanitizeConceptIRI(relation.from)
     const safeTo = sanitizeConceptIRI(relation.to)
 
-    if (!safeFrom || !safeTo || safeFrom !== relation.from || safeTo !== relation.to) {
+    if (safeFrom === null || safeTo === null || safeFrom !== relation.from || safeTo !== relation.to) {
       throw new Error(`Invalid relation IRI: from=${relation.from} to=${relation.to}`)
     }
 

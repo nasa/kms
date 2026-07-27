@@ -4,7 +4,7 @@ import { sanitizeConceptId } from '@/shared/sanitizeConceptId'
 
 export const getUpdateCreatedDateQuery = (conceptId, date) => {
   const safeConceptId = sanitizeConceptId(conceptId)
-  if (!safeConceptId) {
+  if (safeConceptId === null) {
     throw new Error('Invalid conceptId provided')
   }
 

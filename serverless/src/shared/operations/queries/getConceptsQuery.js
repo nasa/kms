@@ -4,10 +4,8 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getConceptsQuery = (conceptScheme, pattern, limit = 1000, offset = 0) => {
   const safeConceptScheme = sanitizeScheme(conceptScheme)
-  if (conceptScheme) {
-    if (!safeConceptScheme) {
-      throw new Error('Invalid scheme provided')
-    }
+  if (safeConceptScheme === null) {
+    throw new Error('Invalid scheme provided')
   }
 
   const safePattern = escapeSparqlString(pattern)

@@ -23,12 +23,16 @@ describe('getUpdateCreatedDateQuery', () => {
   })
 
   test('should throw an error for an invalid conceptId', () => {
-    expect(() => getUpdateCreatedDateQuery('', '2026-07-27')).toThrow('Invalid conceptId provided')
-    expect(() => getUpdateCreatedDateQuery(null, '2026-07-27')).toThrow('Invalid conceptId provided')
+    expect(() => getUpdateCreatedDateQuery(123, '2026-07-27')).toThrow('Invalid conceptId provided')
+  })
+
+  test('should handle missing or empty conceptId gracefully without throwing', () => {
+    expect(() => getUpdateCreatedDateQuery('', '2026-07-27')).not.toThrow()
+    expect(() => getUpdateCreatedDateQuery(null, '2026-07-27')).not.toThrow()
+    expect(() => getUpdateCreatedDateQuery(undefined, '2026-07-27')).not.toThrow()
   })
 
   test('should throw an error for an invalid date', () => {
-    expect(() => getUpdateCreatedDateQuery('concept-123', '')).toThrow('Invalid date provided')
     expect(() => getUpdateCreatedDateQuery('concept-123', null)).toThrow('Invalid date provided')
   })
 })

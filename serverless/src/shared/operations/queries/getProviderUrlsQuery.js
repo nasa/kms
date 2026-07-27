@@ -3,7 +3,7 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getProviderUrlsQuery = (scheme) => {
   const safeScheme = sanitizeScheme(scheme)
-  if (!safeScheme) {
+  if (safeScheme === null) {
     throw new Error('Invalid scheme provided')
   }
 

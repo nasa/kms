@@ -3,7 +3,7 @@ import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
 export const getConceptSchemeOfConceptQuery = (conceptIRI) => {
   const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
-  if (!safeConceptIRI) {
+  if (safeConceptIRI === null) {
     throw new Error('Invalid conceptIRI provided')
   }
 

@@ -2,12 +2,9 @@ import prefixes from '@/shared/constants/prefixes'
 import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getNarrowerConceptsQuery = (scheme) => {
-  let safeScheme = ''
-  if (scheme) {
-    safeScheme = sanitizeScheme(scheme)
-    if (!safeScheme) {
-      throw new Error('Invalid scheme provided')
-    }
+  const safeScheme = sanitizeScheme(scheme)
+  if (safeScheme === null) {
+    throw new Error('Invalid scheme provided')
   }
 
   return `

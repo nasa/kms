@@ -12,22 +12,24 @@ describe('sanitizeConceptId', () => {
       expect(sanitizeConceptId('concept-123-abc')).toBe('concept-123-abc')
     })
 
-    test('should remove underscores, special characters, and spaces', () => {
-      expect(sanitizeConceptId('concept_123@abc! id#')).toBe('concept123abcid')
-    })
-
-    test('should return an empty string for an empty input', () => {
+    test('should return an empty string for missing input', () => {
       expect(sanitizeConceptId('')).toBe('')
+      expect(sanitizeConceptId(null)).toBe('')
+      expect(sanitizeConceptId(undefined)).toBe('')
     })
   })
 
   describe('When unsuccessful', () => {
-    test('should return an empty string for non-string input', () => {
-      expect(sanitizeConceptId(null)).toBe('')
-      expect(sanitizeConceptId(undefined)).toBe('')
-      expect(sanitizeConceptId(123)).toBe('')
-      expect(sanitizeConceptId({})).toBe('')
-      expect(sanitizeConceptId([])).toBe('')
+    test('should return null for non-string input other than null or undefined', () => {
+      expect(sanitizeConceptId(123)).toBe(null)
+      expect(sanitizeConceptId({})).toBe(null)
+      expect(sanitizeConceptId([])).toBe(null)
+    })
+
+    test('should return null for non-empty input containing disallowed characters', () => {
+      expect(sanitizeConceptId('concept_123')).toBe(null)
+      expect(sanitizeConceptId('concept 123')).toBe(null)
+      expect(sanitizeConceptId('concept!@#')).toBe(null)
     })
   })
 })
