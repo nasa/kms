@@ -4,6 +4,10 @@ export const getConceptChangeNotesQuery = (schemeIRI) => {
   let schemeFilter = ''
   if (schemeIRI) {
     const safeScheme = sanitizeSchemeIRI(schemeIRI)
+    if (!safeScheme) {
+      throw new Error('Invalid schemeIRI provided')
+    }
+
     schemeFilter = `?concept <http://www.w3.org/2004/02/skos/core#inScheme> <${safeScheme}> .`
   }
 
