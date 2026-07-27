@@ -23,7 +23,7 @@ describe('Regex Patterns', () => {
     test('should match invalid characters for scheme IDs', () => {
       const input = 'Earth Science-Concept_123!'
       const result = input.replace(schemeRegex, '')
-      expect(result).toBe('Earth Science-Concept_')
+      expect(result).toBe('EarthScience-Concept_')
     })
   })
 
