@@ -606,9 +606,12 @@ describe('updateConcept', () => {
         body: expect.stringContaining('skos:changeNote')
       }))
 
-      // Check if the change note includes the correct information, handling missing prefLabels
+      // Check if the change note includes the correct information, handling missing prefLabels.
+      // Missing labels render as blank (escapeSparqlString returns '' for
+      // non-string input) rather than the literal text "undefined" leaking
+      // into a permanent audit note.
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-        body: expect.stringContaining('Removed broader relation from undefined [123] to undefined [456]')
+        body: expect.stringContaining('Removed broader relation from  [123] to  [456]')
       }))
 
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -694,13 +697,16 @@ describe('updateConcept', () => {
         body: expect.stringContaining('skos:changeNote')
       }))
 
-      // Check if the change note includes the correct information, handling special characters in prefLabels
+      // Check if the change note includes the correct information, handling special characters
+      // in prefLabels. Double quotes are backslash-escaped by escapeSparqlString (they'd
+      // otherwise break out of the SPARQL string literal); < and > are left as-is since they
+      // have no special meaning inside a quoted literal.
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-        body: expect.stringContaining('Removed broader relation from Concept "A" & B [123] to Concept C > D [456]')
+        body: expect.stringContaining('Removed broader relation from Concept \\"A\\" & B [123] to Concept C > D [456]')
       }))
 
       expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-        body: expect.stringContaining('Added broader relation from Concept E < F [123] to Concept "G" & H [789]')
+        body: expect.stringContaining('Added broader relation from Concept E < F [123] to Concept \\"G\\" & H [789]')
       }))
     })
 

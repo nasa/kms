@@ -266,7 +266,7 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456"with"quotes',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
         fromPrefLabel: 'Concept "A"',
         toPrefLabel: 'Concept "B"'
       }
@@ -277,11 +277,37 @@ describe('addChangeNotes', () => {
 
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
+    // Double quotes in labels must be backslash-escaped (\") rather than
+    // passed through raw, since raw quotes would break out of the SPARQL
+    // string literal the note is embedded in.
     expect(sparqlRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('Added broader relation from Concept "A" [123] to Concept "B" [456"with"quotes]')
+        body: expect.stringContaining('Added broader relation from Concept \\"A\\" [123] to Concept \\"B\\" [456]')
       })
     )
+  })
+
+  test('should reject a relation whose from/to IRI itself contains unsafe characters', async () => {
+    // A `to` IRI with quotes embedded in the concept ID is not a valid
+    // concept IRI and must never reach the query string unescaped/raw -
+    // sanitizeConceptIRI fails closed on it instead of silently stripping.
+    const addedRelations = [
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456"with"quotes',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      }
+    ]
+    const removedRelations = []
+
+    sparqlRequest.mockResolvedValue({ ok: true })
+
+    await expect(addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl))
+      .rejects.toThrow('Invalid relation IRI')
+
+    expect(sparqlRequest).not.toHaveBeenCalled()
   })
 
   test('should generate correct SPARQL query with quotes', async () => {
@@ -289,7 +315,7 @@ describe('addChangeNotes', () => {
       {
         from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
         relation: 'broader',
-        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456"with"quotes',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
         fromPrefLabel: 'Concept "A"',
         toPrefLabel: 'Concept "B"'
       }
@@ -301,7 +327,7 @@ describe('addChangeNotes', () => {
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
     const expectedQueryPart = `
-    <https://gcmd.earthdata.nasa.gov/kms/concept/123> skos:changeNote "Date=2023-06-01 User Id=system System Note=Added broader relation from Concept "A" [123] to Concept "B" [456"with"quotes]" .
+    <https://gcmd.earthdata.nasa.gov/kms/concept/123> skos:changeNote "Date=2023-06-01 User Id=system System Note=Added broader relation from Concept \\"A\\" [123] to Concept \\"B\\" [456]" .
   `.trim()
 
     expect(sparqlRequest).toHaveBeenCalledWith(
@@ -344,9 +370,12 @@ describe('addChangeNotes', () => {
 
     await addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl)
 
+    // EscapeSparqlString returns '' for non-string input (undefined here),
+    // so a missing label renders as blank rather than the literal text
+    // "undefined" leaking into a permanent audit note.
     expect(sparqlRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.stringContaining('Added broader relation from undefined [123] to undefined [456]')
+        body: expect.stringContaining('Added broader relation from  [123] to  [456]')
       })
     )
   })
