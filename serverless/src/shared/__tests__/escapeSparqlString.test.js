@@ -42,6 +42,21 @@ describe('escapeSparqlString', () => {
       // \x01 is in the stripped range [\x00-\x07\x0B\x0E-\x1F]
       expect(escapeSparqlString('Hello\x01World')).toBe('HelloWorld')
     })
+
+    test('should decode and escape single URL-encoded inputs', () => {
+      expect(escapeSparqlString('Hello%20%22world%22')).toBe('Hello \\"world\\"')
+    })
+
+    test('should decode and escape multi-layer (double) URL-encoded inputs', () => {
+      // Example using generic, safe test vectors instead of live parameters
+      const payload = 'sample%2522test%2522'
+      const expected = 'sample\\"test\\"'
+      expect(escapeSparqlString(payload)).toBe(expected)
+    })
+
+    test('should handle malformed percent-encodings gracefully without throwing', () => {
+      expect(escapeSparqlString('Malformed%ZZinput')).toBe('Malformed%ZZinput')
+    })
   })
 
   describe('When unsuccessful', () => {

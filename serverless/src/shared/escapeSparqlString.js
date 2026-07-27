@@ -26,9 +26,26 @@
 export const escapeSparqlString = (str) => {
   if (typeof str !== 'string') return ''
 
-  const escaped = str
-    // Strip control characters with no valid SPARQL escape, including NUL bytes,
-    // since \0 is not a valid SPARQL string escape.
+  let decoded = str
+  let previous
+  let iterations = 0
+  const maxIterations = 3 // Prevents infinite loops/DoS from malicious input
+
+  // Iteratively decode to strip away multi-layer (single, double, etc.) URL encoding
+  do {
+    previous = decoded
+    try {
+      decoded = decodeURIComponent(decoded)
+    } catch {
+      // If decoding fails due to malformed sequences, break out and use the current state
+      break
+    }
+
+    iterations += 1
+  } while (decoded !== previous && iterations < maxIterations)
+
+  const escaped = decoded
+    // Strip control characters with no valid SPARQL escape, including NUL bytes
     // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x07\x0B\x0E-\x1F]/g, '')
     // Order matters: backslash MUST be escaped first
