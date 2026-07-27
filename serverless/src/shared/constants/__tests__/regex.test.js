@@ -43,5 +43,18 @@ describe('Regex Patterns', () => {
       expect(baseRegex.test('just-a-string')).toBe(false)
       expect(baseRegex.test('https://example.com')).toBe(false)
     })
+
+    test('should reject base URLs containing forbidden characters (<, >, quotes, braces, pipe, caret, backticks, backslashes)', () => {
+      expect(baseRegex.test('https://ex<ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex>ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex"ample.com/concept/')).toBe(false)
+      expect(baseRegex.test("https://ex'ample.com/concept/")).toBe(false)
+      expect(baseRegex.test('https://ex{ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex}ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex|ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex^ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex`ample.com/concept/')).toBe(false)
+      expect(baseRegex.test('https://ex\\ample.com/concept/')).toBe(false)
+    })
   })
 })

@@ -13,6 +13,7 @@ export const schemeRegex = /[^a-zA-Z-_]/g
 /**
  * Regular expression to validate and capture the base URL or namespace of an IRI.
  * Matches either HTTP/HTTPS URLs up to the final path segment ending with a slash,
+ * excluding specific unsafe characters (<, >, quotes, braces, pipe, caret, backticks, backslashes),
  * or URN namespaces ending with a colon.
  */
-export const baseRegex = /^(https?:\/\/[^\s/]+\/[^\s]*\/|urn:[a-zA-Z0-9-:]+:)$/
+export const baseRegex = /^(https?:\/\/[^\s<>"'{}|^`\\]+\/[^\s<>"'{}|^`\\]*\/|urn:[a-zA-Z0-9-:]+:)$/

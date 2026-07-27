@@ -11,6 +11,6 @@ export const sanitizeConceptId = (conceptId) => {
     return ''
   }
 
-  // Allow only alphanumeric, hyphens, and underscores, removing anything else
+  // Allow only alphanumeric, hyphens, removing anything else
   return conceptId.replace(conceptIdRegex, '')
 }
