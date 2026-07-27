@@ -6,7 +6,7 @@ export const conceptIdRegex = /[^a-zA-Z0-9-]/g
 
 /**
  * Regular expression to match characters that are NOT allowed in a scheme ID.
- * Allows only letters (a-z, A-Z), spaces (\s), hyphens (-), and underscores (_).
+ * Allows only letters (a-z, A-Z), hyphens (-), and underscores (_).
  */
 export const schemeRegex = /[^a-zA-Z-_]/g
 
