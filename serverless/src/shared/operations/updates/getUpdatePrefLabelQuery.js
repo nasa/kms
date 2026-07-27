@@ -4,7 +4,14 @@ import { sanitizeConceptId } from '@/shared/sanitizeConceptId'
 
 export const getUpdatePrefLabelQuery = (conceptId, prefLabel) => {
   const safeConceptId = sanitizeConceptId(conceptId)
+  if (!safeConceptId) {
+    throw new Error('Invalid conceptId provided')
+  }
+
   const safePrefLabel = escapeSparqlString(prefLabel)
+  if (!safePrefLabel) {
+    throw new Error('Invalid prefLabel provided')
+  }
 
   return `
   ${prefixes}

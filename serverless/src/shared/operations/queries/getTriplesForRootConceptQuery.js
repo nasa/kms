@@ -3,6 +3,9 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getTriplesForRootConceptQuery = (schemeId) => {
   const safeSchemeId = sanitizeScheme(schemeId)
+  if (!safeSchemeId) {
+    throw new Error('Invalid schemeId provided')
+  }
 
   return `
 ${prefixes}

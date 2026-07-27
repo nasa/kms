@@ -3,7 +3,15 @@ import { escapeSparqlString } from '@/shared/escapeSparqlString'
 
 export const getPublishUpdateQuery = (name, updateDate) => {
   const safeName = escapeSparqlString(name)
+  if (!safeName) {
+    throw new Error('Invalid name provided')
+  }
+
   const safeUpdateDate = escapeSparqlString(updateDate)
+  if (!safeUpdateDate) {
+    throw new Error('Invalid updateDate provided')
+  }
+
   const batchQuery = `${prefixes}
 
   # 1. Delete the existing published graph

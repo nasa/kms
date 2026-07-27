@@ -4,7 +4,19 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getTriplesForAltLabelQuery = ({ altLabel, scheme }) => {
   const safeAltLabel = escapeSparqlString(altLabel)
-  const safeScheme = sanitizeScheme(scheme)
+  if (altLabel) {
+    if (!safeAltLabel) {
+      throw new Error('Invalid altLabel provided')
+    }
+  }
+
+  let safeScheme = ''
+  if (scheme) {
+    safeScheme = sanitizeScheme(scheme)
+    if (!safeScheme) {
+      throw new Error('Invalid scheme provided')
+    }
+  }
 
   return `
 ${prefixes}

@@ -4,7 +4,14 @@ import { sanitizeConceptId } from '@/shared/sanitizeConceptId'
 
 export const getUpdateModifiedDateQuery = (conceptId, date) => {
   const safeConceptId = sanitizeConceptId(conceptId)
+  if (!safeConceptId) {
+    throw new Error('Invalid conceptId provided')
+  }
+
   const safeDate = escapeSparqlString(date)
+  if (!safeDate) {
+    throw new Error('Invalid date provided')
+  }
 
   return `
   ${prefixes}

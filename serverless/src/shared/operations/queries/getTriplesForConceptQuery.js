@@ -3,6 +3,9 @@ import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
 export const getTriplesForConceptQuery = (conceptIRI) => {
   const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
+  if (!safeConceptIRI) {
+    throw new Error('Invalid conceptIRI provided')
+  }
 
   return `
   ${prefixes}

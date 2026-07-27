@@ -3,6 +3,9 @@ import { sanitizeConceptId } from '@/shared/sanitizeConceptId'
 
 export const getModifiedDateQuery = (conceptId) => {
   const safeConceptId = sanitizeConceptId(conceptId)
+  if (!safeConceptId) {
+    throw new Error('Invalid conceptId provided')
+  }
 
   return `
     ${prefixes}

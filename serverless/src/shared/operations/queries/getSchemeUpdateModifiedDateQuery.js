@@ -4,7 +4,14 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getSchemeUpdateModifiedDateQuery = (schemeId, date) => {
   const safeScheme = sanitizeScheme(schemeId)
+  if (!safeScheme) {
+    throw new Error('Invalid schemeId provided')
+  }
+
   const safeDate = escapeSparqlString(date)
+  if (!safeDate) {
+    throw new Error('Invalid date provided')
+  }
 
   return `
   ${prefixes}

@@ -3,8 +3,21 @@ import { escapeSparqlString } from '@/shared/escapeSparqlString'
 import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getTotalCountQuery = ({ conceptScheme, pattern }) => {
-  const safeConceptScheme = sanitizeScheme(conceptScheme)
-  const safePattern = escapeSparqlString(pattern)
+  let safeConceptScheme = ''
+  if (conceptScheme) {
+    safeConceptScheme = sanitizeScheme(conceptScheme)
+    if (!safeConceptScheme) {
+      throw new Error('Invalid conceptScheme provided')
+    }
+  }
+
+  let safePattern = ''
+  if (pattern) {
+    safePattern = escapeSparqlString(pattern)
+    if (!safePattern) {
+      throw new Error('Invalid pattern provided')
+    }
+  }
 
   const whereClause = () => {
     const conditions = ['?s rdf:type skos:Concept']

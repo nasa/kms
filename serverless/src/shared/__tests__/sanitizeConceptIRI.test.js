@@ -22,6 +22,11 @@ describe('sanitizeConceptIRI', () => {
     test('should return an empty string for an empty input', () => {
       expect(sanitizeConceptIRI('')).toBe('')
     })
+
+    test('should return an empty string when no delimiter is present', () => {
+      const invalidIRI = 'httpsgcmd.earthdata.nasa.govkmconcept123'
+      expect(sanitizeConceptIRI(invalidIRI)).toBe('')
+    })
   })
 
   describe('When unsuccessful', () => {

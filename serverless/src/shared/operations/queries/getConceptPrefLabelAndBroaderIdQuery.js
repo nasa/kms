@@ -3,6 +3,9 @@ import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
 export const getConceptPrefLabelAndBroaderIdQuery = (conceptIRI) => {
   const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
+  if (!safeConceptIRI) {
+    throw new Error('Invalid conceptIRI provided')
+  }
 
   return `
     ${prefixes}
