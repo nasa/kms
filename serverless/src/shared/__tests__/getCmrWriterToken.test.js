@@ -73,9 +73,7 @@ describe('getCmrWriterToken', () => {
   test('treats a configured environment token without a bearer prefix as unusable', async () => {
     process.env.CMR_WRITER_TOKEN = 'writer-token'
 
-    await expect(getCmrWriterToken({
-      throwOnMissing: false
-    })).resolves.toBe('')
+    await expect(getCmrWriterToken()).resolves.toBeUndefined()
 
     expect(warnMock).toHaveBeenCalledWith(
       '[cmr-token] Ignoring configured token that is missing a Bearer prefix',
@@ -193,16 +191,8 @@ describe('getCmrWriterToken', () => {
     )
   })
 
-  test('returns an empty string when no usable token exists and throwOnMissing is false', async () => {
-    await expect(getCmrWriterToken({
-      throwOnMissing: false
-    })).resolves.toBe('')
-  })
-
-  test('throws when no usable token exists', async () => {
-    await expect(getCmrWriterToken()).rejects.toThrow(
-      'Missing usable CMR writer token configuration: set CMR_WRITER_TOKEN or configure CMR_SYSTEM_TOKEN_PARAMETER_NAME'
-    )
+  test('returns undefined when no usable token exists', async () => {
+    await expect(getCmrWriterToken()).resolves.toBeUndefined()
   })
 })
 

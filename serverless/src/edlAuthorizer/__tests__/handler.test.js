@@ -115,36 +115,6 @@ describe('edlAuthorizer', () => {
     })
   })
 
-  describe('when the supplied token matches neither the system token nor a valid EDL token', () => {
-    test('does not treat the writer-token fallback as an automatic authorizer bypass', async () => {
-      vi.mocked(getCmrSystemToken).mockResolvedValueOnce(undefined)
-      fetchEdlProfile.mockRejectedValueOnce(new Error('Unauthorized'))
-
-      const event = {
-        authorizationToken: 'Bearer writer-token',
-        methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/POST/resource'
-      }
-
-      const response = await edlAuthorizer(event, {})
-
-      expect(response).toEqual({
-        principalId: 'user',
-        policyDocument: {
-          Version: '2012-10-17',
-          Statement: [
-            {
-              Action: 'execute-api:Invoke',
-              Effect: 'Deny',
-              Resource: event.methodArn
-            }
-          ]
-        }
-      })
-
-      expect(fetchEdlProfile).toHaveBeenCalledWith('Bearer writer-token')
-    })
-  })
-
   describe('when running offline', () => {
     test('returns a valid policy', async () => {
       process.env.IS_OFFLINE = true

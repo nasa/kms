@@ -109,15 +109,10 @@ export const getCmrSystemToken = async () => {
  * 1. SSM SecureString system token, when configured
  * 2. `CMR_WRITER_TOKEN` from environment
  *
- * @param {Object} [options={}] Optional resolver controls.
- * @param {boolean} [options.throwOnMissing=true] Whether to throw instead of returning an empty string
+ * @returns {Promise<string|undefined>} Resolved CMR authorization header value, or `undefined`
  * when no usable token is available.
- * @returns {Promise<string>} Resolved CMR authorization header value.
- * @throws {Error} If no usable token is available and `throwOnMissing` is `true`.
  */
-export const getCmrWriterToken = async ({
-  throwOnMissing = true
-} = {}) => {
+export const getCmrWriterToken = async () => {
   const ssmToken = await getCmrSystemToken()
 
   if (ssmToken) {
@@ -130,13 +125,7 @@ export const getCmrWriterToken = async ({
     return configuredToken
   }
 
-  if (!throwOnMissing) {
-    return ''
-  }
-
-  throw new Error(
-    'Missing usable CMR writer token configuration: set CMR_WRITER_TOKEN or configure CMR_SYSTEM_TOKEN_PARAMETER_NAME with a Bearer token value'
-  )
+  return undefined
 }
 
 export default getCmrWriterToken

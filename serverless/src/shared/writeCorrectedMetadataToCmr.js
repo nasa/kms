@@ -252,10 +252,8 @@ export const writeCorrectedMetadataToCmr = async ({
   const correctedMetadataBytes = getCorrectedMetadataByteLength(correctedMetadata)
   const writebackEnabled = isWritebackEnabledForProvider(providerId)
   const authorizationToken = writebackEnabled
-    ? await getCmrWriterToken({
-      throwOnMissing: false
-    })
-    : ''
+    ? await getCmrWriterToken()
+    : undefined
   const writerTokenConfigured = Boolean(authorizationToken)
 
   if (!writebackEnabled || !writerTokenConfigured) {

@@ -170,7 +170,7 @@ describe('when writing corrected metadata to cmr', () => {
 
   test('should skip writeback when no writer token is configured', async () => {
     delete process.env.CMR_WRITER_TOKEN
-    vi.mocked(getCmrWriterToken).mockResolvedValue('')
+    vi.mocked(getCmrWriterToken).mockResolvedValue(undefined)
 
     const result = await writeCorrectedMetadataToCmr({
       collectionConceptId: 'C0000000000-KMS',
@@ -188,9 +188,7 @@ describe('when writing corrected metadata to cmr', () => {
     })
 
     expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
-    expect(getCmrWriterToken).toHaveBeenCalledWith({
-      throwOnMissing: false
-    })
+    expect(getCmrWriterToken).toHaveBeenCalledWith()
 
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
@@ -357,9 +355,7 @@ describe('when writing corrected metadata to cmr', () => {
     })
 
     expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
-    expect(getCmrWriterToken).toHaveBeenCalledWith({
-      throwOnMissing: false
-    })
+    expect(getCmrWriterToken).toHaveBeenCalledWith()
 
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
