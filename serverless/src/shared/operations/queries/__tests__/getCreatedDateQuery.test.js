@@ -22,7 +22,7 @@ describe('getCreateDateQuery', () => {
 
   describe('When unsuccessful', () => {
     test('should throw an error for non-string conceptId other than null or undefined', () => {
-      expect(() => getCreateDateQuery(123)).toThrow('Invalid conceptId provided')
+      expect(() => getCreateDateQuery('ABC#')).toThrow('Invalid conceptId provided')
       expect(() => getCreateDateQuery({})).toThrow('Invalid conceptId provided')
     })
 

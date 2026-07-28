@@ -21,7 +21,7 @@ describe('sanitizeConceptId', () => {
 
   describe('When unsuccessful', () => {
     test('should return null for non-string input other than null or undefined', () => {
-      expect(sanitizeConceptId(123)).toBe(null)
+      expect(sanitizeConceptId('ABC#')).toBe(null)
       expect(sanitizeConceptId({})).toBe(null)
       expect(sanitizeConceptId([])).toBe(null)
     })
