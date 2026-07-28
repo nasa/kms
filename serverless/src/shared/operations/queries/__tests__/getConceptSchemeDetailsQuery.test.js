@@ -20,6 +20,6 @@ describe('getConceptSchemeDetailsQuery', () => {
   })
 
   test('should throw an error for an invalid scheme name', () => {
-    expect(() => getConceptSchemeDetailsQuery(123)).toThrow('Invalid scheme provided')
+    expect(() => getConceptSchemeDetailsQuery('abc$#')).toThrow('Invalid scheme provided')
   })
 })
