@@ -33,6 +33,6 @@ describe('getUpdatePrefLabelQuery', () => {
   })
 
   test('should throw an error for an invalid prefLabel', () => {
-    expect(() => getUpdatePrefLabelQuery('concept-123', null)).toThrow('Invalid prefLabel provided')
+    expect(() => getUpdatePrefLabelQuery('concept-123', 123)).toThrow('Invalid prefLabel provided')
   })
 })

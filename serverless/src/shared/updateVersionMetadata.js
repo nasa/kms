@@ -52,16 +52,29 @@ export const updateVersionMetadata = async ({
 
   // Sanitize text-based parameters using escapeSparqlString
   const safeVersion = version !== undefined ? escapeSparqlString(version) : undefined
+  if (version !== undefined && safeVersion === null) {
+    throw new Error('Invalid version provided')
+  }
+
   const safeVersionType = versionType !== undefined ? escapeSparqlString(versionType) : undefined
+  if (versionType !== undefined && safeVersionType === null) {
+    throw new Error('Invalid versionType provided')
+  }
 
   // Ensure dates are valid ISO strings to prevent xsd:dateTime parsing errors in the triple store
   const safeCreatedDate = createdDate !== undefined
     ? escapeSparqlString(createdDate)
     : undefined
+  if (createdDate !== undefined && safeCreatedDate === null) {
+    throw new Error('Invalid createdDate provided')
+  }
 
   const safeLastSynced = lastSynced !== undefined
     ? escapeSparqlString(lastSynced)
     : undefined
+  if (lastSynced !== undefined && safeLastSynced === null) {
+    throw new Error('Invalid lastSynced provided')
+  }
 
   let deleteClause = ''
   let insertClause = ''

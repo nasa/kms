@@ -159,7 +159,14 @@ export const getSkosConcept = async ({
     })
   } else if (fullPath) {
     // Split the fullPath into levels using '|' as a separator
-    const levels = fullPath.split('|').map((level) => escapeSparqlString(level.trim()))
+    const levels = fullPath.split('|').map((level) => {
+      const safeLevel = escapeSparqlString(level.trim())
+      if (safeLevel === null) {
+        throw new Error('Invalid level provided')
+      }
+
+      return safeLevel
+    })
     // Ensure that the fullPath contains at least two levels (scheme and concept)
     if (levels.length < 2) {
       throw new Error('fullPath must contain at least two elements separated by "|"')
@@ -171,10 +178,15 @@ export const getSkosConcept = async ({
     // Extract the target concept (last element in the levels array)
     const targetConcept = levels[levels.length - 1]
 
+    const safeSchemeFromFullPath = escapeSparqlString(schemeFromFullPath)
+    if (safeSchemeFromFullPath === null) {
+      throw new Error('Invalid schemeFromFullPath provided')
+    }
+
     // Construct the SPARQL query for retrieving concept data based on its full path
     sparqlQuery = getTriplesForConceptFullPathQuery({
       levels,
-      scheme: escapeSparqlString(schemeFromFullPath),
+      scheme: safeSchemeFromFullPath,
       targetConcept
     })
   } else {

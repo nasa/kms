@@ -9,10 +9,8 @@ export const getConceptsQuery = (conceptScheme, pattern, limit = 1000, offset = 
   }
 
   const safePattern = escapeSparqlString(pattern)
-  if (pattern) {
-    if (!safePattern) {
-      throw new Error('Invalid pattern provided')
-    }
+  if (safePattern === null) {
+    throw new Error('Invalid pattern provided')
   }
 
   return `

@@ -9,7 +9,7 @@ export const getSchemeUpdateModifiedDateQuery = (schemeId, date) => {
   }
 
   const safeDate = escapeSparqlString(date)
-  if (!safeDate) {
+  if (safeDate === null) {
     throw new Error('Invalid date provided')
   }
 

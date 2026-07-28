@@ -33,6 +33,6 @@ describe('getUpdateCreatedDateQuery', () => {
   })
 
   test('should throw an error for an invalid date', () => {
-    expect(() => getUpdateCreatedDateQuery('concept-123', null)).toThrow('Invalid date provided')
+    expect(() => getUpdateCreatedDateQuery('concept', 234)).toThrow()
   })
 })

@@ -93,6 +93,10 @@ export const addChangeNotes = async (addedRelations, removedRelations, version, 
   const buildNote = (relation, verb) => {
     const safeRelation = sanitizeRelationIRIs(relation)
 
+    if (safeRelation === null) {
+      throw new Error('Invalid relation provided')
+    }
+
     // Relation.relation and the pref labels are free-text values that land
     // inside a double-quoted SPARQL string literal below — this is exactly
     // the context escapeSparqlString protects.

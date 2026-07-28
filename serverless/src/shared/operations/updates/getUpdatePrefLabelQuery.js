@@ -9,7 +9,7 @@ export const getUpdatePrefLabelQuery = (conceptId, prefLabel) => {
   }
 
   const safePrefLabel = escapeSparqlString(prefLabel)
-  if (!safePrefLabel) {
+  if (safePrefLabel === null) {
     throw new Error('Invalid prefLabel provided')
   }
 

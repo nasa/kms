@@ -3,12 +3,12 @@ import { escapeSparqlString } from '@/shared/escapeSparqlString'
 
 export const getPublishUpdateQuery = (name, updateDate) => {
   const safeName = escapeSparqlString(name)
-  if (!safeName) {
+  if (safeName === null) {
     throw new Error('Invalid name provided')
   }
 
   const safeUpdateDate = escapeSparqlString(updateDate)
-  if (!safeUpdateDate) {
+  if (safeUpdateDate === null) {
     throw new Error('Invalid updateDate provided')
   }
 

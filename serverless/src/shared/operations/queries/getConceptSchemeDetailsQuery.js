@@ -1,4 +1,3 @@
-import { escapeSparqlString } from '@/shared/escapeSparqlString'
 import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 import { prefixes } from '../../constants/prefixes'
@@ -20,7 +19,7 @@ WHERE {
           skos:notation ?notation ;
           dcterms:modified ?modified .
   OPTIONAL { ?scheme gcmd:csvHeaders ?csvHeaders }
-  ${safeSchemeName ? `FILTER(LCASE(STR(?notation)) = LCASE("${escapeSparqlString(safeSchemeName)}"))` : ''}
+  ${safeSchemeName ? `FILTER(LCASE(STR(?notation)) = LCASE("${safeSchemeName}"))` : ''}
 }
 `
 }

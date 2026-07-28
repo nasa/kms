@@ -53,19 +53,16 @@ describe('escapeSparqlString', () => {
       const expected = 'sample\\"test\\"'
       expect(escapeSparqlString(payload)).toBe(expected)
     })
-
-    test('should handle malformed percent-encodings gracefully without throwing', () => {
-      expect(escapeSparqlString('Malformed%ZZinput')).toBe('Malformed%ZZinput')
-    })
   })
 
   describe('When unsuccessful', () => {
-    test('should return an empty string for non-string input', () => {
+    test('should return null for non-string input or malformed percent-encodings', () => {
       expect(escapeSparqlString(null)).toBe('')
       expect(escapeSparqlString(undefined)).toBe('')
-      expect(escapeSparqlString(123)).toBe('')
-      expect(escapeSparqlString({})).toBe('')
-      expect(escapeSparqlString([])).toBe('')
+      expect(escapeSparqlString(123)).toBe(null)
+      expect(escapeSparqlString({})).toBe(null)
+      expect(escapeSparqlString([])).toBe(null)
+      expect(escapeSparqlString('Malformed%ZZinput')).toBe(null)
     })
   })
 })

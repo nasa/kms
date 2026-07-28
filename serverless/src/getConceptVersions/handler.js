@@ -47,6 +47,10 @@ export const getConceptVersions = async (event, context) => {
 
   try {
     const safeVersionType = escapeSparqlString(versionType)
+    if (safeVersionType === null) {
+      throw new Error('Invalid versionType provided')
+    }
+
     // Updated SPARQL query to get graph names and creation dates
     const query = `
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>

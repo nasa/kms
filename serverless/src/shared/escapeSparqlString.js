@@ -2,29 +2,17 @@
  * Escapes a string for safe insertion into a SPARQL query string literal.
  * Handles control characters, backslashes, double quotes, single quotes, and null bytes.
  *
- * @param {string} str - The raw string input from a request or user parameter (e.g., "O'Connor").
- * @returns {string} The safely escaped inner string text.
- *
- * @example
- * // Basic string escaping for query templates
- * const safeName = escapeSparqlString('John "Doc" Smith');
- * const query = `FILTER(?prefLabel = "${safeName}")`;
- * // Resulting query fragment: FILTER(?prefLabel = "John \"Doc\" Smith")
- *
- * @example
- * // Handling names with apostrophes/single quotes
- * const safeIrishName = escapeSparqlString("O'Connor");
- * const query = `FILTER(?prefLabel = "${safeIrishName}")`;
- * // Resulting query fragment: FILTER(?prefLabel = "O\'Connor")
- *
- * @example
- * // Handling special whitespace and control characters
- * const safeText = escapeSparqlString("Line 1\nLine 2");
- * const query = `FILTER(?prefLabel = "${safeText}")`;
- * // Resulting query fragment: FILTER(?prefLabel = "Line 1\nLine 2")
+ * @param {*} str - The raw string input from a request or user parameter.
+ * @returns {string|null} The safely escaped string, '' if missing/empty, or null if invalid.
  */
 export const escapeSparqlString = (str) => {
-  if (typeof str !== 'string') return ''
+  if (str === null || str === undefined || str === '') {
+    return ''
+  }
+
+  if (typeof str !== 'string') {
+    return null
+  }
 
   let decoded = str
   let previous
@@ -37,8 +25,8 @@ export const escapeSparqlString = (str) => {
     try {
       decoded = decodeURIComponent(decoded)
     } catch {
-      // If decoding fails due to malformed sequences, break out and use the current state
-      break
+      // If decoding fails due to malformed sequences, treat as invalid input
+      return null
     }
 
     iterations += 1

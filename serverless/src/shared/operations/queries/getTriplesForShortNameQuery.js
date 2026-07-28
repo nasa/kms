@@ -4,10 +4,8 @@ import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
 export const getTriplesForShortNameQuery = ({ shortName, scheme }) => {
   const safeShortName = escapeSparqlString(shortName)
-  if (shortName) {
-    if (!safeShortName) {
-      throw new Error('Invalid shortName provided')
-    }
+  if (safeShortName === null) {
+    throw new Error('Invalid shortName provided')
   }
 
   const safeScheme = sanitizeScheme(scheme)

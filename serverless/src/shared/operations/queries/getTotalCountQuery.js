@@ -8,12 +8,9 @@ export const getTotalCountQuery = ({ conceptScheme, pattern }) => {
     throw new Error('Invalid conceptScheme provided')
   }
 
-  let safePattern = ''
-  if (pattern) {
-    safePattern = escapeSparqlString(pattern)
-    if (!safePattern) {
-      throw new Error('Invalid pattern provided')
-    }
+  const safePattern = escapeSparqlString(pattern)
+  if (safePattern === null) {
+    throw new Error('Invalid pattern provided')
   }
 
   const whereClause = () => {
