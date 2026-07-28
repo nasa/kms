@@ -207,8 +207,8 @@ const createWritebackError = async ({
  * - `ALL` => enabled for every provider
  * - comma-separated provider ids => enabled only for those providers
  *
- * Authentication uses the resolved CMR token from the configured system-token parameter,
- * with `CMR_WRITER_TOKEN` as the runtime fallback.
+ * Authentication uses the resolved CMR authorization value from the configured system-token
+ * parameter, with `CMR_WRITER_TOKEN` as the runtime fallback.
  *
  * @param {Object} params Write request details.
  * @param {string} [params.collectionConceptId] Collection concept id being corrected.
@@ -334,7 +334,7 @@ export const writeCorrectedMetadataToCmr = async ({
     contentType,
     accept: 'application/json',
     headers: {
-      Authorization: `Bearer ${authorizationToken}`
+      Authorization: authorizationToken
     }
   })
 

@@ -57,29 +57,44 @@ describe('getCmrWriterToken', () => {
   })
 
   test('returns the configured environment token when no SSM parameter is configured', async () => {
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
 
-    await expect(getCmrWriterToken()).resolves.toBe('writer-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer writer-token')
 
     expect(sendMock).not.toHaveBeenCalled()
   })
 
-  test('trims and strips an optional bearer prefix from the configured environment token', async () => {
+  test('trims the configured environment bearer token without altering it', async () => {
     process.env.CMR_WRITER_TOKEN = '  Bearer writer-token  '
 
-    await expect(getCmrWriterToken()).resolves.toBe('writer-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer writer-token')
+  })
+
+  test('treats a configured environment token without a bearer prefix as unusable', async () => {
+    process.env.CMR_WRITER_TOKEN = 'writer-token'
+
+    await expect(getCmrWriterToken({
+      throwOnMissing: false
+    })).resolves.toBe('')
+
+    expect(warnMock).toHaveBeenCalledWith(
+      '[cmr-token] Ignoring configured token that is missing a Bearer prefix',
+      {
+        source: 'env'
+      }
+    )
   })
 
   test('returns the SSM system token when configured and present', async () => {
     process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
     sendMock.mockResolvedValueOnce({
       Parameter: {
-        Value: 'system-token'
+        Value: 'Bearer system-token'
       }
     })
 
-    await expect(getCmrWriterToken()).resolves.toBe('system-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer system-token')
 
     expect(sendMock).toHaveBeenCalledTimes(1)
     expect(sendMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -96,11 +111,11 @@ describe('getCmrWriterToken', () => {
     process.env.AWS_DEFAULT_REGION = 'us-east-1'
     sendMock.mockResolvedValueOnce({
       Parameter: {
-        Value: 'system-token'
+        Value: 'Bearer system-token'
       }
     })
 
-    await expect(getCmrWriterToken()).resolves.toBe('system-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer system-token')
 
     expect(clientConfigs).toEqual([{
       endpoint: 'http://127.0.0.1:4566',
@@ -114,34 +129,34 @@ describe('getCmrWriterToken', () => {
     process.env.AWS_DEFAULT_REGION = 'us-east-1'
     sendMock.mockResolvedValueOnce({
       Parameter: {
-        Value: 'system-token'
+        Value: 'Bearer system-token'
       }
     })
 
-    await expect(getCmrWriterToken()).resolves.toBe('system-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer system-token')
 
     expect(clientConfigs).toEqual([{
       region: 'us-west-2'
     }])
   })
 
-  test('preserves JWT-shaped tokens as opaque token values', async () => {
+  test('preserves bearer tokens as opaque authorization values', async () => {
     process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
     sendMock.mockResolvedValueOnce({
       Parameter: {
-        Value: 'header.payload.signature'
+        Value: 'Bearer header.payload.signature'
       }
     })
 
-    await expect(getCmrWriterToken()).resolves.toBe('header.payload.signature')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer header.payload.signature')
   })
 
   test('falls back to the environment token when the SSM parameter cannot be read', async () => {
     process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
     sendMock.mockRejectedValueOnce(new Error('ParameterNotFound'))
 
-    await expect(getCmrWriterToken()).resolves.toBe('writer-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer writer-token')
 
     expect(warnMock).toHaveBeenCalledWith(
       '[cmr-token] Failed to read system token from SSM',
@@ -153,10 +168,29 @@ describe('getCmrWriterToken', () => {
 
   test('falls back to the environment token when the SSM parameter is present but empty', async () => {
     process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
     sendMock.mockResolvedValueOnce({})
 
-    await expect(getCmrWriterToken()).resolves.toBe('writer-token')
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer writer-token')
+  })
+
+  test('falls back to the environment token when the SSM token is missing a bearer prefix', async () => {
+    process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
+    sendMock.mockResolvedValueOnce({
+      Parameter: {
+        Value: 'system-token'
+      }
+    })
+
+    await expect(getCmrWriterToken()).resolves.toBe('Bearer writer-token')
+
+    expect(warnMock).toHaveBeenCalledWith(
+      '[cmr-token] Ignoring configured token that is missing a Bearer prefix',
+      {
+        source: 'ssm'
+      }
+    )
   })
 
   test('returns an empty string when no usable token exists and throwOnMissing is false', async () => {
@@ -187,21 +221,39 @@ describe('getCmrSystemToken', () => {
 
   test('returns the SSM-backed system token when configured and present', async () => {
     process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
+    sendMock.mockResolvedValueOnce({
+      Parameter: {
+        Value: 'Bearer system-token'
+      }
+    })
+
+    await expect(getCmrSystemToken()).resolves.toBe('Bearer system-token')
+  })
+
+  test('returns undefined when the system token is unavailable', async () => {
+    process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
+    sendMock.mockRejectedValueOnce(new Error('ParameterNotFound'))
+
+    await expect(getCmrSystemToken()).resolves.toBeUndefined()
+  })
+
+  test('returns undefined when the configured SSM value is not a bearer token', async () => {
+    process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
     sendMock.mockResolvedValueOnce({
       Parameter: {
         Value: 'system-token'
       }
     })
 
-    await expect(getCmrSystemToken()).resolves.toBe('system-token')
-  })
-
-  test('returns undefined when the system token is unavailable', async () => {
-    process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME = MOCK_SYSTEM_TOKEN_PARAMETER_NAME
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
-    sendMock.mockRejectedValueOnce(new Error('ParameterNotFound'))
-
     await expect(getCmrSystemToken()).resolves.toBeUndefined()
+
+    expect(warnMock).toHaveBeenCalledWith(
+      '[cmr-token] Ignoring configured token that is missing a Bearer prefix',
+      {
+        source: 'ssm'
+      }
+    )
   })
 })

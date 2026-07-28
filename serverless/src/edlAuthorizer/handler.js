@@ -7,20 +7,6 @@ import { logger } from '@/shared/logger'
 const REQUIRED_ASSURANCE_LEVEL = 5
 
 /**
- * Normalizes the presented authorization token so direct token values and
- * `Bearer <token>` headers compare consistently.
- *
- * @param {string} token Raw incoming authorization token value.
- * @returns {string} Trimmed token without an optional bearer prefix.
- */
-const normalizePresentedToken = (token) => {
-  const normalizedToken = String(token || '').trim()
-  const bearerMatch = normalizedToken.match(/^\s*bearer\s+(.*)$/i)
-
-  return bearerMatch ? bearerMatch[1].trim() : normalizedToken
-}
-
-/**
  * Authorizes incoming API Gateway requests against either the configured CMR
  * system token or a valid EDL profile with sufficient assurance level.
  *
@@ -52,7 +38,7 @@ export const edlAuthorizer = async (event) => {
 
   try {
     const resolvedSystemToken = await getCmrSystemToken()
-    const presentedToken = normalizePresentedToken(token)
+    const presentedToken = String(token || '').trim()
 
     if (resolvedSystemToken && presentedToken === resolvedSystemToken) {
       logger.debug('Authorization successful for CMR system token')

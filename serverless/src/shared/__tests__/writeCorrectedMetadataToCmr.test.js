@@ -47,9 +47,9 @@ describe('when writing corrected metadata to cmr', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
 
-    vi.mocked(getCmrWriterToken).mockResolvedValue('writer-token')
+    vi.mocked(getCmrWriterToken).mockResolvedValue('Bearer writer-token')
     vi.mocked(cmrPutRequest).mockResolvedValue(createResponse())
   })
 

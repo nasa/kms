@@ -5,7 +5,7 @@ import { logger } from './logger'
 /**
  * Reads the configured writer token from runtime environment.
  *
- * @returns {string} Trimmed writer token or an empty string when unset.
+ * @returns {string} Trimmed authorization value or an empty string when unset.
  */
 const getConfiguredWriterToken = () => String(process.env.CMR_WRITER_TOKEN || '').trim()
 
@@ -34,17 +34,29 @@ const createSsmClient = () => {
 }
 
 /**
- * Removes an optional bearer prefix from configured token values so either
- * `token` or `Bearer token` works for env and SSM storage.
+ * Validates that configured CMR auth values are already full bearer authorization
+ * header values so callers can forward them unchanged.
  *
- * @param {string} token Raw configured token.
- * @returns {string} Token value without a bearer prefix.
+ * @param {string} token Raw configured token value.
+ * @param {string} source Source label used in warning logs.
+ * @returns {string} Trimmed authorization value, or an empty string when absent/invalid.
  */
-const stripBearerPrefix = (token) => {
+const resolveAuthorizationHeaderValue = (token, source) => {
   const normalizedToken = String(token || '').trim()
-  const bearerMatch = normalizedToken.match(/^bearer\s+(.*)$/i)
 
-  return bearerMatch ? bearerMatch[1].trim() : normalizedToken
+  if (!normalizedToken) {
+    return ''
+  }
+
+  if (!/^bearer\s+.+$/i.test(normalizedToken)) {
+    logger.warn('[cmr-token] Ignoring configured token that is missing a Bearer prefix', {
+      source
+    })
+
+    return ''
+  }
+
+  return normalizedToken
 }
 
 /**
@@ -75,35 +87,19 @@ const readSystemTokenFromSsm = async (parameterName) => {
 }
 
 /**
- * Normalizes a token candidate for runtime use.
- *
- * @param {string} token Raw token candidate.
- * @returns {string} Usable trimmed token, or an empty string when absent.
- */
-const resolveUsableToken = (token) => {
-  const normalizedToken = stripBearerPrefix(token)
-
-  if (!normalizedToken) {
-    return ''
-  }
-
-  return normalizedToken
-}
-
-/**
  * Returns the CMR system token sourced from the configured SSM parameter.
  *
- * @returns {Promise<string|undefined>} Resolved CMR system token, or `undefined` when unavailable.
+ * @returns {Promise<string|undefined>} Resolved CMR system authorization value, or `undefined`
+ * when unavailable.
  */
 export const getCmrSystemToken = async () => {
   const parameterName = getSystemTokenParameterName()
-  const systemToken = resolveUsableToken(await readSystemTokenFromSsm(parameterName))
+  const systemToken = resolveAuthorizationHeaderValue(
+    await readSystemTokenFromSsm(parameterName),
+    'ssm'
+  )
 
-  if (systemToken) {
-    return systemToken
-  }
-
-  return undefined
+  return systemToken || undefined
 }
 
 /**
@@ -116,7 +112,7 @@ export const getCmrSystemToken = async () => {
  * @param {Object} [options={}] Optional resolver controls.
  * @param {boolean} [options.throwOnMissing=true] Whether to throw instead of returning an empty string
  * when no usable token is available.
- * @returns {Promise<string>} Resolved CMR bearer token.
+ * @returns {Promise<string>} Resolved CMR authorization header value.
  * @throws {Error} If no usable token is available and `throwOnMissing` is `true`.
  */
 export const getCmrWriterToken = async ({
@@ -128,7 +124,7 @@ export const getCmrWriterToken = async ({
     return ssmToken
   }
 
-  const configuredToken = resolveUsableToken(getConfiguredWriterToken())
+  const configuredToken = resolveAuthorizationHeaderValue(getConfiguredWriterToken(), 'env')
 
   if (configuredToken) {
     return configuredToken
@@ -139,7 +135,7 @@ export const getCmrWriterToken = async ({
   }
 
   throw new Error(
-    'Missing usable CMR writer token configuration: set CMR_WRITER_TOKEN or configure CMR_SYSTEM_TOKEN_PARAMETER_NAME'
+    'Missing usable CMR writer token configuration: set CMR_WRITER_TOKEN or configure CMR_SYSTEM_TOKEN_PARAMETER_NAME with a Bearer token value'
   )
 }
 

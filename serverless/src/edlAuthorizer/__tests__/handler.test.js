@@ -87,7 +87,7 @@ describe('edlAuthorizer', () => {
 
   describe('when the supplied token matches the configured CMR system token', () => {
     test('returns an allow policy without fetching an EDL profile', async () => {
-      vi.mocked(getCmrSystemToken).mockResolvedValueOnce('system-token')
+      vi.mocked(getCmrSystemToken).mockResolvedValueOnce('Bearer system-token')
 
       const event = {
         authorizationToken: 'Bearer system-token',
@@ -121,7 +121,7 @@ describe('edlAuthorizer', () => {
       fetchEdlProfile.mockRejectedValueOnce(new Error('Unauthorized'))
 
       const event = {
-        authorizationToken: 'writer-token',
+        authorizationToken: 'Bearer writer-token',
         methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/POST/resource'
       }
 
@@ -141,7 +141,7 @@ describe('edlAuthorizer', () => {
         }
       })
 
-      expect(fetchEdlProfile).toHaveBeenCalledWith('writer-token')
+      expect(fetchEdlProfile).toHaveBeenCalledWith('Bearer writer-token')
     })
   })
 
