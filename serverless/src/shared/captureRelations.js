@@ -42,6 +42,9 @@ export const captureRelations = async (conceptId, version, transactionUrl = null
   }
 
   const safeConceptId = sanitizeConceptId(conceptId)
+  if (safeConceptId === null) {
+    throw new Error('Invalid conceptId provided')
+  }
 
   const query = `
     PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
