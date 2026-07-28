@@ -113,5 +113,27 @@ describe('updateVersionMetadata', () => {
 
       await expect(updateVersionMetadata(params)).rejects.toThrow('Network error')
     })
+
+    test('should throw an error for invalid optional parameters', async () => {
+      await expect(updateVersionMetadata({
+        graphId: 'test-graph',
+        version: {}
+      })).rejects.toThrow('Invalid version provided')
+
+      await expect(updateVersionMetadata({
+        graphId: 'test-graph',
+        versionType: {}
+      })).rejects.toThrow('Invalid versionType provided')
+
+      await expect(updateVersionMetadata({
+        graphId: 'test-graph',
+        createdDate: {}
+      })).rejects.toThrow('Invalid createdDate provided')
+
+      await expect(updateVersionMetadata({
+        graphId: 'test-graph',
+        lastSynced: {}
+      })).rejects.toThrow('Invalid lastSynced provided')
+    })
   })
 })
