@@ -400,4 +400,33 @@ describe('addChangeNotes', () => {
       body: expect.stringContaining('Added broader relation from  [123] to  [456]')
     }))
   })
+
+  test('should throw an error for an invalid version format', async () => {
+    const addedRelations = []
+    const removedRelations = []
+
+    await expect(addChangeNotes(addedRelations, removedRelations, 'invalid version!', mockTransactionUrl))
+      .rejects.toThrow('Invalid version: invalid version!')
+  })
+
+  test('should throw an error with the correct status code', async () => {
+    const addedRelations = [
+      {
+        from: 'https://gcmd.earthdata.nasa.gov/kms/concept/123',
+        relation: 'broader',
+        to: 'https://gcmd.earthdata.nasa.gov/kms/concept/456',
+        fromPrefLabel: 'Concept A',
+        toPrefLabel: 'Concept B'
+      }
+    ]
+    const removedRelations = []
+
+    sparqlRequest.mockResolvedValue({
+      ok: false,
+      status: 400
+    })
+
+    await expect(addChangeNotes(addedRelations, removedRelations, mockVersion, mockTransactionUrl))
+      .rejects.toThrow('Failed to add change notes: 400')
+  })
 })

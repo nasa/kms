@@ -206,6 +206,16 @@ describe('getConceptVersions', () => {
     })
   })
 
+  describe('when validation errors occur', () => {
+    test('should throw an error when versionType is invalid', async () => {
+      const event = { pathParameters: { versionType: 123 } }
+      const response = await getConceptVersions(event)
+
+      expect(response.statusCode).toBe(500)
+      expect(JSON.parse(response.body).error).toContain('Invalid versionType provided')
+    })
+  })
+
   describe('when unsuccessful', () => {
     test('should handle SPARQL request errors', async () => {
       sparqlRequest.mockResolvedValue({
