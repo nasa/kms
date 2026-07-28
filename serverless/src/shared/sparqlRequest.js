@@ -214,6 +214,8 @@ export const sparqlRequest = async (props) => {
     }
 
     try {
+      logger.debug(`Sending SPARQL request to ${url} with body:\n${body}`)
+
       const requestOptions = {
         method,
         headers,
