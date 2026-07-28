@@ -411,6 +411,27 @@ describe('getSkosConcept', () => {
         )
       })
     })
+
+    describe('when validating path sanitization', () => {
+      test('should throw an error if an invalid level is provided in fullPath', async () => {
+        const escapeModule = await import('@/shared/escapeSparqlString')
+        vi.spyOn(escapeModule, 'escapeSparqlString').mockReturnValueOnce(null)
+
+        await expect(getSkosConcept({ fullPath: 'Earth Science|Atmosphere' }))
+          .rejects.toThrow('Invalid level provided')
+      })
+
+      test('should throw an error if an invalid schemeFromFullPath is derived', async () => {
+        const escapeModule = await import('@/shared/escapeSparqlString')
+        vi.spyOn(escapeModule, 'escapeSparqlString')
+          .mockReturnValueOnce('Earth Science')
+          .mockReturnValueOnce('Atmosphere')
+          .mockReturnValueOnce(null)
+
+        await expect(getSkosConcept({ fullPath: 'Earth Science|Atmosphere' }))
+          .rejects.toThrow('Invalid schemeFromFullPath provided')
+      })
+    })
   })
 
   describe('when unsuccessful', () => {

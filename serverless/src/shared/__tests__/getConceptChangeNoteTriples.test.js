@@ -119,7 +119,7 @@ describe('getConceptChangeNotes', () => {
 
     await getConceptChangeNoteTriples({
       version: 'v2',
-      scheme: 'test_scheme'
+      scheme: 'testScheme'
     })
 
     expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
@@ -127,7 +127,7 @@ describe('getConceptChangeNotes', () => {
       contentType: 'application/sparql-query',
       accept: 'application/sparql-results+json',
       version: 'v2',
-      body: expect.stringContaining('https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/test_scheme')
+      body: expect.stringContaining('https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/testScheme')
     }))
   })
 

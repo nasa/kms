@@ -33,3 +33,9 @@ describe('getRootConceptsBySchemeQuery', () => {
     expect(queryWithScheme).toContain(filterNotExistsClause)
   })
 })
+
+describe('when validation errors occur', () => {
+  test('should throw an error for an invalid scheme', () => {
+    expect(() => getRootConceptsBySchemeQuery('ABC&%')).toThrow('Invalid scheme provided')
+  })
+})

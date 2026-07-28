@@ -1,6 +1,15 @@
+import { sanitizeScheme } from '@/shared/sanitizeScheme'
+
 import { prefixes } from '../../constants/prefixes'
 
-export const getConceptSchemeDetailsQuery = (schemeName) => `
+export const getConceptSchemeDetailsQuery = (schemeName) => {
+  const safeSchemeName = sanitizeScheme(schemeName)
+
+  if (safeSchemeName === null) {
+    throw new Error('Invalid scheme provided')
+  }
+
+  return `
 ${prefixes}
 
 SELECT ?scheme ?prefLabel ?notation ?modified ?csvHeaders
@@ -10,6 +19,7 @@ WHERE {
           skos:notation ?notation ;
           dcterms:modified ?modified .
   OPTIONAL { ?scheme gcmd:csvHeaders ?csvHeaders }
-  ${schemeName ? `FILTER(LCASE(STR(?notation)) = LCASE("${schemeName}"))` : ''}
+  ${safeSchemeName ? `FILTER(LCASE(STR(?notation)) = LCASE("${safeSchemeName}"))` : ''}
 }
 `
+}

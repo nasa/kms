@@ -1,6 +1,19 @@
 import prefixes from '@/shared/constants/prefixes'
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
+import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
-export const getTriplesForAltLabelQuery = ({ altLabel, scheme }) => `
+export const getTriplesForAltLabelQuery = ({ altLabel, scheme }) => {
+  const safeAltLabel = escapeSparqlString(altLabel)
+  if (safeAltLabel === null) {
+    throw new Error('Invalid altLabel provided')
+  }
+
+  const safeScheme = sanitizeScheme(scheme)
+  if (safeScheme === null) {
+    throw new Error('Invalid scheme provided')
+  }
+
+  return `
 ${prefixes}
 SELECT DISTINCT ?s ?p ?o
 WHERE {
@@ -9,13 +22,13 @@ WHERE {
     WHERE {
       {
         ?concept gcmd:altLabel ?altLabel .
-        ?altLabel gcmd:text "${altLabel}"@en .
-        ${scheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .` : ''}
+        ?altLabel gcmd:text "${safeAltLabel}"@en .
+        ${safeScheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${safeScheme}> .` : ''}
       }
       UNION
       {
-        ?concept skos:altLabel "${altLabel}"@en .
-        ${scheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .` : ''}
+        ?concept skos:altLabel "${safeAltLabel}"@en .
+        ${safeScheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${safeScheme}> .` : ''}
       }
     }
     LIMIT 1
@@ -34,3 +47,4 @@ WHERE {
   }
 }
 `
+}

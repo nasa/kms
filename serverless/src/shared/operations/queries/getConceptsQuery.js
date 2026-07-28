@@ -1,6 +1,19 @@
 import prefixes from '@/shared/constants/prefixes'
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
+import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
-export const getConceptsQuery = (conceptScheme, pattern, limit = 1000, offset = 0) => `
+export const getConceptsQuery = (conceptScheme, pattern, limit = 1000, offset = 0) => {
+  const safeConceptScheme = sanitizeScheme(conceptScheme)
+  if (safeConceptScheme === null) {
+    throw new Error('Invalid scheme provided')
+  }
+
+  const safePattern = escapeSparqlString(pattern)
+  if (safePattern === null) {
+    throw new Error('Invalid pattern provided')
+  }
+
+  return `
 ${prefixes}
 SELECT ?bn ?bp ?bo ?s ?p ?o 
 WHERE {
@@ -8,10 +21,10 @@ WHERE {
     SELECT DISTINCT ?s
     WHERE {
       ?s a skos:Concept .
-      ${conceptScheme ? `?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${conceptScheme}> .` : ''}
-      ${pattern ? `
+      ${safeConceptScheme ? `?s skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${safeConceptScheme}> .` : ''}
+      ${safePattern ? `
       ?s skos:prefLabel ?prefLabel .
-      FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${pattern}")))
+      FILTER(CONTAINS(LCASE(?prefLabel), LCASE("${safePattern}")))
       ` : ''}
     }
     ORDER BY ?s
@@ -29,3 +42,4 @@ WHERE {
     }
   }
 `
+}

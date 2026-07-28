@@ -1,5 +1,6 @@
 import { XMLBuilder } from 'fast-xml-parser'
 
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
@@ -45,6 +46,11 @@ export const getConceptVersions = async (event, context) => {
   })
 
   try {
+    const safeVersionType = escapeSparqlString(versionType)
+    if (safeVersionType === null) {
+      throw new Error('Invalid versionType provided')
+    }
+
     // Updated SPARQL query to get graph names and creation dates
     const query = `
     PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
@@ -58,7 +64,7 @@ export const getConceptVersions = async (event, context) => {
                  gcmd:versionName ?versionName ;
                  gcmd:versionType ?versionType .
         OPTIONAL { ?version gcmd:lastSynced ?lastSynced }
-        ${versionType && versionType.toLowerCase() !== 'all' ? `FILTER(LCASE(?versionType) = LCASE("${versionType}"))` : ''}
+        ${safeVersionType && safeVersionType.toLowerCase() !== 'all' ? `FILTER(LCASE(?versionType) = LCASE("${safeVersionType}"))` : ''}
       }
     }
     ORDER BY DESC(?graph)

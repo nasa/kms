@@ -57,4 +57,24 @@ describe('getCreateRelationshipQuery', () => {
       expect(result).not.toContain('<https://gcmd.earthdata.nasa.gov/kms/concept/')
     })
   })
+
+  describe('when validation errors occur', () => {
+    test('should throw an error for an invalid sourceUuid', () => {
+      expect(() => getCreateRelationshipQuery({
+        sourceUuid: 123,
+        targetUuids: ['target456'],
+        relationship: '<http://example.com/relation>',
+        inverseRelationship: '<http://example.com/inverseRelation>'
+      })).toThrow('Invalid sourceUuid provided')
+    })
+
+    test('should throw an error for an invalid targetUuid in targetUuids', () => {
+      expect(() => getCreateRelationshipQuery({
+        sourceUuid: 'source123',
+        targetUuids: [123],
+        relationship: '<http://example.com/relation>',
+        inverseRelationship: '<http://example.com/inverseRelation>'
+      })).toThrow('Invalid targetUuid provided')
+    })
+  })
 })

@@ -22,6 +22,10 @@ describe('captureRelations', () => {
     vi.resetAllMocks()
   })
 
+  test('should throw an error when an invalid conceptId is provided', async () => {
+    await expect(captureRelations('ABC$<>', mockVersion)).rejects.toThrow('Invalid conceptId provided')
+  })
+
   test('should capture outgoing and incoming relations with preferred labels', async () => {
     const mockResponse = {
       ok: true,
