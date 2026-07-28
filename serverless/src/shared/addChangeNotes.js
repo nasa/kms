@@ -77,7 +77,8 @@ export const addChangeNotes = async (addedRelations, removedRelations, version, 
     const safeFrom = sanitizeConceptIRI(relation.from)
     const safeTo = sanitizeConceptIRI(relation.to)
 
-    if (safeFrom === null || safeTo === null || safeFrom !== relation.from || safeTo !== relation.to) {
+    if (safeFrom === null || safeTo === null
+      || safeFrom !== relation.from || safeTo !== relation.to) {
       throw new Error(`Invalid relation IRI: from=${relation.from} to=${relation.to}`)
     }
 
