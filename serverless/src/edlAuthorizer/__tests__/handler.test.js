@@ -1,9 +1,13 @@
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
+import { getCmrWriterToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 import edlAuthorizer from '../handler'
 
 vi.mock('@/shared/fetchEdlProfile')
+vi.mock('@/shared/getCmrWriterToken', () => ({
+  getCmrWriterToken: vi.fn()
+}))
 
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
@@ -15,6 +19,8 @@ describe('edlAuthorizer', () => {
     loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     fetchEdlProfile.mockReset()
+    vi.mocked(getCmrWriterToken).mockReset()
+
     fetchEdlProfile.mockResolvedValue({
       email: 'test.user@localhost',
       first_name: 'Test',
@@ -22,6 +28,8 @@ describe('edlAuthorizer', () => {
       uid: 'mock_user',
       assuranceLevel: 5
     })
+
+    vi.mocked(getCmrWriterToken).mockResolvedValue('')
   })
 
   afterEach(() => {
@@ -74,6 +82,38 @@ describe('edlAuthorizer', () => {
 
       // Verify that fetchEdlProfile was called with the correct token
       expect(fetchEdlProfile).toHaveBeenCalledWith('mock-token-in-event')
+    })
+  })
+
+  describe('when the supplied token matches the configured CMR system token', () => {
+    test('returns an allow policy without fetching an EDL profile', async () => {
+      vi.mocked(getCmrWriterToken).mockResolvedValueOnce('system-token')
+
+      const event = {
+        authorizationToken: 'Bearer system-token',
+        methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/POST/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'cmr-system',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Allow',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
+
+      expect(fetchEdlProfile).not.toHaveBeenCalled()
+      expect(getCmrWriterToken).toHaveBeenCalledWith({
+        throwOnMissing: false
+      })
     })
   })
 

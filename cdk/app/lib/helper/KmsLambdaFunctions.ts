@@ -21,6 +21,7 @@ interface LambdaFunctionsProps {
   apiResources: ApiResources;
   lambdaRole: iam.Role;
   metadataCorrectionEnvironment?: {
+    CMR_SYSTEM_TOKEN_PARAMETER_NAME?: string;
     CMR_WRITER_TOKEN: string;
     CMR_WRITEBACK_PROVIDERS: string;
     METADATA_CORRECTION_REQUESTS_TOPIC_ARN?: string;

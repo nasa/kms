@@ -18,6 +18,7 @@ import { VpcSetup } from './helper/VpcSetup'
  * @interface
  */
 export interface KmsStackProps extends cdk.StackProps {
+  cmrSystemTokenParameterName?: string
   cmrWritebackProviders?: string
   cmrWriterToken?: string
   existingApiId: string | undefined
@@ -158,6 +159,7 @@ export class KmsStack extends cdk.Stack {
     // SNS keyword event publishing needs the topic ARN at runtime.
     const lambdaEnvironment = {
       ...environment,
+      CMR_SYSTEM_TOKEN_PARAMETER_NAME: props.cmrSystemTokenParameterName || '',
       KEYWORD_EVENTS_TOPIC_ARN: keywordEventsTopicArn
     }
 
@@ -168,6 +170,7 @@ export class KmsStack extends cdk.Stack {
       environment: lambdaEnvironment,
       lambdaRole: this.lambdaRole,
       metadataCorrectionEnvironment: {
+        CMR_SYSTEM_TOKEN_PARAMETER_NAME: props.cmrSystemTokenParameterName || '',
         CMR_WRITER_TOKEN: props.cmrWriterToken || '',
         CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || '',
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopicArn
@@ -178,6 +181,19 @@ export class KmsStack extends cdk.Stack {
       vpc: this.vpc,
       useLocalstack
     })
+
+    if (props.cmrSystemTokenParameterName) {
+      const systemTokenParameterArn = cdk.Stack.of(this).formatArn({
+        service: 'ssm',
+        resource: 'parameter',
+        resourceName: props.cmrSystemTokenParameterName.replace(/^\//, '')
+      })
+
+      this.lambdaRole.addToPolicy(new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [systemTokenParameterArn]
+      }))
+    }
 
     new KeywordSyncMonitoringSetup(this, {
       prefix,
