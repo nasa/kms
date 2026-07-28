@@ -10,7 +10,6 @@ import {
   createConceptToConceptSchemeShortNameMap
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { getCmrWriterTokenDebugInfo } from '@/shared/getCmrWriterToken'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
@@ -154,8 +153,6 @@ export const getConcepts = async (event, context) => {
   }
 
   try {
-    logger.info('[cmr-token-debug] Resolved token characteristics', await getCmrWriterTokenDebugInfo())
-
     // Normalize known alias before cache key generation.
     if (conceptScheme?.toLowerCase() === 'granuledataformat') {
       conceptScheme = 'dataformat'

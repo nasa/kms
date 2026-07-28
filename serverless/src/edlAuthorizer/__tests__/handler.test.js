@@ -1,12 +1,12 @@
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
-import { getCmrWriterToken } from '@/shared/getCmrWriterToken'
+import { getCmrSystemToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 import edlAuthorizer from '../handler'
 
 vi.mock('@/shared/fetchEdlProfile')
 vi.mock('@/shared/getCmrWriterToken', () => ({
-  getCmrWriterToken: vi.fn()
+  getCmrSystemToken: vi.fn()
 }))
 
 describe('edlAuthorizer', () => {
@@ -19,7 +19,7 @@ describe('edlAuthorizer', () => {
     loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     fetchEdlProfile.mockReset()
-    vi.mocked(getCmrWriterToken).mockReset()
+    vi.mocked(getCmrSystemToken).mockReset()
 
     fetchEdlProfile.mockResolvedValue({
       email: 'test.user@localhost',
@@ -29,7 +29,7 @@ describe('edlAuthorizer', () => {
       assuranceLevel: 5
     })
 
-    vi.mocked(getCmrWriterToken).mockResolvedValue('')
+    vi.mocked(getCmrSystemToken).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -87,7 +87,7 @@ describe('edlAuthorizer', () => {
 
   describe('when the supplied token matches the configured CMR system token', () => {
     test('returns an allow policy without fetching an EDL profile', async () => {
-      vi.mocked(getCmrWriterToken).mockResolvedValueOnce('system-token')
+      vi.mocked(getCmrSystemToken).mockResolvedValueOnce('system-token')
 
       const event = {
         authorizationToken: 'Bearer system-token',
@@ -111,9 +111,37 @@ describe('edlAuthorizer', () => {
       })
 
       expect(fetchEdlProfile).not.toHaveBeenCalled()
-      expect(getCmrWriterToken).toHaveBeenCalledWith({
-        throwOnMissing: false
+      expect(getCmrSystemToken).toHaveBeenCalledWith()
+    })
+  })
+
+  describe('when the supplied token matches neither the system token nor a valid EDL token', () => {
+    test('does not treat the writer-token fallback as an automatic authorizer bypass', async () => {
+      vi.mocked(getCmrSystemToken).mockResolvedValueOnce(undefined)
+      fetchEdlProfile.mockRejectedValueOnce(new Error('Unauthorized'))
+
+      const event = {
+        authorizationToken: 'writer-token',
+        methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/POST/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'user',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Deny',
+              Resource: event.methodArn
+            }
+          ]
+        }
       })
+
+      expect(fetchEdlProfile).toHaveBeenCalledWith('writer-token')
     })
   })
 

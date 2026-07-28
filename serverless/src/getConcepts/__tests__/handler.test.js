@@ -14,7 +14,6 @@ import {
   createConceptToConceptSchemeShortNameMap
 } from '@/shared/createConceptToConceptSchemeShortNameMap'
 import { createPrefLabelMap } from '@/shared/createPrefLabelMap'
-import { getCmrWriterTokenDebugInfo } from '@/shared/getCmrWriterToken'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getFilteredTriples } from '@/shared/getFilteredTriples'
@@ -35,9 +34,6 @@ vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
 vi.mock('@/shared/processTriples')
 vi.mock('@/shared/getConfig')
-vi.mock('@/shared/getCmrWriterToken', () => ({
-  getCmrWriterTokenDebugInfo: vi.fn()
-}))
 
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
@@ -76,15 +72,6 @@ describe('getConcepts', () => {
       maxTotalConceptsLimit: 50000
     })
 
-    vi.mocked(getCmrWriterTokenDebugInfo).mockResolvedValue({
-      source: 'ssm',
-      hasBearerPrefix: false,
-      tokenLength: 12,
-      jwtShaped: false,
-      hasDecodedExp: false,
-      fingerprint: 'abc123def456'
-    })
-
     vi.mocked(createCsvForScheme).mockReset()
     createPrefLabelMap.mockResolvedValue(new Map())
     createConceptSchemeMap.mockResolvedValue(new Map())
@@ -99,7 +86,6 @@ describe('getConcepts', () => {
     test('returns 404 status code with error message for invalid version', async () => {
       // Mock getVersionMetadata to return null for invalid version
       getVersionMetadata.mockResolvedValue(null)
-      const loggerInfoSpy = vi.spyOn(logger, 'info')
 
       const event = {
         queryStringParameters: {
@@ -113,15 +99,6 @@ describe('getConcepts', () => {
         headers: mockDefaultHeaders,
         statusCode: 404,
         body: JSON.stringify({ error: 'Invalid version parameter. Version not found' })
-      })
-
-      expect(loggerInfoSpy).toHaveBeenCalledWith('[cmr-token-debug] Resolved token characteristics', {
-        source: 'ssm',
-        hasBearerPrefix: false,
-        tokenLength: 12,
-        jwtShaped: false,
-        hasDecodedExp: false,
-        fingerprint: 'abc123def456'
       })
 
       expect(getVersionMetadata).toHaveBeenCalledWith('invalid_version')

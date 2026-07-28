@@ -1,7 +1,7 @@
 import { downcaseKeys } from '@/shared/downcaseKeys'
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
 import { generatePolicy } from '@/shared/generatePolicy'
-import { getCmrWriterToken } from '@/shared/getCmrWriterToken'
+import { getCmrSystemToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 const REQUIRED_ASSURANCE_LEVEL = 5
@@ -51,9 +51,7 @@ export const edlAuthorizer = async (event) => {
   logger.debug('Launchpad token:', token ? 'Present' : 'Not present')
 
   try {
-    const resolvedSystemToken = await getCmrWriterToken({
-      throwOnMissing: false
-    })
+    const resolvedSystemToken = await getCmrSystemToken()
     const presentedToken = normalizePresentedToken(token)
 
     if (resolvedSystemToken && presentedToken === resolvedSystemToken) {
