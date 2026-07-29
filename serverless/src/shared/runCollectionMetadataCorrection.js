@@ -447,7 +447,7 @@ export const runCollectionMetadataCorrection = async ({
           writebackErrorMessage: getWritebackErrorMessage(error)
         })
 
-        logger.info('[metadata-correction] Persisted failed metadata correction audit log', {
+        logger.debug('[metadata-correction] Persisted failed metadata correction audit log', {
           collectionConceptId: collectionDetails.collectionConceptId,
           messageId,
           nativeFormat,

@@ -38,7 +38,7 @@ interface MetadataCorrectionSetupProps {
  * Creates the metadata correction SNS/SQS/Lambda plumbing and exports its endpoints.
  */
 export class MetadataCorrectionSetup extends Construct {
-  private static readonly METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY = 5
+  private static readonly DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY = 5
 
   public readonly metadataCorrectionRequestsTopic: sns.Topic
 
@@ -93,7 +93,7 @@ export class MetadataCorrectionSetup extends Construct {
       && parsedReservedConcurrency > 0
     const reservedConcurrency = hasValidReservedConcurrency
       ? parsedReservedConcurrency
-      : MetadataCorrectionSetup.METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
+      : MetadataCorrectionSetup.DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
 
     // TODO: Create a follow-up ticket for DLQ handling. This DLQ is only the
     // redrive target today; before adding a consumer, decide whether failures

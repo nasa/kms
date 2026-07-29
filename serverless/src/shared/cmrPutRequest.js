@@ -89,17 +89,17 @@ export const cmrPutRequest = async ({
     timeoutMs
   })
 
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const controller = new AbortController()
   let timeoutId
 
-  if (controller && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+  if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
     timeoutId = setTimeout(() => {
       controller.abort(new Error(`CMR PUT request timeout after ${timeoutMs}ms`))
     }, timeoutMs)
   }
 
   try {
-    if (controller && Number.isFinite(timeoutMs) && timeoutMs > 0) {
+    if (Number.isFinite(timeoutMs) && timeoutMs > 0) {
       fetchOptions.signal = controller.signal
     }
 
