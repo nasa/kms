@@ -21,7 +21,7 @@ const normalizeLimit = (limit) => {
     return 100
   }
 
-  return Math.max(1, Math.min(parsed, 500))
+  return Math.max(1, parsed)
 }
 
 /**
@@ -98,7 +98,7 @@ const collapseAuditRows = (items) => {
  * @param {string|boolean} [filters.latestOnly=false] - When truthy, collapses duplicate
  * append-only lifecycle rows so only the newest row for each logical correction is returned.
  * @param {string|number} [filters.limit=100] - Maximum number of rows to return. Values are
- * normalized into the inclusive range `1..500`, with invalid values falling back to `100`.
+ * normalized to a minimum of `1`, with invalid values falling back to `100`.
  * @returns {Promise<Array<{
  *   recordUri: string | undefined,
  *   timestamp: string | undefined,
@@ -112,6 +112,7 @@ const collapseAuditRows = (items) => {
  *   nativeFormat: string | undefined,
  *   delegateName: string | undefined,
  *   status: string | undefined,
+ *   writebackErrorMessage: string | undefined,
  *   triggerScheme: string | undefined,
  *   triggerKeywordUuid: string | undefined
  * }>>} Audit log rows ordered newest-first.
@@ -152,6 +153,7 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
       ?nativeFormat
       ?delegateName
       ?status
+      ?writebackErrorMessage
       ?triggerScheme
       ?triggerKeywordUuid
     WHERE {
@@ -168,6 +170,7 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
                 gcmd:status ?status .
         OPTIONAL { ?record gcmd:oldKeywordPath ?oldKeywordPath }
         OPTIONAL { ?record gcmd:newKeywordPath ?newKeywordPath }
+        OPTIONAL { ?record gcmd:writebackErrorMessage ?writebackErrorMessage }
         OPTIONAL { ?record gcmd:triggerScheme ?triggerScheme }
         OPTIONAL { ?record gcmd:triggerKeywordUuid ?triggerKeywordUuid }
       }
@@ -199,6 +202,7 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
     nativeFormat: binding.nativeFormat?.value,
     delegateName: binding.delegateName?.value,
     status: binding.status?.value,
+    writebackErrorMessage: binding.writebackErrorMessage?.value,
     triggerScheme: binding.triggerScheme?.value,
     triggerKeywordUuid: binding.triggerKeywordUuid?.value
   }))

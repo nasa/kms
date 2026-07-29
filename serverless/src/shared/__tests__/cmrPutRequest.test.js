@@ -3,6 +3,7 @@ import {
   beforeEach,
   describe,
   expect,
+  test,
   vi
 } from 'vitest'
 
@@ -21,6 +22,7 @@ describe('cmrPutRequest', () => {
 
   afterEach(() => {
     delete process.env.CMR_BASE_URL
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -51,14 +53,15 @@ describe('cmrPutRequest', () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
-      {
+      expect.objectContaining({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/dif10+xml',
           Accept: 'application/json'
         },
-        body
-      }
+        body,
+        signal: expect.any(Object)
+      })
     )
   })
 
@@ -74,13 +77,14 @@ describe('cmrPutRequest', () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
-      {
+      expect.objectContaining({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
-        }
-      }
+        },
+        signal: expect.any(Object)
+      })
     )
   })
 
@@ -101,15 +105,16 @@ describe('cmrPutRequest', () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
-      {
+      expect.objectContaining({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/vnd.nasa.cmr.umm+json',
           Authorization: 'Bearer token'
         },
-        body: '{}'
-      }
+        body: '{}',
+        signal: expect.any(Object)
+      })
     )
   })
 
@@ -131,14 +136,15 @@ describe('cmrPutRequest', () => {
       'URL:',
       'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
       'with options:',
-      {
+      expect.objectContaining({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json'
         },
-        body
-      }
+        body,
+        signal: expect.any(Object)
+      })
     )
   })
 
@@ -168,6 +174,7 @@ describe('cmrPutRequest', () => {
       path: '/ingest/providers/KMS/collections/native-1',
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
       bodyLength: 2,
+      timeoutMs: 25000,
       error: {
         name: 'TypeError',
         message: 'fetch failed',
@@ -204,7 +211,8 @@ describe('cmrPutRequest', () => {
       endpoint: 'https://cmr-test.earthdata.nasa.gov',
       path: '/ingest/providers/KMS/collections/native-1',
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
-      bodyLength: 2
+      bodyLength: 2,
+      timeoutMs: 25000
     })
 
     expect(error.cmrCause).toBeUndefined()
@@ -236,7 +244,29 @@ describe('cmrPutRequest', () => {
       endpoint: 'https://cmr-test.earthdata.nasa.gov',
       path: '/ingest/providers/KMS/collections/native-1',
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
-      bodyLength: undefined
+      bodyLength: undefined,
+      timeoutMs: 25000
     })
+  })
+
+  test('should abort the request when the configured timeout is exceeded', async () => {
+    vi.useFakeTimers()
+
+    global.fetch.mockImplementationOnce((url, options) => new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(options.signal.reason))
+    }))
+
+    const requestPromise = cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1',
+      body: '{}',
+      timeoutMs: 25
+    })
+    const rejectionExpectation = expect(requestPromise).rejects.toThrow(
+      'CMR PUT request timeout after 25ms'
+    )
+
+    await vi.advanceTimersByTimeAsync(25)
+
+    await rejectionExpectation
   })
 })

@@ -18,6 +18,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
   metadataCorrectionRequestDelayMs?: string
+  metadataCorrectionServiceReservedConcurrency?: string
   cmrWriterToken?: string
   cmrWritebackProviders?: string
   prefix: string
@@ -37,6 +38,8 @@ interface MetadataCorrectionSetupProps {
  * Creates the metadata correction SNS/SQS/Lambda plumbing and exports its endpoints.
  */
 export class MetadataCorrectionSetup extends Construct {
+  private static readonly DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY = 5
+
   public readonly metadataCorrectionRequestsTopic: sns.Topic
 
   public readonly metadataCorrectionRequestsQueue: sqs.Queue
@@ -66,6 +69,7 @@ export class MetadataCorrectionSetup extends Construct {
     const {
       cmrBaseUrl,
       metadataCorrectionRequestDelayMs,
+      metadataCorrectionServiceReservedConcurrency,
       cmrWriterToken,
       cmrWritebackProviders,
       prefix,
@@ -84,6 +88,12 @@ export class MetadataCorrectionSetup extends Construct {
     const metadataCorrectionRequestsBaseName = `${prefix}-${stage}-metadata-correction-requests`
     const metadataCorrectionRequestsName = `${metadataCorrectionRequestsBaseName}.fifo`
     const projectRoot = path.join(__dirname, '../../../..')
+    const parsedReservedConcurrency = Number(metadataCorrectionServiceReservedConcurrency)
+    const hasValidReservedConcurrency = Number.isInteger(parsedReservedConcurrency)
+      && parsedReservedConcurrency > 0
+    const reservedConcurrency = hasValidReservedConcurrency
+      ? parsedReservedConcurrency
+      : MetadataCorrectionSetup.DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
 
     // TODO: Create a follow-up ticket for DLQ handling. This DLQ is only the
     // redrive target today; before adding a consumer, decide whether failures
@@ -130,6 +140,9 @@ export class MetadataCorrectionSetup extends Construct {
         runtime: NODE_LAMBDA_RUNTIME,
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
+        // Broad keyword updates can fan out to hundreds of collections; cap concurrent
+        // consumers so writebacks do not overwhelm downstream CMR ingest.
+        reservedConcurrentExecutions: reservedConcurrency,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
           CMR_WRITER_TOKEN: cmrWriterToken || '',
