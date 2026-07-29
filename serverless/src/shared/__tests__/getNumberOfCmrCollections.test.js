@@ -24,10 +24,22 @@ vi.mock('../logger', () => ({
   }
 }))
 
+// Use vi.hoisted to declare and share mock utilities safely
+const { mockParse, MockXMLParser } = vi.hoisted(() => {
+  const parse = vi.fn()
+
+  const MockXMLParserFn = vi.fn(function MockParser() {
+    this.parse = parse
+  })
+
+  return {
+    mockParse: parse,
+    MockXMLParser: MockXMLParserFn
+  }
+})
+
 vi.mock('fast-xml-parser', () => ({
-  XMLParser: vi.fn().mockImplementation(() => ({
-    parse: vi.fn()
-  }))
+  XMLParser: MockXMLParser
 }))
 
 describe('getNumberOfCmrCollections', () => {
@@ -217,12 +229,11 @@ describe('getNumberOfCmrCollections', () => {
   })
 
   test('should parse a single XML error message from CMR', async () => {
-    const parse = vi.fn().mockReturnValue({
+    mockParse.mockReturnValue({
       errors: {
         error: 'Single XML error'
       }
     })
-    XMLParser.mockImplementation(() => ({ parse }))
 
     cmrPostRequest.mockResolvedValue({
       ok: false,
@@ -240,10 +251,9 @@ describe('getNumberOfCmrCollections', () => {
   })
 
   test('falls back to the HTTP status message when XML errors are missing', async () => {
-    const parse = vi.fn().mockReturnValue({
+    mockParse.mockReturnValue({
       errors: {}
     })
-    XMLParser.mockImplementation(() => ({ parse }))
 
     cmrPostRequest.mockResolvedValue({
       ok: false,
@@ -628,14 +638,11 @@ describe('getNumberOfCmrCollections', () => {
     }
     cmrPostRequest.mockResolvedValue(mockResponse)
 
-    const mockParse = vi.fn().mockReturnValue({
+    mockParse.mockReturnValue({
       errors: {
         error: ['Error 1', 'Error 2']
       }
     })
-    XMLParser.mockImplementation(() => ({
-      parse: mockParse
-    }))
 
     const result = await getNumberOfCmrCollections({
       scheme: 'sciencekeywords',
@@ -643,7 +650,7 @@ describe('getNumberOfCmrCollections', () => {
     })
 
     expect(result).toBeNull()
-    expect(XMLParser).toHaveBeenCalled()
+    expect(MockXMLParser).toHaveBeenCalled()
     expect(mockParse).toHaveBeenCalledWith(xmlErrorResponse)
     expect(logger.error).toHaveBeenCalledWith('Error in getNumberOfCmrCollections:', expect.any(Error))
     expect(logger.error).toHaveBeenCalledWith('Error stack:', expect.any(String))
@@ -689,14 +696,11 @@ describe('getNumberOfCmrCollections', () => {
     }
     cmrPostRequest.mockResolvedValue(mockResponse)
 
-    const mockParse = vi.fn().mockReturnValue({
+    mockParse.mockReturnValue({
       errors: {
         error: 'Single error message'
       }
     })
-    XMLParser.mockImplementation(() => ({
-      parse: mockParse
-    }))
 
     const result = await getNumberOfCmrCollections({
       scheme: 'sciencekeywords',

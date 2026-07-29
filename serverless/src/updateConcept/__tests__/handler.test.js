@@ -186,20 +186,13 @@ describe('updateConcept', () => {
   })
 
   describe('when updating last modified date', () => {
-    beforeEach(() => {
+    test('should update modified date after successful concept update', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2023-05-15T10:30:00.000Z'))
 
       deleteTriples.mockResolvedValue({ ok: true })
       sparqlRequest.mockResolvedValue({ ok: true })
       ensureReciprocal.mockResolvedValue({ ok: true })
-    })
-
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    test('should update modified date after successful concept update', async () => {
       updateModifiedDate.mockResolvedValue(true)
 
       const result = await updateConcept(mockEvent)
@@ -207,9 +200,17 @@ describe('updateConcept', () => {
       expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', '2023-05-15T10:30:00.000Z', 'mock-transaction-url')
       expect(result.statusCode).toBe(200)
       expect(JSON.parse(result.body).message).toBe(`Successfully updated concept: ${mockConceptId}`)
+
+      vi.useRealTimers()
     })
 
     test('should handle errors from updateModifiedDate', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2023-05-15T10:30:00.000Z'))
+
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
       updateModifiedDate.mockRejectedValue(new Error('Failed to update modified date'))
 
       const result = await updateConcept(mockEvent)
@@ -220,9 +221,13 @@ describe('updateConcept', () => {
         message: 'Error updating concept',
         error: 'Failed to update modified date'
       })
+
+      vi.useRealTimers()
     })
 
     test('should not update modified date if concept update fails', async () => {
+      deleteTriples.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
       sparqlRequest.mockResolvedValue({
         ok: false,
         status: 500
@@ -236,6 +241,9 @@ describe('updateConcept', () => {
     })
 
     test('should throw an error if updating modified date fails', async () => {
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
       updateModifiedDate.mockResolvedValue(false)
 
       const result = await updateConcept(mockEvent)
@@ -252,13 +260,20 @@ describe('updateConcept', () => {
     })
 
     test('should use current date for updating modified date', async () => {
+      vi.useFakeTimers()
       const customDate = new Date('2024-01-01T00:00:00.000Z')
       vi.setSystemTime(customDate)
+
+      deleteTriples.mockResolvedValue({ ok: true })
+      sparqlRequest.mockResolvedValue({ ok: true })
+      ensureReciprocal.mockResolvedValue({ ok: true })
       updateModifiedDate.mockResolvedValue(true)
 
       await updateConcept(mockEvent)
 
       expect(updateModifiedDate).toHaveBeenCalledWith(mockConceptId, 'draft', customDate.toISOString(), 'mock-transaction-url')
+
+      vi.useRealTimers()
     })
   })
 

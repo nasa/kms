@@ -7,63 +7,55 @@ import {
 import { delay } from '../delay'
 
 describe('delay function', () => {
-  // Use fake timers
-  beforeEach(() => {
+  test('should resolve after the specified delay', async () => {
     vi.useFakeTimers()
-  })
-
-  afterEach(() => {
+    const promise = delay(1000)
+    vi.advanceTimersByTime(1000)
+    await expect(promise).resolves.toBeUndefined()
     vi.useRealTimers()
   })
 
-  test('should resolve after the specified delay', async () => {
-    const delayTime = 1000
-    const delayPromise = delay(delayTime)
-
-    // Fast-forward time
-    vi.advanceTimersByTime(delayTime)
-
-    await expect(delayPromise).resolves.toBeUndefined()
-  })
-
   test('should not resolve before the specified delay', async () => {
-    const delayTime = 1000
-    const delayPromise = delay(delayTime)
+    vi.useFakeTimers()
+    let resolved = false
+    delay(1000).then(() => { resolved = true })
 
-    // Fast-forward time, but not enough
-    vi.advanceTimersByTime(delayTime - 1)
+    vi.advanceTimersByTime(500)
+    expect(resolved).toBe(false)
 
-    const immediatePromise = Promise.resolve()
-    await immediatePromise
-
-    expect(delayPromise).not.toBe(immediatePromise)
+    vi.advanceTimersByTime(500)
+    // Flush microtasks
+    await vi.runAllTimersAsync()
+    expect(resolved).toBe(true)
+    vi.useRealTimers()
   })
 
   test('should work with different delay times', async () => {
-    const delays = [100, 500, 1000, 2000]
+    vi.useFakeTimers()
+    const p1 = delay(500)
+    const p2 = delay(2000)
 
-    await Promise.all(delays.map(async (delayTime) => {
-      const delayPromise = delay(delayTime)
-      vi.advanceTimersByTime(delayTime)
-      await expect(delayPromise).resolves.toBeUndefined()
-    }))
+    vi.advanceTimersByTime(500)
+    await expect(p1).resolves.toBeUndefined()
+
+    vi.advanceTimersByTime(1500)
+    await expect(p2).resolves.toBeUndefined()
+    vi.useRealTimers()
   })
 
   test('should handle zero delay', async () => {
-    const delayPromise = delay(0)
+    vi.useFakeTimers()
+    const promise = delay(0)
     vi.advanceTimersByTime(0)
-    await expect(delayPromise).resolves.toBeUndefined()
+    await expect(promise).resolves.toBeUndefined()
+    vi.useRealTimers()
   })
 
   test('should handle multiple simultaneous delays', async () => {
-    const delay1 = delay(1000)
-    const delay2 = delay(2000)
-
-    vi.advanceTimersByTime(1000)
-    await expect(delay1).resolves.toBeUndefined()
-    expect(delay2).not.toBe(delay1)
-
-    vi.advanceTimersByTime(1000)
-    await expect(delay2).resolves.toBeUndefined()
+    vi.useFakeTimers()
+    const promises = [delay(100), delay(100), delay(100)]
+    vi.advanceTimersByTime(100)
+    await Promise.all(promises)
+    vi.useRealTimers()
   })
 })
