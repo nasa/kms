@@ -27,6 +27,8 @@ const defaultFixturePath = path.resolve(
 
 const fixturePath = process.env.FIXTURE_FILE || process.argv[2] || defaultFixturePath
 const port = Number(process.env.MOCK_CMR_PORT || 3020)
+const mockIngestErrorStatus = Number(process.env.MOCK_CMR_INGEST_ERROR_STATUS || 0)
+const mockIngestErrorBody = process.env.MOCK_CMR_INGEST_ERROR_BODY || ''
 
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'))
 
@@ -141,6 +143,28 @@ const sendText = (response, statusCode, body) => {
   })
 
   response.end(body)
+}
+
+// Parse an optional mock ingest error body so failure-path smokes can emulate CMR writeback
+// validation responses without changing the handler under test.
+const getMockIngestErrorResponseBody = () => {
+  if (!Number.isFinite(mockIngestErrorStatus) || mockIngestErrorStatus < 400) {
+    return undefined
+  }
+
+  if (!mockIngestErrorBody) {
+    return {
+      errors: ['Mock ingest writeback failure.']
+    }
+  }
+
+  try {
+    return JSON.parse(mockIngestErrorBody)
+  } catch {
+    return {
+      errors: [mockIngestErrorBody]
+    }
+  }
 }
 
 // Extract the first keyword uuid lookup from the mock CMR collection-search body.
@@ -383,6 +407,7 @@ const handleLocalCollectionUpdateRequest = async (request, response, conceptId) 
  */
 const handleIngestCollectionWriteRequest = async (request, response, providerId, nativeId) => {
   const collection = collectionsByProviderAndNativeId.get(`${providerId}:${nativeId}`)
+  const ingestErrorResponseBody = getMockIngestErrorResponseBody()
 
   if (!collection) {
     sendJson(response, 404, {
@@ -399,6 +424,12 @@ const handleIngestCollectionWriteRequest = async (request, response, providerId,
     sendJson(response, 400, {
       errors: ['Missing request body for mock ingest writeback.']
     })
+
+    return
+  }
+
+  if (ingestErrorResponseBody) {
+    sendJson(response, mockIngestErrorStatus, ingestErrorResponseBody)
 
     return
   }

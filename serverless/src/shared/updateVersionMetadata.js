@@ -1,3 +1,4 @@
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -46,30 +47,56 @@ export const updateVersionMetadata = async ({
   lastSynced,
   transactionUrl
 }) => {
-  const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${graphId}`
+  const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${escapeSparqlString(graphId)}`
   const versionUri = 'https://gcmd.earthdata.nasa.gov/kms/version_metadata'
+
+  // Sanitize text-based parameters using escapeSparqlString
+  const safeVersion = version !== undefined ? escapeSparqlString(version) : undefined
+  if (version !== undefined && safeVersion === null) {
+    throw new Error('Invalid version provided')
+  }
+
+  const safeVersionType = versionType !== undefined ? escapeSparqlString(versionType) : undefined
+  if (versionType !== undefined && safeVersionType === null) {
+    throw new Error('Invalid versionType provided')
+  }
+
+  // Ensure dates are valid ISO strings to prevent xsd:dateTime parsing errors in the triple store
+  const safeCreatedDate = createdDate !== undefined
+    ? escapeSparqlString(createdDate)
+    : undefined
+  if (createdDate !== undefined && safeCreatedDate === null) {
+    throw new Error('Invalid createdDate provided')
+  }
+
+  const safeLastSynced = lastSynced !== undefined
+    ? escapeSparqlString(lastSynced)
+    : undefined
+  if (lastSynced !== undefined && safeLastSynced === null) {
+    throw new Error('Invalid lastSynced provided')
+  }
 
   let deleteClause = ''
   let insertClause = ''
 
   if (version !== undefined) {
     deleteClause += `<${versionUri}> gcmd:versionName ?oldVersionName .\n`
-    insertClause += `<${versionUri}> gcmd:versionName "${version}" .\n`
+    insertClause += `<${versionUri}> gcmd:versionName "${safeVersion}" .\n`
   }
 
   if (versionType !== undefined) {
     deleteClause += `<${versionUri}> gcmd:versionType ?oldVersionType .\n`
-    insertClause += `<${versionUri}> gcmd:versionType "${versionType}" .\n`
+    insertClause += `<${versionUri}> gcmd:versionType "${safeVersionType}" .\n`
   }
 
   if (createdDate !== undefined) {
     deleteClause += `<${versionUri}> dcterms:created ?oldCreatedDate .\n`
-    insertClause += `<${versionUri}> dcterms:created "${createdDate}"^^xsd:dateTime .\n`
+    insertClause += `<${versionUri}> dcterms:created "${safeCreatedDate}"^^xsd:dateTime .\n`
   }
 
   if (lastSynced !== undefined) {
     deleteClause += `<${versionUri}> gcmd:lastSynced ?oldLastSynced .\n`
-    insertClause += `<${versionUri}> gcmd:lastSynced "${lastSynced}"^^xsd:dateTime .\n`
+    insertClause += `<${versionUri}> gcmd:lastSynced "${safeLastSynced}"^^xsd:dateTime .\n`
   }
 
   const query = `

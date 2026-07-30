@@ -102,7 +102,43 @@ describe('persistMetadataCorrectionAuditLog', () => {
     expect(sparqlCall.body).toContain('gcmd:newKeywordPath "EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > "')
     expect(sparqlCall.body).not.toContain('gcmd:oldKeywordObject')
     expect(sparqlCall.body).not.toContain('gcmd:newKeywordObject')
+    expect(sparqlCall.body).not.toContain('gcmd:writebackErrorMessage')
     expect(sparqlCall.body).toContain('metadata-correction-audit/audit-record-123')
+  })
+
+  test('persists the writeback error message for failed audit rows', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C1234567890-LOCAL',
+      keywordEvent: {
+        eventType: 'UPDATED'
+      },
+      nativeFormat: 'UMM',
+      delegateName: 'umm',
+      corrections: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-failed',
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS'
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS'
+          }
+        }
+      ],
+      status: 'failed',
+      writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}'
+    })
+
+    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
+    expect(sparqlCall.body).toContain('gcmd:status "failed"')
+    expect(sparqlCall.body).toContain(
+      'gcmd:writebackErrorMessage "CMR writeback failed with status 400: {\\"errors\\":[\\"boom\\"]}"'
+    )
   })
 
   test('returns without writing when there are no corrections', async () => {

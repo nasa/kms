@@ -9,6 +9,16 @@ import prefixes from '@/shared/constants/prefixes'
 import { getConceptsQuery } from '../getConceptsQuery'
 
 describe('getConceptsQuery', () => {
+  describe('when validation errors occur', () => {
+    test('should throw an error for an invalid concept scheme', () => {
+      expect(() => getConceptsQuery(123)).toThrow('Invalid scheme provided')
+    })
+
+    test('should throw an error for an invalid pattern', () => {
+      expect(() => getConceptsQuery('scheme', 123)).toThrow('Invalid pattern provided')
+    })
+  })
+
   describe('when concept scheme is provided', () => {
     test('should include the concept scheme in the query', () => {
       const conceptScheme = 'scheme'

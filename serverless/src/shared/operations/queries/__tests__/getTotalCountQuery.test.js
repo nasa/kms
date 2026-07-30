@@ -65,3 +65,13 @@ describe('when generating total count query', () => {
     expect(query).toContain('FILTER(CONTAINS(LCASE(?prefLabel), LCASE("Earth & Space")))')
   })
 })
+
+describe('when validation errors occur', () => {
+  test('should throw an error for an invalid conceptScheme', () => {
+    expect(() => getTotalCountQuery({ conceptScheme: 123 })).toThrow('Invalid conceptScheme provided')
+  })
+
+  test('should throw an error for an invalid pattern', () => {
+    expect(() => getTotalCountQuery({ pattern: 123 })).toThrow('Invalid pattern provided')
+  })
+})

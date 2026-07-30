@@ -1,10 +1,18 @@
 import prefixes from '@/shared/constants/prefixes'
+import { sanitizeConceptIRI } from '@/shared/sanitizeConceptIRI'
 
-export const getConceptSchemeOfConceptQuery = (conceptUri) => `
+export const getConceptSchemeOfConceptQuery = (conceptIRI) => {
+  const safeConceptIRI = sanitizeConceptIRI(conceptIRI)
+  if (safeConceptIRI === null) {
+    throw new Error('Invalid conceptIRI provided')
+  }
+
+  return `
   ${prefixes}
 SELECT ?scheme
 WHERE {
-  <${conceptUri}> skos:inScheme ?scheme .
+  <${safeConceptIRI}> skos:inScheme ?scheme .
 }
 LIMIT 1
 `
+}

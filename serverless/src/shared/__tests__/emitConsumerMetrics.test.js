@@ -1,3 +1,5 @@
+import { CloudWatchClient, PutMetricDataCommand } from '@aws-sdk/client-cloudwatch'
+import { mockClient } from 'aws-sdk-client-mock'
 import {
   beforeEach,
   describe,
@@ -15,36 +17,18 @@ import {
 } from '../emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '../emitConsumerMetricsSafely'
 
-const {
-  CloudWatchClientMock,
-  fetchMock,
-  sendCloudWatchMock,
-  PutMetricDataCommandMock
-} = vi.hoisted(() => ({
-  CloudWatchClientMock: vi.fn(() => ({
-    send: sendCloudWatchMock
-  })),
-  fetchMock: vi.fn(),
-  sendCloudWatchMock: vi.fn(),
-  PutMetricDataCommandMock: vi.fn((input) => input)
-}))
-
-vi.mock('@aws-sdk/client-cloudwatch', () => ({
-  CloudWatchClient: CloudWatchClientMock,
-  PutMetricDataCommand: PutMetricDataCommandMock
-}))
+const cloudWatchMock = mockClient(CloudWatchClient)
 
 describe('emitConsumerMetrics', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    CloudWatchClientMock.mockImplementation(() => ({
-      send: sendCloudWatchMock
-    }))
+    cloudWatchMock.reset()
+
+    cloudWatchMock.on(PutMetricDataCommand).resolves({})
 
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
-    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('fetch', vi.fn())
     delete process.env.AWS_ENDPOINT_URL
-    sendCloudWatchMock.mockResolvedValue({})
   })
 
   test('publishes the provided consumer metrics to CloudWatch', async () => {
@@ -65,7 +49,8 @@ describe('emitConsumerMetrics', () => {
       ]
     })
 
-    expect(PutMetricDataCommandMock).toHaveBeenCalledWith({
+    const sentCommand = cloudWatchMock.commandCalls(PutMetricDataCommand)[0].args[0].input
+    expect(sentCommand).toEqual({
       Namespace: CONSUMER_METRIC_NAMESPACE,
       MetricData: [
         {
@@ -86,8 +71,8 @@ describe('emitConsumerMetrics', () => {
       ]
     })
 
-    expect(sendCloudWatchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(cloudWatchMock.commandCalls(PutMetricDataCommand).length).toBe(1)
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
     expect(logger.debug).toHaveBeenCalledWith(
       expect.stringContaining('EventsConsumed:3')
     )
@@ -103,7 +88,8 @@ describe('emitConsumerMetrics', () => {
       ]
     })
 
-    expect(PutMetricDataCommandMock).toHaveBeenCalledWith({
+    const sentCommand = cloudWatchMock.commandCalls(PutMetricDataCommand)[0].args[0].input
+    expect(sentCommand).toEqual({
       Namespace: CONSUMER_METRIC_NAMESPACE,
       MetricData: [
         {
@@ -114,12 +100,13 @@ describe('emitConsumerMetrics', () => {
       ]
     })
 
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled()
   })
 
   test('emits metrics to LocalStack CloudWatch with the query api when AWS_ENDPOINT_URL is set', async () => {
     process.env.AWS_ENDPOINT_URL = 'http://localhost:4566'
-    fetchMock.mockResolvedValue({
+
+    vi.mocked(fetch).mockResolvedValue({
       ok: true
     })
 
@@ -132,8 +119,11 @@ describe('emitConsumerMetrics', () => {
       ]
     })
 
-    expect(sendCloudWatchMock).not.toHaveBeenCalled()
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4566', {
+    // Verify CloudWatch was not called
+    expect(cloudWatchMock.commandCalls(PutMetricDataCommand).length).toBe(0)
+
+    // Verify fetch was called
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('http://localhost:4566', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
@@ -141,7 +131,9 @@ describe('emitConsumerMetrics', () => {
       body: expect.any(String)
     })
 
-    const requestBody = new URLSearchParams(fetchMock.mock.calls[0][1].body)
+    // Access the body from the fetch mock calls
+    const fetchCalls = vi.mocked(fetch).mock.calls
+    const requestBody = new URLSearchParams(fetchCalls[0][1].body)
 
     expect(requestBody.get('Action')).toBe('PutMetricData')
     expect(requestBody.get('Version')).toBe('2010-08-01')
@@ -155,7 +147,7 @@ describe('emitConsumerMetrics', () => {
 
   test('throws when the LocalStack CloudWatch query request fails', async () => {
     process.env.AWS_ENDPOINT_URL = 'http://localhost:4566'
-    fetchMock.mockResolvedValue({
+    vi.mocked(fetch).mockResolvedValue({
       ok: false,
       status: 500,
       text: vi.fn().mockResolvedValue('<?xml version="1.0"?><ErrorResponse />')
@@ -172,7 +164,7 @@ describe('emitConsumerMetrics', () => {
   })
 
   test('logs and swallows metric emission failures when using the safe helper', async () => {
-    sendCloudWatchMock.mockRejectedValueOnce(new Error('cloudwatch unavailable'))
+    cloudWatchMock.on(PutMetricDataCommand).rejectsOnce(new Error('cloudwatch unavailable'))
     vi.spyOn(logger, 'error').mockImplementation(() => {})
 
     await expect(emitConsumerMetricsSafely({
@@ -204,7 +196,7 @@ describe('emitConsumerMetrics', () => {
   })
 
   test('logs metric emission failures when safe helper uses the default empty log context', async () => {
-    sendCloudWatchMock.mockRejectedValueOnce(new Error('cloudwatch unavailable'))
+    cloudWatchMock.on(PutMetricDataCommand).rejectsOnce(new Error('cloudwatch unavailable'))
     vi.spyOn(logger, 'error').mockImplementation(() => {})
 
     await expect(emitConsumerMetricsSafely({

@@ -1,6 +1,19 @@
 import prefixes from '@/shared/constants/prefixes'
+import { escapeSparqlString } from '@/shared/escapeSparqlString'
+import { sanitizeScheme } from '@/shared/sanitizeScheme'
 
-export const getTriplesForShortNameQuery = ({ shortName, scheme }) => `
+export const getTriplesForShortNameQuery = ({ shortName, scheme }) => {
+  const safeShortName = escapeSparqlString(shortName)
+  if (safeShortName === null) {
+    throw new Error('Invalid shortName provided')
+  }
+
+  const safeScheme = sanitizeScheme(scheme)
+  if (safeScheme === null) {
+    throw new Error('Invalid scheme provided')
+  }
+
+  return `
 ${prefixes}
 SELECT DISTINCT ?s ?p ?o
 WHERE {
@@ -8,8 +21,8 @@ WHERE {
     SELECT DISTINCT ?concept
     WHERE {
       ?concept skos:prefLabel ?prefLabel .
-      FILTER(LCASE(STR(?prefLabel)) = LCASE("${shortName}"))
-      ${scheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${scheme}> .` : ''}
+      FILTER(LCASE(STR(?prefLabel)) = LCASE("${safeShortName}"))
+      ${safeScheme ? `?concept skos:inScheme <https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/${safeScheme}> .` : ''}
     }
     LIMIT 1
   }
@@ -27,3 +40,4 @@ WHERE {
   }
 }
 `
+}

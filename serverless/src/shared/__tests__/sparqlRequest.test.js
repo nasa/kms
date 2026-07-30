@@ -11,15 +11,16 @@ import { delay } from '@/shared/delay'
 
 import { resetSparqlRequestStateForTests, sparqlRequest } from '../sparqlRequest'
 
+vi.mock('@/shared/delay', () => ({
+  delay: vi.fn(() => Promise.resolve())
+}))
+
 global.fetch = vi.fn()
 
 describe('sparqlRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetSparqlRequestStateForTests()
-    vi.mock('@/shared/delay', () => ({
-      delay: vi.fn(() => Promise.resolve())
-    }))
 
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -442,12 +443,17 @@ describe('sparqlRequest', () => {
     test('should execute timeout abort callback when request exceeds timeout', async () => {
       const originalSetTimeout = global.setTimeout
       const originalClearTimeout = global.clearTimeout
+      const originalAbortController = global.AbortController
 
       const abort = vi.fn()
-      global.AbortController = vi.fn(() => ({
-        signal: {},
-        abort
-      }))
+
+      // Define a class that matches the AbortController interface
+      global.AbortController = class {
+        constructor() {
+          this.signal = {}
+          this.abort = abort
+        }
+      }
 
       global.setTimeout = vi.fn((fn) => {
         fn()
@@ -467,8 +473,10 @@ describe('sparqlRequest', () => {
       expect(abort).toHaveBeenCalled()
       expect(global.clearTimeout).toHaveBeenCalled()
 
+      // Restore globals
       global.setTimeout = originalSetTimeout
       global.clearTimeout = originalClearTimeout
+      global.AbortController = originalAbortController
     })
 
     describe('when retrying', () => {

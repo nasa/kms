@@ -171,6 +171,69 @@ describe('runCollectionMetadataCorrection', () => {
     )
   })
 
+  test('returns no-resolved-corrections when validation failures cannot be mapped to a concrete correction', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue(undefined)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).resolves.toEqual({
+      outcome: 'no-resolved-corrections',
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      nativeFormat: 'DIF10',
+      keywordValidationFailureCount: 1,
+      keywordValidationFailures: [
+        {
+          scheme: 'sciencekeywords',
+          path: ['ScienceKeywords', 0],
+          keywordValue: {
+            Category: 'EARTH SCIENCE'
+          }
+        }
+      ],
+      resolvedCorrectionCount: 0,
+      resolvedCorrections: [],
+      correctionResult: null,
+      auditResults: {
+        pending: null,
+        applied: null
+      },
+      writeResult: null,
+      source: 'metadataCorrectionService'
+    })
+  })
+
   test('marks audit actions as MANUAL for the synchronous concept-id correction flow', async () => {
     vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
       collectionConceptId: 'C1234567890-PROV',
@@ -327,6 +390,707 @@ describe('runCollectionMetadataCorrection', () => {
           eventType: 'MANUAL'
         },
         status: 'applied'
+      })
+    )
+  })
+
+  test('falls back to native defaults when the delegate omits optional correction-result fields', async () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({})
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: {
+        enabled: true,
+        updated: false
+      }
+    })
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).resolves.toEqual(expect.objectContaining({
+      outcome: 'processed',
+      nativeFormat: 'DIF10',
+      correctionResult: {
+        nativeFormat: 'DIF10',
+        delegateName: 'dif10',
+        correctionCount: 0,
+        correctionsAppliedCount: 0,
+        correctionsApplied: [],
+        correctedMetadataProduced: false
+      },
+      auditResults: {
+        pending: null,
+        applied: null
+      }
+    }))
+
+    expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+  })
+
+  test('persists a failed audit row with the writeback error message when CMR writeback fails', async () => {
+    const writebackError = new Error('CMR writeback failed with status 400: {"errors":["boom"]}')
+    writebackError.cmrResponseBody = {
+      errors: ['boom']
+    }
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE',
+          Topic: 'ATMOSPHERE',
+          Term: 'AEROSOLS',
+          VariableLevel1: 'LEGACY AEROSOLS'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: 'LEGACY AEROSOLS',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1',
+          oldKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: 'LEGACY AEROSOLS',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          },
+          newKeywordObject: {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS',
+            VariableLevel1: '',
+            VariableLevel2: '',
+            VariableLevel3: '',
+            DetailedVariable: ''
+          }
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'failed'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      source: 'metadataCorrectionApi'
+    })).rejects.toThrow('CMR writeback failed with status 400: {"errors":["boom"]}')
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        keywordEvent: {
+          eventType: 'MANUAL'
+        },
+        status: 'pending'
+      })
+    )
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        keywordEvent: {
+          eventType: 'MANUAL'
+        },
+        status: 'failed',
+        writebackErrorMessage: '{"errors":["boom"]}'
+      })
+    )
+
+    expect(emitConsumerMetricsSafely).not.toHaveBeenCalled()
+  })
+
+  test('persists a raw string writeback error response body when CMR ingest returns text', async () => {
+    const writebackError = new Error('CMR writeback failed with status 400: raw-body')
+    writebackError.cmrResponseBody = 'raw-body'
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'failed'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toBe(writebackError)
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: 'failed',
+        writebackErrorMessage: 'raw-body'
+      })
+    )
+  })
+
+  test('falls back to String(error) when a writeback rejection has no message', async () => {
+    const writebackError = {
+      toString: () => 'plain-object-writeback-failure'
+    }
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'failed'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toBe(writebackError)
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: 'failed',
+        writebackErrorMessage: 'plain-object-writeback-failure'
+      })
+    )
+  })
+
+  test('falls back to String(cmrResponseBody) when the writeback error response body is not serializable', async () => {
+    const circularResponseBody = {}
+    circularResponseBody.self = circularResponseBody
+
+    const writebackError = new Error('CMR writeback failed with status 400: circular')
+    writebackError.cmrResponseBody = circularResponseBody
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'failed'
+      })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toBe(writebackError)
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: 'failed',
+        writebackErrorMessage: '[object Object]'
+      })
+    )
+  })
+
+  test('does not persist failed audit rows when writeback fails before any corrections were applied', async () => {
+    const writebackError = new Error('CMR writeback failed before corrections were applied')
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      correctionsApplied: []
+    })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toBe(writebackError)
+
+    expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+  })
+
+  test('logs and rethrows the original writeback error when failed-audit persistence also fails', async () => {
+    const writebackError = new Error('CMR writeback failed with status 400: {"errors":["boom"]}')
+    const auditError = new Error('failed audit persistence')
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockRejectedValueOnce(auditError)
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toBe(writebackError)
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Failed to persist failed metadata correction audit log',
+      expect.objectContaining({
+        collectionConceptId: 'C1234567890-PROV',
+        nativeFormat: 'DIF10',
+        auditError: 'failed audit persistence',
+        writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}'
+      })
+    )
+  })
+
+  test('falls back to String(auditError) when failed-audit persistence rejects without a message property', async () => {
+    const writebackError = new Error('CMR writeback failed with status 400: {"errors":["boom"]}')
+    const auditError = {
+      toString: () => 'failed-audit-persistence-fallback'
+    }
+
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: [],
+      responseBody: {
+        errors: ['invalid keyword'],
+        warnings: []
+      }
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([
+      {
+        scheme: 'sciencekeywords',
+        path: ['ScienceKeywords', 0],
+        keywordValue: {
+          Category: 'EARTH SCIENCE'
+        }
+      }
+    ])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE'
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE - UPDATED'
+      },
+      action: 'replace'
+    })
+
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      delegateName: 'dif10',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctionsApplied: [
+        {
+          scheme: 'sciencekeywords',
+          keywordConceptUuid: 'uuid-1'
+        }
+      ],
+      correctedMetadata: '<DIF>corrected</DIF>'
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog)
+      .mockResolvedValueOnce({
+        insertedCount: 1,
+        publishedVersionName: 'published',
+        status: 'pending'
+      })
+      .mockRejectedValueOnce(auditError)
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV'
+    })).rejects.toBe(writebackError)
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Failed to persist failed metadata correction audit log',
+      expect.objectContaining({
+        collectionConceptId: 'C1234567890-PROV',
+        nativeFormat: 'DIF10',
+        auditError: 'failed-audit-persistence-fallback',
+        writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}'
       })
     )
   })

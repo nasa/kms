@@ -1,3 +1,5 @@
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge'
+import { mockClient } from 'aws-sdk-client-mock'
 import {
   beforeEach,
   describe,
@@ -50,10 +52,7 @@ const SCIENCE_PATH_TWO_KEYWORD = {
   DetailedVariable: ''
 }
 
-const { sendEventBridgeMock, PutEventsCommandMock } = vi.hoisted(() => ({
-  sendEventBridgeMock: vi.fn(),
-  PutEventsCommandMock: vi.fn((input) => input)
-}))
+const eventBridgeMock = mockClient(EventBridgeClient)
 
 const createInsertedScienceKeywordEvent = ({
   uuid,
@@ -142,12 +141,6 @@ vi.mock('@/shared/redis-path-store/writePublishedConceptCaches', () => ({
 }))
 
 vi.mock('@/shared/sparqlRequest')
-vi.mock('@aws-sdk/client-eventbridge', () => ({
-  EventBridgeClient: vi.fn(() => ({
-    send: sendEventBridgeMock
-  })),
-  PutEventsCommand: PutEventsCommandMock
-}))
 
 describe('publisher handler', () => {
   const mockEvent = {
@@ -159,6 +152,7 @@ describe('publisher handler', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    eventBridgeMock.reset()
 
     delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
 
@@ -183,7 +177,8 @@ describe('publisher handler', () => {
       topicArn: 'arn:aws:sns:us-east-1:123456789012:keyword-events'
     })
 
-    sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 0 })
+    eventBridgeMock.on(PutEventsCommand).resolves({ FailedEntryCount: 0 })
+
     sparqlRequest.mockResolvedValue({ ok: true })
 
     vi.spyOn(logger, 'debug').mockImplementation(() => {})
@@ -222,7 +217,7 @@ describe('publisher handler', () => {
       NewKeywordObject: SCIENCE_PATH_KEYWORD
     }))
 
-    expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+    expect(eventBridgeMock.commandCalls(PutEventsCommand).length).toBe(1)
 
     expect(result).toEqual({
       status: 'success',
@@ -269,7 +264,7 @@ describe('publisher handler', () => {
 
     expect(sparqlRequest).not.toHaveBeenCalled()
     expect(publishKeywordEvent).not.toHaveBeenCalled()
-    expect(sendEventBridgeMock).not.toHaveBeenCalled()
+    expect(eventBridgeMock.commandCalls(PutEventsCommand).length).toBe(0)
   })
 
   test('returns partial_success when published CSV export fails', async () => {
@@ -354,7 +349,7 @@ describe('publisher handler', () => {
     )
 
     expect(publishKeywordEvent).not.toHaveBeenCalled()
-    expect(sendEventBridgeMock).not.toHaveBeenCalled()
+    expect(eventBridgeMock.commandCalls(PutEventsCommand).length).toBe(0)
   })
 
   test('returns partial_success when EventBridge emit fails after SNS publish succeeds', async () => {
@@ -365,12 +360,12 @@ describe('publisher handler', () => {
       })
     ])
 
-    sendEventBridgeMock.mockResolvedValue({ FailedEntryCount: 1 })
+    eventBridgeMock.on(PutEventsCommand).resolves({ FailedEntryCount: 1 })
 
     const result = await publisher(mockEvent)
 
     expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
-    expect(sendEventBridgeMock).toHaveBeenCalledTimes(1)
+    expect(eventBridgeMock.commandCalls(PutEventsCommand).length).toBe(1)
     expect(result).toEqual({
       status: 'partial_success',
       versionName: 'v1.0.0',

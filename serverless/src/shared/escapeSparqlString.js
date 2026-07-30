@@ -1,26 +1,58 @@
 /**
- * Escapes special characters in a string for use in SPARQL queries.
+ * Escapes a string for safe insertion into a SPARQL query string literal.
+ * Handles control characters, backslashes, double quotes, single quotes, and null bytes.
  *
- * This function performs the following escaping operations:
- * 1. Escapes backslashes, double quotes, and single quotes by prefixing them with a backslash.
- * 2. Replaces null characters (ASCII 0) with the string '\0'.
- *
- * @param {string} str - The string to escape.
- * @returns {string} The escaped string safe for use in SPARQL queries.
- *
- * @example
- * escapeSparqlString('Hello "world"') // Returns: 'Hello \\"world\\"'
- * escapeSparqlString("It's a test") // Returns: "It\\'s a test"
- * escapeSparqlString('Null\0character') // Returns: 'Null\\0character'
- *
- * @throws {TypeError} If the input is not a string, an empty string is returned.
+ * @param {*} str - The raw string input from a request or user parameter.
+ * @returns {string|null} The safely escaped string, '' if missing/empty, or null if invalid.
  */
 export const escapeSparqlString = (str) => {
-  if (typeof str !== 'string') return ''
+  if (str === null || str === undefined || str === '') {
+    return ''
+  }
 
-  return str
-    .replace(/[\\"']/g, '\\$&')
-    .split('')
-    .map((char) => (char.charCodeAt(0) === 0 ? '\\0' : char))
-    .join('')
+  if (typeof str !== 'string') {
+    return null
+  }
+
+  let decoded = str
+  let previous
+  let iterations = 0
+  const maxIterations = 3 // Prevents infinite loops/DoS from malicious input
+
+  // Iteratively decode to strip away multi-layer (single, double, etc.) URL encoding
+  do {
+    previous = decoded
+    try {
+      decoded = decodeURIComponent(decoded)
+    } catch {
+      // If decoding fails due to malformed sequences, treat as invalid input
+      return null
+    }
+
+    iterations += 1
+  } while (decoded !== previous && iterations < maxIterations)
+
+  const escaped = decoded
+    // Strip control characters with no valid SPARQL escape, including NUL bytes
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x07\x0B\x0E-\x1F]/g, '')
+    // Order matters: backslash MUST be escaped first
+    .replace(/\\/g, '\\\\')
+    // Escape double quotes to prevent breaking the SPARQL string literal
+    .replace(/"/g, '\\"')
+    // Escape single quotes to prevent breaking the SPARQL string literal
+    .replace(/'/g, "\\'")
+    // Escape newline characters into literal backslash-n format
+    .replace(/\n/g, '\\n')
+    // Escape carriage return characters into literal backslash-r format
+    .replace(/\r/g, '\\r')
+    // Escape tab characters into literal backslash-t format
+    .replace(/\t/g, '\\t')
+    // Escape backspace control characters into literal backslash-b format
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x08/g, '\\b')
+    // Escape form feed characters into literal backslash-f format
+    .replace(/\f/g, '\\f')
+
+  return escaped
 }

@@ -15,6 +15,7 @@ describe('edlAuthorizer', () => {
   let loggerInfoSpy
 
   beforeEach(() => {
+    vi.restoreAllMocks()
     loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
     loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }

@@ -39,3 +39,9 @@ describe('getNarrowerConceptsQuery', () => {
     expect(removeWhitespace(result)).toEqual(removeWhitespace(expected))
   })
 })
+
+describe('when validation errors occur', () => {
+  test('should throw an error for an invalid scheme', () => {
+    expect(() => getNarrowerConceptsQuery('ABC$%')).toThrow('Invalid scheme provided')
+  })
+})
