@@ -17,7 +17,6 @@ const REQUIRED_ASSURANCE_LEVEL = 5
  * @returns {Promise<Object>} IAM policy document granting or denying access.
  */
 export const edlAuthorizer = async (event) => {
-  logger.debug('EDL Authorizer called with event:', JSON.stringify(event, null, 2))
   const {
     headers = {},
     methodArn,
@@ -34,14 +33,28 @@ export const edlAuthorizer = async (event) => {
 
   // If still not found, default to an empty string
   token = token || ''
-  logger.debug('Launchpad token:', token ? 'Present' : 'Not present')
+  const presentedToken = String(token).trim()
+
+  logger.info('[edl-authorizer] Authorization request received', {
+    methodArnPresent: Boolean(methodArn),
+    tokenPresent: Boolean(presentedToken),
+    tokenLength: presentedToken.length
+  })
 
   try {
     const resolvedSystemToken = await getCmrSystemToken()
-    const presentedToken = String(token || '').trim()
+    const systemTokenMatches = Boolean(
+      resolvedSystemToken && presentedToken === resolvedSystemToken
+    )
 
-    if (resolvedSystemToken && presentedToken === resolvedSystemToken) {
-      logger.debug('Authorization successful for CMR system token')
+    logger.info('[edl-authorizer] System token comparison completed', {
+      systemTokenPresent: Boolean(resolvedSystemToken),
+      systemTokenLength: resolvedSystemToken?.length || 0,
+      systemTokenMatches
+    })
+
+    if (systemTokenMatches) {
+      logger.info('[edl-authorizer] Authorization successful for CMR system token')
 
       return generatePolicy('cmr-system', 'Allow', methodArn)
     }
@@ -80,7 +93,10 @@ export const edlAuthorizer = async (event) => {
 
     return policy
   } catch (error) {
-    logger.error('EDL Authorizer error:', error)
+    logger.error('EDL Authorizer error:', {
+      errorMessage: error.message,
+      errorName: error.name
+    })
 
     // Return a "Deny" policy for any caught errors
     const denyPolicy = generatePolicy('user', 'Deny', methodArn)

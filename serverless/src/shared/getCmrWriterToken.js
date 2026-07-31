@@ -34,8 +34,8 @@ const createSsmClient = () => {
 }
 
 /**
- * Validates that configured CMR auth values are already full bearer authorization
- * header values so callers can forward them unchanged.
+ * Validates that the configured writer-token fallback is already a full bearer
+ * authorization header value so callers can forward it unchanged.
  *
  * @param {string} token Raw configured token value.
  * @param {string} source Source label used in warning logs.
@@ -94,10 +94,7 @@ const readSystemTokenFromSsm = async (parameterName) => {
  */
 export const getCmrSystemToken = async () => {
   const parameterName = getSystemTokenParameterName()
-  const systemToken = resolveAuthorizationHeaderValue(
-    await readSystemTokenFromSsm(parameterName),
-    'ssm'
-  )
+  const systemToken = await readSystemTokenFromSsm(parameterName)
 
   return systemToken || undefined
 }

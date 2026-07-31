@@ -88,10 +88,10 @@ describe('edlAuthorizer', () => {
 
   describe('when the supplied token matches the configured CMR system token', () => {
     test('returns an allow policy without fetching an EDL profile', async () => {
-      vi.mocked(getCmrSystemToken).mockResolvedValueOnce('Bearer system-token')
+      vi.mocked(getCmrSystemToken).mockResolvedValueOnce('system-token')
 
       const event = {
-        authorizationToken: 'Bearer system-token',
+        authorizationToken: 'system-token',
         methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/POST/resource'
       }
 
@@ -113,6 +113,18 @@ describe('edlAuthorizer', () => {
 
       expect(fetchEdlProfile).not.toHaveBeenCalled()
       expect(getCmrSystemToken).toHaveBeenCalledWith()
+      expect(logger.info).toHaveBeenCalledWith(
+        '[edl-authorizer] System token comparison completed',
+        {
+          systemTokenPresent: true,
+          systemTokenLength: 12,
+          systemTokenMatches: true
+        }
+      )
+
+      expect(logger.info).toHaveBeenCalledWith(
+        '[edl-authorizer] Authorization successful for CMR system token'
+      )
     })
   })
 
@@ -189,7 +201,10 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError)
+      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', {
+        errorMessage: unauthorizedError.message,
+        errorName: unauthorizedError.name
+      })
     })
   })
 
