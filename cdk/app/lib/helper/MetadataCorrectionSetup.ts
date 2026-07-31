@@ -17,6 +17,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
+  cmrSystemTokenParameterName?: string
   metadataCorrectionRequestDelayMs?: string
   metadataCorrectionServiceReservedConcurrency?: string
   cmrWriterToken?: string
@@ -68,6 +69,7 @@ export class MetadataCorrectionSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrSystemTokenParameterName,
       metadataCorrectionRequestDelayMs,
       metadataCorrectionServiceReservedConcurrency,
       cmrWriterToken,
@@ -145,6 +147,9 @@ export class MetadataCorrectionSetup extends Construct {
         reservedConcurrentExecutions: reservedConcurrency,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
+          ...(cmrSystemTokenParameterName
+            ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
+            : {}),
           CMR_WRITER_TOKEN: cmrWriterToken || '',
           ...(cmrWritebackProviders ? { CMR_WRITEBACK_PROVIDERS: cmrWritebackProviders } : {}),
           ...(redisEnabled ? { REDIS_ENABLED: redisEnabled } : {}),
@@ -187,6 +192,19 @@ export class MetadataCorrectionSetup extends Construct {
         }
       }
     }))
+
+    if (cmrSystemTokenParameterName) {
+      const systemTokenParameterArn = cdk.Stack.of(this).formatArn({
+        service: 'ssm',
+        resource: 'parameter',
+        resourceName: cmrSystemTokenParameterName.replace(/^\//, '')
+      })
+
+      this.metadataCorrectionServiceLambda.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [systemTokenParameterArn]
+      }))
+    }
 
     this.metadataCorrectionRequestsTopicArnOutput = new cdk.CfnOutput(this, 'MetadataCorrectionRequestsTopicArn', {
       description: 'SNS topic ARN for metadata correction request publishing',

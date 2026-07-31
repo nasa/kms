@@ -7,6 +7,7 @@ VERSION="${VERSION:-draft}"
 SCHEME_ID="${SCHEME_ID:-sciencekeywords}"
 BROADER_ID="${BROADER_ID:-1eb0ea0a-312c-4d74-8d42-6f1ad758f999}"
 LABEL_PREFIX="${LABEL_PREFIX:-LOCAL TEST KEYWORD}"
+AUTHORIZATION_HEADER="${AUTHORIZATION_HEADER:-}"
 TIMESTAMP_SUFFIX="$(date +%s)"
 CONCEPT_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 PREF_LABEL="${LABEL_PREFIX} ${TIMESTAMP_SUFFIX}"
@@ -36,12 +37,20 @@ echo "  prefLabel: ${PREF_LABEL}"
 echo "  scheme: ${SCHEME_ID}"
 echo "  broader: ${BROADER_ID}"
 
-curl \
+curl_args=(
   --fail \
   --silent \
   --show-error \
   -X POST "${API_BASE_URL}/concept?version=${VERSION}" \
   -H 'Content-Type: application/rdf+xml' \
   --data-binary "${RDF_XML}"
+)
+
+# Pass through an Authorization header only when explicitly provided.
+if [[ -n "${AUTHORIZATION_HEADER}" ]]; then
+  curl_args+=(-H "Authorization: ${AUTHORIZATION_HEADER}")
+fi
+
+curl "${curl_args[@]}"
 
 echo

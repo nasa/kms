@@ -68,7 +68,12 @@ export const cmrGetRequest = async ({
     fetchOptions.headers = requestHeaders
   }
 
-  logger.debug('URL:', fullUrl, 'with options:', fetchOptions)
+  const loggableFetchOptions = {
+    method: fetchOptions.method,
+    ...(fetchOptions.headers ? { headerNames: Object.keys(fetchOptions.headers) } : {})
+  }
+
+  logger.debug('URL:', fullUrl, 'with options:', loggableFetchOptions)
 
   logger.info('[cmr-get] Sending CMR request', {
     method: 'GET',

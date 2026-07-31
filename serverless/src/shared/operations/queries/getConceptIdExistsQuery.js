@@ -10,7 +10,7 @@ export const getConceptIdExistsQuery = (conceptIRI) => {
   return `
   ${prefixes}
 SELECT ?p ?o 
-WHERE { <${safeConceptIRI}> ?p ?o } 
+WHERE { <${safeConceptIRI}> ?p ?o }
 LIMIT 1
 `
 }

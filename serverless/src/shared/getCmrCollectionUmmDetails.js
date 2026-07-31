@@ -1,4 +1,5 @@
 import { cmrGetRequest } from './cmrGetRequest'
+import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
 /**
@@ -65,9 +66,18 @@ export const getCmrCollectionUmmDetails = async ({
     throw new Error('Missing collection concept id for CMR UMM lookup')
   }
 
+  const authorizationToken = await getCmrWriterToken()
+
+  if (!authorizationToken) {
+    throw new Error('Missing CMR authorization token for CMR UMM lookup')
+  }
+
   const response = await cmrGetRequest({
     path: buildCollectionSearchPath(collectionConceptId),
-    accept: CMR_COLLECTION_UMM_RESULTS_ACCEPT
+    accept: CMR_COLLECTION_UMM_RESULTS_ACCEPT,
+    headers: {
+      Authorization: authorizationToken
+    }
   })
 
   if (!response.ok) {

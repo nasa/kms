@@ -1,12 +1,22 @@
 import { downcaseKeys } from '@/shared/downcaseKeys'
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
 import { generatePolicy } from '@/shared/generatePolicy'
+import { getCmrSystemToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 const REQUIRED_ASSURANCE_LEVEL = 5
 
+/**
+ * Authorizes incoming API Gateway requests against either the configured CMR
+ * system token or a valid EDL profile with sufficient assurance level.
+ *
+ * @param {Object} event API Gateway authorizer event.
+ * @param {Object} [event.headers] Request headers.
+ * @param {string} [event.methodArn] Invoked API Gateway method ARN.
+ * @param {string} [event.authorizationToken] Direct authorizer token value.
+ * @returns {Promise<Object>} IAM policy document granting or denying access.
+ */
 export const edlAuthorizer = async (event) => {
-  logger.debug('EDL Authorizer called with event:', JSON.stringify(event, null, 2))
   const {
     headers = {},
     methodArn,
@@ -23,9 +33,32 @@ export const edlAuthorizer = async (event) => {
 
   // If still not found, default to an empty string
   token = token || ''
-  logger.debug('Launchpad token:', token ? 'Present' : 'Not present')
+  const presentedToken = String(token).trim()
+
+  logger.debug('[edl-authorizer] Authorization request received', {
+    methodArnPresent: Boolean(methodArn),
+    tokenPresent: Boolean(presentedToken),
+    tokenLength: presentedToken.length
+  })
 
   try {
+    const resolvedSystemToken = await getCmrSystemToken()
+    const systemTokenMatches = Boolean(
+      resolvedSystemToken && presentedToken === resolvedSystemToken
+    )
+
+    logger.debug('[edl-authorizer] System token comparison completed', {
+      systemTokenPresent: Boolean(resolvedSystemToken),
+      systemTokenLength: resolvedSystemToken?.length || 0,
+      systemTokenMatches
+    })
+
+    if (systemTokenMatches) {
+      logger.debug('[edl-authorizer] Authorization successful for CMR system token')
+
+      return generatePolicy('cmr-system', 'Allow', methodArn)
+    }
+
     const profile = await fetchEdlProfile(token)
     logger.debug('Fetched EDL profile:', JSON.stringify(profile, null, 2))
     const {
@@ -60,7 +93,10 @@ export const edlAuthorizer = async (event) => {
 
     return policy
   } catch (error) {
-    logger.error('EDL Authorizer error:', error)
+    logger.error('EDL Authorizer error:', {
+      errorMessage: error.message,
+      errorName: error.name
+    })
 
     // Return a "Deny" policy for any caught errors
     const denyPolicy = generatePolicy('user', 'Deny', methodArn)

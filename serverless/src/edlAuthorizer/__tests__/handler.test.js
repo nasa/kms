@@ -1,21 +1,27 @@
 import fetchEdlProfile from '@/shared/fetchEdlProfile'
+import { getCmrSystemToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 import edlAuthorizer from '../handler'
 
 vi.mock('@/shared/fetchEdlProfile')
+vi.mock('@/shared/getCmrWriterToken', () => ({
+  getCmrSystemToken: vi.fn()
+}))
 
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
+  let loggerDebugSpy
   let loggerErrorSpy
-  let loggerInfoSpy
 
   beforeEach(() => {
     vi.restoreAllMocks()
+    loggerDebugSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {})
     loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
-    loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     fetchEdlProfile.mockReset()
+    vi.mocked(getCmrSystemToken).mockReset()
+
     fetchEdlProfile.mockResolvedValue({
       email: 'test.user@localhost',
       first_name: 'Test',
@@ -23,6 +29,8 @@ describe('edlAuthorizer', () => {
       uid: 'mock_user',
       assuranceLevel: 5
     })
+
+    vi.mocked(getCmrSystemToken).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -30,8 +38,8 @@ describe('edlAuthorizer', () => {
   })
 
   afterAll(() => {
+    loggerDebugSpy?.mockRestore()
     loggerErrorSpy?.mockRestore()
-    loggerInfoSpy?.mockRestore()
   })
 
   describe('when the token is for a valid user', () => {
@@ -75,6 +83,48 @@ describe('edlAuthorizer', () => {
 
       // Verify that fetchEdlProfile was called with the correct token
       expect(fetchEdlProfile).toHaveBeenCalledWith('mock-token-in-event')
+    })
+  })
+
+  describe('when the supplied token matches the configured CMR system token', () => {
+    test('returns an allow policy without fetching an EDL profile', async () => {
+      vi.mocked(getCmrSystemToken).mockResolvedValueOnce('system-token')
+
+      const event = {
+        authorizationToken: 'system-token',
+        methodArn: 'arn:aws:execute-api:us-east-1:123456789012:api-id/stage/POST/resource'
+      }
+
+      const response = await edlAuthorizer(event, {})
+
+      expect(response).toEqual({
+        principalId: 'cmr-system',
+        policyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Action: 'execute-api:Invoke',
+              Effect: 'Allow',
+              Resource: event.methodArn
+            }
+          ]
+        }
+      })
+
+      expect(fetchEdlProfile).not.toHaveBeenCalled()
+      expect(getCmrSystemToken).toHaveBeenCalledWith()
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[edl-authorizer] System token comparison completed',
+        {
+          systemTokenPresent: true,
+          systemTokenLength: 12,
+          systemTokenMatches: true
+        }
+      )
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        '[edl-authorizer] Authorization successful for CMR system token'
+      )
     })
   })
 
@@ -151,7 +201,10 @@ describe('edlAuthorizer', () => {
       })
 
       expect(logger.error).toHaveBeenCalledTimes(1)
-      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', unauthorizedError)
+      expect(logger.error).toHaveBeenCalledWith('EDL Authorizer error:', {
+        errorMessage: unauthorizedError.message,
+        errorName: unauthorizedError.name
+      })
     })
   })
 

@@ -8,10 +8,15 @@ import {
 
 import { cmrGetRequest } from '../cmrGetRequest'
 import { getCmrCollectionUmmDetails } from '../getCmrCollectionUmmDetails'
+import { getCmrWriterToken } from '../getCmrWriterToken'
 import { logger } from '../logger'
 
 vi.mock('../cmrGetRequest', () => ({
   cmrGetRequest: vi.fn()
+}))
+
+vi.mock('../getCmrWriterToken', () => ({
+  getCmrWriterToken: vi.fn()
 }))
 
 vi.mock('../logger', () => ({
@@ -23,6 +28,7 @@ vi.mock('../logger', () => ({
 describe('getCmrCollectionUmmDetails', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getCmrWriterToken).mockResolvedValue('resolved-cmr-token')
   })
 
   test('should fetch collection UMM details from CMR search results', async () => {
@@ -52,7 +58,10 @@ describe('getCmrCollectionUmmDetails', () => {
 
     expect(cmrGetRequest).toHaveBeenCalledWith({
       path: '/search/collections?concept_id=C1994460846-LARC_ASDC&page_size=1',
-      accept: 'application/vnd.nasa.cmr.umm_results+json'
+      accept: 'application/vnd.nasa.cmr.umm_results+json',
+      headers: {
+        Authorization: 'resolved-cmr-token'
+      }
     })
 
     expect(result).toEqual({
@@ -121,6 +130,16 @@ describe('getCmrCollectionUmmDetails', () => {
     await expect(getCmrCollectionUmmDetails({})).rejects.toThrow(
       'Missing collection concept id for CMR UMM lookup'
     )
+  })
+
+  test('should reject before requesting CMR when no authorization token is available', async () => {
+    vi.mocked(getCmrWriterToken).mockResolvedValue(undefined)
+
+    await expect(getCmrCollectionUmmDetails({
+      collectionConceptId: 'C123-PROV'
+    })).rejects.toThrow('Missing CMR authorization token for CMR UMM lookup')
+
+    expect(cmrGetRequest).not.toHaveBeenCalled()
   })
 
   test('should throw when CMR returns an unsuccessful response', async () => {

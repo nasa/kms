@@ -27,13 +27,6 @@ const serializeCorrectedMetadata = (correctedMetadata) => (
 const normalizeProviderId = (providerId) => String(providerId ?? '').trim().toUpperCase()
 
 /**
- * Reads the direct writer-token override from runtime environment variables.
- *
- * @returns {string} Trimmed writer token or an empty string when unset.
- */
-const getConfiguredWriterToken = () => String(process.env.CMR_WRITER_TOKEN || '').trim()
-
-/**
  * Parses the rollout allowlist that controls which providers can write back to CMR.
  *
  * @returns {string[]} Normalized provider ids from `CMR_WRITEBACK_PROVIDERS`.
@@ -62,13 +55,6 @@ const isWritebackEnabledForProvider = (providerId) => {
 
   return enabledProviders.includes(normalizeProviderId(providerId))
 }
-
-/**
- * True when a direct writer token is configured for auth.
- *
- * @returns {boolean} `true` when writeback auth is configured.
- */
-const isWriterTokenConfigured = () => Boolean(getConfiguredWriterToken())
 
 const UMM_JSON_MEDIA_TYPE = 'application/vnd.nasa.cmr.umm+json'
 
@@ -225,7 +211,8 @@ const createWritebackError = async ({
  * - `ALL` => enabled for every provider
  * - comma-separated provider ids => enabled only for those providers
  *
- * Authentication uses a bearer token from `CMR_WRITER_TOKEN`.
+ * Authentication uses the resolved CMR authorization value from the configured system-token
+ * parameter, with `CMR_WRITER_TOKEN` as the runtime fallback.
  *
  * @param {Object} params Write request details.
  * @param {string} [params.collectionConceptId] Collection concept id being corrected.
@@ -268,7 +255,10 @@ export const writeCorrectedMetadataToCmr = async ({
   const correctionsAppliedCount = Array.isArray(correctionsApplied) ? correctionsApplied.length : 0
   const correctedMetadataBytes = getCorrectedMetadataByteLength(correctedMetadata)
   const writebackEnabled = isWritebackEnabledForProvider(providerId)
-  const writerTokenConfigured = isWriterTokenConfigured()
+  const authorizationToken = writebackEnabled
+    ? await getCmrWriterToken()
+    : undefined
+  const writerTokenConfigured = Boolean(authorizationToken)
 
   if (!writebackEnabled || !writerTokenConfigured) {
     if (writebackEnabled && !writerTokenConfigured) {
@@ -340,7 +330,6 @@ export const writeCorrectedMetadataToCmr = async ({
 
   const path = `/ingest/providers/${encodeURIComponent(providerId)}/collections/${encodeURIComponent(nativeId)}`
   const contentType = getNativeMetadataContentType(nativeFormat, nativeMetadataContentType)
-  const authorizationToken = await getCmrWriterToken()
   const response = await cmrPutRequest({
     path,
     body: serializedMetadata,
@@ -348,7 +337,7 @@ export const writeCorrectedMetadataToCmr = async ({
     accept: 'application/json',
     timeoutMs: CMR_WRITEBACK_TIMEOUT_MS,
     headers: {
-      Authorization: `Bearer ${authorizationToken}`,
+      Authorization: authorizationToken,
       'cmr-validate-keywords': 'false',
       'Cmr-Validate-Umm-C': 'false'
     }
