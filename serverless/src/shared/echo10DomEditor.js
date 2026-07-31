@@ -239,6 +239,24 @@ export const ECHO10_SCHEME_EDITORS = {
         'ShortName'
       ]
     },
+    delete: [
+      {
+        fieldPath: '//Collection/ProcessingCenter',
+        condition: ({ correction, editor: currentEditor }) => (
+          correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
+          && currentEditor.getNestedText(null, '//Collection/ProcessingCenter')
+          === correction.oldKeywordObject?.ShortName
+        )
+      },
+      {
+        fieldPath: '//Collection/ArchiveCenter',
+        condition: ({ correction, editor: currentEditor }) => (
+          correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
+          && currentEditor.getNestedText(null, '//Collection/ArchiveCenter')
+          === correction.oldKeywordObject?.ShortName
+        )
+      }
+    ],
     replace: [
       {
         // XML field to write to

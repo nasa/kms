@@ -1,0 +1,127 @@
+{
+  "collectionConceptId": "C1234567890-LOCAL",
+  "nativeFormat": "DIF10",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "ANTARCTICA",
+        "Subregion1": "",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": "MCMURDO SOUND_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "GEOPHONES_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "idnnode",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "CEOS_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "SPOT-4_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "sciencekeywords",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "OCEANS",
+        "Term": "MARINE SEDIMENTS_SHOULD_DELETE",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "chronounits",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE_SHOULD_DELETE",
+        "Age": "",
+        "SubAge": ""
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "ALIENS_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "delete",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NZ/NZAI/ANZ_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "delete",
+      "oldKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "OpenSearch_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "verticalresolutionrange",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "5 meters"
+      }
+    },
+    {
+      "scheme": "horizontalresolutionrange",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "10 meters"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "NA"
+      }
+    }
+  ]
+}

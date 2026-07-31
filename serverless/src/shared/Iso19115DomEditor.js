@@ -18,6 +18,26 @@ const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(c
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
 
 /**
+ * Builds an ISO keyword path, using NONE only for gaps before a later populated level.
+ *
+ * @param {string[]} fieldKeys Ordered keyword hierarchy fields.
+ * @param {Object} keywordObject Keyword values keyed by hierarchy field.
+ * @returns {string} Serialized ISO keyword path.
+ */
+const buildKeywordPath = (fieldKeys, keywordObject = {}) => {
+  const values = fieldKeys.map((key) => String(keywordObject[key] || '').trim())
+  const lastValueIndex = values.reduce(
+    (lastIndex, value, index) => (value ? index : lastIndex),
+    -1
+  )
+
+  return values
+    .slice(0, lastValueIndex + 1)
+    .map((value) => value || 'NONE')
+    .join(' > ')
+}
+
+/**
  * Factory to generate standardized keyword block editors.
  * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
  * @param {Object} options - Configuration options.
@@ -56,10 +76,10 @@ const createKeywordBlock = (type, {
       fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
-        getValue: getValue || (({ correction }) => fieldKeys
-          .map((k) => correction.newKeywordObject[k] || 'NONE')
-          .join(' > ')
-        )
+        getValue: getValue || (({ correction }) => buildKeywordPath(
+          fieldKeys,
+          correction.newKeywordObject
+        ))
       }
     },
     // Dynamically add secondary paths for synchronization
@@ -73,9 +93,10 @@ const createKeywordBlock = (type, {
         fieldPath: path,
         source: {
           type: 'computed',
-          getValue: pathGetValue || getValue || (({ correction }) => fieldKeys
-            .map((k) => correction.newKeywordObject[k] || 'NONE')
-            .join(' > '))
+          getValue: pathGetValue || getValue || (({ correction }) => buildKeywordPath(
+            fieldKeys,
+            correction.newKeywordObject
+          ))
         }
       }
     })

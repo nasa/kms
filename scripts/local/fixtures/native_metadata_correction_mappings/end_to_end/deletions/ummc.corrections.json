@@ -1,0 +1,119 @@
+{
+  "collectionConceptId": "C1234567855-LOCAL",
+  "nativeFormat": "UMM",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "OCEAN",
+        "Type": "ATLANTIC OCEAN",
+        "Subregion1": "SOUTH ATLANTIC OCEAN",
+        "Subregion2": "SOUTH GEORGIA ISLAND_SHOULD_DELETE",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "SSALT_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "idnnode",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "CEOS_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Class": "Air-based Platforms",
+        "Type": "Rotorcraft/Helicopter",
+        "ShortName": "AS350-B3_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "sciencekeywords",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "ATMOSPHERIC TEMPERATURE",
+        "VariableLevel1": "UPPER AIR TEMPERATURE",
+        "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+        "VariableLevel3": "BOUNDARY LAYER TEMPERATURE PROFILES_SHOULD_DELETE",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "chronounits",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE_SHOULD_DELETE",
+        "Age": "",
+        "SubAge": ""
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "CASERTZ_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "delete",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DRSC_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "delete",
+      "oldKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "GET DATA",
+        "Subtype": "VIRTUAL COLLECTION_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "COG_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "2"
+      }
+    }
+  ]
+}

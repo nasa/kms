@@ -1,0 +1,100 @@
+{
+  "collectionConceptId": "C1234567222-LOCAL",
+  "nativeFormat": "ISO19115",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "MODIS_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "ATLAS_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "AQUA_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "TERRA_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "sciencekeywords",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS_SHOULD_DELETE",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "CANADA",
+        "Subregion2": "ALBERTA_SHOULD_DELETE",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "M - N",
+        "ShortName": "MEASURES_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "delete",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DOC/NOAA/NESDIS/NCEI_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "FARMING_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "HDF5_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "3"
+      }
+    }
+  ]
+}

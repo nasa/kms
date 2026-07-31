@@ -329,9 +329,16 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
             // Check if we found a platform or instrument node
             if (localName === 'EOS_Platform' || localName === 'MI_Platform'
           || localName === 'EOS_Instrument' || localName === 'MI_Instrument') {
-              // Found the acquisition wrapper node, remove it entirely
-              if (currentNode.parentNode) {
-                currentNode.parentNode.removeChild(currentNode)
+              // Remove the property wrapper with its value to avoid leaving
+              // empty gmi:platform or gmi:instrument elements.
+              const propertyNode = currentNode.parentNode
+              const nodeToDelete = propertyNode
+                && (propertyNode.localName === 'platform' || propertyNode.localName === 'instrument')
+                ? propertyNode
+                : currentNode
+
+              if (nodeToDelete.parentNode) {
+                nodeToDelete.parentNode.removeChild(nodeToDelete)
               }
 
               break
@@ -371,8 +378,15 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
           let currentNode = identifier.parentNode
           while (currentNode) {
             if (currentNode.localName === 'MI_Operation') {
-              if (currentNode.parentNode) {
-                currentNode.parentNode.removeChild(currentNode)
+              // Remove the operation property with its value so the
+              // acquisition block does not retain an empty gmi:operation.
+              const propertyNode = currentNode.parentNode
+              const nodeToDelete = propertyNode?.localName === 'operation'
+                ? propertyNode
+                : currentNode
+
+              if (nodeToDelete.parentNode) {
+                nodeToDelete.parentNode.removeChild(nodeToDelete)
               }
 
               break
