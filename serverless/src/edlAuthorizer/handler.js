@@ -35,7 +35,7 @@ export const edlAuthorizer = async (event) => {
   token = token || ''
   const presentedToken = String(token).trim()
 
-  logger.info('[edl-authorizer] Authorization request received', {
+  logger.debug('[edl-authorizer] Authorization request received', {
     methodArnPresent: Boolean(methodArn),
     tokenPresent: Boolean(presentedToken),
     tokenLength: presentedToken.length
@@ -47,14 +47,14 @@ export const edlAuthorizer = async (event) => {
       resolvedSystemToken && presentedToken === resolvedSystemToken
     )
 
-    logger.info('[edl-authorizer] System token comparison completed', {
+    logger.debug('[edl-authorizer] System token comparison completed', {
       systemTokenPresent: Boolean(resolvedSystemToken),
       systemTokenLength: resolvedSystemToken?.length || 0,
       systemTokenMatches
     })
 
     if (systemTokenMatches) {
-      logger.info('[edl-authorizer] Authorization successful for CMR system token')
+      logger.debug('[edl-authorizer] Authorization successful for CMR system token')
 
       return generatePolicy('cmr-system', 'Allow', methodArn)
     }

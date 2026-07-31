@@ -11,13 +11,13 @@ vi.mock('@/shared/getCmrWriterToken', () => ({
 
 describe('edlAuthorizer', () => {
   const OLD_ENV = process.env
+  let loggerDebugSpy
   let loggerErrorSpy
-  let loggerInfoSpy
 
   beforeEach(() => {
     vi.restoreAllMocks()
+    loggerDebugSpy = vi.spyOn(logger, 'debug').mockImplementation(() => {})
     loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {})
-    loggerInfoSpy = vi.spyOn(logger, 'info').mockImplementation(() => {})
     process.env = { ...OLD_ENV }
     fetchEdlProfile.mockReset()
     vi.mocked(getCmrSystemToken).mockReset()
@@ -38,8 +38,8 @@ describe('edlAuthorizer', () => {
   })
 
   afterAll(() => {
+    loggerDebugSpy?.mockRestore()
     loggerErrorSpy?.mockRestore()
-    loggerInfoSpy?.mockRestore()
   })
 
   describe('when the token is for a valid user', () => {
@@ -113,7 +113,7 @@ describe('edlAuthorizer', () => {
 
       expect(fetchEdlProfile).not.toHaveBeenCalled()
       expect(getCmrSystemToken).toHaveBeenCalledWith()
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[edl-authorizer] System token comparison completed',
         {
           systemTokenPresent: true,
@@ -122,7 +122,7 @@ describe('edlAuthorizer', () => {
         }
       )
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.debug).toHaveBeenCalledWith(
         '[edl-authorizer] Authorization successful for CMR system token'
       )
     })
