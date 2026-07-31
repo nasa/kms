@@ -7,12 +7,17 @@ import {
 } from 'vitest'
 
 import { cmrGetRequest } from '@/shared/cmrGetRequest'
+import { getCmrWriterToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 import { getCmrCollectionNativeMetadata } from '../getCmrCollectionNativeMetadata'
 
 vi.mock('@/shared/cmrGetRequest', () => ({
   cmrGetRequest: vi.fn()
+}))
+
+vi.mock('@/shared/getCmrWriterToken', () => ({
+  getCmrWriterToken: vi.fn()
 }))
 
 vi.mock('@/shared/logger', () => ({
@@ -24,6 +29,7 @@ vi.mock('@/shared/logger', () => ({
 describe('getCmrCollectionNativeMetadata', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getCmrWriterToken).mockResolvedValue('resolved-cmr-token')
   })
 
   test('should fetch the latest native metadata payload for a collection concept id', async () => {
@@ -40,7 +46,10 @@ describe('getCmrCollectionNativeMetadata', () => {
     })).resolves.toBe('<DIF><Entry_ID/></DIF>')
 
     expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/concepts/C1234567890-PROV.native'
+      path: '/search/concepts/C1234567890-PROV.native',
+      headers: {
+        Authorization: 'resolved-cmr-token'
+      }
     })
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -64,7 +73,10 @@ describe('getCmrCollectionNativeMetadata', () => {
     })).resolves.toBe('<DIF><Entry_ID>2</Entry_ID></DIF>')
 
     expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/concepts/C1234567890-PROV/42.native'
+      path: '/search/concepts/C1234567890-PROV/42.native',
+      headers: {
+        Authorization: 'resolved-cmr-token'
+      }
     })
   })
 
@@ -72,6 +84,16 @@ describe('getCmrCollectionNativeMetadata', () => {
     await expect(getCmrCollectionNativeMetadata({})).rejects.toThrow(
       'Missing collection concept id for CMR native metadata lookup'
     )
+
+    expect(cmrGetRequest).not.toHaveBeenCalled()
+  })
+
+  test('should reject before requesting CMR when no authorization token is available', async () => {
+    vi.mocked(getCmrWriterToken).mockResolvedValue(undefined)
+
+    await expect(getCmrCollectionNativeMetadata({
+      collectionConceptId: 'C123-PROV'
+    })).rejects.toThrow('Missing CMR authorization token for CMR native metadata lookup')
 
     expect(cmrGetRequest).not.toHaveBeenCalled()
   })

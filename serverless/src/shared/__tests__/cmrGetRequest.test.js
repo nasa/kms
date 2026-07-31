@@ -73,6 +73,12 @@ describe('cmrGetRequest', () => {
     await expect(cmrGetRequest({ path: '/test' })).rejects.toThrow('Network error')
   })
 
+  test('should rethrow non-object fetch failures without attaching request context', async () => {
+    global.fetch.mockRejectedValueOnce('Network error')
+
+    await expect(cmrGetRequest({ path: '/test' })).rejects.toBe('Network error')
+  })
+
   test('should log request context when fetch fails', async () => {
     const error = new TypeError('fetch failed')
 
@@ -153,6 +159,18 @@ describe('cmrGetRequest', () => {
         }
       }
     )
+
+    expect(logger.debug).toHaveBeenCalledWith(
+      'URL:',
+      'https://cmr.example.com/collections',
+      'with options:',
+      {
+        method: 'GET',
+        headerNames: ['Accept', 'X-Request-Id']
+      }
+    )
+
+    expect(JSON.stringify(logger.debug.mock.calls)).not.toContain('request-123')
   })
 
   test('should throw when CMR_BASE_URL is not configured', async () => {
