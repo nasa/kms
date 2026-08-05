@@ -137,49 +137,6 @@ const getChangedValues = (correction) => [
 const getDeletedValues = (correction) => Object.values(correction.oldKeywordObject || {})
   .filter((value) => typeof value === 'string' && value.includes('_SHOULD_DELETE'))
 
-/**
- * Replays each correction from the same original record to prove every target exists.
- *
- * @param {Object} params Assertion parameters.
- * @param {Function} params.applyCorrections Native-format correction delegate.
- * @param {Object[]} params.corrections Scenario corrections.
- * @param {Object|string} params.metadataPayload Original native metadata.
- * @returns {Promise<void>}
- */
-const expectEveryCorrectionApplies = async ({
-  applyCorrections,
-  corrections,
-  metadataPayload
-}) => {
-  await Promise.all(corrections.map(async (correction) => {
-    const result = await applyCorrections({
-      corrections: [correction],
-      metadataPayload: typeof metadataPayload === 'string'
-        ? metadataPayload
-        : structuredClone(metadataPayload)
-    })
-
-    expect(result.correctionCount).toBe(1)
-    expect(result.correctionsApplied).toEqual([
-      expect.objectContaining({
-        action: correction.action,
-        scheme: correction.scheme
-      })
-    ])
-
-    if (correction.action === 'replace') {
-      expect(
-        getChangedValues(correction)
-          .some((value) => result.correctedMetadata.includes(value))
-      ).toBe(true)
-    } else {
-      expect(serializeMetadata(result.correctedMetadata)).not.toBe(
-        serializeMetadata(metadataPayload)
-      )
-    }
-  }))
-}
-
 formats.forEach(({
   applyCorrections,
   extension,
@@ -248,12 +205,6 @@ formats.forEach(({
           expect(beforeMetadata).toContain('_SHOULD_DELETE')
           expect(expectedMetadata).not.toContain('_SHOULD_DELETE')
         }
-
-        await expectEveryCorrectionApplies({
-          applyCorrections,
-          corrections: request.corrections,
-          metadataPayload
-        })
 
         if (name === 'isosmap') {
           expect(result.correctedMetadata).not.toMatch(

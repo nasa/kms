@@ -44,7 +44,7 @@ const buildKeywordPath = (fieldKeys, keywordObject = {}) => {
  * @param {Array} [options.fieldKeys] - Array of keys representing the structure of the keyword object.
  * @param {Array} [options.matchKeys] - Array of keys used to match existing keywords.
  * @param {Function} [options.getValue] - Optional custom function to format the string value before saving.
- * @param {Array} [options.additionalPaths] - Optional array of XPath strings or objects for secondary sync.
+ * @param {Array<{path: string, getValue: Function}>} [options.additionalPaths] Secondary sync paths.
  * @param {string} [options.nodeXPath] - Optional custom XPath string to identify the keyword node, overrides default.
  */
 const createKeywordBlock = (type, {
@@ -82,24 +82,13 @@ const createKeywordBlock = (type, {
         ))
       }
     },
-    // Dynamically add secondary paths for synchronization
-    // Each path can be a string or an object with { path, getValue }
-    ...additionalPaths.map((pathConfig) => {
-      const isObject = typeof pathConfig === 'object' && pathConfig.path
-      const path = isObject ? pathConfig.path : pathConfig
-      const pathGetValue = isObject ? pathConfig.getValue : null
-
-      return {
-        fieldPath: path,
-        source: {
-          type: 'computed',
-          getValue: pathGetValue || getValue || (({ correction }) => buildKeywordPath(
-            fieldKeys,
-            correction.newKeywordObject
-          ))
-        }
+    ...additionalPaths.map(({ path, getValue: pathGetValue }) => ({
+      fieldPath: path,
+      source: {
+        type: 'computed',
+        getValue: pathGetValue
       }
-    })
+    }))
   ]
 })
 
