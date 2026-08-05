@@ -144,9 +144,15 @@ const createProductLevelIdEditor = () => leafScheme({
   },
   delete: [
     // Remove the entire processingLevel parent wrapper (in identificationInfo)
-    { path: '//gmd:identificationInfo//gmd:processingLevel[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' },
+    {
+      path: '//gmd:identificationInfo//gmd:processingLevel[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
+      matchValuePath: 'gmd:MD_Identifier/gmd:code/gco:CharacterString'
+    },
     // Remove the entire processingLevelCode parent wrapper (in contentInfo)
-    { path: '//gmd:contentInfo//gmd:processingLevelCode[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' }
+    {
+      path: '//gmd:contentInfo//gmd:processingLevelCode[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
+      matchValuePath: 'gmd:MD_Identifier/gmd:code/gco:CharacterString'
+    }
   ],
   replace: [
     {
@@ -275,7 +281,7 @@ export const ISO_19115_SCHEME_EDITORS = {
     // Otherwise use split format (NSIDC/NOAA style)
     additionalPaths: [
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
@@ -289,7 +295,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         }
       },
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
@@ -303,7 +309,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         }
       },
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
         getValue: ({ correction, node, editor }) => {
           const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
           const codeValue = codeNode?.textContent || ''
@@ -315,7 +321,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         }
       },
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
         getValue: ({ correction, node, editor }) => {
           const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
           const codeValue = codeNode?.textContent || ''

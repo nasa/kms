@@ -11,6 +11,16 @@
       <gmd:topicCategory>
         <gmd:MD_TopicCategoryCode codeListValue="ELEVATION">ELEVATION</gmd:MD_TopicCategoryCode>
       </gmd:topicCategory>
+      <gmd:processingLevel>
+        <gmd:MD_Identifier>
+          <gmd:code>
+            <gco:CharacterString>3</gco:CharacterString>
+          </gmd:code>
+          <gmd:codeSpace>
+            <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+          </gmd:codeSpace>
+        </gmd:MD_Identifier>
+      </gmd:processingLevel>
       
       <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>
@@ -259,6 +269,16 @@
   </gmd:distributionInfo>
   <gmd:contentInfo>
     <gmd:MD_ImageDescription>
+      <gmd:processingLevelCode>
+        <gmd:MD_Identifier>
+          <gmd:code>
+            <gco:CharacterString>3</gco:CharacterString>
+          </gmd:code>
+          <gmd:codeSpace>
+            <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+          </gmd:codeSpace>
+        </gmd:MD_Identifier>
+      </gmd:processingLevelCode>
       
     </gmd:MD_ImageDescription>
   </gmd:contentInfo>
@@ -285,6 +305,7 @@
               </gmi:identifier>
             </eos:EOS_Instrument>
           </gmi:instrument>
+          
         </eos:EOS_Platform>
       </gmi:platform>
       <!-- NSIDC/NOAA-style platform (split format: ShortName in code, LongName in description) -->
@@ -314,6 +335,7 @@
               </gmi:identifier>
             </gmi:MI_Instrument>
           </gmi:instrument>
+          
         </gmi:MI_Platform>
       </gmi:platform>
       <gmi:operation>

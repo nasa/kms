@@ -78,7 +78,9 @@
     </Temporal_Coverage>
     <Data_Resolution>
         <Horizontal_Resolution_Range>10 meters_CHANGED</Horizontal_Resolution_Range>
+        <Horizontal_Resolution_Range>20 meters_SHOULD_DELETE</Horizontal_Resolution_Range>
         <Vertical_Resolution_Range>5 meters_CHANGED</Vertical_Resolution_Range>
+        <Vertical_Resolution_Range>15 meters_SHOULD_DELETE</Vertical_Resolution_Range>
     </Data_Resolution>
     <Location>
         <Location_Category>CONTINENT</Location_Category>
@@ -167,4 +169,5 @@
         <Value>8.1</Value>
     </Additional_Attributes>
     <Product_Level_Id>NA_CHANGED</Product_Level_Id>
+    <Product_Level_Id>NA_SHOULD_DELETE</Product_Level_Id>
 </DIF>

@@ -10,6 +10,16 @@
           <gmd:topicCategory>
             <gmd:MD_TopicCategoryCode codeListValue="climatology">climatology</gmd:MD_TopicCategoryCode>
           </gmd:topicCategory>
+          <gmd:processingLevel>
+            <gmd:MD_Identifier>
+            <gmd:code>
+                <gco:CharacterString>3</gco:CharacterString>
+            </gmd:code>
+            <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+            </gmd:codeSpace>
+            </gmd:MD_Identifier>
+          </gmd:processingLevel>
           
           <gmd:descriptiveKeywords>
             <gmd:MD_Keywords>   
@@ -310,6 +320,7 @@
                   </gmi:identifier>
                 </gmi:MI_Instrument>
               </gmi:instrument>
+              
             </gmi:MI_Platform>
           </gmi:platform>
           
@@ -334,6 +345,16 @@
       </gmi:acquisitionInformation>
       <gmd:contentInfo>
         <gmd:MD_ImageDescription>
+        <gmd:processingLevelCode>
+            <gmd:MD_Identifier>
+            <gmd:code>
+                <gco:CharacterString>3</gco:CharacterString>
+            </gmd:code>
+            <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+            </gmd:codeSpace>
+            </gmd:MD_Identifier>
+        </gmd:processingLevelCode>
         
         </gmd:MD_ImageDescription>
       </gmd:contentInfo>

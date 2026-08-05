@@ -65,8 +65,11 @@
     <SuggestedUsage>This record is to be used to demonstrate how the CMR maps from one specification to another</SuggestedUsage>
     <ProcessingCenter>NASA/MSFC/AMSR-E SIPS</ProcessingCenter>
     
+    <ProcessingLevelId>3</ProcessingLevelId>
+    
     <ProcessingLevelDescription>GRID</ProcessingLevelDescription>
     <ArchiveCenter>NSIDC</ArchiveCenter>
+    
     <VersionDescription>Mapping Version 1.18.5 Description</VersionDescription>
     <CitationForExternalPublication>Other Citation Details</CitationForExternalPublication>
     <CollectionState>SUPERSEDED</CollectionState>
@@ -81,6 +84,7 @@
             <Type>License URL</Type>
         </LicenseURL>
     </UseConstraints>
+    <DataFormat>netCDF-4</DataFormat>
     
     <TemporalKeywords>
         <Keyword>TemporalKeyword1</Keyword>
@@ -103,10 +107,12 @@
             <Role>PROCESSOR</Role>
             <OrganizationName>NASA/MSFC/AMSR-E SIPS</OrganizationName>
         </Contact>
+        
         <Contact>
             <Role>ARCHIVER</Role>
             <OrganizationName>NSIDC</OrganizationName>
         </Contact>
+        
         <Contact>
             <Role>ORIGINATOR</Role>
             <OrganizationName>NASA/MSFC/AMSR-E SIPS</OrganizationName>

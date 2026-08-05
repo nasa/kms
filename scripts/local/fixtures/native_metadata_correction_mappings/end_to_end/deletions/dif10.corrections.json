@@ -106,21 +106,21 @@
       "scheme": "verticalresolutionrange",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "5 meters"
+        "Value": "15 meters_SHOULD_DELETE"
       }
     },
     {
       "scheme": "horizontalresolutionrange",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "10 meters"
+        "Value": "20 meters_SHOULD_DELETE"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "NA"
+        "Value": "NA_SHOULD_DELETE"
       }
     }
   ]

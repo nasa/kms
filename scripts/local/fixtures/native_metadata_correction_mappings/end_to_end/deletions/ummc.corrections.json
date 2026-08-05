@@ -112,7 +112,7 @@
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "2"
+        "Value": "2_SHOULD_DELETE"
       }
     }
   ]

@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 import {
@@ -92,10 +92,15 @@ const readJsonFixture = (filename) => JSON.parse(readFixture(filename))
  *
  * @param {string} name Fixture format name.
  * @param {string} extension Fixture extension.
+ * @param {string} scenarioName Correction scenario name.
  * @returns {Object|string} Parsed UMM-C JSON or raw XML.
  */
-const readMetadataPayload = (name, extension) => {
-  const metadata = readFixture(`${name}.before.${extension}`)
+const readMetadataPayload = (name, extension, scenarioName) => {
+  const scenarioFilename = `${scenarioName}/${name}.before.${extension}`
+  const filename = existsSync(join(fixtureDirectory, scenarioFilename))
+    ? scenarioFilename
+    : `${name}.before.${extension}`
+  const metadata = readFixture(filename)
 
   return extension === 'json' ? JSON.parse(metadata) : metadata
 }
@@ -125,9 +130,6 @@ const getChangedValues = (correction) => [
 
 /**
  * Returns all deletion marker values supplied by one deletion.
- *
- * Scalar deletions intentionally return an empty list because their source value is
- * shared with the update fixture and does not carry a deletion marker.
  *
  * @param {Object} correction Deletion correction.
  * @returns {string[]} Marked values to remove.
@@ -188,7 +190,7 @@ formats.forEach(({
   describe(`when correcting ${label} metadata`, () => {
     scenarios.forEach(({ action, name: scenarioName }) => {
       test(`matches the complete expected record for ${scenarioName}`, async () => {
-        const metadataPayload = readMetadataPayload(name, extension)
+        const metadataPayload = readMetadataPayload(name, extension, scenarioName)
         const beforeMetadata = serializeMetadata(metadataPayload)
         const request = readJsonFixture(`${scenarioName}/${name}.corrections.json`)
         const expectedMetadata = serializeMetadata(
@@ -234,7 +236,10 @@ formats.forEach(({
           expect(expectedMetadata).toContain('_CHANGED')
         } else {
           request.corrections.forEach((correction) => {
-            getDeletedValues(correction).forEach((value) => {
+            const deletedValues = getDeletedValues(correction)
+
+            expect(deletedValues).not.toHaveLength(0)
+            deletedValues.forEach((value) => {
               expect(beforeMetadata).toContain(value)
               expect(expectedMetadata).not.toContain(value)
             })

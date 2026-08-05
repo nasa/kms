@@ -104,10 +104,16 @@ describe('Iso19115MetadataPathEditor', () => {
   test('updateLeafNode should execute explicit delete paths when provided', () => {
   // 1. Ensure the XML contains the node being searched for
     const xml = `
-    <gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd">
+    <gmd:MD_Metadata xmlns:gco="http://www.isotc211.org/2005/gco"
+      xmlns:gmd="http://www.isotc211.org/2005/gmd">
       <gmd:processingLevel>
         <gmd:MD_Identifier>
           <gmd:code><gco:CharacterString>L1</gco:CharacterString></gmd:code>
+        </gmd:MD_Identifier>
+      </gmd:processingLevel>
+      <gmd:processingLevel>
+        <gmd:MD_Identifier>
+          <gmd:code><gco:CharacterString>L2</gco:CharacterString></gmd:code>
         </gmd:MD_Identifier>
       </gmd:processingLevel>
     </gmd:MD_Metadata>`
@@ -119,7 +125,10 @@ describe('Iso19115MetadataPathEditor', () => {
       nodeXPath: '//gmd:processingLevel/gmd:MD_Identifier',
       find: { getNodeValueObject: (ctx) => ({ Value: ctx.node.textContent }) },
       delete: [
-        { path: '//gmd:processingLevel/gmd:MD_Identifier' }
+        {
+          path: '//gmd:processingLevel',
+          matchValuePath: 'gmd:MD_Identifier/gmd:code/gco:CharacterString'
+        }
       ]
     }
     const correction = {
@@ -131,6 +140,8 @@ describe('Iso19115MetadataPathEditor', () => {
     const result = testEditor.updateLeafNode(correction, config)
 
     expect(result).toBe(true)
+    expect(testEditor.serialize()).not.toContain('L1')
+    expect(testEditor.serialize()).toContain('L2')
   })
 
   test('updateLeafNode should update element attribute when fieldPath includes @', () => {

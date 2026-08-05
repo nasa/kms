@@ -56,6 +56,17 @@
       }
     },
     {
+      "scheme": "providers",
+      "action": "delete",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NSIDC_SHOULD_DELETE"
+      }
+    },
+    {
       "scheme": "rucontenttype",
       "action": "delete",
       "oldKeywordObject": {
@@ -68,14 +79,14 @@
       "scheme": "dataformat",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "netCDF-4"
+        "Value": "netCDF-4_SHOULD_DELETE"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "3"
+        "Value": "3_SHOULD_DELETE"
       }
     }
   ]

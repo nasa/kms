@@ -171,7 +171,15 @@ export class Iso19115MetadataPathEditor extends XmlMetadataPathEditor {
         if (config.delete && config.delete.length > 0) {
           config.delete.forEach((delConfig) => {
             const nodesToDelete = this.selectNodes(delConfig.path, this.document)
-            nodesToDelete.forEach((node) => {
+            const matchingNodes = delConfig.matchValuePath
+              ? nodesToDelete.filter((node) => {
+                const valueNode = this.selectNodes(`./${delConfig.matchValuePath}`, node)[0]
+
+                return (valueNode?.textContent || '').toLowerCase().trim() === oldVal
+              })
+              : nodesToDelete
+
+            matchingNodes.forEach((node) => {
               if (node && node.parentNode) {
                 node.parentNode.removeChild(node)
               }

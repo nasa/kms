@@ -23,6 +23,16 @@
           </gmd:codeSpace>
         </gmd:MD_Identifier>
       </gmd:processingLevel>
+      <gmd:processingLevel>
+        <gmd:MD_Identifier>
+          <gmd:code>
+            <gco:CharacterString>3_SHOULD_DELETE</gco:CharacterString>
+          </gmd:code>
+          <gmd:codeSpace>
+            <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+          </gmd:codeSpace>
+        </gmd:MD_Identifier>
+      </gmd:processingLevel>
       <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>
           <gmd:keyword>
@@ -302,6 +312,16 @@
           </gmd:codeSpace>
         </gmd:MD_Identifier>
       </gmd:processingLevelCode>
+      <gmd:processingLevelCode>
+        <gmd:MD_Identifier>
+          <gmd:code>
+            <gco:CharacterString>3_SHOULD_DELETE</gco:CharacterString>
+          </gmd:code>
+          <gmd:codeSpace>
+            <gco:CharacterString>gov.nasa.esdis.umm.processinglevelid</gco:CharacterString>
+          </gmd:codeSpace>
+        </gmd:MD_Identifier>
+      </gmd:processingLevelCode>
     </gmd:MD_ImageDescription>
   </gmd:contentInfo>
   <gmi:acquisitionInformation>
@@ -321,7 +341,18 @@
               <gmi:identifier>
                 <gmd:MD_Identifier>
                   <gmd:code>
-                    <gco:CharacterString>MODIS &gt; Moderate-Resolution Imaging Spectroradiometer</gco:CharacterString>
+                    <gco:CharacterString>MODIS_CHANGED &gt; Moderate-Resolution Imaging Spectroradiometer_CHANGED</gco:CharacterString>
+                  </gmd:code>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </eos:EOS_Instrument>
+          </gmi:instrument>
+          <gmi:instrument>
+            <eos:EOS_Instrument>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code>
+                    <gco:CharacterString>MODIS_SHOULD_DELETE &gt; Moderate-Resolution Imaging Spectroradiometer_SHOULD_DELETE</gco:CharacterString>
                   </gmd:code>
                 </gmd:MD_Identifier>
               </gmi:identifier>
@@ -347,10 +378,24 @@
               <gmi:identifier>
                 <gmd:MD_Identifier>
                   <gmd:code>
-                    <gco:CharacterString>ATLAS</gco:CharacterString>
+                    <gco:CharacterString>ATLAS_CHANGED</gco:CharacterString>
                   </gmd:code>
                   <gmd:description>
-                    <gco:CharacterString>Advanced Topographic Laser Altimeter System</gco:CharacterString>
+                    <gco:CharacterString>Advanced Topographic Laser Altimeter System_CHANGED</gco:CharacterString>
+                  </gmd:description>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </gmi:MI_Instrument>
+          </gmi:instrument>
+          <gmi:instrument>
+            <gmi:MI_Instrument>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code>
+                    <gco:CharacterString>ATLAS_SHOULD_DELETE</gco:CharacterString>
+                  </gmd:code>
+                  <gmd:description>
+                    <gco:CharacterString>Advanced Topographic Laser Altimeter System_SHOULD_DELETE</gco:CharacterString>
                   </gmd:description>
                 </gmd:MD_Identifier>
               </gmi:identifier>
@@ -371,7 +416,7 @@
               <gmi:identifier>
                 <gmd:MD_Identifier>
                   <gmd:code>
-                    <gco:CharacterString>MODIS &gt; Moderate-Resolution Imaging Spectroradiometer</gco:CharacterString>
+                    <gco:CharacterString>MODIS_CHANGED &gt; Moderate-Resolution Imaging Spectroradiometer_CHANGED</gco:CharacterString>
                   </gmd:code>
                 </gmd:MD_Identifier>
               </gmi:identifier>
@@ -395,10 +440,10 @@
               <gmi:identifier>
                 <gmd:MD_Identifier>
                   <gmd:code>
-                    <gco:CharacterString>ATLAS</gco:CharacterString>
+                    <gco:CharacterString>ATLAS_CHANGED</gco:CharacterString>
                   </gmd:code>
                   <gmd:description>
-                    <gco:CharacterString>Advanced Topographic Laser Altimeter System</gco:CharacterString>
+                    <gco:CharacterString>Advanced Topographic Laser Altimeter System_CHANGED</gco:CharacterString>
                   </gmd:description>
                 </gmd:MD_Identifier>
               </gmi:identifier>

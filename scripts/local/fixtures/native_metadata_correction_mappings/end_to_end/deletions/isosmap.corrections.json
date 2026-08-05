@@ -94,7 +94,7 @@
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "3"
+        "Value": "3_SHOULD_DELETE"
       }
     }
   ]

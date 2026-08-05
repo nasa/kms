@@ -108,6 +108,24 @@
       }
     },
     {
+      "scheme": "providers",
+      "action": "replace",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NSIDC"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NSIDC_CHANGED"
+      }
+    },
+    {
       "scheme": "rucontenttype",
       "action": "replace",
       "oldKeywordObject": {

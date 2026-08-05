@@ -63,9 +63,12 @@
     <RevisionDate>2020-03-01T00:00:00.000Z</RevisionDate>
     <SuggestedUsage>This record is to be used to demonstrate how the CMR maps from one specification to another</SuggestedUsage>
     <ProcessingCenter>NASA/MSFC/AMSR-E SIPS</ProcessingCenter>
+    <ProcessingCenter>NASA/MSFC/AMSR-E SIPS_SHOULD_DELETE</ProcessingCenter>
     <ProcessingLevelId>3</ProcessingLevelId>
+    <ProcessingLevelId>3_SHOULD_DELETE</ProcessingLevelId>
     <ProcessingLevelDescription>GRID</ProcessingLevelDescription>
     <ArchiveCenter>NSIDC</ArchiveCenter>
+    <ArchiveCenter>NSIDC_SHOULD_DELETE</ArchiveCenter>
     <VersionDescription>Mapping Version 1.18.5 Description</VersionDescription>
     <CitationForExternalPublication>Other Citation Details</CitationForExternalPublication>
     <CollectionState>SUPERSEDED</CollectionState>
@@ -81,6 +84,7 @@
         </LicenseURL>
     </UseConstraints>
     <DataFormat>netCDF-4</DataFormat>
+    <DataFormat>netCDF-4_SHOULD_DELETE</DataFormat>
     <TemporalKeywords>
         <Keyword>TemporalKeyword1</Keyword>
         <Keyword>TemporalKeyword2</Keyword>
@@ -103,8 +107,16 @@
             <OrganizationName>NASA/MSFC/AMSR-E SIPS</OrganizationName>
         </Contact>
         <Contact>
+            <Role>PROCESSOR</Role>
+            <OrganizationName>NASA/MSFC/AMSR-E SIPS_SHOULD_DELETE</OrganizationName>
+        </Contact>
+        <Contact>
             <Role>ARCHIVER</Role>
             <OrganizationName>NSIDC</OrganizationName>
+        </Contact>
+        <Contact>
+            <Role>ARCHIVER</Role>
+            <OrganizationName>NSIDC_SHOULD_DELETE</OrganizationName>
         </Contact>
         <Contact>
             <Role>ORIGINATOR</Role>
@@ -198,9 +210,6 @@
                     <JobPosition>DATA CENTER CONTACT</JobPosition>
                 </ContactPerson>
             </ContactPersons>
-        </Contact><Contact>
-            <Role>PROCESSOR</Role>
-            <OrganizationName>NASA/MSFC/AMSR-E SIPS_SHOULD_DELETE</OrganizationName>
         </Contact>
     </Contacts>
     <ScienceKeywords>
