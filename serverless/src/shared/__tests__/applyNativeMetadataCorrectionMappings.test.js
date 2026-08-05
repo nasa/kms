@@ -19,7 +19,7 @@ import { UMMC_SCHEME_EDITORS } from '../ummcDomEditor'
 
 const fixtureDirectory = join(
   __dirname,
-  '../../../../scripts/local/fixtures/native_metadata_correction_mappings/end_to_end'
+  '../__mocks__/native_metadata_correction_mappings/end_to_end'
 )
 
 const formats = [
