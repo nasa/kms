@@ -142,6 +142,15 @@ describe('Iso19115MetadataPathEditor', () => {
     expect(result).toBe(true)
     expect(testEditor.serialize()).not.toContain('L1')
     expect(testEditor.serialize()).toContain('L2')
+
+    const deleteAllEditor = new Iso19115MetadataPathEditor(xml)
+    const deleteAllResult = deleteAllEditor.updateLeafNode(correction, {
+      ...config,
+      delete: [{ path: '//gmd:processingLevel' }]
+    })
+
+    expect(deleteAllResult).toBe(true)
+    expect(deleteAllEditor.selectNodes('//gmd:processingLevel')).toEqual([])
   })
 
   test('updateLeafNode should update element attribute when fieldPath includes @', () => {
@@ -250,6 +259,74 @@ describe('Iso19115MetadataPathEditor', () => {
     // Verify node removal
     const remaining = editor.selectNodes('//gmd:descriptiveKeywords')
     expect(remaining.length).toBe(0)
+  })
+
+  test('updateBlockNode should delete acquisition values without property wrappers', () => {
+    const xml = `
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi"
+        xmlns:gmd="http://www.isotc211.org/2005/gmd"
+        xmlns:gco="http://www.isotc211.org/2005/gco">
+        <gmd:descriptiveKeywords>
+          <gmd:MD_Keywords>
+            <gmd:keyword><gco:CharacterString>PLATFORM</gco:CharacterString></gmd:keyword>
+          </gmd:MD_Keywords>
+        </gmd:descriptiveKeywords>
+        <gmd:descriptiveKeywords>
+          <gmd:MD_Keywords>
+            <gmd:keyword><gco:CharacterString>PROJECT</gco:CharacterString></gmd:keyword>
+          </gmd:MD_Keywords>
+        </gmd:descriptiveKeywords>
+        <gmi:acquisitionInformation>
+          <gmi:MI_AcquisitionInformation>
+            <gmi:MI_Platform>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code><gco:CharacterString>PLATFORM</gco:CharacterString></gmd:code>
+                  <gmd:codeSpace><gco:CharacterString>gov.nasa.esdis.umm.platformshortname</gco:CharacterString></gmd:codeSpace>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </gmi:MI_Platform>
+            <gmi:operation>
+              <gmi:operationContainer>
+                <gmi:MI_Operation>
+                  <gmi:identifier>
+                    <gmd:MD_Identifier>
+                      <gmd:code><gco:CharacterString>PROJECT</gco:CharacterString></gmd:code>
+                      <gmd:codeSpace><gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString></gmd:codeSpace>
+                    </gmd:MD_Identifier>
+                  </gmi:identifier>
+                </gmi:MI_Operation>
+              </gmi:operationContainer>
+            </gmi:operation>
+          </gmi:MI_AcquisitionInformation>
+        </gmi:acquisitionInformation>
+      </gmi:MI_Metadata>
+    `
+    const testEditor = new Iso19115MetadataPathEditor(xml)
+    const config = {
+      nodeXPath: '//gmd:descriptiveKeywords/gmd:MD_Keywords',
+      find: {
+        getNodeValueObject: ({ node }) => ({ ShortName: node.textContent.trim() }),
+        matchKeys: ['ShortName']
+      },
+      replace: []
+    }
+
+    expect(testEditor.updateBlockNode({
+      action: 'delete',
+      scheme: 'platforms',
+      oldKeywordObject: { ShortName: 'PLATFORM' }
+    }, config)).toBe(true)
+
+    expect(testEditor.selectNodes('//gmi:MI_Platform')).toEqual([])
+
+    expect(testEditor.updateBlockNode({
+      action: 'delete',
+      scheme: 'projects',
+      oldKeywordObject: { ShortName: 'PROJECT' }
+    }, config)).toBe(true)
+
+    expect(testEditor.selectNodes('//gmi:MI_Operation')).toEqual([])
   })
 
   test('updateBlockNode should fallback to gco:CharacterString when specific fieldPath fails', () => {

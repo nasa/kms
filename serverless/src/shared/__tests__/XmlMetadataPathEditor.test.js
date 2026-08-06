@@ -931,7 +931,8 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
         find: {
           fieldPaths: ['Short_Name'],
           valueKeys: ['ShortName']
-        }
+        },
+        delete: [{ fieldPath: 'Short_Name' }]
       })).toBe(true)
 
       expect(deleteEditor.selectNodes('//DIF/Block')).toEqual([])
