@@ -1,0 +1,155 @@
+{
+  "collectionConceptId": "C1234567222-LOCAL",
+  "nativeFormat": "ISO19115",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS_CHANGED",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "CANADA",
+        "Subregion2": "ALBERTA",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      },
+      "newKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "CANADA",
+        "Subregion2": "ALBERTA_CHANGED",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Earth Observing System_CHANGED",
+      "oldKeywordObject": {
+        "ShortName": "AQUA"
+      },
+      "newKeywordObject": {
+        "ShortName": "AQUA_CHANGED"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Earth Observing System, TERRA (AM-1)_CHANGED",
+      "oldKeywordObject": {
+        "ShortName": "TERRA"
+      },
+      "newKeywordObject": {
+        "ShortName": "TERRA_CHANGED"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Moderate-Resolution Imaging Spectroradiometer_CHANGED",
+      "oldKeywordObject": {
+        "ShortName": "MODIS"
+      },
+      "newKeywordObject": {
+        "ShortName": "MODIS_CHANGED"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Advanced Topographic Laser Altimeter System_CHANGED",
+      "oldKeywordObject": {
+        "ShortName": "ATLAS"
+      },
+      "newKeywordObject": {
+        "ShortName": "ATLAS_CHANGED"
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Making Earth System Data Records for Use in Research Environments_CHANGED",
+      "oldKeywordObject": {
+        "Category": "M - N",
+        "ShortName": "MEASURES"
+      },
+      "newKeywordObject": {
+        "Category": "M - N",
+        "ShortName": "MEASURES_CHANGED"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "newLongName": "National Centers for Environmental Information, NESDIS, NOAA, U.S. Department of Commerce_CHANGED",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DOC/NOAA/NESDIS/NCEI"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DOC/NOAA/NESDIS/NCEI_CHANGED"
+      }
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "FARMING"
+      },
+      "newKeywordObject": {
+        "Value": "FARMING_CHANGED"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "3"
+      },
+      "newKeywordObject": {
+        "Value": "3_CHANGED"
+      }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "HDF5"
+      },
+      "newKeywordObject": {
+        "ShortName": "HDF5_CHANGED"
+      }
+    }
+  ]
+}

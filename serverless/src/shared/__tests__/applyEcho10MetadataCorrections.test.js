@@ -2446,6 +2446,8 @@ describe('when applying provider ECHO10 corrections', () => {
     expect(result.correctionCount).toBe(4)
     // This triggers: if (parent.Organization.length === 0) { delete parent.Organization }
     expect(result.correctedMetadata).not.toContain('<Contacts>')
+    expect(result.correctedMetadata).not.toContain('<ProcessingCenter>')
+    expect(result.correctedMetadata).not.toContain('<ArchiveCenter>')
   })
 
   test('should delete the Contacts key when it contains a single object instead of an array', async () => {

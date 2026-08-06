@@ -18,13 +18,33 @@ const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(c
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
 
 /**
+ * Builds an ISO keyword path, using NONE only for gaps before a later populated level.
+ *
+ * @param {string[]} fieldKeys Ordered keyword hierarchy fields.
+ * @param {Object} keywordObject Keyword values keyed by hierarchy field.
+ * @returns {string} Serialized ISO keyword path.
+ */
+const buildKeywordPath = (fieldKeys, keywordObject = {}) => {
+  const values = fieldKeys.map((key) => String(keywordObject[key] || '').trim())
+  const lastValueIndex = values.reduce(
+    (lastIndex, value, index) => (value ? index : lastIndex),
+    -1
+  )
+
+  return values
+    .slice(0, lastValueIndex + 1)
+    .map((value) => value || 'NONE')
+    .join(' > ')
+}
+
+/**
  * Factory to generate standardized keyword block editors.
  * @param {string} type - The 'codeListValue' for the MD_KeywordTypeCode.
  * @param {Object} options - Configuration options.
  * @param {Array} [options.fieldKeys] - Array of keys representing the structure of the keyword object.
  * @param {Array} [options.matchKeys] - Array of keys used to match existing keywords.
  * @param {Function} [options.getValue] - Optional custom function to format the string value before saving.
- * @param {Array} [options.additionalPaths] - Optional array of XPath strings or objects for secondary sync.
+ * @param {Array<{path: string, getValue: Function}>} [options.additionalPaths] Secondary sync paths.
  * @param {string} [options.nodeXPath] - Optional custom XPath string to identify the keyword node, overrides default.
  */
 const createKeywordBlock = (type, {
@@ -56,29 +76,19 @@ const createKeywordBlock = (type, {
       fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
       source: {
         type: 'computed',
-        getValue: getValue || (({ correction }) => fieldKeys
-          .map((k) => correction.newKeywordObject[k] || 'NONE')
-          .join(' > ')
-        )
+        getValue: getValue || (({ correction }) => buildKeywordPath(
+          fieldKeys,
+          correction.newKeywordObject
+        ))
       }
     },
-    // Dynamically add secondary paths for synchronization
-    // Each path can be a string or an object with { path, getValue }
-    ...additionalPaths.map((pathConfig) => {
-      const isObject = typeof pathConfig === 'object' && pathConfig.path
-      const path = isObject ? pathConfig.path : pathConfig
-      const pathGetValue = isObject ? pathConfig.getValue : null
-
-      return {
-        fieldPath: path,
-        source: {
-          type: 'computed',
-          getValue: pathGetValue || getValue || (({ correction }) => fieldKeys
-            .map((k) => correction.newKeywordObject[k] || 'NONE')
-            .join(' > '))
-        }
+    ...additionalPaths.map(({ path, getValue: pathGetValue }) => ({
+      fieldPath: path,
+      source: {
+        type: 'computed',
+        getValue: pathGetValue
       }
-    })
+    }))
   ]
 })
 
@@ -123,9 +133,15 @@ const createProductLevelIdEditor = () => leafScheme({
   },
   delete: [
     // Remove the entire processingLevel parent wrapper (in identificationInfo)
-    { path: '//gmd:identificationInfo//gmd:processingLevel[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' },
+    {
+      path: '//gmd:identificationInfo//gmd:processingLevel[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
+      matchValuePath: 'gmd:MD_Identifier/gmd:code/gco:CharacterString'
+    },
     // Remove the entire processingLevelCode parent wrapper (in contentInfo)
-    { path: '//gmd:contentInfo//gmd:processingLevelCode[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]' }
+    {
+      path: '//gmd:contentInfo//gmd:processingLevelCode[gmd:MD_Identifier/gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
+      matchValuePath: 'gmd:MD_Identifier/gmd:code/gco:CharacterString'
+    }
   ],
   replace: [
     {
@@ -254,7 +270,7 @@ export const ISO_19115_SCHEME_EDITORS = {
     // Otherwise use split format (NSIDC/NOAA style)
     additionalPaths: [
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
@@ -268,7 +284,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         }
       },
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:code/gco:CharacterString',
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
@@ -282,7 +298,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         }
       },
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/eos:EOS_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
         getValue: ({ correction, node, editor }) => {
           const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
           const codeValue = codeNode?.textContent || ''
@@ -294,7 +310,7 @@ export const ISO_19115_SCHEME_EDITORS = {
         }
       },
       {
-        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
+        path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation//gmi:instrument/gmi:MI_Instrument/gmi:identifier/gmd:MD_Identifier/gmd:description/gco:CharacterString',
         getValue: ({ correction, node, editor }) => {
           const codeNode = editor.selectNodes('../gmd:code/gco:CharacterString', node.parentNode)[0]
           const codeValue = codeNode?.textContent || ''

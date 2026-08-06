@@ -248,11 +248,22 @@ export class XmlMetadataPathEditor {
    * @param {string} fieldPath Absolute `//...` field path.
    * @param {Object} [options={}] Absolute-path resolution options.
    * @param {boolean} [options.createIfMissing=false] Create missing descendants for simple paths.
+   * @param {string} [options.expectedText] Select the node whose text matches this value.
    * @returns {Element|null} Matching or newly created absolute target element.
    */
-  resolveAbsoluteFieldElement(fieldPath, { createIfMissing = false } = {}) {
-    const matchedNode = this.selectNodes(fieldPath)[0] || null
-    if (matchedNode || !createIfMissing || !isSimpleFieldPath(fieldPath)) {
+  resolveAbsoluteFieldElement(fieldPath, { createIfMissing = false, expectedText } = {}) {
+    const matchedNodes = this.selectNodes(fieldPath)
+    const matchedNode = expectedText === undefined
+      ? matchedNodes[0] || null
+      : matchedNodes.find((node) => (
+        normalizeComparableText(this.getElementText(node)) === normalizeComparableText(expectedText)
+      )) || null
+
+    const cannotCreate = expectedText !== undefined
+      || !createIfMissing
+      || !isSimpleFieldPath(fieldPath)
+
+    if (matchedNode || cannotCreate) {
       return matchedNode
     }
 
@@ -431,6 +442,8 @@ export class XmlMetadataPathEditor {
    *
    * @param {Element} node Target element.
    * @param {string} value Replacement text value.
+   * @param {Object} [options={}] Nested-field selection options.
+   * @param {string} [options.expectedText] Existing text required for an absolute path.
    *
    * @example
    * editor.setElementText(shortNameNode, 'SPOT-4-UPDATED')
@@ -452,9 +465,12 @@ export class XmlMetadataPathEditor {
    * editor.setNestedText(platformNode, 'Long_Name', 'Systeme Observation de la Terre-4')
    * // undefined
    */
-  setNestedText(node, fieldPath, value) {
+  setNestedText(node, fieldPath, value, options = {}) {
     if (this.isAbsoluteFieldPath(fieldPath)) {
-      const target = this.resolveAbsoluteFieldElement(fieldPath, { createIfMissing: true })
+      const target = this.resolveAbsoluteFieldElement(fieldPath, {
+        createIfMissing: true,
+        ...options
+      })
 
       if (target) {
         this.setElementText(target, value)
@@ -472,14 +488,16 @@ export class XmlMetadataPathEditor {
    *
    * @param {Element} node Starting element.
    * @param {string} fieldPath Slash-delimited child path.
+   * @param {Object} [options={}] Nested-field selection options.
+   * @param {string} [options.expectedText] Existing text required for an absolute path.
    *
    * @example
    * editor.removeNestedElement(relatedUrlNode, 'URL_Content_Type/Subtype')
    * // undefined
    */
-  removeNestedElement(node, fieldPath) {
+  removeNestedElement(node, fieldPath, options = {}) {
     if (this.isAbsoluteFieldPath(fieldPath)) {
-      this.removeNode(this.resolveAbsoluteFieldElement(fieldPath))
+      this.removeNode(this.resolveAbsoluteFieldElement(fieldPath, options))
 
       return
     }
@@ -706,6 +724,15 @@ export class XmlMetadataPathEditor {
 
     if (action === 'delete') {
       const { parentNode } = targetNode
+
+      config.delete?.forEach(({ fieldPath, condition, matchOldValueKey }) => {
+        if (this.shouldApplyFieldCondition(correction, condition, targetNode)) {
+          this.removeNestedElement(targetNode, fieldPath, matchOldValueKey
+            ? { expectedText: correction.oldKeywordObject?.[matchOldValueKey] }
+            : {})
+        }
+      })
+
       this.removeNode(targetNode)
 
       if (config.removeEmptyParent) {
@@ -720,7 +747,12 @@ export class XmlMetadataPathEditor {
     }
 
     if (action === 'replace') {
-      config.replace.forEach(({ fieldPath, source, condition }) => {
+      config.replace.forEach(({
+        fieldPath,
+        source,
+        condition,
+        matchOldValueKey
+      }) => {
         if (!this.shouldApplyFieldCondition(correction, condition, targetNode)) {
           return
         }
@@ -728,7 +760,9 @@ export class XmlMetadataPathEditor {
         const value = this.getReplacementValue(correction, source, targetNode)
 
         if (value.length > 0) {
-          this.setNestedText(targetNode, fieldPath, value)
+          this.setNestedText(targetNode, fieldPath, value, matchOldValueKey
+            ? { expectedText: correction.oldKeywordObject?.[matchOldValueKey] }
+            : {})
         } else {
           this.removeNestedElement(targetNode, fieldPath)
         }
@@ -803,9 +837,9 @@ export class XmlMetadataPathEditor {
   /**
    * Applies a replace/delete correction to a single scalar XML field.
    *
-   * Scalar fields are different from block and leaf updates: they do not locate a target by
-   * `oldKeywordObject`. Instead, they operate on the single field selected by `nodeXPath`, or
-   * create that field under the DIF root when `replace` is requested and the field is absent.
+   * Scalar fields normally operate on the field selected by `nodeXPath`. When an old value is
+   * supplied, the matching field is selected so duplicate scalar nodes cannot cause the wrong
+   * occurrence to be replaced or deleted. A missing field can be created for `replace` actions.
    *
    * `tagName` is only needed for that create-on-miss case. XPath tells us how to find the node
    * when it already exists, but it does not give us the literal element name to pass to
@@ -831,7 +865,13 @@ export class XmlMetadataPathEditor {
    */
   updateScalarNode(correction, config) {
     const action = trimString(String(correction.action || 'replace')).toLowerCase()
-    const targetNode = this.selectNodes(config.nodeXPath)[0] || null
+    const nodes = this.selectNodes(config.nodeXPath)
+    const oldValue = getScalarKeywordText(correction?.oldKeywordObject)
+    const targetNode = oldValue.length > 0
+      ? nodes.find((node) => (
+        normalizeComparableText(this.getElementText(node)) === normalizeComparableText(oldValue)
+      )) || null
+      : nodes[0] || null
 
     if (action === 'delete') {
       if (!targetNode) {

@@ -1,0 +1,101 @@
+{
+  "collectionConceptId": "C1234567223-LOCAL",
+  "nativeFormat": "ISO_SMAP",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "CRYOSPHERE",
+        "Term": "GLACIERS/ICE SHEETS",
+        "VariableLevel1": "Glacier Topography/Ice Sheet Topography",
+        "VariableLevel2": "Surface Morphology_SHOULD_DELETE",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "TERRA_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "MODIS_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "AQUA_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "sciencekeywords",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "AEROSOLS_SHOULD_DELETE",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Category": "CONTINENT",
+        "Type": "NORTH AMERICA",
+        "Subregion1": "CANADA",
+        "Subregion2": "ALBERTA_SHOULD_DELETE",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "MEASURES_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "climatology_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "HDF5_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "SMAP_PROVIDER_SHOULD_DELETE"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Value": "3_SHOULD_DELETE"
+      }
+    }
+  ]
+}

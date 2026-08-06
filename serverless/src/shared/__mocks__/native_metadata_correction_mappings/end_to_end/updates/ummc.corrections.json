@@ -1,0 +1,209 @@
+{
+  "collectionConceptId": "C1234567855-LOCAL",
+  "nativeFormat": "UMM",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "ATMOSPHERIC TEMPERATURE",
+        "VariableLevel1": "UPPER AIR TEMPERATURE",
+        "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+        "VariableLevel3": "BOUNDARY LAYER TEMPERATURE PROFILES",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "ATMOSPHERE",
+        "Term": "ATMOSPHERIC TEMPERATURE",
+        "VariableLevel1": "UPPER AIR TEMPERATURE",
+        "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+        "VariableLevel3": "BOUNDARY LAYER TEMPERATURE PROFILES_CHANGED",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "OCEAN",
+        "Type": "ATLANTIC OCEAN",
+        "Subregion1": "NORTH ATLANTIC OCEAN",
+        "Subregion2": "CARIBBEAN SEA",
+        "Subregion3": "BARBADOS",
+        "DetailedLocation": ""
+      },
+      "newKeywordObject": {
+        "Category": "OCEAN",
+        "Type": "ATLANTIC OCEAN",
+        "Subregion1": "NORTH ATLANTIC OCEAN",
+        "Subregion2": "CARIBBEAN SEA",
+        "Subregion3": "BARBADOS_CHANGED",
+        "DetailedLocation": ""
+      },
+      "newLongName": null
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "GEOGRAPHIC REGION",
+        "Type": "GLOBAL LAND",
+        "Subregion1": "",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      },
+      "newKeywordObject": {
+        "Category": "GEOGRAPHIC REGION",
+        "Type": "GLOBAL LAND_CHANGED",
+        "Subregion1": "",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      }
+    },
+    {
+      "scheme": "chronounits",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE",
+        "Age": "",
+        "SubAge": ""
+      },
+      "newKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE_CHANGED",
+        "Age": "",
+        "SubAge": ""
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Helicopter AS350-B3_CHANGED",
+      "oldKeywordObject": {
+        "Class": "Air-based Platforms",
+        "Type": "Rotorcraft/Helicopter",
+        "ShortName": "AS350-B3"
+      },
+      "newKeywordObject": {
+        "Class": "Air-based Platforms",
+        "Type": "Rotorcraft/Helicopter",
+        "ShortName": "AS350-B3_CHANGED"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "MABEL"
+      },
+      "newKeywordObject": {
+        "Category": "Imaging Spectrometers/Radiometers",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "MABEL_CHANGED"
+      },
+      "newLongName": "Multiple Altimeter Beam Experimental Lidar_CHANGED"
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "CASERTZ"
+      },
+      "newKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "CASERTZ_CHANGED"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "newLongName": "Dekker Remote Sensing Corporation_CHANGED",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DRSC"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "DRSC_CHANGED"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "GET DATA",
+        "Subtype": "VIRTUAL COLLECTION"
+      },
+      "newKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "GET DATA",
+        "Subtype": "VIRTUAL COLLECTION_CHANGED"
+      }
+    },
+    {
+      "scheme": "idnnode",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "AMD/NZ"
+      },
+      "newKeywordObject": {
+        "ShortName": "AMD/NZ_CHANGED"
+      },
+      "newLongName": "Antarctic Master Directory/New Zealand_CHANGED"
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION"
+      },
+      "newKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION_CHANGED"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "2"
+      },
+      "newKeywordObject": {
+        "Value": "2_CHANGED"
+      }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "COG"
+      },
+      "newKeywordObject": {
+        "ShortName": "COG_CHANGED"
+      }
+    }
+  ]
+}

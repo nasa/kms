@@ -1,0 +1,218 @@
+{
+  "collectionConceptId": "C1234567890-LOCAL",
+  "nativeFormat": "DIF10",
+  "source": "local-smoke",
+  "corrections": [
+    {
+      "scheme": "sciencekeywords",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "OCEANS",
+        "Term": "MARINE SEDIMENTS",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      },
+      "newKeywordObject": {
+        "Category": "EARTH SCIENCE",
+        "Topic": "OCEANS",
+        "Term": "MARINE SEDIMENTS_CHANGED",
+        "VariableLevel1": "",
+        "VariableLevel2": "",
+        "VariableLevel3": "",
+        "DetailedVariable": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "GEOGRAPHIC REGION",
+        "Type": "POLAR",
+        "Subregion1": "",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      },
+      "newKeywordObject": {
+        "Category": "GEOGRAPHIC REGION",
+        "Type": "POLAR_CHANGED",
+        "Subregion1": "",
+        "Subregion2": "",
+        "Subregion3": "",
+        "DetailedLocation": ""
+      },
+      "newLongName": null
+    },
+    {
+      "scheme": "chronounits",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE",
+        "Age": "",
+        "SubAge": ""
+      },
+      "newKeywordObject": {
+        "Eon": "PHANEROZOIC",
+        "Era": "CENOZOIC",
+        "Period": "QUATERNARY",
+        "Epoch": "HOLOCENE_CHANGED",
+        "Age": "",
+        "SubAge": ""
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "newLongName": "Systeme Probatoire d'Observation de la Terre-4_CHANGED",
+      "oldKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "SPOT-4"
+      },
+      "newKeywordObject": {
+        "Category": "Platforms",
+        "Class": "Space-based Platforms",
+        "Type": "Earth Observation Satellites",
+        "ShortName": "SPOT-4_CHANGED"
+      }
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Category": "Synthetic Aperture Radar",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "TSX-1"
+      },
+      "newKeywordObject": {
+        "Category": "Synthetic Aperture Radar",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "TSX-1_CHANGED"
+      },
+      "newLongName": "Synthetic Aperture Radar_CHANGED"
+    },
+    {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Seismic Reflection Profilers_CHANGED",
+      "oldKeywordObject": {
+        "Category": "In Situ/Laboratory Instruments",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "SEISMIC REFLECTION PROFILERS"
+      },
+      "newKeywordObject": {
+        "Category": "In Situ/Laboratory Instruments",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "SEISMIC REFLECTION PROFILERS_CHANGED"
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Aliens in Antarctica_CHANGED",
+      "oldKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "ALIENS"
+      },
+      "newKeywordObject": {
+        "Category": "A - C",
+        "ShortName": "ALIENS_CHANGED"
+      }
+    },
+    {
+      "scheme": "providers",
+      "action": "replace",
+      "newLongName": "Antarctica New Zealand_CHANGED",
+      "oldKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NZ/NZAI/ANZ"
+      },
+      "newKeywordObject": {
+        "BucketLevel0": "ARCHIVER",
+        "BucketLevel1": "",
+        "BucketLevel2": "",
+        "BucketLevel3": "",
+        "ShortName": "NZ/NZAI/ANZ_CHANGED"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "OpenSearch"
+      },
+      "newKeywordObject": {
+        "URLContentType": "DistributionURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "OpenSearch_CHANGED"
+      }
+    },
+    {
+      "scheme": "idnnode",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "AMD/NZ"
+      },
+      "newKeywordObject": {
+        "ShortName": "AMD/NZ_CHANGED"
+      },
+      "newLongName": "Antarctic Master Directory/New Zealand_CHANGED"
+    },
+    {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION"
+      },
+      "newKeywordObject": {
+        "Value": "GEOSCIENTIFIC INFORMATION_CHANGED"
+      }
+    },
+    {
+      "scheme": "verticalresolutionrange",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "5 meters"
+      },
+      "newKeywordObject": {
+        "Value": "5 meters_CHANGED"
+      }
+    },
+    {
+      "scheme": "horizontalresolutionrange",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "10 meters"
+      },
+      "newKeywordObject": {
+        "Value": "10 meters_CHANGED"
+      }
+    },
+    {
+      "scheme": "productlevelid",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Value": "NA"
+      },
+      "newKeywordObject": {
+        "Value": "NA_CHANGED"
+      }
+    }
+  ]
+}

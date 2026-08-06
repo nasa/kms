@@ -931,7 +931,8 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
         find: {
           fieldPaths: ['Short_Name'],
           valueKeys: ['ShortName']
-        }
+        },
+        delete: [{ fieldPath: 'Short_Name' }]
       })).toBe(true)
 
       expect(deleteEditor.selectNodes('//DIF/Block')).toEqual([])
@@ -1133,6 +1134,26 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       })).toBe(true)
 
       expect(deleteEditor.selectNodes('//DIF/Product_Level_Id')).toEqual([])
+
+      const repeatedScalarEditor = new XmlMetadataPathEditor(`
+        <DIF>
+          <Product_Level_Id>Keep</Product_Level_Id>
+          <Product_Level_Id>Delete</Product_Level_Id>
+        </DIF>
+      `)
+
+      expect(repeatedScalarEditor.updateScalarNode({
+        action: 'delete',
+        oldKeywordObject: {
+          Value: 'Delete'
+        }
+      }, {
+        nodeXPath: '//DIF/Product_Level_Id',
+        tagName: 'Product_Level_Id'
+      })).toBe(true)
+
+      expect(repeatedScalarEditor.selectNodes('//DIF/Product_Level_Id')
+        .map((node) => repeatedScalarEditor.getElementText(node))).toEqual(['Keep'])
 
       expect(defaultReplaceEditor.updateScalarNode({
         newKeywordObject: {
