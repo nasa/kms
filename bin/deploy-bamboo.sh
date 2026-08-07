@@ -34,7 +34,7 @@ tmp
 EOF
 
 cat <<EOF > Dockerfile
-FROM node:22
+FROM node:24
 COPY . /build
 WORKDIR /build
 RUN npm ci
