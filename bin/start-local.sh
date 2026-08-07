@@ -40,6 +40,8 @@ clearStaleSAMContainers
 "${PROJECT_ROOT}/scripts/localstack/run_bridge.sh" &
 LOCAL_BRIDGE_PID=$!
 
+rm -rf "${PROJECT_ROOT}/cdk/cdk.out"
+
 # Synthesize the CDK stack
 cd cdk
 cdk synth --context useLocalstack="true" --output ./cdk.out > /dev/null 2>&1

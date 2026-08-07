@@ -9,8 +9,8 @@ RUN chmod -R 755 /rdf4j-data
 # Set the RDF4J data directory
 ENV RDF4J_DATA_DIR=/rdf4j-data
 
-# Install necessary tools
-RUN apt-get update && apt-get install -y unzip zip liblmdb-dev lmdb-utils bc
+# Install necessary tools (added curl here)
+RUN apt-get update && apt-get install -y curl unzip zip liblmdb-dev lmdb-utils bc
 
 # Copy configuration files
 COPY config/tomcat-users.xml /usr/local/tomcat/conf/tomcat-users.xml
