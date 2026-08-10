@@ -47,11 +47,11 @@ describe('when writing corrected metadata to cmr', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
-    process.env.CMR_WRITER_TOKEN = 'writer-token'
+    process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
     delete process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS
     delete process.env.CMR_WRITEBACK_VALIDATE_UMM_C
 
-    vi.mocked(getCmrWriterToken).mockResolvedValue('writer-token')
+    vi.mocked(getCmrWriterToken).mockResolvedValue('Bearer writer-token')
     vi.mocked(cmrPutRequest).mockResolvedValue(createResponse())
   })
 
@@ -130,6 +130,25 @@ describe('when writing corrected metadata to cmr', () => {
     }))
   })
 
+  test('should pass an opaque CMR system token through without adding a bearer prefix', async () => {
+    vi.mocked(getCmrWriterToken).mockResolvedValueOnce('system-token')
+
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(cmrPutRequest).toHaveBeenCalledWith(expect.objectContaining({
+      headers: expect.objectContaining({
+        Authorization: 'system-token'
+      })
+    }))
+  })
+
   test('should write DIF9 corrected metadata with the DIF9 ingest content type', async () => {
     const result = await writeCorrectedMetadataToCmr({
       collectionConceptId: 'C0000000000-KMS',
@@ -199,6 +218,7 @@ describe('when writing corrected metadata to cmr', () => {
 
   test('should skip writeback when no writer token is configured', async () => {
     delete process.env.CMR_WRITER_TOKEN
+    vi.mocked(getCmrWriterToken).mockResolvedValue(undefined)
 
     const result = await writeCorrectedMetadataToCmr({
       collectionConceptId: 'C0000000000-KMS',
@@ -215,7 +235,9 @@ describe('when writing corrected metadata to cmr', () => {
       updated: false
     })
 
-    expect(getCmrWriterToken).not.toHaveBeenCalled()
+    expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
+    expect(getCmrWriterToken).toHaveBeenCalledWith()
+
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
 
@@ -384,7 +406,9 @@ describe('when writing corrected metadata to cmr', () => {
       updated: false
     })
 
-    expect(getCmrWriterToken).not.toHaveBeenCalled()
+    expect(getCmrWriterToken).toHaveBeenCalledTimes(1)
+    expect(getCmrWriterToken).toHaveBeenCalledWith()
+
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
 

@@ -34,6 +34,7 @@ vi.mock('@/shared/getFilteredTriples')
 vi.mock('@/shared/toSkosJson')
 vi.mock('@/shared/processTriples')
 vi.mock('@/shared/getConfig')
+
 vi.mock('@/shared/getGcmdMetadata')
 vi.mock('@/shared/getRootConcepts')
 vi.mock('@/shared/createPrefLabelMap')

@@ -180,6 +180,7 @@ async function main() {
 
   // Create KmsStack
   const kmsStackProps: KmsStackProps = {
+    cmrSystemTokenParameterName: process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME || '',
     cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     cmrWritebackValidateKeywords: process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS || '',
@@ -227,6 +228,7 @@ async function main() {
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
+    cmrSystemTokenParameterName: process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME || '',
     metadataCorrectionRequestDelayMs: process.env.METADATA_CORRECTION_REQUEST_DELAY_MS || '',
     metadataCorrectionServiceReservedConcurrency:
       process.env.METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY || '',

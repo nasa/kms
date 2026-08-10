@@ -1,4 +1,5 @@
 import { cmrGetRequest } from './cmrGetRequest'
+import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
 // Build the raw concept-retrieval path for a collection concept id, optionally pinned to a revision.
@@ -69,11 +70,20 @@ export const getCmrCollectionNativeMetadata = async ({
     throw new Error('Missing collection concept id for CMR native metadata lookup')
   }
 
+  const authorizationToken = await getCmrWriterToken()
+
+  if (!authorizationToken) {
+    throw new Error('Missing CMR authorization token for CMR native metadata lookup')
+  }
+
   const response = await cmrGetRequest({
     path: buildCollectionConceptPath({
       collectionConceptId,
       revisionId
-    })
+    }),
+    headers: {
+      Authorization: authorizationToken
+    }
   })
 
   if (!response.ok) {

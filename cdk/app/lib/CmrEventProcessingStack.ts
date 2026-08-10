@@ -13,6 +13,7 @@ import { VpcSetup } from './helper/VpcSetup'
  */
 export interface CmrEventProcessingStackProps extends cdk.StackProps {
   cmrBaseUrl: string
+  cmrSystemTokenParameterName?: string
   metadataCorrectionRequestDelayMs?: string
   metadataCorrectionServiceReservedConcurrency?: string
   cmrWriterToken?: string
@@ -64,6 +65,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
 
     const metadataCorrectionSetup = new MetadataCorrectionSetup(this, 'MetadataCorrection', {
       cmrBaseUrl: props.cmrBaseUrl,
+      cmrSystemTokenParameterName: props.cmrSystemTokenParameterName,
       metadataCorrectionRequestDelayMs: props.metadataCorrectionRequestDelayMs,
       metadataCorrectionServiceReservedConcurrency:
         props.metadataCorrectionServiceReservedConcurrency,
