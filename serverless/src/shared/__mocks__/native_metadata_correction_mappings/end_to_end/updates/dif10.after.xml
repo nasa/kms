@@ -53,8 +53,8 @@
         <Short_Name>SPOT-4_SHOULD_DELETE</Short_Name>
         <Long_Name>Systeme Probatoire d'Observation de la Terre-4_SHOULD_DELETE</Long_Name>
         <Instrument>
-            <Short_Name>SEISMIC REFLECTION PROFILERS</Short_Name>
-        </Instrument>
+            <Short_Name>SEISMIC REFLECTION PROFILERS_CHANGED</Short_Name>
+        <Long_Name>Seismic Reflection Profilers_CHANGED</Long_Name></Instrument>
         <Instrument>
             <Short_Name>GEOPHONES_SHOULD_DELETE</Short_Name>
             <Long_Name>Geophone Array</Long_Name>

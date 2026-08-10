@@ -118,6 +118,23 @@
       }
     },
     {
+      "scheme": "instruments",
+      "action": "replace",
+      "newLongName": "Seismic Reflection Profilers_CHANGED",
+      "oldKeywordObject": {
+        "Category": "In Situ/Laboratory Instruments",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "SEISMIC REFLECTION PROFILERS"
+      },
+      "newKeywordObject": {
+        "Category": "In Situ/Laboratory Instruments",
+        "Class": "",
+        "Subclass": "",
+        "ShortName": "SEISMIC REFLECTION PROFILERS_CHANGED"
+      }
+    },
+    {
       "scheme": "projects",
       "action": "replace",
       "newLongName": "Aliens in Antarctica_CHANGED",

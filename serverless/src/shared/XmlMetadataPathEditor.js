@@ -758,13 +758,14 @@ export class XmlMetadataPathEditor {
         }
 
         const value = this.getReplacementValue(correction, source, targetNode)
+        const fieldOptions = matchOldValueKey
+          ? { expectedText: correction.oldKeywordObject?.[matchOldValueKey] }
+          : {}
 
         if (value.length > 0) {
-          this.setNestedText(targetNode, fieldPath, value, matchOldValueKey
-            ? { expectedText: correction.oldKeywordObject?.[matchOldValueKey] }
-            : {})
+          this.setNestedText(targetNode, fieldPath, value, fieldOptions)
         } else {
-          this.removeNestedElement(targetNode, fieldPath)
+          this.removeNestedElement(targetNode, fieldPath, fieldOptions)
         }
       })
 

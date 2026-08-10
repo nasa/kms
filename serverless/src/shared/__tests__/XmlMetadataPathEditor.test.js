@@ -684,6 +684,50 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       expect(editor.serialize()).toContain('<ArchiveCenter>KPDC</ArchiveCenter>')
     })
 
+    test('use case #2 should remove only the matching absolute field when its replacement is empty', () => {
+      const editor = new XmlMetadataPathEditor(`
+        <DIF>
+          <Organization>
+            <Organization_Name>
+              <Short_Name>KPDC</Short_Name>
+            </Organization_Name>
+          </Organization>
+          <ProcessingCenter>SOMEONE-ELSE</ProcessingCenter>
+          <ProcessingCenter>KPDC</ProcessingCenter>
+        </DIF>
+      `)
+
+      const isUpdated = editor.updateBlockNode({
+        action: 'replace',
+        oldKeywordObject: {
+          ShortName: 'KPDC'
+        },
+        newKeywordObject: {
+          ShortName: ''
+        }
+      }, {
+        nodeXPath: '//DIF/Organization',
+        find: {
+          fieldPaths: ['Organization_Name/Short_Name'],
+          valueKeys: ['ShortName']
+        },
+        replace: [
+          {
+            fieldPath: '//DIF/ProcessingCenter',
+            matchOldValueKey: 'ShortName',
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          }
+        ]
+      })
+
+      expect(isUpdated).toBe(true)
+      expect(editor.serialize()).toContain('<ProcessingCenter>SOMEONE-ELSE</ProcessingCenter>')
+      expect(editor.serialize()).not.toContain('<ProcessingCenter>KPDC</ProcessingCenter>')
+    })
+
     test('use case #3 should derive replacement values for composed field writes', () => {
       const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
       const targetNode = editor.selectNodes('//DIF/Node')[0]
