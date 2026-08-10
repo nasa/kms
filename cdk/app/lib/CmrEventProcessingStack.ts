@@ -17,6 +17,8 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   metadataCorrectionServiceReservedConcurrency?: string
   cmrWriterToken?: string
   cmrWritebackProviders?: string
+  cmrWritebackValidateKeywords?: string
+  cmrWritebackValidateUmmC?: string
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
@@ -67,6 +69,8 @@ export class CmrEventProcessingStack extends cdk.Stack {
         props.metadataCorrectionServiceReservedConcurrency,
       cmrWriterToken: props.cmrWriterToken,
       cmrWritebackProviders: props.cmrWritebackProviders,
+      cmrWritebackValidateKeywords: props.cmrWritebackValidateKeywords,
+      cmrWritebackValidateUmmC: props.cmrWritebackValidateUmmC,
       prefix: props.prefix,
       redisEnabled: props.redisEnabled,
       redisHost: props.redisHost,

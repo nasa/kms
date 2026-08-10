@@ -21,6 +21,8 @@ interface MetadataCorrectionSetupProps {
   metadataCorrectionServiceReservedConcurrency?: string
   cmrWriterToken?: string
   cmrWritebackProviders?: string
+  cmrWritebackValidateKeywords?: string
+  cmrWritebackValidateUmmC?: string
   prefix: string
   redisEnabled?: string
   redisHost?: string
@@ -72,6 +74,8 @@ export class MetadataCorrectionSetup extends Construct {
       metadataCorrectionServiceReservedConcurrency,
       cmrWriterToken,
       cmrWritebackProviders,
+      cmrWritebackValidateKeywords,
+      cmrWritebackValidateUmmC,
       prefix,
       redisEnabled,
       redisHost,
@@ -147,6 +151,12 @@ export class MetadataCorrectionSetup extends Construct {
           CMR_BASE_URL: cmrBaseUrl,
           CMR_WRITER_TOKEN: cmrWriterToken || '',
           ...(cmrWritebackProviders ? { CMR_WRITEBACK_PROVIDERS: cmrWritebackProviders } : {}),
+          ...(cmrWritebackValidateKeywords
+            ? { CMR_WRITEBACK_VALIDATE_KEYWORDS: cmrWritebackValidateKeywords }
+            : {}),
+          ...(cmrWritebackValidateUmmC
+            ? { CMR_WRITEBACK_VALIDATE_UMM_C: cmrWritebackValidateUmmC }
+            : {}),
           ...(redisEnabled ? { REDIS_ENABLED: redisEnabled } : {}),
           ...(redisHost ? { REDIS_HOST: redisHost } : {}),
           ...(redisPort ? { REDIS_PORT: redisPort } : {}),

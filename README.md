@@ -482,6 +482,8 @@ export bamboo_EDL_CLIENT_ID=[edl oauth client id]
 export bamboo_CMR_BASE_URL=[cmr base url]
 export bamboo_CMR_WRITER_TOKEN=[optional bearer token for CMR metadata writeback]
 export bamboo_CMR_WRITEBACK_PROVIDERS=[optional provider id, comma-separated list, or ALL]
+export bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS=[true|false; defaults to false]
+export bamboo_CMR_WRITEBACK_VALIDATE_UMM_C=[true|false; defaults to false]
 export bamboo_CORS_ORIGIN=[comma separated list of cors origins]
 export bamboo_RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
@@ -497,6 +499,8 @@ Notes:
 - `bamboo_CMR_BASE_URL` is required. KMS no longer falls back to `https://cmr.earthdata.nasa.gov` during deploy or synth.
 - Leave `bamboo_CMR_WRITER_TOKEN` empty to disable live CMR writeback.
 - Leave `bamboo_CMR_WRITEBACK_PROVIDERS` empty to disable provider rollout for CMR writeback.
+- Set `bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS` and `bamboo_CMR_WRITEBACK_VALIDATE_UMM_C`
+  to `true` to reject writebacks that still fail CMR keyword or UMM-C validation.
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault. This is useful when `rdf4jSnapshotStack` is being recreated after an RDF4J recovery event and you need the new stack to reuse an existing vault instead of trying to create the same vault name again.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is not set, `SnapshotStack` creates the default `rdf4j-backup-vault`.

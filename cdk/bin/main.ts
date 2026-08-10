@@ -182,6 +182,8 @@ async function main() {
   const kmsStackProps: KmsStackProps = {
     cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
+    cmrWritebackValidateKeywords: process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS || '',
+    cmrWritebackValidateUmmC: process.env.CMR_WRITEBACK_VALIDATE_UMM_C || '',
     prefix,
     env,
     vpcId,
@@ -230,6 +232,8 @@ async function main() {
       process.env.METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY || '',
     cmrWriterToken: process.env.CMR_WRITER_TOKEN || '',
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
+    cmrWritebackValidateKeywords: process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS || '',
+    cmrWritebackValidateUmmC: process.env.CMR_WRITEBACK_VALIDATE_UMM_C || '',
     env,
     prefix,
     redisEnabled: redisEnabledValue,
