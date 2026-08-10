@@ -724,8 +724,11 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       })
 
       expect(isUpdated).toBe(true)
-      expect(editor.serialize()).toContain('<ProcessingCenter>SOMEONE-ELSE</ProcessingCenter>')
-      expect(editor.serialize()).not.toContain('<ProcessingCenter>KPDC</ProcessingCenter>')
+      const processingCenters = editor
+        .selectNodes('//DIF/ProcessingCenter')
+        .map((node) => node.textContent)
+
+      expect(processingCenters).toEqual(['SOMEONE-ELSE'])
     })
 
     test('use case #3 should derive replacement values for composed field writes', () => {
