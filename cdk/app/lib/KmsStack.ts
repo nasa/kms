@@ -20,6 +20,8 @@ import { VpcSetup } from './helper/VpcSetup'
 export interface KmsStackProps extends cdk.StackProps {
   cmrSystemTokenParameterName?: string
   cmrWritebackProviders?: string
+  cmrWritebackValidateKeywords?: string
+  cmrWritebackValidateUmmC?: string
   cmrWriterToken?: string
   existingApiId: string | undefined
   keywordSyncAlarmEmails?: string[]
@@ -173,6 +175,8 @@ export class KmsStack extends cdk.Stack {
         CMR_SYSTEM_TOKEN_PARAMETER_NAME: props.cmrSystemTokenParameterName || '',
         CMR_WRITER_TOKEN: props.cmrWriterToken || '',
         CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || '',
+        CMR_WRITEBACK_VALIDATE_KEYWORDS: props.cmrWritebackValidateKeywords || '',
+        CMR_WRITEBACK_VALIDATE_UMM_C: props.cmrWritebackValidateUmmC || '',
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopicArn
       },
       prefix,

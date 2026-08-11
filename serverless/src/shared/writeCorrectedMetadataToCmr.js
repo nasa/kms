@@ -5,6 +5,20 @@ import { logger } from './logger'
 // Keep the writeback timeout comfortably inside the metadataCorrectionService Lambda's
 // 30s timeout so a stalled ingest request can still be recorded as a failed audit row.
 const CMR_WRITEBACK_TIMEOUT_MS = 10_000
+const CMR_WRITEBACK_CLIENT_ID = 'kms-metadata-correction-service'
+
+/**
+ * Reads a CMR validation header flag from environment configuration.
+ * Validation remains disabled unless the corresponding value is explicitly `true`.
+ *
+ * @param {string} environmentVariableName Environment variable containing the flag.
+ * @returns {string} The lowercase boolean string expected by CMR ingest.
+ */
+const getValidationHeaderValue = (environmentVariableName) => (
+  String(process.env[environmentVariableName] || '').trim().toLowerCase() === 'true'
+    ? 'true'
+    : 'false'
+)
 
 /**
  * Serializes corrected metadata into the payload shape expected by CMR ingest.
@@ -338,8 +352,9 @@ export const writeCorrectedMetadataToCmr = async ({
     timeoutMs: CMR_WRITEBACK_TIMEOUT_MS,
     headers: {
       Authorization: authorizationToken,
-      'cmr-validate-keywords': 'false',
-      'Cmr-Validate-Umm-C': 'false'
+      'Client-Id': CMR_WRITEBACK_CLIENT_ID,
+      'Cmr-Validate-Keywords': getValidationHeaderValue('CMR_WRITEBACK_VALIDATE_KEYWORDS'),
+      'Cmr-Validate-Umm-C': getValidationHeaderValue('CMR_WRITEBACK_VALIDATE_UMM_C')
     }
   })
 

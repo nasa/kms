@@ -239,6 +239,28 @@ export const ECHO10_SCHEME_EDITORS = {
         'ShortName'
       ]
     },
+    delete: [
+      {
+        fieldPath: '//Collection/ProcessingCenter',
+        matchOldValueKey: 'ShortName',
+        condition: ({ correction, editor: currentEditor }) => (
+          correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
+          && currentEditor.resolveAbsoluteFieldElement('//Collection/ProcessingCenter', {
+            expectedText: correction.oldKeywordObject?.ShortName
+          }) !== null
+        )
+      },
+      {
+        fieldPath: '//Collection/ArchiveCenter',
+        matchOldValueKey: 'ShortName',
+        condition: ({ correction, editor: currentEditor }) => (
+          correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
+          && currentEditor.resolveAbsoluteFieldElement('//Collection/ArchiveCenter', {
+            expectedText: correction.oldKeywordObject?.ShortName
+          }) !== null
+        )
+      }
+    ],
     replace: [
       {
         // XML field to write to
@@ -252,11 +274,13 @@ export const ECHO10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: '//Collection/ProcessingCenter',
+        matchOldValueKey: 'ShortName',
         // Condition to satisfy before replacement can occur
         condition: ({ correction, editor: currentEditor }) => (
           correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
-          && currentEditor.getNestedText(null, '//Collection/ProcessingCenter')
-          === correction.oldKeywordObject?.ShortName
+          && currentEditor.resolveAbsoluteFieldElement('//Collection/ProcessingCenter', {
+            expectedText: correction.oldKeywordObject?.ShortName
+          }) !== null
         ),
         source: {
           // Key from newKeywordObject to read from
@@ -267,11 +291,13 @@ export const ECHO10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: '//Collection/ArchiveCenter',
+        matchOldValueKey: 'ShortName',
         // Condition to satisfy before replacement can occur
         condition: ({ correction, editor: currentEditor }) => (
           correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
-          && currentEditor.getNestedText(null, '//Collection/ArchiveCenter')
-          === correction.oldKeywordObject?.ShortName
+          && currentEditor.resolveAbsoluteFieldElement('//Collection/ArchiveCenter', {
+            expectedText: correction.oldKeywordObject?.ShortName
+          }) !== null
         ),
         source: {
           // Key from newKeywordObject to read from
@@ -329,9 +355,8 @@ export const ECHO10_SCHEME_EDITORS = {
     //   }
     // }
     //
-    // Scalar schemes ignore block/path matching and update the one target field
-    // selected by nodeXPath. `tagName` is only used when that field is missing
-    // and the editor needs to create the scalar element under the DIF root.
+    // Scalar schemes select the nodeXPath field matching oldKeywordObject when supplied.
+    // `tagName` is only used when the field is missing and a replacement must be created.
     nodeXPath: '//Collection/ProcessingLevelId',
     tagName: 'ProcessingLevelId'
   })

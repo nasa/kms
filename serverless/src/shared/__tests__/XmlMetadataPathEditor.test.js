@@ -684,6 +684,53 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       expect(editor.serialize()).toContain('<ArchiveCenter>KPDC</ArchiveCenter>')
     })
 
+    test('use case #2 should remove only the matching absolute field when its replacement is empty', () => {
+      const editor = new XmlMetadataPathEditor(`
+        <DIF>
+          <Organization>
+            <Organization_Name>
+              <Short_Name>KPDC</Short_Name>
+            </Organization_Name>
+          </Organization>
+          <ProcessingCenter>SOMEONE-ELSE</ProcessingCenter>
+          <ProcessingCenter>KPDC</ProcessingCenter>
+        </DIF>
+      `)
+
+      const isUpdated = editor.updateBlockNode({
+        action: 'replace',
+        oldKeywordObject: {
+          ShortName: 'KPDC'
+        },
+        newKeywordObject: {
+          ShortName: ''
+        }
+      }, {
+        nodeXPath: '//DIF/Organization',
+        find: {
+          fieldPaths: ['Organization_Name/Short_Name'],
+          valueKeys: ['ShortName']
+        },
+        replace: [
+          {
+            fieldPath: '//DIF/ProcessingCenter',
+            matchOldValueKey: 'ShortName',
+            source: {
+              type: 'value',
+              key: 'ShortName'
+            }
+          }
+        ]
+      })
+
+      expect(isUpdated).toBe(true)
+      const processingCenters = editor
+        .selectNodes('//DIF/ProcessingCenter')
+        .map((node) => node.textContent)
+
+      expect(processingCenters).toEqual(['SOMEONE-ELSE'])
+    })
+
     test('use case #3 should derive replacement values for composed field writes', () => {
       const editor = new XmlMetadataPathEditor('<DIF><Node/></DIF>')
       const targetNode = editor.selectNodes('//DIF/Node')[0]
@@ -931,7 +978,8 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
         find: {
           fieldPaths: ['Short_Name'],
           valueKeys: ['ShortName']
-        }
+        },
+        delete: [{ fieldPath: 'Short_Name' }]
       })).toBe(true)
 
       expect(deleteEditor.selectNodes('//DIF/Block')).toEqual([])
@@ -1133,6 +1181,26 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       })).toBe(true)
 
       expect(deleteEditor.selectNodes('//DIF/Product_Level_Id')).toEqual([])
+
+      const repeatedScalarEditor = new XmlMetadataPathEditor(`
+        <DIF>
+          <Product_Level_Id>Keep</Product_Level_Id>
+          <Product_Level_Id>Delete</Product_Level_Id>
+        </DIF>
+      `)
+
+      expect(repeatedScalarEditor.updateScalarNode({
+        action: 'delete',
+        oldKeywordObject: {
+          Value: 'Delete'
+        }
+      }, {
+        nodeXPath: '//DIF/Product_Level_Id',
+        tagName: 'Product_Level_Id'
+      })).toBe(true)
+
+      expect(repeatedScalarEditor.selectNodes('//DIF/Product_Level_Id')
+        .map((node) => repeatedScalarEditor.getElementText(node))).toEqual(['Keep'])
 
       expect(defaultReplaceEditor.updateScalarNode({
         newKeywordObject: {

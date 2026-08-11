@@ -809,17 +809,9 @@ describe('when applying providers ISO-19115 corrections', () => {
     expect(updatedXml).toContain('DOC/NOAA/NESDIS/NODC &gt; National Oceanographic Data Center, NESDIS, NOAA, U.S. Department of Commerce')
   })
 
-  test('should use fallback getValue with NONE for missing fieldKeys in science keywords', () => {
-    // This test covers the fallback getValue function (lines 58-61 and conceptually 70-71)
-    // getValue || (({ correction }) => fieldKeys.map((k) => correction.newKeywordObject[k] || 'NONE').join(' > '))
-    // Note: Lines 70-71 (in additionalPaths.map) use the same fallback logic but are not hit by
-    // current schemes since all schemes with additionalPaths also provide custom getValue.
-    // This test covers the main keyword block fallback which uses identical logic.
-    // For sciencekeywords, NO custom getValue is provided, so it uses the default fallback
-
+  test('should omit trailing missing levels from science keyword paths', () => {
     const editor = new Iso19115MetadataPathEditor(mockIso19115)
 
-    // Provide incomplete science keyword - missing some hierarchy levels
     const correction = {
       scheme: 'sciencekeywords',
       action: 'replace',
@@ -835,8 +827,6 @@ describe('when applying providers ISO-19115 corrections', () => {
       newKeywordObject: {
         Category: 'EARTH SCIENCE',
         Topic: 'BIOSPHERE'
-        // Deliberately omitting Term, VariableLevel1, etc. to trigger || 'NONE' fallback
-        // The fallback function will map each missing field to 'NONE'
       }
     }
 
@@ -847,11 +837,38 @@ describe('when applying providers ISO-19115 corrections', () => {
 
     const updatedXml = editor.serialize()
 
-    // The fallback getValue function (lines 70-71) will create:
-    // fieldKeys.map((k) => correction.newKeywordObject[k] || 'NONE').join(' > ')
-    // With fieldKeys = ['Category', 'Topic', 'Term', 'VariableLevel1', 'VariableLevel2', 'VariableLevel3', 'DetailedVariable']
-    // Result: 'EARTH SCIENCE > BIOSPHERE > NONE > NONE > NONE > NONE > NONE'
-    expect(updatedXml).toContain('EARTH SCIENCE &gt; BIOSPHERE &gt; NONE &gt; NONE &gt; NONE &gt; NONE &gt; NONE')
+    expect(updatedXml).toContain('EARTH SCIENCE &gt; BIOSPHERE')
+    expect(updatedXml).not.toContain('EARTH SCIENCE &gt; BIOSPHERE &gt; NONE')
+  })
+
+  test('should use NONE for missing levels before a populated science keyword level', () => {
+    const editor = new Iso19115MetadataPathEditor(mockIso19115)
+    const correction = {
+      scheme: 'sciencekeywords',
+      action: 'replace',
+      oldKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'ATMOSPHERE',
+        Term: 'AEROSOLS',
+        VariableLevel1: '',
+        VariableLevel2: '',
+        VariableLevel3: '',
+        DetailedVariable: ''
+      },
+      newKeywordObject: {
+        Category: 'EARTH SCIENCE',
+        Topic: 'BIOSPHERE',
+        DetailedVariable: 'CHLOROPHYLL'
+      }
+    }
+
+    const config = ISO_19115_SCHEME_EDITORS.sciencekeywords
+    const success = config(editor, correction)
+
+    expect(success).toBe(true)
+    expect(editor.serialize()).toContain(
+      'EARTH SCIENCE &gt; BIOSPHERE &gt; NONE &gt; NONE &gt; NONE &gt; NONE &gt; CHLOROPHYLL'
+    )
   })
 })
 

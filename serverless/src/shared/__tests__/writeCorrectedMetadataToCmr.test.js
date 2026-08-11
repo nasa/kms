@@ -48,6 +48,8 @@ describe('when writing corrected metadata to cmr', () => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
     process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
+    delete process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS
+    delete process.env.CMR_WRITEBACK_VALIDATE_UMM_C
 
     vi.mocked(getCmrWriterToken).mockResolvedValue('Bearer writer-token')
     vi.mocked(cmrPutRequest).mockResolvedValue(createResponse())
@@ -98,10 +100,53 @@ describe('when writing corrected metadata to cmr', () => {
       timeoutMs: 10000,
       headers: {
         Authorization: 'Bearer writer-token',
-        'cmr-validate-keywords': 'false',
+        'Client-Id': 'kms-metadata-correction-service',
+        'Cmr-Validate-Keywords': 'false',
         'Cmr-Validate-Umm-C': 'false'
       }
     })
+  })
+
+  test('should enable configured CMR validation headers', async () => {
+    process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS = 'true'
+    process.env.CMR_WRITEBACK_VALIDATE_UMM_C = ' TRUE '
+
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(cmrPutRequest).toHaveBeenCalledWith(expect.objectContaining({
+      headers: {
+        Authorization: 'Bearer writer-token',
+        'Client-Id': 'kms-metadata-correction-service',
+        'Cmr-Validate-Keywords': 'true',
+        'Cmr-Validate-Umm-C': 'true'
+      }
+    }))
+  })
+
+  test('should pass an opaque CMR system token through without adding a bearer prefix', async () => {
+    vi.mocked(getCmrWriterToken).mockResolvedValueOnce('system-token')
+
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(cmrPutRequest).toHaveBeenCalledWith(expect.objectContaining({
+      headers: expect.objectContaining({
+        Authorization: 'system-token'
+      })
+    }))
   })
 
   test('should write DIF9 corrected metadata with the DIF9 ingest content type', async () => {
@@ -241,7 +286,8 @@ describe('when writing corrected metadata to cmr', () => {
       timeoutMs: 10000,
       headers: {
         Authorization: 'Bearer writer-token',
-        'cmr-validate-keywords': 'false',
+        'Client-Id': 'kms-metadata-correction-service',
+        'Cmr-Validate-Keywords': 'false',
         'Cmr-Validate-Umm-C': 'false'
       }
     })

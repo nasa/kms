@@ -24,6 +24,8 @@ interface LambdaFunctionsProps {
     CMR_SYSTEM_TOKEN_PARAMETER_NAME?: string;
     CMR_WRITER_TOKEN: string;
     CMR_WRITEBACK_PROVIDERS: string;
+    CMR_WRITEBACK_VALIDATE_KEYWORDS: string;
+    CMR_WRITEBACK_VALIDATE_UMM_C: string;
     METADATA_CORRECTION_REQUESTS_TOPIC_ARN?: string;
   };
   prefix: string;
