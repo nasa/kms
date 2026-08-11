@@ -378,6 +378,23 @@ describe('getConcept', () => {
       })
     })
 
+    test('returns RDF format with correct root namespaces and xml:base', async () => {
+      const mockEvent = { pathParameters: { conceptId: '123' } }
+      const mockSkosConcept = {
+        '@rdf:about': '123',
+        'skos:prefLabel': { _text: 'Test PrefLabel' },
+        'skos:inScheme': { '@rdf:resource': 'https://example.com/scheme' }
+      }
+      mockSuccessfulResponse(mockSkosConcept)
+
+      const result = await getConcept(mockEvent)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.body).toContain(
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#" xmlns:dcterms="http://purl.org/dc/terms/" xml:base="https://gcmd.earthdata.nasa.gov/kms/concept/">'
+      )
+    })
+
     describe('when retrieving by short name', () => {
       test('should successfully retrieve concept using short name', async () => {
         const mockEvent = { pathParameters: { shortName: 'Test+Short+Name' } }

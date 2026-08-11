@@ -831,6 +831,26 @@ describe('getConcepts', () => {
   })
 
   describe('when successful', () => {
+    test('returns RDF format with correct root namespaces and xml:base', async () => {
+      getFilteredTriples.mockResolvedValue([])
+      processTriples.mockReturnValue({
+        bNodeMap: {},
+        nodes: {},
+        conceptURIs: []
+      })
+
+      getTotalConceptCount.mockResolvedValue(0)
+      getGcmdMetadata.mockResolvedValue({})
+
+      const event = {}
+      const result = await getConcepts(event)
+
+      expect(result.statusCode).toBe(200)
+      expect(result.body).toContain(
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:skos="http://www.w3.org/2004/02/skos/core#" xmlns:gcmd="https://gcmd.earthdata.nasa.gov/kms#" xmlns:dcterms="http://purl.org/dc/terms/" xml:base="https://gcmd.earthdata.nasa.gov/kms/concept/">'
+      )
+    })
+
     test('returns concepts by pattern', async () => {
       const mockTriples = [
         {
