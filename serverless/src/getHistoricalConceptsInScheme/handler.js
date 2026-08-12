@@ -11,6 +11,16 @@ import { logAnalyticsData } from '@/shared/logAnalyticsData'
 const bucketName = process.env.S3_BUCKET_NAME || 'kms-rdf-backup-sit'
 
 /**
+ * Allow-list pattern for the `conceptScheme` and `version` inputs. Both
+ * values are reflected into the S3 Prefix, the Content-Disposition header,
+ * and error messages, so they're restricted to characters seen in real
+ * version/scheme names (letters, digits, dot, hyphen, underscore) to rule
+ * out header injection or unexpectedly broad S3 prefix listings.
+ * @type {RegExp}
+ */
+const SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9._-]+$/
+
+/**
  * S3 Client from shared configuration
  * @type {S3Client}
  */
@@ -95,6 +105,28 @@ export const getHistoricalConceptsInScheme = async (event, context) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ error: 'version is required' })
+    }
+  }
+
+  if (!SAFE_IDENTIFIER_PATTERN.test(scheme)) {
+    return {
+      statusCode: 400,
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: 'scheme contains invalid characters' })
+    }
+  }
+
+  if (!SAFE_IDENTIFIER_PATTERN.test(version)) {
+    return {
+      statusCode: 400,
+      headers: {
+        ...defaultResponseHeaders,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ error: 'version contains invalid characters' })
     }
   }
 

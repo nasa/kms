@@ -69,6 +69,30 @@ describe('getHistoricalConceptsInScheme', () => {
       expect(response.statusCode).toBe(400)
       expect(JSON.parse(response.body)).toEqual({ error: 'scheme is required' })
     })
+
+    test('should return 400 when conceptScheme contains invalid characters', async () => {
+      const event = {
+        pathParameters: { conceptScheme: 'instruments"; DROP TABLE--' },
+        queryStringParameters: { version: 'A' }
+      }
+      const response = await getHistoricalConceptsInScheme(event, {})
+
+      expect(response.statusCode).toBe(400)
+      expect(JSON.parse(response.body)).toEqual({ error: 'scheme contains invalid characters' })
+      expect(mockSend).not.toHaveBeenCalled()
+    })
+
+    test('should return 400 when version contains invalid characters', async () => {
+      const event = {
+        pathParameters: { conceptScheme: 'instruments' },
+        queryStringParameters: { version: 'A\r\nX-Injected: true' }
+      }
+      const response = await getHistoricalConceptsInScheme(event, {})
+
+      expect(response.statusCode).toBe(400)
+      expect(JSON.parse(response.body)).toEqual({ error: 'version contains invalid characters' })
+      expect(mockSend).not.toHaveBeenCalled()
+    })
   })
 
   describe('when successful', () => {
