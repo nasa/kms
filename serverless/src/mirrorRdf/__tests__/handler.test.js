@@ -68,6 +68,11 @@ const configureSuccessfulFetch = () => {
     .mockResolvedValueOnce(createTextResponse())
 }
 
+const createApiEvent = () => ({
+  requestContext: {},
+  headers: { Authorization: 'api-token' }
+})
+
 describe('mirrorRdf', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -115,10 +120,12 @@ describe('mirrorRdf', () => {
         method: 'POST',
         headers: {
           Accept: 'application/json',
-          Authorization: 'system-token'
+          Authorization: 'Bearer manual-token'
         }
       }
     )
+
+    expect(getCmrSystemToken).not.toHaveBeenCalled()
 
     expect(fetch).toHaveBeenNthCalledWith(
       3,
@@ -175,7 +182,7 @@ describe('mirrorRdf', () => {
       text: 'unavailable'
     }))
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -191,7 +198,7 @@ describe('mirrorRdf', () => {
       json: vi.fn().mockResolvedValue({})
     })
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(fetch).toHaveBeenCalledTimes(1)
@@ -212,7 +219,7 @@ describe('mirrorRdf', () => {
         status: 504
       }))
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(fetch).toHaveBeenCalledTimes(2)
@@ -233,7 +240,7 @@ describe('mirrorRdf', () => {
         arrayBuffer: vi.fn().mockResolvedValue(Buffer.from('not-gzip'))
       })
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalledWith(
@@ -250,7 +257,7 @@ describe('mirrorRdf', () => {
       })
       .mockResolvedValueOnce(createArchiveResponse('<not-rdf />'))
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalledWith(
@@ -277,7 +284,7 @@ describe('mirrorRdf', () => {
         text: 'clear failed'
       }))
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalledWith(
@@ -305,7 +312,7 @@ describe('mirrorRdf', () => {
         text: 'import failed'
       }))
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalledWith(
@@ -338,7 +345,7 @@ describe('mirrorRdf', () => {
       .mockResolvedValueOnce(createTextResponse())
       .mockResolvedValueOnce(createTextResponse())
 
-    const response = await mirrorRdf({ requestContext: {} })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(200)
     expect(String(vi.mocked(fetch).mock.calls[4][0])).toContain(
@@ -353,13 +360,23 @@ describe('mirrorRdf', () => {
     })
   })
 
-  test('does not call the source when the CMR system token is unavailable', async () => {
+  test('does not call the source when an API request has no Authorization header', async () => {
     process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
-    vi.mocked(getCmrSystemToken).mockResolvedValue(undefined)
 
     const response = await mirrorRdf({ requestContext: {} })
 
     expect(response.statusCode).toBe(500)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(getCmrSystemToken).not.toHaveBeenCalled()
+  })
+
+  test('throws when a scheduled invocation has no CMR system token', async () => {
+    process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
+    vi.mocked(getCmrSystemToken).mockResolvedValue(undefined)
+
+    await expect(mirrorRdf({ source: 'aws.events' }))
+      .rejects.toThrow('CMR system token is unavailable')
+
     expect(fetch).not.toHaveBeenCalled()
   })
 

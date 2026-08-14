@@ -14,6 +14,15 @@ const SOURCE_BASE_URLS = {
 const gunzip = promisify(zlib.gunzip)
 
 /**
+ * Reads the Authorization header from an API Gateway event without modifying its value.
+ *
+ * @param {object} event API Gateway invocation event.
+ * @returns {string|undefined} Incoming authorization value.
+ */
+const getRequestAuthorization = (event) => Object.entries(event.headers || {})
+  .find(([headerName]) => headerName.toLowerCase() === 'authorization')?.[1]
+
+/**
  * Resolves the configured source environment to its KMS API base URL.
  *
  * @returns {{sourceEnvironment: string, sourceBaseUrl: string}|undefined} Source configuration.
@@ -164,10 +173,14 @@ export const mirrorRdf = async (event = {}) => {
       }
     }
 
-    const authorization = await getCmrSystemToken()
+    const authorization = isApiRequest
+      ? getRequestAuthorization(event)
+      : await getCmrSystemToken()
 
     if (!authorization) {
-      throw new Error('CMR system token is unavailable')
+      throw new Error(isApiRequest
+        ? 'Authorization header is unavailable'
+        : 'CMR system token is unavailable')
     }
 
     // Complete every source download before modifying either destination graph.
