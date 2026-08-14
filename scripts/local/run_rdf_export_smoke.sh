@@ -5,18 +5,15 @@ set -euo pipefail
 # Downloads and validates the published and draft RDF gzip exports.
 #
 # Usage:
-#   KMS_AUTHORIZATION='<Authorization header value>' \
-#     ./scripts/local/run_rdf_export_smoke.sh <sit|uat|prod> [outputDirectory]
+#   ./scripts/local/run_rdf_export_smoke.sh <sit|uat|prod> [outputDirectory]
 
 usage() {
   cat <<'EOF'
 Usage:
-  KMS_AUTHORIZATION='<Authorization header value>' \
-    ./scripts/local/run_rdf_export_smoke.sh <sit|uat|prod> [outputDirectory]
+  ./scripts/local/run_rdf_export_smoke.sh <sit|uat|prod> [outputDirectory]
 
 Environment:
-  KMS_AUTHORIZATION  Authorization header value passed through exactly as provided.
-  KMS_BASE_URL       Optional override for the KMS base URL.
+  KMS_BASE_URL  Optional override for the KMS base URL.
 
 The output directory defaults to /tmp/kms-rdf-export-smoke-<environment>.
 EOF
@@ -33,8 +30,6 @@ if [[ -z "$ENVIRONMENT" ]]; then
   usage >&2
   exit 1
 fi
-
-AUTHORIZATION_VALUE="${KMS_AUTHORIZATION:?Missing KMS_AUTHORIZATION environment variable.}"
 
 case "$ENVIRONMENT" in
   sit)
@@ -68,7 +63,6 @@ download_export() {
     --show-error \
     --fail-with-body \
     --request POST \
-    --header "Authorization: ${AUTHORIZATION_VALUE}" \
     --header 'Accept: application/json' \
     "${BASE_URL}/rdf/export?version=${version}" \
     --output "$response_file"

@@ -1,7 +1,6 @@
 import { promisify } from 'util'
 import zlib from 'zlib'
 
-import { getCmrSystemToken } from '@/shared/getCmrWriterToken'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
 
@@ -13,15 +12,6 @@ const SOURCE_BASE_URLS = {
   prod: 'https://cmr.earthdata.nasa.gov/kms'
 }
 const gunzip = promisify(zlib.gunzip)
-
-/**
- * Reads the Authorization header from an API Gateway event without modifying its value.
- *
- * @param {object} event API Gateway invocation event.
- * @returns {string|undefined} Incoming authorization value.
- */
-const getRequestAuthorization = (event) => Object.entries(event.headers || {})
-  .find(([headerName]) => headerName.toLowerCase() === 'authorization')?.[1]
 
 /**
  * Resolves the configured source environment to its KMS API base URL.
@@ -56,23 +46,17 @@ const getSourceConfiguration = () => {
  * Requests and downloads one gzip-compressed RDF graph from the source KMS environment.
  *
  * @param {object} params Download parameters.
- * @param {string} params.authorization Authorization value forwarded to the source KMS API.
  * @param {string} params.sourceBaseUrl Source KMS API base URL.
  * @param {'published'|'draft'} params.version RDF graph version.
  * @returns {Promise<string>} Uncompressed RDF/XML content.
  */
 const downloadRdf = async ({
-  authorization,
   sourceBaseUrl,
   version
 }) => {
-  const headers = {
-    Accept: 'application/json',
-    Authorization: authorization
-  }
   const exportResponse = await fetch(`${sourceBaseUrl}/rdf/export?version=${version}`, {
     method: 'POST',
-    headers
+    headers: { Accept: 'application/json' }
   })
 
   if (!exportResponse.ok) {
@@ -178,22 +162,11 @@ export const mirrorRdf = async (event = {}) => {
       }
     }
 
-    const authorization = isApiRequest
-      ? getRequestAuthorization(event)
-      : await getCmrSystemToken()
-
-    if (!authorization) {
-      throw new Error(isApiRequest
-        ? 'Authorization header is unavailable'
-        : 'CMR system token is unavailable')
-    }
-
     // Complete every source download before modifying either destination graph.
     const rdfByVersion = await RDF_VERSIONS.reduce(
       (previousDownloads, version) => previousDownloads.then(async (downloads) => ({
         ...downloads,
         [version]: await downloadRdf({
-          authorization,
           sourceBaseUrl: sourceConfiguration.sourceBaseUrl,
           version
         })

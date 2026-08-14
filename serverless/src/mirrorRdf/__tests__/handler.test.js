@@ -8,7 +8,6 @@ import {
   vi
 } from 'vitest'
 
-import { getCmrSystemToken } from '@/shared/getCmrWriterToken'
 import { logger } from '@/shared/logger'
 
 import { mirrorRdf } from '../handler'
@@ -19,10 +18,6 @@ vi.mock('@/shared/getConfig', () => ({
       'Access-Control-Allow-Origin': '*'
     }
   }))
-}))
-
-vi.mock('@/shared/getCmrWriterToken', () => ({
-  getCmrSystemToken: vi.fn()
 }))
 
 vi.mock('@/shared/logger')
@@ -69,8 +64,7 @@ const configureSuccessfulFetch = () => {
 }
 
 const createApiEvent = () => ({
-  requestContext: {},
-  headers: { Authorization: 'api-token' }
+  requestContext: {}
 })
 
 describe('mirrorRdf', () => {
@@ -79,7 +73,6 @@ describe('mirrorRdf', () => {
     vi.stubGlobal('fetch', vi.fn())
     delete process.env.RDF_MIRROR_SOURCE_ENV
     delete process.env.AWS_SAM_LOCAL
-    vi.mocked(getCmrSystemToken).mockResolvedValue('system-token')
     process.env.RDF4J_SERVICE_URL = 'http://rdf4j.test:8080'
     process.env.RDF4J_REPOSITORY_ID = 'kms-test'
     process.env.RDF4J_USER_NAME = 'rdf-user'
@@ -102,10 +95,7 @@ describe('mirrorRdf', () => {
     process.env.RDF_MIRROR_SOURCE_ENV = 'SIT'
     configureSuccessfulFetch()
 
-    const response = await mirrorRdf({
-      requestContext: {},
-      headers: { authorization: 'Bearer manual-token' }
-    })
+    const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(200)
     expect(JSON.parse(response.body)).toEqual({
@@ -120,13 +110,10 @@ describe('mirrorRdf', () => {
       {
         method: 'POST',
         headers: {
-          Accept: 'application/json',
-          Authorization: 'Bearer manual-token'
+          Accept: 'application/json'
         }
       }
     )
-
-    expect(getCmrSystemToken).not.toHaveBeenCalled()
 
     expect(fetch).toHaveBeenNthCalledWith(
       3,
@@ -171,9 +158,8 @@ describe('mirrorRdf', () => {
     )
   })
 
-  test('uses the CMR system token for a scheduled invocation', async () => {
+  test('downloads public source exports for a scheduled invocation', async () => {
     process.env.RDF_MIRROR_SOURCE_ENV = 'uat'
-    vi.mocked(getCmrSystemToken).mockResolvedValue('scheduled-system-token')
     configureSuccessfulFetch()
 
     await mirrorRdf({ source: 'aws.events' })
@@ -183,8 +169,7 @@ describe('mirrorRdf', () => {
       'https://cmr.uat.earthdata.nasa.gov/kms/rdf/export?version=published',
       expect.objectContaining({
         headers: {
-          Accept: 'application/json',
-          Authorization: 'scheduled-system-token'
+          Accept: 'application/json'
         }
       })
     )
@@ -374,26 +359,6 @@ describe('mirrorRdf', () => {
         Authorization: `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
       }
     })
-  })
-
-  test('does not call the source when an API request has no Authorization header', async () => {
-    process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
-
-    const response = await mirrorRdf({ requestContext: {} })
-
-    expect(response.statusCode).toBe(500)
-    expect(fetch).not.toHaveBeenCalled()
-    expect(getCmrSystemToken).not.toHaveBeenCalled()
-  })
-
-  test('throws when a scheduled invocation has no CMR system token', async () => {
-    process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
-    vi.mocked(getCmrSystemToken).mockResolvedValue(undefined)
-
-    await expect(mirrorRdf({ source: 'aws.events' }))
-      .rejects.toThrow('CMR system token is unavailable')
-
-    expect(fetch).not.toHaveBeenCalled()
   })
 
   test('throws a scheduled invocation error so EventBridge can report the failure', async () => {

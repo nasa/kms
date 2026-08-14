@@ -414,7 +414,7 @@ export class LambdaFunctions {
       'exportRdf',
       '/rdf/export',
       'POST',
-      true
+      false
     )
 
     this.createApiLambda(
