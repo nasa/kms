@@ -39,6 +39,8 @@ fi
 
 clearStaleSAMContainers
 
+rm -rf "${PROJECT_ROOT}/cdk/cdk.out"
+
 # Synthesize the CDK stack
 cd "${PROJECT_ROOT}/cdk"
 npx cdk synth --context useLocalstack="true" --output ./cdk.out > /dev/null
