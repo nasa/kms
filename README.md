@@ -52,6 +52,19 @@ To run local server with SAM watch mode enabled
 npm run start-local:watch
 ```
 
+#### Unsupported `nodejs24.x` runtime
+
+If local startup reports that `nodejs24.x` is unsupported, upgrade AWS SAM CLI. Local Lambdas are run by SAM, so rebuilding LocalStack will not resolve this error.
+
+```bash
+sam --version
+brew update
+brew upgrade aws-sam-cli
+sam --version
+```
+
+After upgrading, rerun `npm run start-local`. SAM will download the Node.js 24 Lambda runtime image when it is first needed.
+
 ### Why local uses SAM and LocalStack
 
 Local development intentionally splits responsibilities between SAM and LocalStack:
