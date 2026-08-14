@@ -61,6 +61,7 @@ dockerRun() {
         --env "VPC_ID=$bamboo_VPC_ID" \
         --env "RDF4J_USER_NAME=$bamboo_RDF4J_USER_NAME" \
         --env "RDF4J_PASSWORD=$bamboo_RDF4J_PASSWORD" \
+        --env "RDF_MIRROR_SOURCE_ENV=${bamboo_RDF_MIRROR_SOURCE_ENV:-}" \
         --env "EDL_PASSWORD=$bamboo_EDL_PASSWORD" \
         --env "EDL_CLIENT_ID=$bamboo_EDL_CLIENT_ID" \
         --env "CMR_BASE_URL=$bamboo_CMR_BASE_URL" \

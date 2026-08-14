@@ -475,6 +475,7 @@ export bamboo_SUBNET_ID_C={subnet #3}
 export bamboo_VPC_ID={your vpc id}
 export bamboo_RDF4J_USER_NAME=[your rdfdb user name]
 export bamboo_RDF4J_PASSWORD=[your rdfdb password]
+export bamboo_RDF_MIRROR_SOURCE_ENV=[optional sit|uat|prod source for RDF mirroring]
 export bamboo_EDL_HOST=[edl host name]
 export bamboo_EDL_UID=[edl user id]
 export bamboo_EDL_PASSWORD=[edl password]
@@ -501,6 +502,9 @@ Notes:
 - When configured, `bamboo_CMR_SYSTEM_TOKEN_PARAMETER_NAME` is the primary source for the CMR
   authorization value. `bamboo_CMR_WRITER_TOKEN` is used only as a fallback and must include the
   `Bearer` prefix.
+- Set `bamboo_RDF_MIRROR_SOURCE_ENV` to `sit`, `uat`, or `prod` to enable the nightly published
+  and draft RDF mirror from that environment. Leave it empty to disable automatic imports; an
+  authenticated `POST /rdf/mirror` can also run the configured mirror manually.
 - Leave `bamboo_CMR_WRITEBACK_PROVIDERS` empty to disable provider rollout for CMR writeback.
 - Set `bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS` and `bamboo_CMR_WRITEBACK_VALIDATE_UMM_C`
   to `true` to reject writebacks that still fail CMR keyword or UMM-C validation.

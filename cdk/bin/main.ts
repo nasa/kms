@@ -200,6 +200,7 @@ async function main() {
         : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'),
       RDF4J_USER_NAME: process.env.RDF4J_USER_NAME || 'rdf4j',
       RDF4J_PASSWORD: process.env.RDF4J_PASSWORD || 'rdf4j',
+      RDF_MIRROR_SOURCE_ENV: process.env.RDF_MIRROR_SOURCE_ENV || '',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: cmrBaseUrl,
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',

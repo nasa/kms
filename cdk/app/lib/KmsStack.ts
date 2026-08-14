@@ -42,6 +42,7 @@ export interface KmsStackProps extends cdk.StackProps {
     AWS_ENDPOINT_URL?: string
     RDF_BUCKET_NAME: string
     RDF4J_PASSWORD: string
+    RDF_MIRROR_SOURCE_ENV?: string
     RDF4J_SERVICE_URL: string
     RDF4J_USER_NAME: string
   }
