@@ -85,7 +85,9 @@ async function main() {
     }
 
   const vpcId = useLocalstack ? 'dummy-vpc-id' : process.env.VPC_ID
-  const cmrBaseUrl = requireEnv('CMR_BASE_URL')
+  const cmrBaseUrl = useLocalstack
+    ? process.env.CMR_BASE_URL || ''
+    : requireEnv('CMR_BASE_URL')
 
   if (!vpcId) {
     throw new Error('VPC_ID environment variable is not set')
