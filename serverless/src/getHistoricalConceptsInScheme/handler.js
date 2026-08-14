@@ -143,7 +143,7 @@ export const getHistoricalConceptsInScheme = async (event, context) => {
           ...defaultResponseHeaders,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ error: `No concept scheme ${scheme} found for version ${version}` })
+        body: JSON.stringify({ error: `No concept scheme ${conceptScheme} found for version ${version}` })
       }
     }
 
@@ -165,12 +165,12 @@ export const getHistoricalConceptsInScheme = async (event, context) => {
       headers: {
         ...defaultResponseHeaders,
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${scheme}.csv"`
+        'Content-Disposition': `attachment; filename="${conceptScheme}.csv"`
       },
       body: csvContent
     }
   } catch (error) {
-    console.error(`Failed to download CSV for scheme=${scheme}, version=${version}: ${error.message}`)
+    console.error(`Failed to download CSV for scheme=${conceptScheme}, version=${version}: ${error.message}`)
 
     return {
       statusCode: 500,
