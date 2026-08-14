@@ -78,6 +78,7 @@ describe('mirrorRdf', () => {
     vi.resetAllMocks()
     vi.stubGlobal('fetch', vi.fn())
     delete process.env.RDF_MIRROR_SOURCE_ENV
+    delete process.env.AWS_SAM_LOCAL
     vi.mocked(getCmrSystemToken).mockResolvedValue('system-token')
     process.env.RDF4J_SERVICE_URL = 'http://rdf4j.test:8080'
     process.env.RDF4J_REPOSITORY_ID = 'kms-test'
@@ -153,6 +154,21 @@ describe('mirrorRdf', () => {
       sourceEnvironment: 'sit',
       versions: ['published', 'draft']
     })
+  })
+
+  test('uses the local SAM API as the source during local testing', async () => {
+    process.env.RDF_MIRROR_SOURCE_ENV = 'local'
+    process.env.AWS_SAM_LOCAL = 'true'
+    configureSuccessfulFetch()
+
+    const response = await mirrorRdf(createApiEvent())
+
+    expect(response.statusCode).toBe(200)
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      'http://host.docker.internal:3013/rdf/export?version=published',
+      expect.any(Object)
+    )
   })
 
   test('uses the CMR system token for a scheduled invocation', async () => {
@@ -384,6 +400,13 @@ describe('mirrorRdf', () => {
     process.env.RDF_MIRROR_SOURCE_ENV = 'invalid'
 
     await expect(mirrorRdf({ source: 'aws.events' }))
-      .rejects.toThrow('RDF_MIRROR_SOURCE_ENV must be sit, uat, or prod')
+      .rejects.toThrow('RDF_MIRROR_SOURCE_ENV must be local, sit, uat, or prod')
+  })
+
+  test('rejects the local source outside SAM local', async () => {
+    process.env.RDF_MIRROR_SOURCE_ENV = 'local'
+
+    await expect(mirrorRdf({ source: 'aws.events' }))
+      .rejects.toThrow('RDF_MIRROR_SOURCE_ENV local is only supported by SAM local')
   })
 })

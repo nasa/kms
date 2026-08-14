@@ -7,6 +7,7 @@ import { logger } from '@/shared/logger'
 
 const RDF_VERSIONS = ['published', 'draft']
 const SOURCE_BASE_URLS = {
+  local: 'http://host.docker.internal:3013',
   sit: 'https://cmr.sit.earthdata.nasa.gov/kms',
   uat: 'https://cmr.uat.earthdata.nasa.gov/kms',
   prod: 'https://cmr.earthdata.nasa.gov/kms'
@@ -38,7 +39,11 @@ const getSourceConfiguration = () => {
   const sourceBaseUrl = SOURCE_BASE_URLS[sourceEnvironment]
 
   if (!sourceBaseUrl) {
-    throw new Error('RDF_MIRROR_SOURCE_ENV must be sit, uat, or prod')
+    throw new Error('RDF_MIRROR_SOURCE_ENV must be local, sit, uat, or prod')
+  }
+
+  if (sourceEnvironment === 'local' && process.env.AWS_SAM_LOCAL !== 'true') {
+    throw new Error('RDF_MIRROR_SOURCE_ENV local is only supported by SAM local')
   }
 
   return {
