@@ -186,7 +186,7 @@ describe('getHistoricalConceptsInScheme', () => {
 
       expect(response.statusCode).toBe(404)
       expect(JSON.parse(response.body)).toEqual({
-        error: 'No concept scheme "doesnotexist" found for version "A"'
+        error: 'No concept scheme doesnotexist found for version A'
       })
 
       // Only the list call should happen, never a GetObject
@@ -247,7 +247,7 @@ describe('getHistoricalConceptsInScheme', () => {
 
       // eslint-disable-next-line no-console
       expect(console.error).toHaveBeenCalledWith(
-        'Failed to download CSV for scheme="instruments", version="A": Access denied'
+        'Failed to download CSV for scheme=instruments, version=A: Access denied'
       )
     })
   })
