@@ -116,8 +116,9 @@ export const sparqlRequest = async (props) => {
     */
   const getSparqlEndpoint = () => {
     const baseUrl = process.env.RDF4J_SERVICE_URL || 'http://localhost:8080'
+    const repositoryId = process.env.RDF4J_REPOSITORY_ID || 'kms'
 
-    return `${baseUrl}/rdf4j-server/repositories/kms`
+    return `${baseUrl}/rdf4j-server/repositories/${repositoryId}`
   }
 
   /**

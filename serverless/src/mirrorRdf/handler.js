@@ -3,6 +3,12 @@ import zlib from 'zlib'
 
 import { getApplicationConfig } from '@/shared/getConfig'
 import { logger } from '@/shared/logger'
+import { sparqlRequest } from '@/shared/sparqlRequest'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 
 const RDF_VERSIONS = ['published', 'draft']
 const SOURCE_BASE_URLS = {
@@ -100,40 +106,44 @@ const downloadRdf = async ({
  * @returns {Promise<void>}
  */
 const replaceDestinationGraph = async ({ rdfXml, version }) => {
-  const serviceUrl = String(process.env.RDF4J_SERVICE_URL || 'http://localhost:8081')
-    .replace(/\/$/, '')
-  const repositoryId = process.env.RDF4J_REPOSITORY_ID || 'kms'
-  const statementsUrl = new URL(`${serviceUrl}/rdf4j-server/repositories/${repositoryId}/statements`)
   const graphUri = `https://gcmd.earthdata.nasa.gov/kms/version/${version}`
-  const credentials = Buffer.from(
-    `${process.env.RDF4J_USER_NAME || 'rdf4j'}:${process.env.RDF4J_PASSWORD || 'rdf4j'}`
-  ).toString('base64')
-  const authorization = `Basic ${credentials}`
+  let transactionUrl
 
-  statementsUrl.searchParams.set('context', `<${graphUri}>`)
+  try {
+    transactionUrl = await startTransaction()
 
-  const clearResponse = await fetch(statementsUrl, {
-    method: 'DELETE',
-    headers: { Authorization: authorization }
-  })
+    await sparqlRequest({
+      method: 'PUT',
+      body: `CLEAR GRAPH <${graphUri}>`,
+      contentType: 'application/sparql-update',
+      transaction: {
+        transactionUrl,
+        action: 'UPDATE'
+      }
+    })
 
-  if (!clearResponse.ok && clearResponse.status !== 404) {
-    const responseText = await clearResponse.text()
-    throw new Error(`Failed to clear destination ${version} graph: ${clearResponse.status} ${responseText}`)
-  }
+    await sparqlRequest({
+      method: 'PUT',
+      body: rdfXml,
+      contentType: 'application/rdf+xml',
+      version,
+      transaction: {
+        transactionUrl,
+        action: 'ADD'
+      }
+    })
 
-  const importResponse = await fetch(statementsUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: authorization,
-      'Content-Type': 'application/rdf+xml'
-    },
-    body: rdfXml
-  })
+    await commitTransaction(transactionUrl)
+  } catch (error) {
+    if (transactionUrl) {
+      try {
+        await rollbackTransaction(transactionUrl)
+      } catch (rollbackError) {
+        logger.error(`[rdf-mirror] Failed to roll back ${version} graph replacement, error=${rollbackError.toString()}`)
+      }
+    }
 
-  if (!importResponse.ok) {
-    const responseText = await importResponse.text()
-    throw new Error(`Failed to import destination ${version} graph: ${importResponse.status} ${responseText}`)
+    throw new Error(`Failed to replace destination ${version} graph: ${error.message}`)
   }
 }
 

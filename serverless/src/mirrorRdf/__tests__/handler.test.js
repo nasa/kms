@@ -9,6 +9,12 @@ import {
 } from 'vitest'
 
 import { logger } from '@/shared/logger'
+import { sparqlRequest } from '@/shared/sparqlRequest'
+import {
+  commitTransaction,
+  rollbackTransaction,
+  startTransaction
+} from '@/shared/transactionHelpers'
 
 import { mirrorRdf } from '../handler'
 
@@ -21,6 +27,8 @@ vi.mock('@/shared/getConfig', () => ({
 }))
 
 vi.mock('@/shared/logger')
+vi.mock('@/shared/sparqlRequest')
+vi.mock('@/shared/transactionHelpers')
 
 const createArchiveResponse = (rdfXml) => {
   const archive = gzipSync(rdfXml)
@@ -57,10 +65,6 @@ const configureSuccessfulFetch = () => {
       json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/draft.rdf.xml.gz' })
     })
     .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>draft</rdf:RDF>'))
-    .mockResolvedValueOnce(createTextResponse())
-    .mockResolvedValueOnce(createTextResponse())
-    .mockResolvedValueOnce(createTextResponse())
-    .mockResolvedValueOnce(createTextResponse())
 }
 
 const createApiEvent = () => ({
@@ -77,6 +81,10 @@ describe('mirrorRdf', () => {
     process.env.RDF4J_REPOSITORY_ID = 'kms-test'
     process.env.RDF4J_USER_NAME = 'rdf-user'
     process.env.RDF4J_PASSWORD = 'rdf-password'
+    vi.mocked(startTransaction).mockResolvedValue('transaction-url')
+    vi.mocked(sparqlRequest).mockResolvedValue(createTextResponse())
+    vi.mocked(commitTransaction).mockResolvedValue()
+    vi.mocked(rollbackTransaction).mockResolvedValue()
   })
 
   test('skips the mirror when no source environment is configured', async () => {
@@ -121,21 +129,30 @@ describe('mirrorRdf', () => {
       expect.any(Object)
     )
 
-    const publishedContext = encodeURIComponent(
-      '<https://gcmd.earthdata.nasa.gov/kms/version/published>'
-    )
-    expect(String(vi.mocked(fetch).mock.calls[4][0])).toContain(`context=${publishedContext}`)
-    expect(vi.mocked(fetch).mock.calls[4][1]).toEqual({
-      method: 'DELETE',
-      headers: {
-        Authorization: `Basic ${Buffer.from('rdf-user:rdf-password').toString('base64')}`
+    expect(startTransaction).toHaveBeenCalledTimes(2)
+    expect(sparqlRequest).toHaveBeenNthCalledWith(1, {
+      method: 'PUT',
+      body: 'CLEAR GRAPH <https://gcmd.earthdata.nasa.gov/kms/version/published>',
+      contentType: 'application/sparql-update',
+      transaction: {
+        transactionUrl: 'transaction-url',
+        action: 'UPDATE'
       }
     })
 
-    expect(vi.mocked(fetch).mock.calls[5][1]).toEqual(expect.objectContaining({
-      method: 'POST',
-      body: '<rdf:RDF>published</rdf:RDF>'
-    }))
+    expect(sparqlRequest).toHaveBeenNthCalledWith(2, {
+      method: 'PUT',
+      body: '<rdf:RDF>published</rdf:RDF>',
+      contentType: 'application/rdf+xml',
+      version: 'published',
+      transaction: {
+        transactionUrl: 'transaction-url',
+        action: 'ADD'
+      }
+    })
+
+    expect(commitTransaction).toHaveBeenCalledTimes(2)
+    expect(rollbackTransaction).not.toHaveBeenCalled()
 
     expect(logger.info).toHaveBeenCalledWith('[rdf-mirror] Mirrored RDF graphs', {
       sourceEnvironment: 'sit',
@@ -268,97 +285,52 @@ describe('mirrorRdf', () => {
 
   test('returns an API error when clearing a destination graph fails', async () => {
     process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
-    vi.mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/published.rdf.xml.gz' })
-      })
-      .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>published</rdf:RDF>'))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/draft.rdf.xml.gz' })
-      })
-      .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>draft</rdf:RDF>'))
-      .mockResolvedValueOnce(createTextResponse({
-        ok: false,
-        status: 500,
-        text: 'clear failed'
-      }))
+    configureSuccessfulFetch()
+    vi.mocked(sparqlRequest).mockRejectedValueOnce(new Error('clear failed'))
 
     const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
+    expect(rollbackTransaction).toHaveBeenCalledWith('transaction-url')
+    expect(commitTransaction).not.toHaveBeenCalled()
     expect(logger.error).toHaveBeenCalledWith(
-      '[rdf-mirror] Failed to mirror RDF graphs, error=Error: Failed to clear destination published graph: 500 clear failed'
+      '[rdf-mirror] Failed to mirror RDF graphs, error=Error: Failed to replace destination published graph: clear failed'
     )
   })
 
   test('returns an API error when importing a destination graph fails', async () => {
     process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
-    vi.mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/published.rdf.xml.gz' })
-      })
-      .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>published</rdf:RDF>'))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/draft.rdf.xml.gz' })
-      })
-      .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>draft</rdf:RDF>'))
+    configureSuccessfulFetch()
+    vi.mocked(sparqlRequest)
       .mockResolvedValueOnce(createTextResponse())
-      .mockResolvedValueOnce(createTextResponse({
-        ok: false,
-        status: 500,
-        text: 'import failed'
-      }))
+      .mockRejectedValueOnce(new Error('import failed'))
+
+    const response = await mirrorRdf(createApiEvent())
+
+    expect(response.statusCode).toBe(500)
+    expect(rollbackTransaction).toHaveBeenCalledWith('transaction-url')
+    expect(commitTransaction).not.toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledWith(
+      '[rdf-mirror] Failed to mirror RDF graphs, error=Error: Failed to replace destination published graph: import failed'
+    )
+  })
+
+  test('reports the original replacement error when rollback also fails', async () => {
+    process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
+    configureSuccessfulFetch()
+    vi.mocked(sparqlRequest).mockRejectedValueOnce(new Error('clear failed'))
+    vi.mocked(rollbackTransaction).mockRejectedValueOnce(new Error('rollback failed'))
 
     const response = await mirrorRdf(createApiEvent())
 
     expect(response.statusCode).toBe(500)
     expect(logger.error).toHaveBeenCalledWith(
-      '[rdf-mirror] Failed to mirror RDF graphs, error=Error: Failed to import destination published graph: 500 import failed'
-    )
-  })
-
-  test('uses local RDF4J defaults and permits an absent destination context', async () => {
-    process.env.RDF_MIRROR_SOURCE_ENV = 'prod'
-    delete process.env.RDF4J_SERVICE_URL
-    delete process.env.RDF4J_REPOSITORY_ID
-    delete process.env.RDF4J_USER_NAME
-    delete process.env.RDF4J_PASSWORD
-    vi.mocked(fetch)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/published.rdf.xml.gz' })
-      })
-      .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>published</rdf:RDF>'))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ downloadUrl: 'https://download.test/draft.rdf.xml.gz' })
-      })
-      .mockResolvedValueOnce(createArchiveResponse('<rdf:RDF>draft</rdf:RDF>'))
-      .mockResolvedValueOnce(createTextResponse({
-        ok: false,
-        status: 404
-      }))
-      .mockResolvedValueOnce(createTextResponse())
-      .mockResolvedValueOnce(createTextResponse())
-      .mockResolvedValueOnce(createTextResponse())
-
-    const response = await mirrorRdf(createApiEvent())
-
-    expect(response.statusCode).toBe(200)
-    expect(String(vi.mocked(fetch).mock.calls[4][0])).toContain(
-      'http://localhost:8081/rdf4j-server/repositories/kms/statements'
+      '[rdf-mirror] Failed to roll back published graph replacement, error=Error: rollback failed'
     )
 
-    expect(vi.mocked(fetch).mock.calls[4][1]).toEqual({
-      method: 'DELETE',
-      headers: {
-        Authorization: `Basic ${Buffer.from('rdf4j:rdf4j').toString('base64')}`
-      }
-    })
+    expect(logger.error).toHaveBeenCalledWith(
+      '[rdf-mirror] Failed to mirror RDF graphs, error=Error: Failed to replace destination published graph: clear failed'
+    )
   })
 
   test('throws a scheduled invocation error so EventBridge can report the failure', async () => {
