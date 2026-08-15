@@ -15,9 +15,15 @@ import { getHistoricalConceptsInScheme } from '../handler'
 // vi.hoisted + a mock factory ensures `mockSend` is available when the
 // `@/shared/awsClients` mock is set up, and lets us control its behavior
 // per test via mockSend.mockResolvedValueOnce(...).
-const { mockSend } = vi.hoisted(() => ({
-  mockSend: vi.fn()
-}))
+//
+// handler.js also reads `RDF_BUCKET_NAME` at module-load time and throws if
+// it's missing, so it must be set here too, before the static import of
+// `../handler` below runs (vi.hoisted is lifted above all imports).
+const { mockSend } = vi.hoisted(() => {
+  process.env.RDF_BUCKET_NAME = 'test-bucket'
+
+  return { mockSend: vi.fn() }
+})
 
 vi.mock('@/shared/awsClients', () => ({
   getS3Client: () => ({ send: mockSend })
@@ -249,6 +255,21 @@ describe('getHistoricalConceptsInScheme', () => {
       expect(console.error).toHaveBeenCalledWith(
         'Failed to download CSV for scheme=instruments, version=A: Access denied'
       )
+    })
+  })
+
+  describe('when RDF_BUCKET_NAME is not set', () => {
+    test('should throw a clear error at module load instead of silently falling back to a default bucket', async () => {
+      const originalValue = process.env.RDF_BUCKET_NAME
+      delete process.env.RDF_BUCKET_NAME
+
+      vi.resetModules()
+
+      await expect(import('../handler')).rejects.toThrow(
+        'Missing required environment variable: RDF_BUCKET_NAME'
+      )
+
+      process.env.RDF_BUCKET_NAME = originalValue
     })
   })
 })

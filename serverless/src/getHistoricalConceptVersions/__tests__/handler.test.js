@@ -15,9 +15,15 @@ import { getHistoricalConceptVersions } from '../handler'
 // vi.hoisted + a mock factory ensures `mockSend` is available when the
 // `@/shared/awsClients` mock is set up, and lets us control its behavior
 // per test via mockSend.mockResolvedValueOnce(...).
-const { mockSend } = vi.hoisted(() => ({
-  mockSend: vi.fn()
-}))
+//
+// handler.js also now reads `RDF_BUCKET_NAME` at module-load time and throws
+// if it's missing, so it must be set here too, before the static import of
+// `../handler` below runs (vi.hoisted is lifted above all imports).
+const { mockSend } = vi.hoisted(() => {
+  process.env.RDF_BUCKET_NAME = 'test-bucket'
+
+  return { mockSend: vi.fn() }
+})
 
 vi.mock('@/shared/awsClients', () => ({
   getS3Client: () => ({ send: mockSend })
@@ -38,13 +44,23 @@ describe('getHistoricalConceptVersions', () => {
   })
 
   describe('when successful', () => {
-    test('should return 200 with the list of version directories', async () => {
-      mockSend.mockResolvedValueOnce({
-        CommonPrefixes: [
-          { Prefix: 'A/' },
-          { Prefix: 'B/' }
-        ]
-      })
+    test('should return 200 with the list of version directories that contain a CSV', async () => {
+      mockSend
+        // Top-level listing: two candidate version prefixes
+        .mockResolvedValueOnce({
+          CommonPrefixes: [
+            { Prefix: 'A/' },
+            { Prefix: 'B/' }
+          ]
+        })
+        // Per-version CSV check for "A"
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'A/ScienceKeywords.csv' }]
+        })
+        // Per-version CSV check for "B"
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'B/ScienceKeywords.csv' }]
+        })
 
       const event = {}
       const context = {}
@@ -56,16 +72,54 @@ describe('getHistoricalConceptVersions', () => {
     })
 
     test('should exclude the draft directory', async () => {
-      mockSend.mockResolvedValueOnce({
-        CommonPrefixes: [
-          { Prefix: 'draft/' },
-          { Prefix: 'A/' }
-        ]
-      })
+      mockSend
+        .mockResolvedValueOnce({
+          CommonPrefixes: [
+            { Prefix: 'draft/' },
+            { Prefix: 'A/' }
+          ]
+        })
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'A/ScienceKeywords.csv' }]
+        })
 
       const response = await getHistoricalConceptVersions({}, {})
 
       expect(JSON.parse(response.body)).toEqual({ historicalVersions: ['A'] })
+    })
+
+    test('should exclude versions that have no CSV files, e.g. an rdf.xml-only or incomplete export', async () => {
+      mockSend
+        .mockResolvedValueOnce({
+          CommonPrefixes: [
+            { Prefix: 'A/' },
+            { Prefix: 'B/' }
+          ]
+        })
+        // "A" only has an rdf.xml export, no CSV
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'A/rdf.xml' }]
+        })
+        // "B" has a CSV
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'B/ScienceKeywords.csv' }]
+        })
+
+      const response = await getHistoricalConceptVersions({}, {})
+
+      expect(JSON.parse(response.body)).toEqual({ historicalVersions: ['B'] })
+    })
+
+    test('should exclude a version whose prefix has no objects at all', async () => {
+      mockSend
+        .mockResolvedValueOnce({
+          CommonPrefixes: [{ Prefix: 'A/' }]
+        })
+        .mockResolvedValueOnce({})
+
+      const response = await getHistoricalConceptVersions({}, {})
+
+      expect(JSON.parse(response.body)).toEqual({ historicalVersions: [] })
     })
 
     test('should return an empty array when there are no common prefixes', async () => {
@@ -75,9 +129,11 @@ describe('getHistoricalConceptVersions', () => {
 
       expect(response.statusCode).toBe(200)
       expect(JSON.parse(response.body)).toEqual({ historicalVersions: [] })
+      // No candidate versions, so no per-version CSV checks should happen
+      expect(mockSend).toHaveBeenCalledTimes(1)
     })
 
-    test('should paginate through multiple pages of results', async () => {
+    test('should paginate through multiple pages of top-level results', async () => {
       mockSend
         .mockResolvedValueOnce({
           CommonPrefixes: [{ Prefix: 'A/' }],
@@ -86,11 +142,36 @@ describe('getHistoricalConceptVersions', () => {
         .mockResolvedValueOnce({
           CommonPrefixes: [{ Prefix: 'B/' }]
         })
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'A/ScienceKeywords.csv' }]
+        })
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'B/ScienceKeywords.csv' }]
+        })
 
       const response = await getHistoricalConceptVersions({}, {})
 
-      expect(mockSend).toHaveBeenCalledTimes(2)
+      expect(mockSend).toHaveBeenCalledTimes(4)
       expect(JSON.parse(response.body)).toEqual({ historicalVersions: ['A', 'B'] })
+    })
+
+    test('should paginate through multiple pages when checking a single version for CSVs', async () => {
+      mockSend
+        .mockResolvedValueOnce({
+          CommonPrefixes: [{ Prefix: 'A/' }]
+        })
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'A/rdf.xml' }],
+          NextContinuationToken: 'version-page-2-token'
+        })
+        .mockResolvedValueOnce({
+          Contents: [{ Key: 'A/ScienceKeywords.csv' }]
+        })
+
+      const response = await getHistoricalConceptVersions({}, {})
+
+      expect(mockSend).toHaveBeenCalledTimes(3)
+      expect(JSON.parse(response.body)).toEqual({ historicalVersions: ['A'] })
     })
 
     test('should call logAnalyticsData with the event and context', async () => {
@@ -131,6 +212,36 @@ describe('getHistoricalConceptVersions', () => {
         'Failed to list S3 version directories:',
         error.message
       )
+    })
+
+    test('should return 500 when checking a version for CSVs fails', async () => {
+      mockSend
+        .mockResolvedValueOnce({
+          CommonPrefixes: [{ Prefix: 'A/' }]
+        })
+        .mockRejectedValueOnce(new Error('Access denied'))
+
+      const response = await getHistoricalConceptVersions({}, {})
+
+      expect(response.statusCode).toBe(500)
+      expect(JSON.parse(response.body)).toEqual({
+        message: 'Failed to fetch version directories'
+      })
+    })
+  })
+
+  describe('when RDF_BUCKET_NAME is not set', () => {
+    test('should throw a clear error at module load instead of silently falling back to a default bucket', async () => {
+      const originalValue = process.env.RDF_BUCKET_NAME
+      delete process.env.RDF_BUCKET_NAME
+
+      vi.resetModules()
+
+      await expect(import('../handler')).rejects.toThrow(
+        'Missing required environment variable: RDF_BUCKET_NAME'
+      )
+
+      process.env.RDF_BUCKET_NAME = originalValue
     })
   })
 })

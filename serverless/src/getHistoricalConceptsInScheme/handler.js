@@ -8,7 +8,11 @@ import { logAnalyticsData } from '@/shared/logAnalyticsData'
  * S3 bucket name to download the concept scheme CSV from
  * @type {string}
  */
-const bucketName = process.env.S3_BUCKET_NAME || 'kms-rdf-backup-sit'
+const bucketName = process.env.RDF_BUCKET_NAME
+
+if (!bucketName) {
+  throw new Error('Missing required environment variable: RDF_BUCKET_NAME')
+}
 
 /**
  * Allow-list pattern for the `conceptScheme` and `version` inputs. Both
