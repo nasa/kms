@@ -232,6 +232,29 @@ describe('getHistoricalConceptsInScheme', () => {
       expect(JSON.parse(response.body)).toEqual({ error: 'Failed to fetch concept scheme CSV' })
     })
 
+    test('should return 500 when the matched object has no Body', async () => {
+      mockSend.mockResolvedValueOnce({
+        Contents: [{ Key: 'A/instruments.csv' }]
+      })
+
+      // GetObject resolves, but with no Body on the response
+      mockSend.mockResolvedValueOnce({})
+
+      const event = {
+        pathParameters: { conceptScheme: 'instruments' },
+        queryStringParameters: { version: 'A' }
+      }
+      const response = await getHistoricalConceptsInScheme(event, {})
+
+      expect(response.statusCode).toBe(500)
+      expect(JSON.parse(response.body)).toEqual({ error: 'Failed to fetch concept scheme CSV' })
+
+      // eslint-disable-next-line no-console
+      expect(console.error).toHaveBeenCalledWith(
+        'Failed to download CSV for scheme=instruments, version=A: No data returned from S3'
+      )
+    })
+
     test('should log the error to the console', async () => {
       const error = new Error('Access denied')
       mockSend.mockRejectedValueOnce(error)
