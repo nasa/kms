@@ -10,15 +10,6 @@ import { logAnalyticsData } from '@/shared/logAnalyticsData'
 
 import { getHistoricalConceptsInScheme } from '../handler'
 
-// GetS3Client() is called once at module-load time in handler.js, so the
-// mocked client needs to exist before the handler module is imported. Using
-// vi.hoisted + a mock factory ensures `mockSend` is available when the
-// `@/shared/awsClients` mock is set up, and lets us control its behavior
-// per test via mockSend.mockResolvedValueOnce(...).
-//
-// handler.js also reads `RDF_BUCKET_NAME` at module-load time and throws if
-// it's missing, so it must be set here too, before the static import of
-// `../handler` below runs (vi.hoisted is lifted above all imports).
 const { mockSend } = vi.hoisted(() => {
   process.env.RDF_BUCKET_NAME = 'test-bucket'
 
