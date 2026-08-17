@@ -170,6 +170,14 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
 
         expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('uuid=1234')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
+          expect.stringContaining('eventTimestamp=2026-04-21T00:00:00.000Z')
+        )
+
+        expect(logger.info).toHaveBeenCalledWith(
           expect.stringContaining('messageId=metadata-correction-message-123')
         )
 

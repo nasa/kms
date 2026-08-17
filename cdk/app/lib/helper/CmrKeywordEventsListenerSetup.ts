@@ -2,6 +2,7 @@ import * as path from 'path'
 
 import * as cdk from 'aws-cdk-lib'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as iam from 'aws-cdk-lib/aws-iam'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import * as sns from 'aws-cdk-lib/aws-sns'
@@ -16,6 +17,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface CmrKeywordEventsListenerSetupProps {
   cmrBaseUrl: string
+  cmrSystemTokenParameterName?: string
   prefix: string
   securityGroup: ec2.SecurityGroup
   stage: string
@@ -45,6 +47,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrSystemTokenParameterName,
       keywordEventsTopic,
       metadataCorrectionRequestsTopic,
       prefix,
@@ -72,6 +75,9 @@ export class CmrKeywordEventsListenerSetup extends Construct {
       memorySize: 1024,
       environment: {
         CMR_BASE_URL: cmrBaseUrl,
+        ...(cmrSystemTokenParameterName
+          ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
+          : {}),
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopic.topicArn
       },
       depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
@@ -91,6 +97,19 @@ export class CmrKeywordEventsListenerSetup extends Construct {
 
     this.queue.grantConsumeMessages(this.listenerLambda)
     metadataCorrectionRequestsTopic.grantPublish(this.listenerLambda)
+
+    if (cmrSystemTokenParameterName) {
+      const systemTokenParameterArn = cdk.Stack.of(this).formatArn({
+        service: 'ssm',
+        resource: 'parameter',
+        resourceName: cmrSystemTokenParameterName.replace(/^\//, '')
+      })
+
+      this.listenerLambda.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [systemTokenParameterArn]
+      }))
+    }
 
     this.queueUrlOutput = new cdk.CfnOutput(this, 'CmrKeywordEventsQueueUrl', {
       description: 'Queue URL for CMR keyword event processing',

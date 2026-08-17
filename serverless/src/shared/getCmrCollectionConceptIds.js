@@ -1,5 +1,6 @@
 import { cmrGetRequest } from './cmrGetRequest'
 import { formatKeywordObjectForLog } from './formatKeywordObjectForLog'
+import { getCmrSystemToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
 /**
@@ -77,10 +78,27 @@ export const getCmrCollectionConceptIds = async ({
     keywordObject
   })
 
+  const authorizationToken = await getCmrSystemToken()
+
+  if (!authorizationToken) {
+    throw new Error('Missing CMR system token for CMR concept-id lookup')
+  }
+
   // Request one page of concept ids and keep the raw response for pagination headers.
   const requestPage = async (pageNumber) => {
+    logger.info(
+      '[cmr-lookup] Sending authenticated CMR collection UUID search '
+      + `scheme=${scheme} `
+      + `uuid=${uuid} `
+      + `pageNumber=${pageNumber} `
+      + `authorizationPresent=${Boolean(authorizationToken)}`
+    )
+
     const response = await cmrGetRequest({
-      path: CMR_COLLECTION_SEARCH_PATH(uuid, pageNumber)
+      path: CMR_COLLECTION_SEARCH_PATH(uuid, pageNumber),
+      headers: {
+        Authorization: authorizationToken
+      }
     })
 
     if (!response.ok) {
