@@ -19,9 +19,8 @@ import {
   HISTORICAL_CACHE_SHORT_NAME_SCHEME_SET
 } from './helpers/constants'
 import { createShortNameConceptResponseBody } from './helpers/createShortNameConceptResponseBody'
+import { parseFullPathCsvRecords, parseShortNameCsvRecords } from './helpers/keywordCsv'
 import { normalizeKeywordScheme } from './helpers/normalizeKeywordScheme'
-import { parseFullPathCsvRecords } from './helpers/parseFullPathCsvRecords'
-import { parseShortNameCsvRecords } from './helpers/parseShortNameCsvRecords'
 import { writeCacheEntries } from './helpers/writeCacheEntries'
 
 const writeHistoricalConceptCacheFromCsv = async ({
@@ -32,7 +31,10 @@ const writeHistoricalConceptCacheFromCsv = async ({
   const normalizedScheme = normalizeKeywordScheme(scheme)
   const cacheEntries = HISTORICAL_CACHE_FULL_PATH_SCHEME_SET.has(normalizedScheme)
     ? buildCacheEntries({
-      records: parseFullPathCsvRecords(csvContent),
+      records: parseFullPathCsvRecords({
+        csvContent,
+        scheme: normalizedScheme
+      }),
       createCacheKey: (fullPath) => createConceptResponseCacheKeyByFullPath({
         fullPath: fullPath.toLowerCase(),
         scheme: normalizedScheme

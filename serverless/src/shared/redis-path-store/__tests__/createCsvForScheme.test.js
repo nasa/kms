@@ -10,7 +10,8 @@ import { getProviderUrlsMap } from '../../getProviderUrlsMap'
 import { getRootConceptForScheme } from '../../getRootConceptForScheme'
 import { isCsvLongNameFlag } from '../../isCsvLongNameFlag'
 import { isCsvProviderUrlFlag } from '../../isCsvProviderUrlFlag'
-import { createCsvForScheme, formatKeywordCsvPath } from '../createCsvForScheme'
+import { createCsvForScheme } from '../createCsvForScheme'
+import { formatKeywordCsvPath } from '../helpers/keywordCsv'
 
 vi.mock('../../createCsv', () => ({
   createCsv: vi.fn()
@@ -74,82 +75,105 @@ describe('createCsvForScheme', () => {
   test('formatKeywordCsvPath pads platforms and related short-name schemes correctly', () => {
     expect(formatKeywordCsvPath({
       scheme: 'platforms',
-      csvHeadersCount: 5,
-      path: ['a', 'b', 'c'],
+      path: ['Platforms', 'Space-based Platforms', 'Earth Observation Satellites'],
       isLeaf: false
-    })).toEqual(['a', 'b', 'c'])
+    })).toEqual(['Platforms', 'Space-based Platforms', 'Earth Observation Satellites', ''])
 
     expect(formatKeywordCsvPath({
       scheme: 'instruments',
-      csvHeadersCount: 6,
-      path: ['Instrument1'],
+      path: ['Instruments'],
       isLeaf: false
-    })).toEqual(['Instrument1', '', '', ''])
+    })).toEqual(['Instruments', '', '', ''])
 
     expect(formatKeywordCsvPath({
       scheme: 'projects',
-      csvHeadersCount: 6,
-      path: ['Project Category', 'ShortName'],
+      path: ['Projects', 'EOSDIS'],
       isLeaf: true
-    })).toEqual(['Project Category', '', '', 'ShortName'])
+    })).toEqual(['Projects', 'EOSDIS'])
   })
 
   test('formatKeywordCsvPath pads full-path and provider schemes correctly', () => {
     expect(formatKeywordCsvPath({
       scheme: 'sciencekeywords',
-      csvHeadersCount: 3,
-      path: ['a', 'b'],
+      path: [
+        'EARTH SCIENCE',
+        'LAND SURFACE',
+        'LAND USE/LAND COVER',
+        'LAND USE/LAND COVER CLASSIFICATION',
+        'VEGETATION INDEX',
+        'NORMALIZED DIFFERENCE VEGETATION INDEX (NDVI)',
+        'VEGETATION INDEX 1 (VI1)'
+      ],
       isLeaf: false
-    })).toEqual(['a', 'b'])
+    })).toEqual([
+      'EARTH SCIENCE',
+      'LAND SURFACE',
+      'LAND USE/LAND COVER',
+      'LAND USE/LAND COVER CLASSIFICATION',
+      'VEGETATION INDEX',
+      'NORMALIZED DIFFERENCE VEGETATION INDEX (NDVI)',
+      'VEGETATION INDEX 1 (VI1)'
+    ])
 
     expect(formatKeywordCsvPath({
       scheme: 'sciencekeywords',
-      csvHeadersCount: 5,
-      path: ['a', 'b'],
+      path: ['EARTH SCIENCE', 'ATMOSPHERE'],
       isLeaf: false
-    })).toEqual(['a', 'b', '', ''])
+    })).toEqual(['EARTH SCIENCE', 'ATMOSPHERE', '', '', '', '', ''])
 
     expect(formatKeywordCsvPath({
       scheme: 'providers',
-      csvHeadersCount: 5,
-      path: ['a', 'b'],
+      path: ['NASA', 'GSFC', 'EOSDIS', 'GHRC', 'GHRC_DAAC'],
       isLeaf: false
-    })).toEqual(['a', 'b'])
+    })).toEqual(['NASA', 'GSFC', 'EOSDIS', 'GHRC', 'GHRC_DAAC'])
 
     expect(formatKeywordCsvPath({
       scheme: 'providers',
-      csvHeadersCount: 6,
-      path: ['a', 'b'],
+      path: ['NASA', 'GSFC'],
       isLeaf: false
-    })).toEqual(['a', 'b', ''])
+    })).toEqual(['NASA', 'GSFC', '', '', ''])
 
     expect(formatKeywordCsvPath({
       scheme: 'providers',
-      csvHeadersCount: 6,
-      path: ['a', 'b'],
+      path: ['NASA', 'GHRC_DAAC'],
       isLeaf: true
-    })).toEqual(['a', '', 'b'])
+    })).toEqual(['NASA', '', '', '', 'GHRC_DAAC'])
 
     expect(formatKeywordCsvPath({
       scheme: 'sciencekeywords',
-      csvHeadersCount: 5,
-      path: ['a', 'b', 'c', 'd', 'e'],
+      path: [
+        'EARTH SCIENCE',
+        'LAND SURFACE',
+        'LAND USE/LAND COVER',
+        'LAND USE/LAND COVER CLASSIFICATION',
+        'VEGETATION INDEX',
+        'NORMALIZED DIFFERENCE VEGETATION INDEX (NDVI)',
+        'VEGETATION INDEX 1 (VI1)',
+        'EXTRA DETAIL'
+      ],
       isLeaf: false
-    })).toEqual(['a', 'b', 'c', 'd', 'e'])
+    })).toEqual([
+      'EARTH SCIENCE',
+      'LAND SURFACE',
+      'LAND USE/LAND COVER',
+      'LAND USE/LAND COVER CLASSIFICATION',
+      'VEGETATION INDEX',
+      'NORMALIZED DIFFERENCE VEGETATION INDEX (NDVI)',
+      'VEGETATION INDEX 1 (VI1)',
+      'EXTRA DETAIL'
+    ])
 
     expect(formatKeywordCsvPath({
       scheme: 'providers',
-      csvHeadersCount: 6,
-      path: ['a', 'b', 'c', 'd'],
+      path: ['NASA', 'GSFC', 'EOSDIS', 'GHRC', 'DAAC', 'GHRC_DAAC'],
       isLeaf: true
-    })).toEqual(['a', 'b', 'c', 'd'])
+    })).toEqual(['NASA', 'GSFC', 'EOSDIS', 'GHRC', 'DAAC', 'GHRC_DAAC'])
 
     expect(formatKeywordCsvPath({
       scheme: 'unknown',
-      csvHeadersCount: 5,
-      path: ['a', 'b', 'c'],
+      path: ['EARTH SCIENCE', 'ATMOSPHERE', 'AIR QUALITY'],
       isLeaf: false
-    })).toEqual(['a', 'b', 'c'])
+    })).toEqual(['EARTH SCIENCE', 'ATMOSPHERE', 'AIR QUALITY'])
   })
 
   test('writes sorted csv rows for a scheme through the centralized hierarchy walk', async () => {
@@ -394,7 +418,7 @@ describe('createCsvForScheme', () => {
       ['mocked metadata'],
       ['Bucket_Level_0', 'Bucket_Level_1', 'Bucket_Level_2', 'Bucket_Level_3', 'Short_Name', 'Data_Center_URL', 'UUID'],
       [
-        ['', '', '', 'KPDC', 'https://example.com/provider', 'provider']
+        ['', '', '', '', 'KPDC', 'https://example.com/provider', 'provider']
       ]
     )
   })
@@ -443,7 +467,7 @@ describe('createCsvForScheme', () => {
       ['mocked metadata'],
       ['Bucket_Level_0', 'Bucket_Level_1', 'Bucket_Level_2', 'Bucket_Level_3', 'Short_Name', 'Data_Center_URL', 'UUID'],
       [
-        ['', '', '', 'KPDC', '', 'provider']
+        ['', '', '', '', 'KPDC', '', 'provider']
       ]
     )
   })

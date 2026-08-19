@@ -8,116 +8,11 @@ import { getNarrowers } from '../getNarrowers'
 import { getNarrowersMap } from '../getNarrowersMap'
 import { getProviderUrlsMap } from '../getProviderUrlsMap'
 import { getRootConceptForScheme } from '../getRootConceptForScheme'
-import { isCsvLongNameFlag } from '../isCsvLongNameFlag'
-import { isCsvProviderUrlFlag } from '../isCsvProviderUrlFlag'
 
+import { getCsvRowValues, prepareCsvRows } from './helpers/keywordCsv'
 import { normalizeKeywordScheme } from './helpers/normalizeKeywordScheme'
 
-/**
- * Pads or repositions keyword path columns so a hierarchy row fits the scheme's CSV layout.
- *
- * This is exported because callers and tests sometimes need the exact row-shaping behavior
- * without generating an entire CSV payload.
- *
- * @param {object} params - CSV path formatting inputs.
- * @param {string} params.scheme - KMS keyword scheme.
- * @param {number} params.csvHeadersCount - Number of CSV header columns before UUID and extras are appended.
- * @param {string[]} params.path - Current hierarchy path segments.
- * @param {boolean} params.isLeaf - Whether the row represents a leaf concept.
- * @returns {string[]} The same `path` array after any required padding/repositioning.
- *
- * @example
- * // Request
- * const rowPath = formatKeywordCsvPath({
- *   scheme: 'providers',
- *   csvHeadersCount: 6,
- *   path: ['NASA', 'GHRC'],
- *   isLeaf: true
- * })
- *
- * // Response
- * // ['NASA', '', 'GHRC']
- */
-export const formatKeywordCsvPath = ({
-  scheme,
-  csvHeadersCount,
-  path,
-  isLeaf
-}) => {
-  const normalizedScheme = normalizeKeywordScheme(scheme)
-
-  if (['platforms', 'instruments', 'projects'].includes(normalizedScheme)) {
-    const maxLevel = csvHeadersCount - 2
-
-    if (maxLevel === path.length) {
-      return path
-    }
-
-    while (maxLevel > path.length) {
-      if (!isLeaf) {
-        path.push('')
-      } else {
-        path.splice(path.length - 1, 0, '')
-      }
-    }
-
-    return path
-  }
-
-  if (
-    [
-      'sciencekeywords',
-      'chronounits',
-      'locations',
-      'discipline',
-      'rucontenttype',
-      'measurementname'
-    ].includes(normalizedScheme)
-  ) {
-    const maxLevel = csvHeadersCount - 1
-
-    if (maxLevel === path.length) {
-      return path
-    }
-
-    if (maxLevel > path.length) {
-      while (maxLevel > path.length) {
-        path.push('')
-      }
-
-      return path
-    }
-  }
-
-  if (normalizedScheme === 'providers') {
-    const maxLevel = csvHeadersCount - 3
-
-    if (maxLevel === path.length) {
-      return path
-    }
-
-    if ((maxLevel > path.length) && !isLeaf) {
-      while (maxLevel > path.length) {
-        path.push('')
-      }
-
-      return path
-    }
-
-    if ((maxLevel > path.length) && isLeaf) {
-      while (maxLevel > path.length) {
-        path.splice(path.length - 1, 0, '')
-      }
-
-      return path
-    }
-  }
-
-  return path
-}
-
 const appendHierarchicalCsvRows = async ({
-  csvHeadersCount,
   providerUrlsMap,
   longNamesMap,
   scheme,
@@ -138,7 +33,6 @@ const appendHierarchicalCsvRows = async ({
   const isLeaf = narrowers.length === 0
 
   await Promise.all(narrowers.map((obj) => appendHierarchicalCsvRows({
-    csvHeadersCount,
     providerUrlsMap,
     longNamesMap,
     scheme,
@@ -151,29 +45,18 @@ const appendHierarchicalCsvRows = async ({
   if (currentPath.length > 1) {
     currentPath.shift()
 
-    formatKeywordCsvPath({
-      scheme,
-      csvHeadersCount,
+    paths.push({
       path: currentPath,
-      isLeaf
+      isLeaf,
+      uuid,
+      longName: longNameValue || '',
+      dataCenterUrl: providerUrlsValue ? providerUrlsValue[0] : ''
     })
-
-    if (isCsvLongNameFlag(scheme)) {
-      currentPath.push(longNameValue || '')
-    }
-
-    if (isCsvProviderUrlFlag(scheme)) {
-      currentPath.push(providerUrlsValue ? providerUrlsValue[0] : '')
-    }
-
-    currentPath.push(uuid)
-    paths.push(currentPath)
   }
 }
 
 const getCsvRowsForScheme = async ({
   scheme,
-  csvHeadersCount,
   version
 }) => {
   const csvRows = []
@@ -194,7 +77,6 @@ const getCsvRowsForScheme = async ({
     }
 
     await appendHierarchicalCsvRows({
-      csvHeadersCount,
       providerUrlsMap,
       longNamesMap,
       scheme,
@@ -206,18 +88,6 @@ const getCsvRowsForScheme = async ({
   }))
 
   return csvRows.reverse()
-}
-
-const sortCsvRows = (paths) => {
-  paths.sort((line1, line2) => {
-    for (let index = 0; index < Math.min(line1.length, line2.length); index += 1) {
-      if (line1[index] !== line2[index]) {
-        return line1[index].localeCompare(line2[index])
-      }
-    }
-
-    return line1.length - line2.length
-  })
 }
 
 /**
@@ -258,19 +128,22 @@ export const createCsvForScheme = async ({
     scheme
   })
   let csvHeaders = await getCsvHeaders(scheme, version)
-  const csvHeadersCount = csvHeaders.length
   const csvRows = await getCsvRowsForScheme({
     scheme,
-    csvHeadersCount,
     version
   })
 
   if (csvHeaders.length === 0) {
-    const maxColumns = getMaxLengthOfSubArray(csvRows)
+    const maxColumns = getMaxLengthOfSubArray(csvRows.map((row) => getCsvRowValues({
+      ...row,
+      scheme
+    })))
     csvHeaders = await generateCsvHeaders(scheme, version, maxColumns)
   }
 
-  sortCsvRows(csvRows)
-
-  return createCsv(csvMetadata, csvHeaders, csvRows)
+  return createCsv(csvMetadata, csvHeaders, prepareCsvRows({
+    csvHeaders,
+    csvRows,
+    scheme
+  }))
 }

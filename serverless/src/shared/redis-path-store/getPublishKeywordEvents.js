@@ -1,81 +1,51 @@
-import { parse } from 'csv/sync'
-
 import { downloadConcepts } from '@/shared/downloadConcepts'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 
-import { buildKeywordObjectFromPath } from './helpers/buildKeywordObjectFromPath'
 import { KEYWORD_DIFF_SKIP_HEADER_ROWS, KEYWORD_PATH_SEPARATOR } from './helpers/constants'
 import { delay } from './helpers/delay'
-import { hasKeywordObjectValue } from './helpers/hasKeywordObjectValue'
+import { parseKeywordCsvContent as parseCsvContent } from './helpers/keywordCsv'
 
-/**
- * Parses a keyword CSV payload into a uuid-to-path map using the canonical path separator.
- *
- * @param {string} csvContent - Raw CSV content to parse.
- * @param {object} [options={}] - Parse options.
- * @param {number} [options.skipHeaderRows=KEYWORD_DIFF_SKIP_HEADER_ROWS] - Number of leading rows to ignore.
- * @param {string} [options.pathSeparator=KEYWORD_PATH_SEPARATOR] - Separator used to flatten path columns.
- * @returns {Map<string, string>} Map of keyword uuid to flattened path string.
- *
- * @example
- * // Request
- * const records = parseCsvContent(
- *   '"Version"\n"Category","Topic","Term","UUID"\n"EARTH SCIENCE","ATMOSPHERE","AEROSOLS","uuid-1"'
- * )
- *
- * // Response
- * // Map([['uuid-1', 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS']])
- */
-export const parseCsvContent = (
-  csvContent,
-  {
-    skipHeaderRows = KEYWORD_DIFF_SKIP_HEADER_ROWS,
-    pathSeparator = KEYWORD_PATH_SEPARATOR
-  } = {}
-) => {
-  const rows = parse(csvContent || '', {
-    skip_empty_lines: true,
-    relax_quotes: true,
-    relax_column_count: true
-  })
-
-  const dataRows = rows.slice(skipHeaderRows).filter((row) => row && row.length >= 2)
-
-  return new Map(
-    dataRows
-      .map((row) => {
-        const uuid = String(row[row.length - 1] || '').trim()
-        const path = row
-          .slice(0, -1)
-          .map((column) => String(column || '').trim())
-          .join(pathSeparator)
-
-        return [uuid, path]
-      })
-      .filter(([uuid]) => uuid.length > 0)
-  )
-}
+export { parseCsvContent }
 
 /**
  * Compares two keyword CSV payloads and groups differences into added, removed, and changed maps.
+ * Keyword objects contain the scheme's named hierarchy fields. They also include `LongName` for
+ * schemes that support it and `DataCenterUrl` for providers when those values are present.
  *
  * @param {object} params - Keyword CSV comparison inputs.
  * @param {string} params.oldCsvContent - Baseline CSV content, typically `published`.
  * @param {string} params.newCsvContent - Candidate CSV content, typically `draft`.
+ * @param {string} params.scheme - Scheme used to normalize CSV column order.
  * @param {number} [params.skipHeaderRows=KEYWORD_DIFF_SKIP_HEADER_ROWS] - Number of leading rows to ignore.
  * @param {string} [params.pathSeparator=KEYWORD_PATH_SEPARATOR] - Separator used to flatten path columns.
  * @returns {{
- *   addedKeywords: Map<string, { oldPath: undefined, newPath: string }>,
- *   removedKeywords: Map<string, { oldPath: string, newPath: undefined }>,
- *   changedKeywords: Map<string, { oldPath: string, newPath: string }>
+ *   addedKeywords: Map<string, {
+ *     oldPath: undefined,
+ *     newPath: string,
+ *     newKeywordObject: Record<string, string>|undefined
+ *   }>,
+ *   removedKeywords: Map<string, {
+ *     oldPath: string,
+ *     newPath: undefined,
+ *     oldKeywordObject: Record<string, string>|undefined
+ *   }>,
+ *   changedKeywords: Map<string, {
+ *     oldPath: string,
+ *     newPath: string,
+ *     oldKeywordObject: Record<string, string>|undefined,
+ *     newKeywordObject: Record<string, string>|undefined
+ *   }>
  * }} Keyword path comparison result.
  *
  * @example
  * // Request
  * const comparison = compareKeywordCsvContent({
- *   oldCsvContent: '"Version"\n"Category","Topic","Term","UUID"\n"EARTH SCIENCE","ATMOSPHERE","LEGACY AEROSOLS","uuid-1"',
- *   newCsvContent: '"Version"\n"Category","Topic","Term","UUID"\n"EARTH SCIENCE","ATMOSPHERE","AEROSOLS","uuid-1"'
+ *   oldCsvContent: '"Version"\n"Category","Class","Type","Short_Name","Long_Name","UUID"\n'
+ *     + '"Platforms","Space-based Platforms","Satellite","GOSAT","Greenhouse Gases Observing Satellite","uuid-1"',
+ *   newCsvContent: '"Version"\n"Category","Class","Type","Short_Name","Long_Name","UUID"\n'
+ *     + '"Platforms","Space-based Platforms","Satellite","GOSAT - Test1","Greenhouse Gases Observing Satellite","uuid-1"',
+ *   scheme: 'platforms'
  * })
  *
  * // Response
@@ -84,8 +54,22 @@ export const parseCsvContent = (
  * //   removedKeywords: Map(0) {},
  * //   changedKeywords: Map([
  * //     ['uuid-1', {
- * //       oldPath: 'EARTH SCIENCE > ATMOSPHERE > LEGACY AEROSOLS',
- * //       newPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS'
+ * //       oldPath: 'Platforms > Space-based Platforms > Satellite > GOSAT',
+ * //       newPath: 'Platforms > Space-based Platforms > Satellite > GOSAT - Test1',
+ * //       oldKeywordObject: {
+ * //         Category: 'Platforms',
+ * //         Class: 'Space-based Platforms',
+ * //         Type: 'Satellite',
+ * //         ShortName: 'GOSAT',
+ * //         LongName: 'Greenhouse Gases Observing Satellite'
+ * //       },
+ * //       newKeywordObject: {
+ * //         Category: 'Platforms',
+ * //         Class: 'Space-based Platforms',
+ * //         Type: 'Satellite',
+ * //         ShortName: 'GOSAT - Test1',
+ * //         LongName: 'Greenhouse Gases Observing Satellite'
+ * //       }
  * //     }]
  * //   ])
  * // }
@@ -93,14 +77,17 @@ export const parseCsvContent = (
 export const compareKeywordCsvContent = ({
   oldCsvContent,
   newCsvContent,
+  scheme,
   skipHeaderRows = KEYWORD_DIFF_SKIP_HEADER_ROWS,
   pathSeparator = KEYWORD_PATH_SEPARATOR
 }) => {
   const oldRecords = parseCsvContent(oldCsvContent, {
+    scheme,
     skipHeaderRows,
     pathSeparator
   })
   const newRecords = parseCsvContent(newCsvContent, {
+    scheme,
     skipHeaderRows,
     pathSeparator
   })
@@ -108,31 +95,35 @@ export const compareKeywordCsvContent = ({
   const removedKeywords = new Map()
   const changedKeywords = new Map()
 
-  Array.from(newRecords.entries()).forEach(([uuid, newPath]) => {
-    const oldPath = oldRecords.get(uuid)
+  Array.from(newRecords.entries()).forEach(([uuid, newRecord]) => {
+    const oldRecord = oldRecords.get(uuid)
 
-    if (oldPath === undefined) {
+    if (oldRecord === undefined) {
       addedKeywords.set(uuid, {
         oldPath: undefined,
-        newPath
+        newPath: newRecord.path,
+        newKeywordObject: newRecord.keywordObject
       })
 
       return
     }
 
-    if (oldPath !== newPath) {
+    if (JSON.stringify(oldRecord) !== JSON.stringify(newRecord)) {
       changedKeywords.set(uuid, {
-        oldPath,
-        newPath
+        oldPath: oldRecord.path,
+        newPath: newRecord.path,
+        oldKeywordObject: oldRecord.keywordObject,
+        newKeywordObject: newRecord.keywordObject
       })
     }
   })
 
-  Array.from(oldRecords.entries()).forEach(([uuid, oldPath]) => {
+  Array.from(oldRecords.entries()).forEach(([uuid, oldRecord]) => {
     if (!newRecords.has(uuid)) {
       removedKeywords.set(uuid, {
-        oldPath,
-        newPath: undefined
+        oldPath: oldRecord.path,
+        newPath: undefined,
+        oldKeywordObject: oldRecord.keywordObject
       })
     }
   })
@@ -203,21 +194,7 @@ export const toJSON = (comparison) => ({
   changedKeywords: Object.fromEntries(comparison.changedKeywords)
 })
 
-const buildKeywordEventObject = ({
-  scheme,
-  keywordPath
-}) => {
-  const keywordObject = buildKeywordObjectFromPath({
-    scheme,
-    keywordPath
-  })
-
-  return hasKeywordObjectValue(keywordObject)
-    ? keywordObject
-    : undefined
-}
-
-const createKeywordEvents = (keywordChangesMap) => {
+export const createKeywordEvents = (keywordChangesMap) => {
   const timestamp = new Date().toISOString()
   const metadataSpecification = {
     URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',
@@ -235,10 +212,7 @@ const createKeywordEvents = (keywordChangesMap) => {
         EventType: 'INSERTED',
         Scheme: scheme,
         UUID: uuid,
-        NewKeywordObject: buildKeywordEventObject({
-          scheme,
-          keywordPath: pathInfo.newPath
-        }),
+        NewKeywordObject: pathInfo.newKeywordObject,
         Timestamp: timestamp,
         MetadataSpecification: metadataSpecification
       })
@@ -249,10 +223,7 @@ const createKeywordEvents = (keywordChangesMap) => {
         EventType: 'DELETED',
         Scheme: scheme,
         UUID: uuid,
-        OldKeywordObject: buildKeywordEventObject({
-          scheme,
-          keywordPath: pathInfo.oldPath
-        }),
+        OldKeywordObject: pathInfo.oldKeywordObject,
         Timestamp: timestamp,
         MetadataSpecification: metadataSpecification
       })
@@ -263,14 +234,8 @@ const createKeywordEvents = (keywordChangesMap) => {
         EventType: 'UPDATED',
         Scheme: scheme,
         UUID: uuid,
-        OldKeywordObject: buildKeywordEventObject({
-          scheme,
-          keywordPath: pathInfo.oldPath
-        }),
-        NewKeywordObject: buildKeywordEventObject({
-          scheme,
-          keywordPath: pathInfo.newPath
-        }),
+        OldKeywordObject: pathInfo.oldKeywordObject,
+        NewKeywordObject: pathInfo.newKeywordObject,
         Timestamp: timestamp,
         MetadataSpecification: metadataSpecification
       })
@@ -303,7 +268,8 @@ const getKeywordChangesForScheme = async ({
 
     return compareKeywordCsvContent({
       oldCsvContent: publishedCsv,
-      newCsvContent: draftCsv
+      newCsvContent: draftCsv,
+      scheme: notation
     })
   }
 
@@ -317,7 +283,8 @@ const getKeywordChangesForScheme = async ({
 
     return compareKeywordCsvContent({
       oldCsvContent: publishedCsv,
-      newCsvContent: ''
+      newCsvContent: '',
+      scheme: notation
     })
   }
 
@@ -330,7 +297,8 @@ const getKeywordChangesForScheme = async ({
 
   return compareKeywordCsvContent({
     oldCsvContent: '',
-    newCsvContent: draftCsv
+    newCsvContent: draftCsv,
+    scheme: notation
   })
 }
 
@@ -380,9 +348,22 @@ const getKeywordChangesForSchemeWithRetry = async ({
  * @param {boolean} [params.blockOnFailure=false] - Whether a single scheme failure should abort the whole workflow.
  * @returns {Promise<{
  *   keywordChangesMap: Map<string, {
- *     addedKeywords: Map<string, { oldPath: undefined, newPath: string }>,
- *     removedKeywords: Map<string, { oldPath: string, newPath: undefined }>,
- *     changedKeywords: Map<string, { oldPath: string, newPath: string }>
+ *     addedKeywords: Map<string, {
+ *       oldPath: undefined,
+ *       newPath: string,
+ *       newKeywordObject: Record<string, string>|undefined
+ *     }>,
+ *     removedKeywords: Map<string, {
+ *       oldPath: string,
+ *       newPath: undefined,
+ *       oldKeywordObject: Record<string, string>|undefined
+ *     }>,
+ *     changedKeywords: Map<string, {
+ *       oldPath: string,
+ *       newPath: string,
+ *       oldKeywordObject: Record<string, string>|undefined,
+ *       newKeywordObject: Record<string, string>|undefined
+ *     }>
  *   }>,
  *   keywordEvents: Array<object>,
  *   keywordChangeSummary: { addedCount: number, removedCount: number, changedCount: number },
@@ -400,14 +381,26 @@ const getKeywordChangesForSchemeWithRetry = async ({
  *
  * // Response
  * // {
- * //   keywordChangesMap: Map([['sciencekeywords', comparison]]),
+ * //   keywordChangesMap: Map([['platforms', comparison]]),
  * //   keywordEvents: [
  * //     {
  * //       EventType: 'UPDATED',
- * //       Scheme: 'sciencekeywords',
- * //       UUID: '2e5a401b-1507-4f57-82b8-36557c13b154',
- * //       OldKeywordObject: { Category: 'EARTH SCIENCE', Topic: 'ATMOSPHERE', Term: 'LEGACY AEROSOLS' },
- * //       NewKeywordObject: { Category: 'EARTH SCIENCE', Topic: 'ATMOSPHERE', Term: 'AEROSOLS' },
+ * //       Scheme: 'platforms',
+ * //       UUID: 'uuid-1',
+ * //       OldKeywordObject: {
+ * //         Category: 'Platforms',
+ * //         Class: 'Space-based Platforms',
+ * //         Type: 'Satellite',
+ * //         ShortName: 'GOSAT',
+ * //         LongName: 'Greenhouse Gases Observing Satellite'
+ * //       },
+ * //       NewKeywordObject: {
+ * //         Category: 'Platforms',
+ * //         Class: 'Space-based Platforms',
+ * //         Type: 'Satellite',
+ * //         ShortName: 'GOSAT - Test1',
+ * //         LongName: 'Greenhouse Gases Observing Satellite'
+ * //       },
  * //       Timestamp: '2026-06-04T15:20:00.000Z',
  * //       MetadataSpecification: {
  * //         URL: 'https://cdn.earthdata.nasa.gov/kms-keyword-event/v1.0',

@@ -91,6 +91,24 @@ export const SHORT_NAME_OBJECT_FIELDS = Object.freeze({
 })
 
 /**
+ * CSV hierarchy fields in canonical keyword-path order.
+ * UUID, Long_Name, and Data_Center_URL are auxiliary fields and are intentionally omitted.
+ *
+ * @type {Readonly<Record<string, string[]>>}
+ */
+export const CSV_PATH_FIELDS = Object.freeze({
+  ...FULL_PATH_VALUE_FIELDS,
+  ...SHORT_NAME_OBJECT_FIELDS,
+  discipline: ['DisciplineName', 'Subdiscipline'],
+  isotopiccategory: ['ISOTopicCategory'],
+  temporalresolutionrange: ['TemporalResolutionRange'],
+  verticalresolutionrange: ['VerticalResolutionRange'],
+  horizontalresolutionrange: ['HorizontalResolutionRange'],
+  productlevelid: ['ProductLevelId'],
+  measurementname: ['ContextMedium', 'Object', 'Quantity']
+})
+
+/**
  * Schemes that resolve lookups by canonical full path.
  *
  * @type {readonly string[]}

@@ -7,6 +7,7 @@ import { logger } from '@/shared/logger'
 
 import {
   compareKeywordCsvContent,
+  createKeywordEvents,
   getKeywordChangeSummary,
   getPublishKeywordEvents,
   parseCsvContent,
@@ -39,20 +40,22 @@ describe('getPublishKeywordEvents', () => {
     vi.useRealTimers()
   })
 
-  test('parseCsvContent creates a uuid-to-path map from keyword csv content', () => {
+  test('parseCsvContent creates keyword records by uuid from keyword csv content', () => {
     const publishedCsv = readFileSync(
       join(__dirname, '../../__mocks__/sciencekeywords-published.csv'),
       'utf-8'
     )
 
-    const result = parseCsvContent(publishedCsv)
+    const result = parseCsvContent(publishedCsv, {
+      scheme: 'sciencekeywords'
+    })
 
     expect(result).toBeInstanceOf(Map)
-    expect(result.get('91697b7d-8f2b-4954-850e-61d5f61c867d')).toBe(
+    expect(result.get('91697b7d-8f2b-4954-850e-61d5f61c867d').path).toBe(
       'EARTH SCIENCE > OCEANS >  >  >  >  > '
     )
 
-    expect(result.get('f6c057c9-c789-4cd5-ba22-e9b08aae152b')).toBe(
+    expect(result.get('f6c057c9-c789-4cd5-ba22-e9b08aae152b').path).toBe(
       'EARTH SCIENCE > OCEANS > AQUATIC SCIENCES > AQUACULTURE >  >  > '
     )
 
@@ -81,20 +84,21 @@ describe('getPublishKeywordEvents', () => {
 
     const comparison = compareKeywordCsvContent({
       oldCsvContent: publishedCsv,
-      newCsvContent: draftCsv
+      newCsvContent: draftCsv,
+      scheme: 'sciencekeywords'
     })
 
-    expect(comparison.addedKeywords.get('3472f70b-874f-6dc5-87db-4b3ebc4b9a73')).toEqual({
+    expect(comparison.addedKeywords.get('3472f70b-874f-6dc5-87db-4b3ebc4b9a73')).toMatchObject({
       oldPath: undefined,
       newPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > SHORELINES > NEW SHORELINES >  > '
     })
 
-    expect(comparison.removedKeywords.get('488f4df2-712e-4fac-98d1-46ab134b84ee')).toEqual({
+    expect(comparison.removedKeywords.get('488f4df2-712e-4fac-98d1-46ab134b84ee')).toMatchObject({
       oldPath: 'EARTH SCIENCE > OCEANS > COASTAL PROCESSES > ROCKY COASTS >  >  > ',
       newPath: undefined
     })
 
-    expect(comparison.changedKeywords.get('7863ce31-0e06-42a5-bcf8-25981c44dec8')).toEqual({
+    expect(comparison.changedKeywords.get('7863ce31-0e06-42a5-bcf8-25981c44dec8')).toMatchObject({
       oldPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS >  >  > ',
       newPath: 'EARTH SCIENCE > OCEANS > MARINE GEOPHYSICS > MARINE MAGNETICS MODIFIED >  >  > '
     })
@@ -110,6 +114,68 @@ describe('getPublishKeywordEvents', () => {
       removedKeywords: expect.any(Object),
       changedKeywords: expect.any(Object)
     })
+  })
+
+  test('maps Short_Name to ShortName and Long_Name to LongName in platform update events', () => {
+    const createPlatformsCsv = (
+      shortName,
+      longName = 'Greenhouse Gases Observing Satellite'
+    ) => [
+      '"Keyword Version: test"',
+      '"Category","Class","Type","Short_Name","Long_Name","UUID"',
+      `"Platforms","Space-based Platforms","Earth Observation Satellites","${shortName}","${longName}","uuid-1"`
+    ].join('\n')
+    const comparison = compareKeywordCsvContent({
+      oldCsvContent: createPlatformsCsv('GOSAT'),
+      newCsvContent: createPlatformsCsv('GOSAT - Test1'),
+      scheme: 'platforms'
+    })
+
+    expect(comparison.changedKeywords.get('uuid-1')).toMatchObject({
+      oldPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',
+      newPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT - Test1'
+    })
+
+    const [keywordEvent] = createKeywordEvents(new Map([
+      ['platforms', comparison]
+    ]))
+
+    expect(keywordEvent).toMatchObject({
+      EventType: 'UPDATED',
+      UUID: 'uuid-1'
+    })
+
+    expect(keywordEvent.OldKeywordObject).toEqual({
+      Category: 'Platforms',
+      Class: 'Space-based Platforms',
+      Type: 'Earth Observation Satellites',
+      ShortName: 'GOSAT',
+      LongName: 'Greenhouse Gases Observing Satellite'
+    })
+
+    expect(keywordEvent.NewKeywordObject).toEqual({
+      Category: 'Platforms',
+      Class: 'Space-based Platforms',
+      Type: 'Earth Observation Satellites',
+      ShortName: 'GOSAT - Test1',
+      LongName: 'Greenhouse Gases Observing Satellite'
+    })
+
+    const longNameComparison = compareKeywordCsvContent({
+      oldCsvContent: createPlatformsCsv('GOSAT'),
+      newCsvContent: createPlatformsCsv('GOSAT', 'Updated GOSAT Satellite'),
+      scheme: 'platforms'
+    })
+    const [longNameEvent] = createKeywordEvents(new Map([
+      ['platforms', longNameComparison]
+    ]))
+
+    expect(longNameComparison.changedKeywords.get('uuid-1')).toMatchObject({
+      oldPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',
+      newPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT'
+    })
+
+    expect(longNameEvent.NewKeywordObject.LongName).toBe('Updated GOSAT Satellite')
   })
 
   test('returns no publish keyword events when neither draft nor published has schemes', async () => {
