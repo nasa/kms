@@ -196,15 +196,15 @@ describe('persistMetadataCorrectionAuditLog', () => {
           scheme: 'platforms',
           keywordConceptUuid: 'uuid-optional',
           oldKeywordObject: {
-            Category: 'Platforms',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            Basis: 'Platforms',
+            Category: 'Space-based Platforms',
+            SubCategory: 'Earth Observation Satellites',
             ShortName: 'OLD PLATFORM'
           },
           newKeywordObject: {
-            Category: 'Platforms',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            Basis: 'Platforms',
+            Category: 'Space-based Platforms',
+            SubCategory: 'Earth Observation Satellites',
             ShortName: 'NEW PLATFORM'
           }
         }

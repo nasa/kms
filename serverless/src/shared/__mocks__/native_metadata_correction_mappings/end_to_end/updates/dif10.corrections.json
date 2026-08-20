@@ -29,20 +29,20 @@
       "scheme": "locations",
       "action": "replace",
       "oldKeywordObject": {
-        "Category": "GEOGRAPHIC REGION",
-        "Type": "POLAR",
-        "Subregion1": "",
-        "Subregion2": "",
-        "Subregion3": "",
-        "DetailedLocation": ""
+        "LocationCategory": "GEOGRAPHIC REGION",
+        "LocationType": "POLAR",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
       },
       "newKeywordObject": {
-        "Category": "GEOGRAPHIC REGION",
-        "Type": "POLAR_CHANGED",
-        "Subregion1": "",
-        "Subregion2": "",
-        "Subregion3": "",
-        "DetailedLocation": ""
+        "LocationCategory": "GEOGRAPHIC REGION",
+        "LocationType": "POLAR_CHANGED",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
       },
       "newLongName": null
     },
@@ -71,15 +71,15 @@
       "action": "replace",
       "newLongName": "Systeme Probatoire d'Observation de la Terre-4_CHANGED",
       "oldKeywordObject": {
-        "Category": "Platforms",
-        "Class": "Space-based Platforms",
-        "Type": "Earth Observation Satellites",
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
         "ShortName": "SPOT-4"
       },
       "newKeywordObject": {
-        "Category": "Platforms",
-        "Class": "Space-based Platforms",
-        "Type": "Earth Observation Satellites",
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
         "ShortName": "SPOT-4_CHANGED"
       }
     },
@@ -89,13 +89,15 @@
       "oldKeywordObject": {
         "Category": "Synthetic Aperture Radar",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "TSX-1"
       },
       "newKeywordObject": {
         "Category": "Synthetic Aperture Radar",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "TSX-1_CHANGED"
       },
       "newLongName": "Synthetic Aperture Radar_CHANGED"
@@ -107,13 +109,15 @@
       "oldKeywordObject": {
         "Category": "In Situ/Laboratory Instruments",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "SEISMIC REFLECTION PROFILERS"
       },
       "newKeywordObject": {
         "Category": "In Situ/Laboratory Instruments",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "SEISMIC REFLECTION PROFILERS_CHANGED"
       }
     },
@@ -124,13 +128,15 @@
       "oldKeywordObject": {
         "Category": "In Situ/Laboratory Instruments",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "SEISMIC REFLECTION PROFILERS"
       },
       "newKeywordObject": {
         "Category": "In Situ/Laboratory Instruments",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "SEISMIC REFLECTION PROFILERS_CHANGED"
       }
     },
@@ -139,11 +145,11 @@
       "action": "replace",
       "newLongName": "Aliens in Antarctica_CHANGED",
       "oldKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "ALIENS"
       },
       "newKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "ALIENS_CHANGED"
       }
     },
@@ -195,40 +201,40 @@
       "scheme": "isotopiccategory",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "GEOSCIENTIFIC INFORMATION"
+        "ISOTopicCategory": "GEOSCIENTIFIC INFORMATION"
       },
       "newKeywordObject": {
-        "Value": "GEOSCIENTIFIC INFORMATION_CHANGED"
+        "ISOTopicCategory": "GEOSCIENTIFIC INFORMATION_CHANGED"
       }
     },
     {
       "scheme": "verticalresolutionrange",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "5 meters"
+        "VerticalResolutionRange": "5 meters"
       },
       "newKeywordObject": {
-        "Value": "5 meters_CHANGED"
+        "VerticalResolutionRange": "5 meters_CHANGED"
       }
     },
     {
       "scheme": "horizontalresolutionrange",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "10 meters"
+        "HorizontalResolutionRange": "10 meters"
       },
       "newKeywordObject": {
-        "Value": "10 meters_CHANGED"
+        "HorizontalResolutionRange": "10 meters_CHANGED"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "NA"
+        "ProductLevelId": "NA"
       },
       "newKeywordObject": {
-        "Value": "NA_CHANGED"
+        "ProductLevelId": "NA_CHANGED"
       }
     }
   ]

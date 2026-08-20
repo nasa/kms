@@ -27,7 +27,7 @@ describe('parseCachedConceptResponse', () => {
         BucketLevel3: 'GHRC',
         ShortName: 'GHRC_DAAC',
         LongName: 'Global Hydrology Resource Center',
-        DataCenterUrl: 'https://ghrc.nsstc.nasa.gov'
+        DataCenterURL: 'https://ghrc.nsstc.nasa.gov'
       }
     })
   })

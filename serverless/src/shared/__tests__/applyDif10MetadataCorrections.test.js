@@ -210,15 +210,15 @@ describe('when applying DIF10 metadata corrections', () => {
         scheme: 'platforms',
         action: 'replace',
         oldKeywordObject: {
+          SubCategory: '',
+          Basis: 'In Situ Land-based Platforms',
           Category: '',
-          Class: 'In Situ Land-based Platforms',
-          Type: '',
           ShortName: 'GROUND STATIONS'
         },
         newKeywordObject: {
-          Category: '',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          SubCategory: '',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
           ShortName: 'C-130'
         }
       }
@@ -286,12 +286,12 @@ describe('when applying DIF10 metadata corrections', () => {
         scheme: 'locations',
         action: 'delete',
         oldKeywordObject: {
-          Category: 'GEOGRAPHIC REGION',
-          Type: 'ARCTIC',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'ARCTIC',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       }
     ]
@@ -348,15 +348,15 @@ describe('when correcting a DIF10 record', () => {
         scheme: 'platforms',
         action: 'replace',
         oldKeywordObject: {
-          Category: '',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          SubCategory: '',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
           ShortName: 'SPOT-4'
         },
         newKeywordObject: {
-          Category: '',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          SubCategory: '',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
           ShortName: 'SPOT-4-UPDATED'
         },
         newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -367,13 +367,15 @@ describe('when correcting a DIF10 record', () => {
         oldKeywordObject: {
           Category: 'Imaging Spectrometers/Radiometers',
           Class: '',
-          Subclass: '',
+          Type: '',
+          Subtype: '',
           ShortName: 'GEOPHONES'
         },
         newKeywordObject: {
           Category: 'Imaging Spectrometers/Radiometers',
           Class: '',
-          Subclass: '',
+          Type: '',
+          Subtype: '',
           ShortName: 'GEOPHONES-UPDATED'
         },
         newLongName: 'Updated Geophone Array'
@@ -382,30 +384,30 @@ describe('when correcting a DIF10 record', () => {
         scheme: 'locations',
         action: 'replace',
         oldKeywordObject: {
-          Category: 'CONTINENT',
-          Type: 'ANTARCTICA',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'CONTINENT',
+          LocationType: 'ANTARCTICA',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         },
         newKeywordObject: {
-          Category: 'CONTINENT',
-          Type: 'SOUTH AMERICA',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'CONTINENT',
+          LocationType: 'SOUTH AMERICA',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       },
       {
         scheme: 'projects',
         oldKeywordObject: {
-          Category: 'A - C',
+          Bucket: 'A - C',
           ShortName: 'ALIENS'
         },
         newKeywordObject: {
-          Category: 'A - C',
+          Bucket: 'A - C',
           ShortName: 'ALIENS-UPDATED'
         },
         newLongName: 'Aliens in Antarctica Updated'
@@ -469,10 +471,10 @@ describe('when correcting a DIF10 record', () => {
         scheme: 'ProductLevelId',
         action: 'replace',
         oldKeywordObject: {
-          Value: 'NA'
+          ProductLevelId: 'NA'
         },
         newKeywordObject: {
-          Value: '1A'
+          ProductLevelId: '1A'
         }
       }
     ]
@@ -580,12 +582,12 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
           scheme: 'locations',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'ANTARCTICA',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: 'MCMURDO SOUND'
+            LocationCategory: 'CONTINENT',
+            LocationType: 'ANTARCTICA',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: 'MCMURDO SOUND'
           }
         },
         {
@@ -612,15 +614,15 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4-UPDATED'
           },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -631,7 +633,8 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'GEOPHONES'
           }
         },
@@ -639,11 +642,11 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS'
           },
           newKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS-UPDATED'
           },
           newLongName: 'Aliens in Antarctica Updated'
@@ -692,40 +695,40 @@ describe('when verifying DIF10 corrections do not remove unrelated metadata', ()
           scheme: 'isotopiccategory',
           action: 'replace',
           oldKeywordObject: {
-            Value: 'GEOSCIENTIFIC INFORMATION'
+            ISOTopicCategory: 'GEOSCIENTIFIC INFORMATION'
           },
           newKeywordObject: {
-            Value: 'OCEANS'
+            ISOTopicCategory: 'OCEANS'
           }
         },
         {
           scheme: 'verticalresolutionrange',
           action: 'replace',
           oldKeywordObject: {
-            Value: '5 meters'
+            VerticalResolutionRange: '5 meters'
           },
           newKeywordObject: {
-            Value: '50 meters'
+            VerticalResolutionRange: '50 meters'
           }
         },
         {
           scheme: 'horizontalresolutionrange',
           action: 'replace',
           oldKeywordObject: {
-            Value: '10 meters'
+            HorizontalResolutionRange: '10 meters'
           },
           newKeywordObject: {
-            Value: '100 meters'
+            HorizontalResolutionRange: '100 meters'
           }
         },
         {
           scheme: 'productlevelid',
           action: 'replace',
           oldKeywordObject: {
-            Value: 'NA'
+            ProductLevelId: 'NA'
           },
           newKeywordObject: {
-            Value: '1A'
+            ProductLevelId: '1A'
           }
         }
       ]
@@ -1277,10 +1280,10 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['HorizontalResolutionRanges', 1],
           oldKeywordObject: {
-            Value: '1 - 10 meters'
+            HorizontalResolutionRange: '1 - 10 meters'
           },
           newKeywordObject: {
-            Value: 'Updated Range'
+            HorizontalResolutionRange: 'Updated Range'
           }
         }]
       })
@@ -1299,10 +1302,10 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['HorizontalResolutionRanges', 0],
           oldKeywordObject: {
-            Value: 'Old'
+            HorizontalResolutionRange: 'Old'
           },
           newKeywordObject: {
-            Value: 'New'
+            HorizontalResolutionRange: 'New'
           }
         }]
       })
@@ -1321,7 +1324,7 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           action: 'delete',
           ummPath: ['HorizontalResolutionRanges', 0],
           oldKeywordObject: {
-            Value: '0 - 1 meter'
+            HorizontalResolutionRange: '0 - 1 meter'
           }
         }]
       })
@@ -1345,7 +1348,7 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           scheme: 'horizontalresolutionrange',
           action: 'delete',
           oldKeywordObject: {
-            Value: '1 - 10 meters'
+            HorizontalResolutionRange: '1 - 10 meters'
           },
           newKeywordObject: {}
         }]
@@ -1366,7 +1369,7 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           scheme: 'horizontalresolutionrange',
           action: 'delete',
           oldKeywordObject: {
-            Value: 'Only Range'
+            HorizontalResolutionRange: 'Only Range'
           }
         }]
       })
@@ -1394,7 +1397,7 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
             action: 'delete',
             ummPath: ['HorizontalResolutionRanges', 0],
             oldKeywordObject: {
-              Value: 'Range 1'
+              HorizontalResolutionRange: 'Range 1'
             }
           },
           {
@@ -1402,7 +1405,7 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
             action: 'delete',
             ummPath: ['HorizontalResolutionRanges', 0],
             oldKeywordObject: {
-              Value: 'Range 2'
+              HorizontalResolutionRange: 'Range 2'
             }
           }
         ]
@@ -1437,10 +1440,10 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
           scheme: 'horizontalresolutionrange',
           action: 'invalid_action_name', // This bypasses both 'delete' and 'replace' blocks
           oldKeywordObject: {
-            Value: '0 - 1 meter'
+            HorizontalResolutionRange: '0 - 1 meter'
           },
           newKeywordObject: {
-            Value: 'New Value'
+            HorizontalResolutionRange: 'New Value'
           }
         }]
       })
@@ -1685,13 +1688,15 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newLongName: 'Updated Infrared Multispectral Scanner'
@@ -1725,13 +1730,15 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'LISS-II'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'LISSUPDATE-II'
           },
           newLongName: 'Linear Imaging Self Scanning Sensor II Updated'
@@ -1763,7 +1770,8 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {}
@@ -1798,7 +1806,8 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'I1'
           }
         },
@@ -1808,7 +1817,8 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'I2'
           }
         }
@@ -1837,7 +1847,8 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'I1'
           }
         }
@@ -1868,13 +1879,15 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'OLD-SHORT'
           },
           newKeywordObject: {
             Category: 'Category',
             Class: 'Topic',
-            Subclass: 'Term',
+            Type: 'Term',
+            Subtype: '',
             ShortName: 'NEW-SHORT'
           },
           newLongName: '' // Triggers delete target['Long_Name']
@@ -1911,13 +1924,15 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS1'
           }
         }
@@ -1942,13 +1957,15 @@ describe('when applying instrument DIF10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS1'
           },
           newLongName: 'Infrared Multispectral Scanner Updated'
@@ -1971,7 +1988,8 @@ describe('when instrument guard clauses prevent a correction', () => {
         newKeywordObject: {
           Category: 'Category',
           Class: 'Topic',
-          Subclass: 'Term',
+          Type: 'Term',
+          Subtype: '',
           ShortName: 'NEW-SHORT'
         }
       }]
@@ -1991,7 +2009,8 @@ describe('when instrument guard clauses prevent a correction', () => {
         newKeywordObject: {
           Category: 'Category',
           Class: 'Topic',
-          Subclass: 'Term',
+          Type: 'Term',
+          Subtype: '',
           ShortName: 'NEW-SHORT'
         }
       }]
@@ -2009,13 +2028,15 @@ describe('when instrument guard clauses prevent a correction', () => {
         oldKeywordObject: {
           Category: 'Imaging Spectrometers/Radiometers',
           Class: '',
-          Subclass: '',
+          Type: '',
+          Subtype: '',
           ShortName: 'NOT-REAL'
         },
         newKeywordObject: {
           Category: 'Category',
           Class: 'Topic',
-          Subclass: 'Term',
+          Type: 'Term',
+          Subtype: '',
           ShortName: 'NEW-SHORT'
         }
       }]
@@ -2051,10 +2072,10 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           scheme: 'isotopiccategory',
           action: 'replace',
           oldKeywordObject: {
-            Value: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+            ISOTopicCategory: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
           },
           newKeywordObject: {
-            Value: 'FARMING'
+            ISOTopicCategory: 'FARMING'
           }
         }]
       })
@@ -2073,10 +2094,10 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           scheme: 'isotopiccategory',
           action: 'replace',
           oldKeywordObject: {
-            Value: 'OLD_CAT'
+            ISOTopicCategory: 'OLD_CAT'
           },
           newKeywordObject: {
-            Value: 'NEW_CAT'
+            ISOTopicCategory: 'NEW_CAT'
           }
         }]
       })
@@ -2094,7 +2115,7 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           scheme: 'isotopiccategory',
           action: 'delete',
           oldKeywordObject: {
-            Value: 'BIOTA'
+            ISOTopicCategory: 'BIOTA'
           }
         }]
       })
@@ -2112,7 +2133,7 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           scheme: 'isotopiccategory',
           action: 'delete',
           oldKeywordObject: {
-            Value: 'LAST_ONE'
+            ISOTopicCategory: 'LAST_ONE'
           }
         }]
       })
@@ -2129,7 +2150,7 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           scheme: 'isotopiccategory',
           action: 'delete',
           oldKeywordObject: {
-            Value: 'SINGLE_STRING'
+            ISOTopicCategory: 'SINGLE_STRING'
           }
         }]
       })
@@ -2147,14 +2168,14 @@ describe('when applying ISO topic category DIF10 corrections', () => {
             scheme: 'isotopiccategory',
             action: 'delete',
             oldKeywordObject: {
-              Value: 'BIOTA'
+              ISOTopicCategory: 'BIOTA'
             }
           },
           {
             scheme: 'isotopiccategory',
             action: 'delete',
             oldKeywordObject: {
-              Value: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+              ISOTopicCategory: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
             }
           }
         ]
@@ -2208,10 +2229,10 @@ describe('when applying ISO topic category DIF10 corrections', () => {
           scheme: 'isotopiccategory',
           action: 'replace',
           oldKeywordObject: {
-            Value: 'NOT_REAL'
+            ISOTopicCategory: 'NOT_REAL'
           },
           newKeywordObject: {
-            Value: 'FAIL'
+            ISOTopicCategory: 'FAIL'
           }
         }]
       })
@@ -2254,20 +2275,20 @@ describe('when applying location DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Locations', 0],
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'SOUTH AMERICA',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'SOUTH AMERICA',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2299,20 +2320,20 @@ describe('when applying location DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Locations', 2],
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'CANADA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'CANADA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2337,20 +2358,20 @@ describe('when applying location DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Locations', 2],
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: 'CALIFORNIA',
-            Subregion3: 'LOS ANGELES',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: 'CALIFORNIA',
+            LocationSubregion3: 'LOS ANGELES',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2375,20 +2396,20 @@ describe('when applying location DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Locations', 2],
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'EUROPE',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'EUROPE',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2412,12 +2433,12 @@ describe('when applying location DIF10 corrections', () => {
           action: 'delete',
           ummPath: ['Locations', 1],
           oldKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'PACIFIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'PACIFIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {}
         }
@@ -2450,12 +2471,12 @@ describe('when applying location DIF10 corrections', () => {
           action: 'delete',
           ummPath: ['Locations', 0],
           oldKeywordObject: {
-            Category: 'A',
-            Type: '',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'A',
+            LocationType: '',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         },
         {
@@ -2463,12 +2484,12 @@ describe('when applying location DIF10 corrections', () => {
           action: 'delete',
           ummPath: ['Locations', 0],
           oldKeywordObject: {
-            Category: 'B',
-            Type: '',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'B',
+            LocationType: '',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2500,20 +2521,20 @@ describe('when applying location DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Locations', 0],
           oldKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'ATLANTIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'ATLANTIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'INDIAN OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'INDIAN OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2542,20 +2563,20 @@ describe('when applying location DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Locations', 0],
           oldKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'ATLANTIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'ATLANTIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'PACIFIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'PACIFIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2575,12 +2596,12 @@ describe('when location guard clauses prevent a correction', () => {
         action: 'replace',
         ummPath: ['Locations', 'first'], // String instead of Number
         newKeywordObject: {
-          Category: 'CONTINENT',
-          Type: 'EUROPE',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'CONTINENT',
+          LocationType: 'EUROPE',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       }]
     })
@@ -2596,12 +2617,12 @@ describe('when location guard clauses prevent a correction', () => {
         action: 'replace',
         ummPath: ['Locations', 99], // Index does not exist
         newKeywordObject: {
-          Category: 'CONTINENT',
-          Type: 'EUROPE',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'CONTINENT',
+          LocationType: 'EUROPE',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       }]
     })
@@ -2617,12 +2638,12 @@ describe('when location guard clauses prevent a correction', () => {
         action: 'invalid_action', // Not replace or delete
         ummPath: ['Locations', 0],
         newKeywordObject: {
-          Category: 'CONTINENT',
-          Type: 'EUROPE',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'CONTINENT',
+          LocationType: 'EUROPE',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       }]
     })
@@ -2645,20 +2666,20 @@ describe('when location guard clauses prevent a correction', () => {
           scheme: 'locations',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'GEOGRAPHIC REGION',
-            Type: 'GLOBAL',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'GEOGRAPHIC REGION',
+            LocationType: 'GLOBAL',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'GEOGRAPHIC REGION',
-            Type: 'CONTINENT',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'GEOGRAPHIC REGION',
+            LocationType: 'CONTINENT',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2683,12 +2704,12 @@ describe('when location guard clauses prevent a correction', () => {
           scheme: 'locations',
           action: 'unsupported_action_type',
           oldKeywordObject: {
-            Category: 'GEOGRAPHIC REGION',
-            Type: 'GLOBAL',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'GEOGRAPHIC REGION',
+            LocationType: 'GLOBAL',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2719,12 +2740,12 @@ describe('when location guard clauses prevent a correction', () => {
           scheme: 'locations',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'GEOGRAPHIC REGION',
-            Type: 'GLOBAL',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'GEOGRAPHIC REGION',
+            LocationType: 'GLOBAL',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -2767,6 +2788,19 @@ const mockDif10WithPlatforms = `<DIF>
     </Platform>
 </DIF>`
 
+const mockDif10WithPlatformBasis = `<DIF>
+    <Entry_ID>
+        <Short_Name>Platforms_Basis_Test</Short_Name>
+        <Version>001</Version>
+    </Entry_ID>
+    <Platform>
+      <Basis>Other</Basis>
+      <Type>Aircraft</Type>
+      <Short_Name>SPOT-4</Short_Name>
+      <Long_Name>Systeme Observation de la Terre-4 Baseline</Long_Name>
+    </Platform>
+</DIF>`
+
 describe('when applying platform DIF10 corrections', () => {
   test('should apply long name correction to first Platform', async () => {
     const result = await applyDif10MetadataCorrections({
@@ -2779,15 +2813,15 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -2823,15 +2857,15 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-7-New'
           },
           newLongName: 'Systeme Observation de la Terre-5 Updated'
@@ -2851,6 +2885,43 @@ describe('when applying platform DIF10 corrections', () => {
 
     expect(result.correctedMetadata).toContain('<Type>Earth Observation Satellites</Type>')
     expect(result.correctedMetadata).not.toContain('<Type>Earth Observation planes</Type>')
+  })
+
+  test('should preserve platform Basis while updating short and long name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockDif10WithPlatformBasis,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordObject: {
+            Basis: 'Other',
+            SubCategory: '',
+            Category: 'Aircraft',
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            Basis: 'Other-UPDATED',
+            SubCategory: '',
+            Category: 'Aircraft',
+            ShortName: 'SPOT-4-UPDATED'
+          },
+          newLongName: 'Systeme Observation de la Terre-4 Updated'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    expect(result.correctedMetadata).toContain('<Basis>Other</Basis>')
+    expect(result.correctedMetadata).not.toContain('<Basis>Other-UPDATED</Basis>')
+    expect(result.correctedMetadata).toContain('<Short_Name>SPOT-4-UPDATED</Short_Name>')
+    expect(result.correctedMetadata).toContain('<Long_Name>Systeme Observation de la Terre-4 Updated</Long_Name>')
+    expect(result.correctedMetadata).not.toContain('<Long_Name>Systeme Observation de la Terre-4 Baseline</Long_Name>')
   })
 
   test('should apply platform correction when there is only a single platform (object branch)', async () => {
@@ -2873,15 +2944,15 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'In Situ Land-based Platforms',
             Category: '',
-            Class: 'In Situ Land-based Platforms',
-            Type: '',
             ShortName: 'GROUND STATIONS'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'In Situ Land-based Platforms',
-            Type: 'Aircraft',
+            SubCategory: '',
+            Basis: 'In Situ Land-based Platforms',
+            Category: 'Aircraft',
             ShortName: 'C-130'
           },
           newLongName: 'Lockheed C-130 Hercules'
@@ -2918,9 +2989,9 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'A1'
           }
         },
@@ -2928,9 +2999,9 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'A2'
           }
         }
@@ -2954,9 +3025,9 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {}
@@ -2983,9 +3054,9 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'not_an_action', // Triggers the final return false
           newKeywordObject: {
-            Category: '',
-            Class: 'A',
-            Type: 'B',
+            SubCategory: '',
+            Basis: 'A',
+            Category: 'B',
             ShortName: 'C'
           }
         }
@@ -3013,9 +3084,9 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'A1'
           }
         }
@@ -3044,16 +3115,16 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'OLD-SHORT'
           },
           // Providing only one segment forces the Long_Name field to hit the 'else { delete }' branch
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'NEW-SHORT'
           },
           newLongName: ''
@@ -3088,15 +3159,15 @@ describe('when applying platform DIF10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Earth Observation planes',
             Category: '',
-            Class: 'Earth Observation planes',
-            Type: '',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
+            SubCategory: '',
+            Basis: 'Earth Observation rockets',
             Category: '',
-            Class: 'Earth Observation rockets',
-            Type: '',
             ShortName: 'SPOT-7'
           }
         }
@@ -3119,15 +3190,15 @@ describe('when applying platform DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Platform', 10],
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-7'
           }
         }
@@ -3152,7 +3223,7 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 2'
+            ProductLevelId: 'Level 2'
           }
         }]
       })
@@ -3168,7 +3239,7 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
         corrections: [{
           scheme: 'productlevelid',
           newKeywordObject: {
-            Value: 'Level 3'
+            ProductLevelId: 'Level 3'
           }
         }]
       })
@@ -3228,7 +3299,7 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 4'
+            ProductLevelId: 'Level 4'
           }
         }]
       })
@@ -3245,7 +3316,7 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 4'
+            ProductLevelId: 'Level 4'
           }
         }]
       })
@@ -3260,7 +3331,7 @@ describe('when applying Product_Level_Id DIF10 corrections', () => {
           scheme: 'productlevelid',
           action: 'invalid_action_type',
           newKeywordObject: {
-            Value: 'Level 2'
+            ProductLevelId: 'Level 2'
           }
         }]
       })
@@ -3299,11 +3370,11 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newLongName: 'Updated Earth Science Information Partners Program'
@@ -3333,11 +3404,11 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS'
           },
           newKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS UP'
           },
           newLongName: 'Aliens research in Antarctica'
@@ -3367,7 +3438,7 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {}
@@ -3393,7 +3464,7 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           }
         },
@@ -3401,7 +3472,7 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS'
           }
         }
@@ -3430,7 +3501,7 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'S - U',
+            Bucket: 'S - U',
             ShortName: 'SINGLE-PROJ'
           }
         }
@@ -3460,7 +3531,7 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'S - U',
+            Bucket: 'S - U',
             ShortName: 'SINGLE-PROJ'
           }
         }
@@ -3491,11 +3562,11 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP-7'
           }
         }
@@ -3514,13 +3585,13 @@ describe('when applying project DIF10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           // Providing a single segment and NO newLongName
           // results in normalizedSegments[1] (Long_Name) being undefined
           newKeywordObject: {
-            Category: 'M - O',
+            Bucket: 'M - O',
             ShortName: 'ONLY_SHORT'
           }
         }
@@ -3551,11 +3622,11 @@ describe('when applying project DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['Project', 10],
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP-7'
           },
           newLongName: 'Updated Earth Science Information Partners Program'
@@ -3597,7 +3668,7 @@ describe('when applying project DIF10 corrections', () => {
         corrections: [{
           scheme: 'projects',
           oldKeywordObject: {
-            Category: 'S - U',
+            Bucket: 'S - U',
             ShortName: 'NOT-REAL'
           }
         }]
@@ -5209,7 +5280,7 @@ describe('when applying temporal resolution DIF10 corrections', () => {
         scheme: 'temporalresolutionrange',
         action: 'delete',
         oldKeywordObject: {
-          Value: 'Daily'
+          TemporalResolutionRange: 'Daily'
         }
       }]
     })
@@ -5238,10 +5309,10 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['VerticalResolutionRanges', 1],
           newKeywordObject: {
-            Value: 'Updated Range'
+            VerticalResolutionRange: 'Updated Range'
           },
           oldKeywordObject: {
-            Value: '10 - 50 meters'
+            VerticalResolutionRange: '10 - 50 meters'
           }
         }]
       })
@@ -5260,10 +5331,10 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           action: 'replace',
           ummPath: ['VerticalResolutionRanges', 0],
           newKeywordObject: {
-            Value: 'New Range'
+            VerticalResolutionRange: 'New Range'
           },
           oldKeywordObject: {
-            Value: 'Old Range'
+            VerticalResolutionRange: 'Old Range'
           }
         }]
       })
@@ -5282,7 +5353,7 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           action: 'delete',
           ummPath: ['VerticalResolutionRanges', 0],
           oldKeywordObject: {
-            Value: '1 - 10 meters'
+            VerticalResolutionRange: '1 - 10 meters'
           }
         }]
       })
@@ -5301,7 +5372,7 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           action: 'delete',
           ummPath: ['VerticalResolutionRanges', 0],
           oldKeywordObject: {
-            Value: 'Final Range'
+            VerticalResolutionRange: 'Final Range'
           }
         }]
       })
@@ -5330,7 +5401,7 @@ describe('when applying vertical resolution DIF10 corrections', () => {
             action: 'delete',
             ummPath: ['VerticalResolutionRanges', 0],
             oldKeywordObject: {
-              Value: 'Range 1'
+              VerticalResolutionRange: 'Range 1'
             }
           },
           {
@@ -5338,7 +5409,7 @@ describe('when applying vertical resolution DIF10 corrections', () => {
             action: 'delete',
             ummPath: ['VerticalResolutionRanges', 0],
             oldKeywordObject: {
-              Value: 'Range 2'
+              VerticalResolutionRange: 'Range 2'
             }
           }
         ]
@@ -5398,7 +5469,7 @@ describe('when applying vertical resolution DIF10 corrections', () => {
           action: 'unsupported_action',
           ummPath: ['VerticalResolutionRanges', 0],
           oldKeywordObject: {
-            Value: '1 - 10 meters'
+            VerticalResolutionRange: '1 - 10 meters'
           }
         }]
       })

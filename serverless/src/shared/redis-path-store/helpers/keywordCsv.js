@@ -5,7 +5,7 @@ import { isCsvProviderUrlFlag } from '@/shared/isCsvProviderUrlFlag'
 
 import { buildKeywordObjectFromPath } from './buildKeywordObjectFromPath'
 import {
-  CSV_PATH_FIELDS,
+  CSV_FIELDS,
   KEYWORD_DIFF_SKIP_HEADER_ROWS,
   KEYWORD_PATH_SEPARATOR
 } from './constants'
@@ -55,7 +55,7 @@ export const formatKeywordCsvPath = ({
   isLeaf
 }) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
-  const pathFieldsCount = CSV_PATH_FIELDS[normalizedScheme]?.length ?? path.length
+  const pathFieldsCount = CSV_FIELDS[normalizedScheme]?.length ?? path.length
 
   while (pathFieldsCount > path.length) {
     if (isLookupShortNameScheme(normalizedScheme) && isLeaf) {
@@ -98,6 +98,32 @@ export const getCsvRowValues = ({
 ]
 
 /**
+ * Maps a hierarchy row to its canonical named CSV path fields.
+ *
+ * @param {object} params CSV path-record input.
+ * @param {string[]} params.configuredFields Canonical fields for the scheme.
+ * @param {object} params.row Hierarchy row to map.
+ * @param {string} params.scheme Keyword scheme.
+ * @returns {Record<string, string>} Values keyed by normalized CSV header.
+ */
+const buildCsvPathRecord = ({
+  configuredFields,
+  row,
+  scheme
+}) => {
+  const path = formatKeywordCsvPath({
+    scheme,
+    path: [...row.path],
+    isLeaf: row.isLeaf
+  })
+
+  return Object.fromEntries(configuredFields.map((field, index) => [
+    normalizeCsvHeader(field),
+    path[index] || ''
+  ]))
+}
+
+/**
  * Sorts hierarchy rows and places each value under its named CSV header.
  *
  * @param {object} params CSV row preparation input.
@@ -125,7 +151,7 @@ export const prepareCsvRows = ({
   csvRows,
   scheme
 }) => {
-  const configuredFields = CSV_PATH_FIELDS[normalizeKeywordScheme(scheme)]
+  const configuredFields = CSV_FIELDS[normalizeKeywordScheme(scheme)]
   const sortedRows = [...csvRows].sort((first, second) => {
     const firstValues = getCsvRowValues({
       ...first,
@@ -152,17 +178,12 @@ export const prepareCsvRows = ({
     }))
   }
 
-  const pathHeaders = configuredFields.map(normalizeCsvHeader)
-
   return sortedRows.map((row) => {
-    const path = formatKeywordCsvPath({
-      scheme,
-      path: [...row.path],
-      isLeaf: row.isLeaf
+    const record = buildCsvPathRecord({
+      configuredFields,
+      row,
+      scheme
     })
-    const record = Object.fromEntries(
-      pathHeaders.map((header, index) => [header, path[index] || ''])
-    )
 
     record.uuid = row.uuid
 
@@ -181,13 +202,13 @@ export const prepareCsvRows = ({
  * @param {string} options.scheme Keyword scheme.
  * @param {number} [options.headerRow=2] One-based line containing the CSV headers.
  * @param {string} [options.pathSeparator=KEYWORD_PATH_SEPARATOR] Keyword-path separator.
- * @returns {{uuid: string, shortName: string, longName: string, providerUrl: string, keywordPath: string}[]}
- * Parsed keyword records.
+ * @returns {{uuid: string, shortName: string, longName: string, providerUrl: string,
+ * keywordPath: string, keywordObject: Record<string, string>|undefined}[]} Parsed keyword records.
  *
  * @example
  * parseCsv(
- *   '"Version"\n"Long_Name","UUID","Type","Short_Name","Category","Class"\n'
- *     + '"Greenhouse Gases Observing Satellite","uuid-1","Earth Observation Satellites","GOSAT","Platforms","Space-based Platforms"',
+ *   '"Version"\n"Long_Name","UUID","Category","Short_Name","Basis","Sub_Category"\n'
+ *     + '"Greenhouse Gases Observing Satellite","uuid-1","Earth Observation Satellites","GOSAT","Space-based Platforms",""',
  *   { scheme: 'platforms' }
  * )
  * // Returns: [{
@@ -195,7 +216,7 @@ export const prepareCsvRows = ({
  * //   shortName: 'GOSAT',
  * //   longName: 'Greenhouse Gases Observing Satellite',
  * //   providerUrl: '',
- * //   keywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT'
+ * //   keywordPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT'
  * // }]
  */
 export const parseCsv = (
@@ -207,7 +228,7 @@ export const parseCsv = (
   } = {}
 ) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
-  const configuredFields = CSV_PATH_FIELDS[normalizedScheme]
+  const configuredFields = CSV_FIELDS[normalizedScheme]
   let pathHeaders = []
   const rows = parse(csvContent || '', {
     columns: (headers) => {
@@ -225,15 +246,33 @@ export const parseCsv = (
     relax_column_count: true
   })
 
-  return rows.map((row) => ({
-    uuid: trimKeywordPathSegment(row.uuid),
-    shortName: trimKeywordPathSegment(row.shortname),
-    longName: trimKeywordPathSegment(row.longname),
-    providerUrl: trimKeywordPathSegment(row.datacenterurl),
-    keywordPath: pathHeaders
+  return rows.map((row) => {
+    const keywordPath = pathHeaders
       .map((header) => trimKeywordPathSegment(row[header]))
       .join(pathSeparator)
-  }))
+    const keywordObject = configuredFields
+      ? Object.fromEntries([
+        ...configuredFields,
+        ...(isCsvLongNameFlag(normalizedScheme) ? ['LongName'] : []),
+        ...(isCsvProviderUrlFlag(normalizedScheme) ? ['DataCenterURL'] : [])
+      ].map((field) => [
+        field,
+        trimKeywordPathSegment(row[normalizeCsvHeader(field)])
+      ]))
+      : buildKeywordObjectFromPath({
+        scheme: normalizedScheme,
+        keywordPath
+      })
+
+    return {
+      uuid: trimKeywordPathSegment(row.uuid),
+      shortName: trimKeywordPathSegment(row.shortname),
+      longName: trimKeywordPathSegment(row.longname),
+      providerUrl: trimKeywordPathSegment(row.datacenterurl),
+      keywordPath,
+      keywordObject
+    }
+  })
 }
 
 /**
@@ -248,16 +287,16 @@ export const parseCsv = (
  *
  * @example
  * parseKeywordCsvContent(
- *   '"Version"\n"Category","Class","Type","Short_Name","Long_Name","UUID"\n'
- *     + '"Platforms","Space-based Platforms","Satellite","GOSAT","Greenhouse Gases Observing Satellite","uuid-1"',
+ *   '"Version"\n"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"\n'
+ *     + '"Space-based Platforms","Earth Observation Satellites","","GOSAT","Greenhouse Gases Observing Satellite","uuid-1"',
  *   { scheme: 'platforms' }
  * )
  * // Returns: Map([['uuid-1', {
- * //   path: 'Platforms > Space-based Platforms > Satellite > GOSAT',
+ * //   path: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT',
  * //   keywordObject: {
- * //     Category: 'Platforms',
- * //     Class: 'Space-based Platforms',
- * //     Type: 'Satellite',
+ * //     Basis: 'Space-based Platforms',
+ * //     Category: 'Earth Observation Satellites',
+ * //     SubCategory: '',
  * //     ShortName: 'GOSAT',
  * //     LongName: 'Greenhouse Gases Observing Satellite'
  * //   }
@@ -278,33 +317,15 @@ export const parseKeywordCsvContent = (
     pathSeparator
   }).filter(({ uuid }) => uuid)
 
-  return new Map(
-    records
-      .map(({
-        keywordPath,
-        longName,
-        providerUrl,
-        uuid
-      }) => {
-        const keywordObject = buildKeywordObjectFromPath({
-          scheme: normalizedScheme,
-          keywordPath
-        })
-
-        if (isCsvLongNameFlag(normalizedScheme) && longName) {
-          keywordObject.LongName = longName
-        }
-
-        if (isCsvProviderUrlFlag(normalizedScheme) && providerUrl) {
-          keywordObject.DataCenterUrl = providerUrl
-        }
-
-        return [uuid, {
-          path: keywordPath,
-          keywordObject: hasKeywordObjectValue(keywordObject) ? keywordObject : undefined
-        }]
-      })
-  )
+  return new Map(records
+    .map(({
+      keywordPath,
+      keywordObject,
+      uuid
+    }) => [uuid, {
+      path: keywordPath,
+      keywordObject: hasKeywordObjectValue(keywordObject) ? keywordObject : undefined
+    }]))
 }
 
 /**
@@ -344,19 +365,19 @@ export const parseFullPathCsvRecords = ({
  *
  * @example
  * parseShortNameCsvRecords({
- *   csvContent: '"Version"\n"Category","Class","Type","Short_Name","Long_Name","UUID"\n'
- *     + '"Platforms","Space-based Platforms","Satellite","GOSAT","GOSAT Satellite","uuid-1"',
+ *   csvContent: '"Version"\n"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"\n'
+ *     + '"Space-based Platforms","Earth Observation Satellites","","GOSAT","GOSAT Satellite","uuid-1"',
  *   scheme: 'platforms'
  * })
  * // Returns: Map([['GOSAT', {
  * //   uuid: 'uuid-1',
- * //   fullPath: 'Platforms > Space-based Platforms > Satellite > GOSAT',
+ * //   fullPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT',
  * //   longName: 'GOSAT Satellite',
  * //   providerUrl: '',
  * //   keywordObject: {
- * //     Category: 'Platforms',
- * //     Class: 'Space-based Platforms',
- * //     Type: 'Satellite',
+ * //     Basis: 'Space-based Platforms',
+ * //     Category: 'Earth Observation Satellites',
+ * //     SubCategory: '',
  * //     ShortName: 'GOSAT',
  * //     LongName: 'GOSAT Satellite'
  * //   }
@@ -368,36 +389,23 @@ export const parseShortNameCsvRecords = ({
 }) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
 
-  return new Map(parseCsv(csvContent, {
+  const records = parseCsv(csvContent, {
     scheme: normalizedScheme
-  })
-    .filter(({ shortName }) => shortName)
+  }).filter(({ shortName }) => shortName)
+
+  return new Map(records
     .map(({
       keywordPath,
       longName,
       providerUrl,
       shortName,
-      uuid
-    }) => {
-      const keywordObject = buildKeywordObjectFromPath({
-        scheme: normalizedScheme,
-        keywordPath
-      })
-
-      if (longName) {
-        keywordObject.LongName = longName
-      }
-
-      if (providerUrl) {
-        keywordObject.DataCenterUrl = providerUrl
-      }
-
-      return [shortName, {
-        uuid,
-        fullPath: keywordPath,
-        longName,
-        providerUrl,
-        keywordObject
-      }]
-    }))
+      uuid,
+      keywordObject
+    }) => [shortName, {
+      uuid,
+      fullPath: keywordPath,
+      longName,
+      providerUrl,
+      keywordObject
+    }]))
 }

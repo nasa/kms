@@ -10,8 +10,8 @@ const attachSupplementalKeywordFields = ({
     nextKeywordObject.LongName = concept.longName
   }
 
-  if (concept.providerUrl && !nextKeywordObject.DataCenterUrl) {
-    nextKeywordObject.DataCenterUrl = concept.providerUrl
+  if (concept.providerUrl && !nextKeywordObject.DataCenterURL) {
+    nextKeywordObject.DataCenterURL = concept.providerUrl
   }
 
   return nextKeywordObject

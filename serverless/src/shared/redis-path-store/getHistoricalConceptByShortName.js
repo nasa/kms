@@ -35,9 +35,9 @@ const defaultContext = {
  * //   shortName: 'Aqua Legacy',
  * //   longName: 'Aqua Legacy',
  * //   keywordObject: {
- * //     Category: 'Platforms',
- * //     Class: 'Space-based Platforms',
- * //     Type: 'Earth Observation Satellites',
+ * //     Basis: 'Space-based Platforms',
+ * //     Category: 'Earth Observation Satellites',
+ * //     SubCategory: '',
  * //     ShortName: 'Aqua Legacy'
  * //   }
  * // }

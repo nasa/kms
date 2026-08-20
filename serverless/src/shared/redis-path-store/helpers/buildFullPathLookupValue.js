@@ -1,6 +1,6 @@
 import { buildKeywordPathFromObject } from './buildKeywordPathFromObject'
 import { buildKeywordPathObjectFromValue } from './buildKeywordPathObjectFromValue'
-import { FULL_PATH_VALUE_FIELDS } from './constants'
+import { CSV_FIELDS } from './constants'
 import { flattenKeywordPathValue } from './flattenKeywordPathValue'
 import { hasKeywordObjectValue } from './hasKeywordObjectValue'
 import { joinKeywordPath } from './joinKeywordPath'
@@ -20,7 +20,7 @@ export const buildKeywordPathFromValue = ({
   keywordValue
 }) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
-  const slotFields = FULL_PATH_VALUE_FIELDS[normalizedScheme]
+  const slotFields = CSV_FIELDS[normalizedScheme]
 
   if (Array.isArray(slotFields)) {
     return buildKeywordPathFromObject({
@@ -49,7 +49,7 @@ export const buildFullPathLookupValue = ({
   keywordValue
 }) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
-  const slotFields = FULL_PATH_VALUE_FIELDS[normalizedScheme]
+  const slotFields = CSV_FIELDS[normalizedScheme]
 
   if (Array.isArray(slotFields)) {
     const keywordObject = buildKeywordPathObjectFromValue({

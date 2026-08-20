@@ -116,54 +116,15 @@ describe('getPublishKeywordEvents', () => {
     })
   })
 
-  test('maps Short_Name to ShortName and Long_Name to LongName in platform update events', () => {
-    const createPlatformsCsv = (
-      shortName,
-      longName = 'Greenhouse Gases Observing Satellite'
-    ) => [
+  test('publishes an update when only an auxiliary long name changes', () => {
+    const createPlatformsCsv = (longName) => [
       '"Keyword Version: test"',
-      '"Category","Class","Type","Short_Name","Long_Name","UUID"',
-      `"Platforms","Space-based Platforms","Earth Observation Satellites","${shortName}","${longName}","uuid-1"`
+      '"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"',
+      `"Space-based Platforms","Earth Observation Satellites","","GOSAT","${longName}","uuid-1"`
     ].join('\n')
-    const comparison = compareKeywordCsvContent({
-      oldCsvContent: createPlatformsCsv('GOSAT'),
-      newCsvContent: createPlatformsCsv('GOSAT - Test1'),
-      scheme: 'platforms'
-    })
-
-    expect(comparison.changedKeywords.get('uuid-1')).toMatchObject({
-      oldPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',
-      newPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT - Test1'
-    })
-
-    const [keywordEvent] = createKeywordEvents(new Map([
-      ['platforms', comparison]
-    ]))
-
-    expect(keywordEvent).toMatchObject({
-      EventType: 'UPDATED',
-      UUID: 'uuid-1'
-    })
-
-    expect(keywordEvent.OldKeywordObject).toEqual({
-      Category: 'Platforms',
-      Class: 'Space-based Platforms',
-      Type: 'Earth Observation Satellites',
-      ShortName: 'GOSAT',
-      LongName: 'Greenhouse Gases Observing Satellite'
-    })
-
-    expect(keywordEvent.NewKeywordObject).toEqual({
-      Category: 'Platforms',
-      Class: 'Space-based Platforms',
-      Type: 'Earth Observation Satellites',
-      ShortName: 'GOSAT - Test1',
-      LongName: 'Greenhouse Gases Observing Satellite'
-    })
-
     const longNameComparison = compareKeywordCsvContent({
-      oldCsvContent: createPlatformsCsv('GOSAT'),
-      newCsvContent: createPlatformsCsv('GOSAT', 'Updated GOSAT Satellite'),
+      oldCsvContent: createPlatformsCsv('Greenhouse Gases Observing Satellite'),
+      newCsvContent: createPlatformsCsv('Updated GOSAT Satellite'),
       scheme: 'platforms'
     })
     const [longNameEvent] = createKeywordEvents(new Map([
@@ -171,8 +132,8 @@ describe('getPublishKeywordEvents', () => {
     ]))
 
     expect(longNameComparison.changedKeywords.get('uuid-1')).toMatchObject({
-      oldPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',
-      newPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT'
+      oldPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT',
+      newPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT'
     })
 
     expect(longNameEvent.NewKeywordObject.LongName).toBe('Updated GOSAT Satellite')

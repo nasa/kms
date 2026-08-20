@@ -2,9 +2,11 @@ import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 import {
+  afterEach,
   describe,
   expect,
-  test
+  test,
+  vi
 } from 'vitest'
 
 import { applyDif10MetadataCorrections } from '../applyDif10MetadataCorrections'
@@ -15,7 +17,22 @@ import { applyUmmcMetadataCorrections } from '../applyUmmcMetadataCorrections'
 import { DIF10_SCHEME_EDITORS } from '../dif10DomEditor'
 import { ECHO10_SCHEME_EDITORS } from '../echo10DomEditor'
 import { ISO_19115_SCHEME_EDITORS } from '../Iso19115DomEditor'
+import { getHistoricalConceptByKeyword } from '../redis-path-store/getHistoricalConceptByKeyword'
+import { getPublishedConceptByUuid } from '../redis-path-store/getPublishedConceptByUuid'
+import {
+  compareKeywordCsvContent,
+  createKeywordEvents
+} from '../redis-path-store/getPublishKeywordEvents'
+import { resolveOldKeywordConceptUuid } from '../resolveOldKeywordConceptUuid'
 import { UMMC_SCHEME_EDITORS } from '../ummcDomEditor'
+
+vi.mock('../redis-path-store/getHistoricalConceptByKeyword', () => ({
+  getHistoricalConceptByKeyword: vi.fn()
+}))
+
+vi.mock('../redis-path-store/getPublishedConceptByUuid', () => ({
+  getPublishedConceptByUuid: vi.fn()
+}))
 
 const fixtureDirectory = join(
   __dirname,
@@ -37,6 +54,202 @@ const readFixture = (filename) => readFileSync(join(fixtureDirectory, filename),
  * @returns {Object} Parsed fixture.
  */
 const readJsonFixture = (filename) => JSON.parse(readFixture(filename))
+
+/**
+ * Reads one production-shaped generated CSV fixture for a keyword scheme.
+ *
+ * @param {Object} options CSV selection options.
+ * @param {string} options.scheme Keyword scheme.
+ * @param {'published'|'draft'} options.version Keyword version.
+ * @returns {string} KMS-style CSV containing metadata, headers, and keyword records.
+ */
+const readGeneratedCsv = ({
+  scheme,
+  version
+}) => readFixture(`generated/${scheme}/${version}.csv`)
+
+/**
+ * Removes CSV-only auxiliary values from a correction keyword object.
+ *
+ * @param {Object} [keywordObject={}] Keyword object parsed from CSV.
+ * @returns {Object} Keyword object containing only the scheme hierarchy fields.
+ */
+const normalizeCorrectionKeywordObject = (keywordObject = {}) => Object.fromEntries(
+  Object.entries(keywordObject).filter(([key]) => ![
+    'DataCenterURL',
+    'LongName'
+  ].includes(key))
+)
+
+/**
+ * Returns the stable logical portion of one generated or checked correction.
+ *
+ * @param {Object} correction Correction descriptor.
+ * @returns {Object} Comparable correction descriptor.
+ */
+const normalizeCorrection = (correction) => {
+  const normalizedCorrection = {
+    scheme: correction.scheme,
+    action: correction.action,
+    oldKeywordObject: normalizeCorrectionKeywordObject(correction.oldKeywordObject)
+  }
+
+  if (correction.action === 'replace') {
+    normalizedCorrection.newKeywordObject = normalizeCorrectionKeywordObject(
+      correction.newKeywordObject
+    )
+  }
+
+  if (correction.newLongName) {
+    normalizedCorrection.newLongName = correction.newLongName
+  }
+
+  return normalizedCorrection
+}
+
+/**
+ * Recursively sorts object keys so equivalent corrections have the same signature.
+ *
+ * @param {unknown} value Value to normalize.
+ * @returns {unknown} Value with stable object-key order.
+ */
+const sortObjectKeys = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(sortObjectKeys)
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value)
+      .sort()
+      .map((key) => [key, sortObjectKeys(value[key])]))
+  }
+
+  return value
+}
+
+/**
+ * Normalizes, de-duplicates, and sorts logical corrections for comparison.
+ *
+ * Checked native fixtures may repeat a logical correction to update duplicate XML nodes, while
+ * a published/draft CSV comparison emits one event per keyword UUID.
+ *
+ * @param {Object[]} corrections Corrections to normalize.
+ * @returns {Object[]} Stable logical corrections.
+ */
+const normalizeLogicalCorrections = (corrections) => {
+  const correctionsBySignature = new Map()
+
+  corrections.forEach((correction) => {
+    const normalizedCorrection = sortObjectKeys(normalizeCorrection(correction))
+
+    correctionsBySignature.set(
+      JSON.stringify(normalizedCorrection),
+      normalizedCorrection
+    )
+  })
+
+  return [...correctionsBySignature.entries()]
+    .sort(([firstSignature], [secondSignature]) => (
+      firstSignature.localeCompare(secondSignature)
+    ))
+    .map(([, correction]) => correction)
+}
+
+/**
+ * Returns the stable identity of the keyword a correction is intended to change.
+ *
+ * Generated scheme CSVs are shared by all native formats, so this identity selects the
+ * corrections relevant to one format without including the replacement value in the match.
+ *
+ * @param {Object} correction Correction descriptor.
+ * @returns {string} Stable correction-selection signature.
+ */
+const getCorrectionSelectionSignature = (correction) => JSON.stringify(sortObjectKeys({
+  scheme: correction.scheme,
+  action: correction.action,
+  oldKeywordObject: normalizeCorrectionKeywordObject(correction.oldKeywordObject)
+}))
+
+/**
+ * Generates corrections from published/draft CSV changes and compares them with checked fixtures.
+ *
+ * @param {Object} options Generation scenario options.
+ * @param {string} options.name Native format fixture name.
+ * @param {string} options.scenarioName Correction scenario name.
+ * @returns {Promise<void>}
+ */
+const verifyGeneratedCorrections = async ({
+  name,
+  scenarioName
+}) => {
+  const expectedCorrections = readJsonFixture(
+    `${scenarioName}/${name}.corrections.json`
+  ).corrections
+  const schemes = [...new Set(expectedCorrections.map(({ scheme }) => scheme))]
+  const keywordChanges = new Map(schemes.map((scheme) => [
+    scheme,
+    compareKeywordCsvContent({
+      oldCsvContent: readGeneratedCsv({
+        scheme,
+        version: 'published'
+      }),
+      newCsvContent: readGeneratedCsv({
+        scheme,
+        version: 'draft'
+      }),
+      scheme
+    })
+  ]))
+  const events = createKeywordEvents(keywordChanges)
+  const eventsByUuid = Object.fromEntries(events.map((event) => [event.UUID, event]))
+
+  vi.mocked(getHistoricalConceptByKeyword).mockImplementation(async ({ keywordValue }) => {
+    const event = events.find(({ OldKeywordObject }) => OldKeywordObject === keywordValue)
+
+    return event
+      ? {
+        uuid: event.UUID,
+        keywordObject: event.OldKeywordObject,
+        longName: event.OldKeywordObject.LongName
+      }
+      : undefined
+  })
+
+  vi.mocked(getPublishedConceptByUuid).mockImplementation(async ({ uuid }) => {
+    const event = eventsByUuid[uuid]
+
+    return event?.NewKeywordObject
+      ? {
+        uuid,
+        keywordObject: event.NewKeywordObject,
+        longName: event.NewKeywordObject.LongName
+      }
+      : undefined
+  })
+
+  const generatedCorrections = await Promise.all(events.map(async (event) => ({
+    ...await resolveOldKeywordConceptUuid({
+      scheme: event.Scheme,
+      keywordValue: event.OldKeywordObject,
+      keywordEvent: {
+        eventType: event.EventType,
+        scheme: event.Scheme,
+        uuid: event.UUID
+      }
+    }),
+    scheme: event.Scheme
+  })))
+  const expectedCorrectionSignatures = new Set(
+    expectedCorrections.map(getCorrectionSelectionSignature)
+  )
+  const selectedGeneratedCorrections = generatedCorrections.filter((correction) => (
+    expectedCorrectionSignatures.has(getCorrectionSelectionSignature(correction))
+  ))
+
+  expect(normalizeLogicalCorrections(selectedGeneratedCorrections)).toEqual(
+    normalizeLogicalCorrections(expectedCorrections)
+  )
+}
 
 /**
  * Loads native metadata in the type expected by its correction delegate.
@@ -174,7 +387,63 @@ const verifyCorrectionScenario = async ({
   }
 }
 
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
+describe('when publishing short-name keyword changes', () => {
+  test('preserves short names and auxiliary CSV fields in keyword events', () => {
+    const expectedEvents = readJsonFixture('generated/short-name-events.json')
+    const expectedUuids = new Set(expectedEvents.map(({ UUID }) => UUID))
+    const schemes = [...new Set(expectedEvents.map(({ Scheme }) => Scheme))]
+    const keywordChanges = new Map(schemes.map((scheme) => [
+      scheme,
+      compareKeywordCsvContent({
+        oldCsvContent: readGeneratedCsv({
+          scheme,
+          version: 'published'
+        }),
+        newCsvContent: readGeneratedCsv({
+          scheme,
+          version: 'draft'
+        }),
+        scheme
+      })
+    ]))
+    const actualEvents = createKeywordEvents(keywordChanges)
+      .filter(({ UUID }) => expectedUuids.has(UUID))
+      .map(({
+        EventType,
+        Scheme,
+        UUID,
+        OldKeywordObject,
+        NewKeywordObject
+      }) => ({
+        EventType,
+        Scheme,
+        UUID,
+        OldKeywordObject,
+        NewKeywordObject
+      }))
+      .sort((first, second) => first.Scheme.localeCompare(second.Scheme))
+
+    expect(actualEvents).toEqual(expectedEvents)
+  })
+})
+
 describe('when correcting UMM-C metadata', () => {
+  test('matches corrections generated from published and draft CSV', async () => {
+    await verifyGeneratedCorrections({
+      name: 'ummc',
+      scenarioName: 'updates'
+    })
+
+    await verifyGeneratedCorrections({
+      name: 'ummc',
+      scenarioName: 'deletions'
+    })
+  })
+
   test('matches the complete expected record for updates', async () => {
     await verifyCorrectionScenario({
       action: 'replace',
@@ -199,6 +468,18 @@ describe('when correcting UMM-C metadata', () => {
 })
 
 describe('when correcting DIF10 metadata', () => {
+  test('matches corrections generated from published and draft CSV', async () => {
+    await verifyGeneratedCorrections({
+      name: 'dif10',
+      scenarioName: 'updates'
+    })
+
+    await verifyGeneratedCorrections({
+      name: 'dif10',
+      scenarioName: 'deletions'
+    })
+  })
+
   test('matches the complete expected record for updates', async () => {
     await verifyCorrectionScenario({
       action: 'replace',
@@ -223,6 +504,18 @@ describe('when correcting DIF10 metadata', () => {
 })
 
 describe('when correcting ECHO10 metadata', () => {
+  test('matches corrections generated from published and draft CSV', async () => {
+    await verifyGeneratedCorrections({
+      name: 'echo10',
+      scenarioName: 'updates'
+    })
+
+    await verifyGeneratedCorrections({
+      name: 'echo10',
+      scenarioName: 'deletions'
+    })
+  })
+
   test('matches the complete expected record for updates', async () => {
     await verifyCorrectionScenario({
       action: 'replace',
@@ -247,6 +540,18 @@ describe('when correcting ECHO10 metadata', () => {
 })
 
 describe('when correcting ISO19115 metadata', () => {
+  test('matches corrections generated from published and draft CSV', async () => {
+    await verifyGeneratedCorrections({
+      name: 'iso19115',
+      scenarioName: 'updates'
+    })
+
+    await verifyGeneratedCorrections({
+      name: 'iso19115',
+      scenarioName: 'deletions'
+    })
+  })
+
   test('matches the complete expected record for updates', async () => {
     await verifyCorrectionScenario({
       action: 'replace',
@@ -271,6 +576,18 @@ describe('when correcting ISO19115 metadata', () => {
 })
 
 describe('when correcting ISO-SMAP metadata', () => {
+  test('matches corrections generated from published and draft CSV', async () => {
+    await verifyGeneratedCorrections({
+      name: 'isosmap',
+      scenarioName: 'updates'
+    })
+
+    await verifyGeneratedCorrections({
+      name: 'isosmap',
+      scenarioName: 'deletions'
+    })
+  })
+
   test('matches the complete expected record for updates', async () => {
     await verifyCorrectionScenario({
       action: 'replace',

@@ -7,12 +7,11 @@ import {
 } from '../keywordCsv'
 
 describe('when preparing CSV rows by header name', () => {
-  test('places GOSAT platform values under reordered headers', () => {
+  test('places a platform leaf hierarchy under reordered headers', () => {
     expect(prepareCsvRows({
-      csvHeaders: ['Long_Name', 'UUID', 'Type', 'Short_Name', 'Category', 'Class'],
+      csvHeaders: ['Long_Name', 'UUID', 'Sub_Category', 'Short_Name', 'Category', 'Basis'],
       csvRows: [{
         path: [
-          'Platforms',
           'Space-based Platforms',
           'Earth Observation Satellites',
           'GOSAT'
@@ -26,9 +25,9 @@ describe('when preparing CSV rows by header name', () => {
     })).toEqual([[
       'Greenhouse Gases Observing Satellite',
       'uuid-gosat',
-      'Earth Observation Satellites',
+      '',
       'GOSAT',
-      'Platforms',
+      'Earth Observation Satellites',
       'Space-based Platforms'
     ]])
   })
@@ -50,14 +49,28 @@ describe('when parsing CSV rows by header name', () => {
         shortName: 'GOSAT',
         longName: 'Greenhouse Gases Observing Satellite',
         providerUrl: '',
-        keywordPath: ' >  >  > GOSAT'
+        keywordPath: ' >  >  > GOSAT',
+        keywordObject: {
+          Basis: '',
+          Category: '',
+          SubCategory: '',
+          ShortName: 'GOSAT',
+          LongName: 'Greenhouse Gases Observing Satellite'
+        }
       },
       {
         uuid: '',
         shortName: 'AQUA',
         longName: '',
         providerUrl: '',
-        keywordPath: ' >  >  > AQUA'
+        keywordPath: ' >  >  > AQUA',
+        keywordObject: {
+          Basis: '',
+          Category: '',
+          SubCategory: '',
+          ShortName: 'AQUA',
+          LongName: ''
+        }
       }
     ])
   })
@@ -75,9 +88,39 @@ describe('when parsing CSV rows by header name', () => {
         shortName: '"GOSAT "Test""',
         longName: '',
         providerUrl: '',
-        keywordPath: ' >  >  > "GOSAT "Test""'
+        keywordPath: ' >  >  > "GOSAT "Test""',
+        keywordObject: {
+          Basis: '',
+          Category: '',
+          SubCategory: '',
+          ShortName: '"GOSAT "Test""',
+          LongName: ''
+        }
       }
     ])
+  })
+
+  test('uses exact platform CSV columns regardless of header order', () => {
+    expect(parseCsv([
+      '"Keyword Version: test"',
+      '"Short_Name","Sub_Category","UUID","Basis","Category"',
+      '"A1","Auxiliary","uuid-a","Other","Aqua"'
+    ].join('\n'), {
+      scheme: 'platforms'
+    })).toEqual([{
+      uuid: 'uuid-a',
+      shortName: 'A1',
+      longName: '',
+      providerUrl: '',
+      keywordPath: 'Other > Aqua > Auxiliary > A1',
+      keywordObject: {
+        Basis: 'Other',
+        Category: 'Aqua',
+        SubCategory: 'Auxiliary',
+        ShortName: 'A1',
+        LongName: ''
+      }
+    }])
   })
 })
 
@@ -119,7 +162,8 @@ describe('when parsing keyword CSV content for publication', () => {
           BucketLevel2: 'EOSDIS',
           BucketLevel3: 'GHRC',
           ShortName: 'GHRC_DAAC',
-          DataCenterUrl: 'https://ghrc.nsstc.nasa.gov'
+          LongName: '',
+          DataCenterURL: 'https://ghrc.nsstc.nasa.gov'
         }
       }]
     ]))
@@ -184,8 +228,8 @@ describe('when parsing short-name keyword CSV content', () => {
   test('builds a GOSAT platform record with its long name', () => {
     const csvContent = [
       '"Keyword Version: test"',
-      '"Long_Name","UUID","Type","Short_Name","Category","Class"',
-      '"Greenhouse Gases Observing Satellite","uuid-gosat","Earth Observation Satellites","GOSAT","Platforms","Space-based Platforms"'
+      '"Long_Name","UUID","Sub_Category","Short_Name","Category","Basis"',
+      '"Greenhouse Gases Observing Satellite","uuid-gosat","","GOSAT","Earth Observation Satellites","Space-based Platforms"'
     ].join('\n')
 
     expect(parseShortNameCsvRecords({
@@ -194,15 +238,87 @@ describe('when parsing short-name keyword CSV content', () => {
     })).toEqual(new Map([
       ['GOSAT', {
         uuid: 'uuid-gosat',
-        fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',
+        fullPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT',
         longName: 'Greenhouse Gases Observing Satellite',
         providerUrl: '',
         keywordObject: {
-          Category: 'Platforms',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
+          SubCategory: '',
           ShortName: 'GOSAT',
           LongName: 'Greenhouse Gases Observing Satellite'
+        }
+      }]
+    ]))
+  })
+
+  test('parses other short-name types with blank slots without shifting hierarchy', () => {
+    expect(parseShortNameCsvRecords({
+      csvContent: [
+        '"Keyword Version: test"',
+        '"Category","Class","Type","Subtype","Short_Name","Long_Name","UUID"',
+        '"Earth Remote Sensing Instruments","","","","MODIS","Moderate Resolution Imaging Spectroradiometer","uuid-instrument-modis"'
+      ].join('\n'),
+      scheme: 'instruments'
+    })).toEqual(new Map([
+      ['MODIS', {
+        uuid: 'uuid-instrument-modis',
+        fullPath: 'Earth Remote Sensing Instruments >  >  >  > MODIS',
+        longName: 'Moderate Resolution Imaging Spectroradiometer',
+        providerUrl: '',
+        keywordObject: {
+          Category: 'Earth Remote Sensing Instruments',
+          Class: '',
+          Type: '',
+          Subtype: '',
+          ShortName: 'MODIS',
+          LongName: 'Moderate Resolution Imaging Spectroradiometer'
+        }
+      }]
+    ]))
+
+    expect(parseShortNameCsvRecords({
+      csvContent: [
+        '"Keyword Version: test"',
+        '"Bucket","Short_Name","Long_Name","UUID"',
+        '"","EOSDIS","EOSDIS","uuid-project-eosdis"'
+      ].join('\n'),
+      scheme: 'projects'
+    })).toEqual(new Map([
+      ['EOSDIS', {
+        uuid: 'uuid-project-eosdis',
+        fullPath: ' > EOSDIS',
+        longName: 'EOSDIS',
+        providerUrl: '',
+        keywordObject: {
+          Bucket: '',
+          ShortName: 'EOSDIS',
+          LongName: 'EOSDIS'
+        }
+      }]
+    ]))
+
+    expect(parseShortNameCsvRecords({
+      csvContent: [
+        '"Keyword Version: test"',
+        '"Bucket_Level_0","Bucket_Level_1","Bucket_Level_2","Bucket_Level_3","Short_Name","Long_Name","UUID"',
+        '"NASA","","EOSDIS","GHRC","GHRC_DAAC","NASA GHRC_DAAC","uuid-provider-middle-blank"'
+      ].join('\n'),
+      scheme: 'providers'
+    })).toEqual(new Map([
+      ['GHRC_DAAC', {
+        uuid: 'uuid-provider-middle-blank',
+        fullPath: 'NASA >  > EOSDIS > GHRC > GHRC_DAAC',
+        longName: 'NASA GHRC_DAAC',
+        providerUrl: '',
+        keywordObject: {
+          BucketLevel0: 'NASA',
+          BucketLevel1: '',
+          BucketLevel2: 'EOSDIS',
+          BucketLevel3: 'GHRC',
+          ShortName: 'GHRC_DAAC',
+          LongName: 'NASA GHRC_DAAC',
+          DataCenterURL: ''
         }
       }]
     ]))
@@ -231,7 +347,70 @@ describe('when parsing short-name keyword CSV content', () => {
           BucketLevel2: 'EOSDIS',
           BucketLevel3: 'GHRC',
           ShortName: 'GHRC_DAAC',
-          DataCenterUrl: 'https://ghrc.nsstc.nasa.gov'
+          LongName: '',
+          DataCenterURL: 'https://ghrc.nsstc.nasa.gov'
+        }
+      }]
+    ]))
+  })
+
+  test('builds one-slot short-name scheme records without hierarchy slots', () => {
+    expect(parseShortNameCsvRecords({
+      csvContent: [
+        '"Keyword Version: test"',
+        '"Short_Name","Long_Name","UUID"',
+        '"NetCDF","Network Common Data Form","uuid-netcdf"'
+      ].join('\n'),
+      scheme: 'dataformat'
+    })).toEqual(new Map([
+      ['NetCDF', {
+        uuid: 'uuid-netcdf',
+        fullPath: 'NetCDF',
+        longName: 'Network Common Data Form',
+        providerUrl: '',
+        keywordObject: {
+          ShortName: 'NetCDF',
+          LongName: 'Network Common Data Form'
+        }
+      }]
+    ]))
+
+    expect(parseShortNameCsvRecords({
+      csvContent: [
+        '"Keyword Version: test"',
+        '"Short_Name","Long_Name","UUID"',
+        '"HDF5","Hierarchical Data Format version 5","uuid-hdf5"'
+      ].join('\n'),
+      scheme: 'granuledataformat'
+    })).toEqual(new Map([
+      ['HDF5', {
+        uuid: 'uuid-hdf5',
+        fullPath: 'HDF5',
+        longName: 'Hierarchical Data Format version 5',
+        providerUrl: '',
+        keywordObject: {
+          ShortName: 'HDF5',
+          LongName: 'Hierarchical Data Format version 5'
+        }
+      }]
+    ]))
+
+    expect(parseShortNameCsvRecords({
+      csvContent: [
+        '"Keyword Version: test"',
+        '"Short_Name","Long_Name","UUID"',
+        '"ACADIS","Australia Data and...","uuid-acadis"'
+      ].join('\n'),
+      scheme: 'idnnode'
+    })).toEqual(new Map([
+      ['ACADIS', {
+        uuid: 'uuid-acadis',
+        fullPath: 'ACADIS',
+        longName: 'Australia Data and...',
+        providerUrl: '',
+        keywordObject: {
+          ShortName: 'ACADIS',
+          LongName: 'Australia Data and...'
         }
       }]
     ]))

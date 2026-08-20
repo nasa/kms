@@ -1,7 +1,5 @@
-import { buildFullPathLookupValue } from './helpers/buildFullPathLookupValue'
 import { buildKeywordPathFromObject } from './helpers/buildKeywordPathFromObject'
-import { isLookupFullPathScheme } from './helpers/isLookupFullPathScheme'
-import { isLookupShortNameScheme } from './helpers/isLookupShortNameScheme'
+import { CSV_FIELDS } from './helpers/constants'
 import { normalizeKeywordScheme } from './helpers/normalizeKeywordScheme'
 import { splitKeywordPath } from './helpers/splitKeywordPath'
 import { trimKeywordPathSegment } from './helpers/trimKeywordPathSegment'
@@ -9,8 +7,8 @@ import { trimKeywordPathSegment } from './helpers/trimKeywordPathSegment'
 /**
  * Converts a normalized keyword object into the human-readable path string used by KMS lookups.
  *
- * Full-path schemes return `Category > Topic > ...` style paths, short-name schemes return their
- * hierarchical short-name path, and scalar schemes return the trimmed `Value` field.
+ * Configured schemes use their normalized CSV fields in column order. Unknown schemes do not
+ * produce a keyword path.
  *
  * @param {object} params - Keyword path inputs.
  * @param {string} params.scheme - KMS keyword scheme.
@@ -42,26 +40,17 @@ export const getKeywordPathFromKeywordObject = ({
     return undefined
   }
 
-  if (isLookupFullPathScheme(normalizedScheme)) {
-    return buildFullPathLookupValue({
-      scheme: normalizedScheme,
-      keywordValue: keywordObject
-    })
+  if (!Array.isArray(CSV_FIELDS[normalizedScheme])) {
+    return undefined
   }
 
-  if (isLookupShortNameScheme(normalizedScheme)) {
-    const keywordPath = buildKeywordPathFromObject({
-      scheme: normalizedScheme,
-      keywordObject
-    })
+  const keywordPath = buildKeywordPathFromObject({
+    scheme: normalizedScheme,
+    keywordObject
+  })
 
-    return splitKeywordPath(keywordPath)
-      .some((segment) => trimKeywordPathSegment(segment).length > 0)
-      ? keywordPath
-      : undefined
-  }
-
-  const scalarValue = trimKeywordPathSegment(keywordObject.Value)
-
-  return scalarValue.length > 0 ? scalarValue : undefined
+  return splitKeywordPath(keywordPath)
+    .some((segment) => trimKeywordPathSegment(segment).length > 0)
+    ? keywordPath
+    : undefined
 }

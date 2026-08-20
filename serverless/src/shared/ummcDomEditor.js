@@ -1,5 +1,5 @@
 import JsonMetadataPathEditor, { sequentialValueReplace } from './JsonMetadataPathEditor'
-import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
+import { CSV_FIELDS, UMMC_FIELDS } from './redis-path-store/helpers/constants'
 
 /**
  * A unified scheme creator that selects the appropriate
@@ -85,10 +85,13 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'ScienceKeywords')
     },
     find: {
-      fieldPaths: FULL_PATH_VALUE_FIELDS.sciencekeywords,
-      valueKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords
+      fieldPaths: UMMC_FIELDS.sciencekeywords,
+      valueKeys: CSV_FIELDS.sciencekeywords
     },
-    replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.sciencekeywords)
+    replace: sequentialValueReplace(
+      UMMC_FIELDS.sciencekeywords,
+      CSV_FIELDS.sciencekeywords
+    )
   }),
   locations: unifiedBlockScheme({
     nodePath: '//LocationKeywords',
@@ -96,10 +99,13 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'LocationKeywords')
     },
     find: {
-      fieldPaths: FULL_PATH_VALUE_FIELDS.locations,
-      valueKeys: FULL_PATH_VALUE_FIELDS.locations
+      fieldPaths: UMMC_FIELDS.locations,
+      valueKeys: CSV_FIELDS.locations
     },
-    replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.locations)
+    replace: sequentialValueReplace(
+      UMMC_FIELDS.locations,
+      CSV_FIELDS.locations
+    )
   }),
   chronounits: unifiedBlockScheme({
     // 1. Path to the parent container
@@ -108,13 +114,13 @@ export const UMMC_SCHEME_EDITORS = {
     childKey: 'ChronostratigraphicUnits',
     // 3. Match using all relevant hierarchy fields
     find: {
-      fieldPaths: ['Eon', 'Era', 'Period', 'Epoch', 'Stage', 'DetailedClassification'],
-      valueKeys: FULL_PATH_VALUE_FIELDS.chronounits
+      fieldPaths: UMMC_FIELDS.chronounits,
+      valueKeys: CSV_FIELDS.chronounits
     },
     // 4. Map the replacement values
     replace: sequentialValueReplace(
-      ['Eon', 'Era', 'Period', 'Epoch', 'Stage', 'DetailedClassification'],
-      FULL_PATH_VALUE_FIELDS.chronounits
+      UMMC_FIELDS.chronounits,
+      CSV_FIELDS.chronounits
     ),
     afterDelete: (editor) => {
       cleanupArray(editor.document, 'PaleoTemporalCoverages', 'ChronostratigraphicUnits')
@@ -126,37 +132,34 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'Platforms')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from
-        'ShortName'
-      ],
+      fieldPaths: [UMMC_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // JSON field to write to
-        fieldPath: 'Type',
+        fieldPath: UMMC_FIELDS.platformType,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'Type'
+          key: CSV_FIELDS.category
         }
       },
       {
         // JSON field to write to
-        fieldPath: 'ShortName',
+        fieldPath: UMMC_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // JSON field to write to
-        fieldPath: 'LongName',
+        fieldPath: UMMC_FIELDS.longName,
         source: {
           type: 'param',
           key: 'newLongName'
@@ -168,19 +171,19 @@ export const UMMC_SCHEME_EDITORS = {
     containerPath: '//Platforms',
     childKey: 'Instruments',
     find: {
-      fieldPaths: ['ShortName'],
-      valueKeys: ['ShortName']
+      fieldPaths: [UMMC_FIELDS.shortName],
+      valueKeys: [CSV_FIELDS.shortName]
     },
     replace: [
       {
-        fieldPath: 'ShortName',
+        fieldPath: UMMC_FIELDS.shortName,
         source: {
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
-        fieldPath: 'LongName',
+        fieldPath: UMMC_FIELDS.longName,
         source: {
           type: 'param',
           key: 'newLongName'
@@ -194,28 +197,25 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'Projects')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from
-        'ShortName'
-      ],
+      fieldPaths: [UMMC_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // JSON field to write to
-        fieldPath: 'ShortName',
+        fieldPath: UMMC_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // JSON field to write to
-        fieldPath: 'LongName',
+        fieldPath: UMMC_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -230,28 +230,25 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'DataCenters')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from
-        'ShortName'
-      ],
+      fieldPaths: [UMMC_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // JSON field to write to
-        fieldPath: 'ShortName',
+        fieldPath: UMMC_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // JSON field to write to
-        fieldPath: 'LongName',
+        fieldPath: UMMC_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -266,10 +263,13 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'RelatedUrls')
     },
     find: {
-      fieldPaths: FULL_PATH_VALUE_FIELDS.rucontenttype,
-      valueKeys: FULL_PATH_VALUE_FIELDS.rucontenttype
+      fieldPaths: UMMC_FIELDS.rucontenttype,
+      valueKeys: CSV_FIELDS.rucontenttype
     },
-    replace: sequentialValueReplace(FULL_PATH_VALUE_FIELDS.rucontenttype)
+    replace: sequentialValueReplace(
+      UMMC_FIELDS.rucontenttype,
+      CSV_FIELDS.rucontenttype
+    )
   }),
   idnnode: unifiedBlockScheme({
     nodePath: '//DirectoryNames',
@@ -277,27 +277,24 @@ export const UMMC_SCHEME_EDITORS = {
       cleanupArray(editor.document, 'DirectoryNames')
     },
     find: {
-      fieldPaths: [
-        // JSON fields to read from
-        'ShortName'
-      ],
+      fieldPaths: [UMMC_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // JSON field to write to
-        fieldPath: 'ShortName',
+        fieldPath: UMMC_FIELDS.shortName,
         source: {
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // JSON field to write to
-        fieldPath: 'LongName',
+        fieldPath: UMMC_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -314,7 +311,7 @@ export const UMMC_SCHEME_EDITORS = {
   }),
   productlevelid: scalarScheme({
     nodePath: '//ProcessingLevel/Id',
-    fieldName: 'Id',
+    fieldName: UMMC_FIELDS.processingLevelId,
     afterDelete: (editor) => {
       // When ProcessingLevel.Id is deleted, remove the entire ProcessingLevel object
       // This matches the expected behavior where the Id is the primary field
@@ -329,14 +326,14 @@ export const UMMC_SCHEME_EDITORS = {
       containerPath: '//ArchiveAndDistributionInformation',
       childKey: 'FileArchiveInformation',
       find: {
-        fieldPaths: ['Format'],
-        valueKeys: ['ShortName']
+        fieldPaths: [UMMC_FIELDS.dataformat],
+        valueKeys: [CSV_FIELDS.shortName]
       },
       replace: [{
-        fieldPath: 'Format',
+        fieldPath: UMMC_FIELDS.dataformat,
         source: {
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       }]
     },
@@ -344,14 +341,14 @@ export const UMMC_SCHEME_EDITORS = {
       containerPath: '//ArchiveAndDistributionInformation',
       childKey: 'FileDistributionInformation',
       find: {
-        fieldPaths: ['Format'],
-        valueKeys: ['ShortName']
+        fieldPaths: [UMMC_FIELDS.dataformat],
+        valueKeys: [CSV_FIELDS.shortName]
       },
       replace: [{
-        fieldPath: 'Format',
+        fieldPath: UMMC_FIELDS.dataformat,
         source: {
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       }]
     }

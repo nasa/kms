@@ -1,0 +1,4 @@
+"Keyword Version: 24.6","Revision: 2026-08-20T00:00:00.000Z","Timestamp: 2026-08-20 00:00:00","Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf","The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/chronounits/?format=xml"
+"Eon","Era","Period","Epoch","Age","Sub-Age","UUID"
+"PHANEROZOIC","CENOZOIC","QUATERNARY","HOLOCENE_SHOULD_DELETE",,,"a08eda21-330f-480a-ae95-0dc2d8bb2623"
+"PHANEROZOIC","CENOZOIC","QUATERNARY","HOLOCENE",,,"811cf9f2-398e-446a-875a-4c125c40772a"

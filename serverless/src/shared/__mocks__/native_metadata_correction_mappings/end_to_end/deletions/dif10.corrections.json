@@ -7,12 +7,12 @@
       "scheme": "locations",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "CONTINENT",
-        "Type": "ANTARCTICA",
-        "Subregion1": "",
-        "Subregion2": "",
-        "Subregion3": "",
-        "DetailedLocation": "MCMURDO SOUND_SHOULD_DELETE"
+        "LocationCategory": "CONTINENT",
+        "LocationType": "ANTARCTICA",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": "MCMURDO SOUND_SHOULD_DELETE"
       }
     },
     {
@@ -21,7 +21,8 @@
       "oldKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "GEOPHONES_SHOULD_DELETE"
       }
     },
@@ -36,9 +37,9 @@
       "scheme": "platforms",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "Platforms",
-        "Class": "Space-based Platforms",
-        "Type": "Earth Observation Satellites",
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
         "ShortName": "SPOT-4_SHOULD_DELETE"
       }
     },
@@ -71,7 +72,7 @@
       "scheme": "projects",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "ALIENS_SHOULD_DELETE"
       }
     },
@@ -99,28 +100,28 @@
       "scheme": "isotopiccategory",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "GEOSCIENTIFIC INFORMATION_SHOULD_DELETE"
+        "ISOTopicCategory": "GEOSCIENTIFIC INFORMATION_SHOULD_DELETE"
       }
     },
     {
       "scheme": "verticalresolutionrange",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "15 meters_SHOULD_DELETE"
+        "VerticalResolutionRange": "15 meters_SHOULD_DELETE"
       }
     },
     {
       "scheme": "horizontalresolutionrange",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "20 meters_SHOULD_DELETE"
+        "HorizontalResolutionRange": "20 meters_SHOULD_DELETE"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "NA_SHOULD_DELETE"
+        "ProductLevelId": "NA_SHOULD_DELETE"
       }
     }
   ]

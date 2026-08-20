@@ -52,7 +52,7 @@ describe('getPublishedConceptByKeyword', () => {
       statusCode: 200,
       body: JSON.stringify({
         uuid: 'instrument-uuid',
-        fullPath: 'EARTH REMOTE SENSING INSTRUMENTS > ACTIVE REMOTE SENSING > ALTIMETERS > MODIS',
+        fullPath: 'EARTH REMOTE SENSING INSTRUMENTS > ACTIVE REMOTE SENSING > ALTIMETERS >  > MODIS',
         longName: 'Moderate Resolution Imaging Spectroradiometer'
       })
     })
@@ -66,12 +66,13 @@ describe('getPublishedConceptByKeyword', () => {
       cachedJsonResponseReader
     })).resolves.toMatchObject({
       uuid: 'instrument-uuid',
-      fullPath: 'EARTH REMOTE SENSING INSTRUMENTS > ACTIVE REMOTE SENSING > ALTIMETERS > MODIS',
+      fullPath: 'EARTH REMOTE SENSING INSTRUMENTS > ACTIVE REMOTE SENSING > ALTIMETERS >  > MODIS',
       longName: 'Moderate Resolution Imaging Spectroradiometer',
       keywordObject: {
         Category: 'EARTH REMOTE SENSING INSTRUMENTS',
         Class: 'ACTIVE REMOTE SENSING',
-        Subclass: 'ALTIMETERS',
+        Type: 'ALTIMETERS',
+        Subtype: '',
         ShortName: 'MODIS',
         LongName: 'Moderate Resolution Imaging Spectroradiometer'
       }
@@ -116,7 +117,7 @@ describe('getPublishedConceptByKeyword', () => {
         BucketLevel3: '',
         ShortName: 'NZ/NZAI/ANZ',
         LongName: 'National Archive',
-        DataCenterUrl: 'https://example.com/provider'
+        DataCenterURL: 'https://example.com/provider'
       }
     })
 
@@ -177,7 +178,7 @@ describe('getPublishedConceptByKeyword', () => {
     })).resolves.toMatchObject({
       uuid: 'project-uuid',
       keywordObject: {
-        Category: 'A - C',
+        Bucket: 'A - C',
         ShortName: 'ALIENS'
       }
     })

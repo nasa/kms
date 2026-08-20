@@ -1,0 +1,8 @@
+"Keyword Version: 24.6","Revision: 2026-08-20T00:00:00.000Z","Timestamp: 2026-08-20 00:00:00","Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf","The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/rucontenttype/?format=xml"
+"URLContentType","Type","Subtype","UUID"
+"DistributionURL","GET DATA","VIRTUAL COLLECTION_SHOULD_DELETE","858f16f3-7a6f-446c-935f-2a6e17729a87"
+"DistributionURL","GET DATA","VIRTUAL COLLECTION","cc9c6d5e-63d1-4c00-8392-bf341679082c"
+"DistributionURL","VIEW RELATED INFORMATION","OpenSearch_SHOULD_DELETE","1610e98f-e7ce-4d70-9cef-de603d0e04c7"
+"DistributionURL","VIEW RELATED INFORMATION","OpenSearch","47ee2b6f-3c1f-4dc2-b476-381a1805be5a"
+"PublicationURL_SHOULD_DELETE","VIEW RELATED INFORMATION_SHOULD_DELETE","Subtype_SHOULD_DELETE","4c261b52-4351-4407-80eb-a95b51e71e20"
+"PublicationURL","VIEW RELATED INFORMATION",,"40a75b8a-ab53-410f-b36b-0dad0be95d61"

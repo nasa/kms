@@ -11,7 +11,7 @@ describe('getHistoricalConceptByShortName', () => {
       statusCode: 200,
       body: JSON.stringify({
         uuid: 'uuid-123',
-        fullPath: 'AIR-BASED PLATFORMS > PROPELLER >  > MODIS'
+        fullPath: 'Earth Remote Sensing Instruments >  >  >  > MODIS'
       })
     })
 
@@ -22,11 +22,12 @@ describe('getHistoricalConceptByShortName', () => {
       cachedJsonResponseReader
     })).resolves.toMatchObject({
       uuid: 'uuid-123',
-      fullPath: 'AIR-BASED PLATFORMS > PROPELLER >  > MODIS',
+      fullPath: 'Earth Remote Sensing Instruments >  >  >  > MODIS',
       keywordObject: {
-        Category: 'AIR-BASED PLATFORMS',
-        Class: 'PROPELLER',
-        Subclass: '',
+        Category: 'Earth Remote Sensing Instruments',
+        Class: '',
+        Type: '',
+        Subtype: '',
         ShortName: 'MODIS'
       }
     })
@@ -43,7 +44,7 @@ describe('getHistoricalConceptByShortName', () => {
       statusCode: 200,
       body: JSON.stringify({
         uuid: 'uuid-123',
-        fullPath: 'AIR-BASED PLATFORMS > PROPELLER >  > AC-690A',
+        fullPath: 'EARTH REMOTE SENSING INSTRUMENTS > ACTIVE REMOTE SENSING > ALTIMETERS >  > AC-690A',
         longName: 'Aerocommander aircraft'
       })
     })
@@ -55,12 +56,13 @@ describe('getHistoricalConceptByShortName', () => {
       cachedJsonResponseReader
     })).resolves.toMatchObject({
       uuid: 'uuid-123',
-      fullPath: 'AIR-BASED PLATFORMS > PROPELLER >  > AC-690A',
+      fullPath: 'EARTH REMOTE SENSING INSTRUMENTS > ACTIVE REMOTE SENSING > ALTIMETERS >  > AC-690A',
       longName: 'Aerocommander aircraft',
       keywordObject: {
-        Category: 'AIR-BASED PLATFORMS',
-        Class: 'PROPELLER',
-        Subclass: '',
+        Category: 'EARTH REMOTE SENSING INSTRUMENTS',
+        Class: 'ACTIVE REMOTE SENSING',
+        Type: 'ALTIMETERS',
+        Subtype: '',
         ShortName: 'AC-690A',
         LongName: 'Aerocommander aircraft'
       }

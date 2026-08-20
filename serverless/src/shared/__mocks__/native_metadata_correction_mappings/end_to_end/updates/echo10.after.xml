@@ -279,8 +279,8 @@
                     <NumberOfSensors>1</NumberOfSensors>
                 </Instrument>
                 <Instrument>
-                    <ShortName>AMSR-E_CHANGED</ShortName>
-                    <LongName>Advanced Microwave Scanning Radiometer-EOS_CHANGED</LongName>
+                    <ShortName>AMSR-E</ShortName>
+                    <LongName>Advanced Microwave Scanning Radiometer-EOS</LongName>
                     <Technique>Broadband scanning radiometry</Technique>
                     <NumberOfSensors>1</NumberOfSensors>
                     <Characteristics>

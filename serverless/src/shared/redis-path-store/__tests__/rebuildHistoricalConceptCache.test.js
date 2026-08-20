@@ -111,8 +111,8 @@ describe('rebuildHistoricalConceptCache', () => {
       })
       .mockResolvedValueOnce({
         Body: Readable.from([Buffer.from(`"Version"
-"Category","Class","Type","Short_Name","Long_Name","UUID"
-"Platforms","Space-based Platforms","Earth Observation Satellites","AQUA","Aqua satellite","uuid-2"`)])
+"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"
+"Space-based Platforms","Earth Observation Satellites","","AQUA","Aqua satellite","uuid-2"`)])
       })
 
     const result = await rebuildHistoricalConceptCache(createContext({
@@ -206,8 +206,8 @@ describe('rebuildHistoricalConceptCache', () => {
       .mockResolvedValueOnce({ Contents: [{ Key: '1.0/platforms.csv' }] })
       .mockResolvedValueOnce({
         Body: Readable.from([Buffer.from(`"Version"
-"Category","Class","Type","Short_Name","Long_Name","UUID"
-"Platforms","Space-based Platforms","Earth Observation Satellites","AQUA","Aqua satellite","uuid-1"`)])
+"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"
+"Space-based Platforms","Earth Observation Satellites","","AQUA","Aqua satellite","uuid-1"`)])
       })
 
     await expect(rebuildHistoricalConceptCache(createContext({
@@ -336,8 +336,8 @@ describe('rebuildHistoricalConceptCache', () => {
       .mockResolvedValueOnce({ Contents: [{ Key: '2.0/platforms.csv' }] })
       .mockResolvedValueOnce({
         Body: Readable.from([Buffer.from(`"Version"
-"Category","Class","Type","Short_Name","Long_Name","UUID"
-"Platforms","Space-based Platforms","Earth Observation Satellites","AQUA","Aqua satellite","uuid-2"`)])
+"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"
+"Space-based Platforms","Earth Observation Satellites","","AQUA","Aqua satellite","uuid-2"`)])
       })
 
     const redisClient = {

@@ -1,0 +1,6 @@
+"Keyword Version: Draft","Revision: 2026-08-20T00:00:00.000Z","Timestamp: 2026-08-20 00:00:00","Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf","The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/locations/?format=xml"
+"Location_Category","Location_Type","Location_Subregion1","Location_Subregion2","Location_Subregion3","Location_Subregion4","UUID"
+"CONTINENT","NORTH AMERICA","CANADA","ALBERTA_CHANGED",,,"d8bea9da-dd25-4dc7-a277-92c0ecbf27ef"
+"GEOGRAPHIC REGION","GLOBAL LAND_CHANGED",,,,,"17579498-9488-413f-93f5-1221125bb886"
+"GEOGRAPHIC REGION","POLAR_CHANGED",,,,,"ed4bdf1b-826f-40f0-b5cd-25d4b3fe94ee"
+"OCEAN","ATLANTIC OCEAN","NORTH ATLANTIC OCEAN","CARIBBEAN SEA","BARBADOS_CHANGED",,"5b7698fc-ba7e-4af4-bff0-11a68496538b"

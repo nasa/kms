@@ -20,7 +20,7 @@ describe('buildKeywordPathObjectFromValue', () => {
     })
   })
 
-  test('flattens raw array values for slotted schemes and ignores unsupported schemes', () => {
+  test('flattens raw values into the configured CSV fields', () => {
     expect(buildKeywordPathObjectFromValue({
       scheme: 'sciencekeywords',
       keywordValue: ['EARTH SCIENCE', 'OCEANS']
@@ -36,6 +36,13 @@ describe('buildKeywordPathObjectFromValue', () => {
 
     expect(buildKeywordPathObjectFromValue({
       scheme: 'temporalresolutionrange',
+      keywordValue: 'P1D'
+    })).toEqual({
+      TemporalResolutionRange: 'P1D'
+    })
+
+    expect(buildKeywordPathObjectFromValue({
+      scheme: 'unsupported',
       keywordValue: 'P1D'
     })).toEqual({})
   })

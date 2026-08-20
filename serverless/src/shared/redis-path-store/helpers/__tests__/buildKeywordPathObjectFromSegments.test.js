@@ -16,11 +16,16 @@ describe('buildKeywordPathObjectFromSegments', () => {
     })
   })
 
-  test('returns an empty object for schemes without slotted fields', () => {
+  test('maps short-name scheme segments to their CSV fields', () => {
     expect(buildKeywordPathObjectFromSegments({
       scheme: 'platforms',
-      segments: ['Aqua']
-    })).toEqual({})
+      segments: ['Space-based Platforms', 'Earth Observation Satellites', '', 'Aqua']
+    })).toEqual({
+      Basis: 'Space-based Platforms',
+      Category: 'Earth Observation Satellites',
+      SubCategory: '',
+      ShortName: 'Aqua'
+    })
   })
 
   test('defaults missing segments to an empty slotted keyword object', () => {

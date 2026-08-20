@@ -11,7 +11,7 @@ export { parseCsvContent }
 /**
  * Compares two keyword CSV payloads and groups differences into added, removed, and changed maps.
  * Keyword objects contain the scheme's named hierarchy fields. They also include `LongName` for
- * schemes that support it and `DataCenterUrl` for providers when those values are present.
+ * schemes that support it and `DataCenterURL` for providers when those values are present.
  *
  * @param {object} params - Keyword CSV comparison inputs.
  * @param {string} params.oldCsvContent - Baseline CSV content, typically `published`.
@@ -41,10 +41,10 @@ export { parseCsvContent }
  * @example
  * // Request
  * const comparison = compareKeywordCsvContent({
- *   oldCsvContent: '"Version"\n"Category","Class","Type","Short_Name","Long_Name","UUID"\n'
- *     + '"Platforms","Space-based Platforms","Satellite","GOSAT","Greenhouse Gases Observing Satellite","uuid-1"',
- *   newCsvContent: '"Version"\n"Category","Class","Type","Short_Name","Long_Name","UUID"\n'
- *     + '"Platforms","Space-based Platforms","Satellite","GOSAT - Test1","Greenhouse Gases Observing Satellite","uuid-1"',
+ *   oldCsvContent: '"Version"\n"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"\n'
+ *     + '"Space-based Platforms","Earth Observation Satellites","","GOSAT","Greenhouse Gases Observing Satellite","uuid-1"',
+ *   newCsvContent: '"Version"\n"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"\n'
+ *     + '"Space-based Platforms","Earth Observation Satellites","","GOSAT - Test1","Greenhouse Gases Observing Satellite","uuid-1"',
  *   scheme: 'platforms'
  * })
  *
@@ -54,19 +54,19 @@ export { parseCsvContent }
  * //   removedKeywords: Map(0) {},
  * //   changedKeywords: Map([
  * //     ['uuid-1', {
- * //       oldPath: 'Platforms > Space-based Platforms > Satellite > GOSAT',
- * //       newPath: 'Platforms > Space-based Platforms > Satellite > GOSAT - Test1',
+ * //       oldPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT',
+ * //       newPath: 'Space-based Platforms > Earth Observation Satellites >  > GOSAT - Test1',
  * //       oldKeywordObject: {
- * //         Category: 'Platforms',
- * //         Class: 'Space-based Platforms',
- * //         Type: 'Satellite',
+ * //         Basis: 'Space-based Platforms',
+ * //         Category: 'Earth Observation Satellites',
+ * //         SubCategory: '',
  * //         ShortName: 'GOSAT',
  * //         LongName: 'Greenhouse Gases Observing Satellite'
  * //       },
  * //       newKeywordObject: {
- * //         Category: 'Platforms',
- * //         Class: 'Space-based Platforms',
- * //         Type: 'Satellite',
+ * //         Basis: 'Space-based Platforms',
+ * //         Category: 'Earth Observation Satellites',
+ * //         SubCategory: '',
  * //         ShortName: 'GOSAT - Test1',
  * //         LongName: 'Greenhouse Gases Observing Satellite'
  * //       }
@@ -388,16 +388,16 @@ const getKeywordChangesForSchemeWithRetry = async ({
  * //       Scheme: 'platforms',
  * //       UUID: 'uuid-1',
  * //       OldKeywordObject: {
- * //         Category: 'Platforms',
- * //         Class: 'Space-based Platforms',
- * //         Type: 'Satellite',
+ * //         Basis: 'Space-based Platforms',
+ * //         Category: 'Earth Observation Satellites',
+ * //         SubCategory: '',
  * //         ShortName: 'GOSAT',
  * //         LongName: 'Greenhouse Gases Observing Satellite'
  * //       },
  * //       NewKeywordObject: {
- * //         Category: 'Platforms',
- * //         Class: 'Space-based Platforms',
- * //         Type: 'Satellite',
+ * //         Basis: 'Space-based Platforms',
+ * //         Category: 'Earth Observation Satellites',
+ * //         SubCategory: '',
  * //         ShortName: 'GOSAT - Test1',
  * //         LongName: 'Greenhouse Gases Observing Satellite'
  * //       },

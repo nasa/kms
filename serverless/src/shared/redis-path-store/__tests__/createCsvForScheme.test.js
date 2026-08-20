@@ -83,7 +83,7 @@ describe('createCsvForScheme', () => {
       scheme: 'instruments',
       path: ['Instruments'],
       isLeaf: false
-    })).toEqual(['Instruments', '', '', ''])
+    })).toEqual(['Instruments', '', '', '', ''])
 
     expect(formatKeywordCsvPath({
       scheme: 'projects',
