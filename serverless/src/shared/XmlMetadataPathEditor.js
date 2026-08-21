@@ -891,6 +891,10 @@ export class XmlMetadataPathEditor {
       }
 
       if (targetNode) {
+        if (trimString(this.getElementText(targetNode)) === value) {
+          return false
+        }
+
         this.setElementText(targetNode, value)
       } else {
         const root = this.document?.documentElement

@@ -1546,6 +1546,28 @@ describe('when applying Dataformat ECHO10 corrections', () => {
       expect(result.correctedMetadata).toContain('<DataFormat>HDF5</DataFormat>')
     })
 
+    test('should not apply a correction when only the unsupported long name changed', async () => {
+      const result = await applyEcho10MetadataCorrections({
+        metadataPayload: '<Collection><DataFormat>NetCDF</DataFormat></Collection>',
+        corrections: [{
+          scheme: 'dataformat',
+          action: 'replace',
+          oldKeywordObject: {
+            ShortName: 'NetCDF',
+            LongName: 'Network Common Data Form'
+          },
+          newKeywordObject: {
+            ShortName: 'NetCDF',
+            LongName: 'Network Common Data Form Updated'
+          }
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+      expect(result.correctionsApplied).toEqual([])
+      expect(result.correctedMetadata).toContain('<DataFormat>NetCDF</DataFormat>')
+    })
+
     test('should return false and not modify the field if newKeywordObject is empty or invalid', async () => {
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: mockEcho10WithDataFormat,
