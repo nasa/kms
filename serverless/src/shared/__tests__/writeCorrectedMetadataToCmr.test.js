@@ -102,7 +102,8 @@ describe('when writing corrected metadata to cmr', () => {
         Authorization: 'Bearer writer-token',
         'Client-Id': 'kms-metadata-correction-service',
         'Cmr-Validate-Keywords': 'false',
-        'Cmr-Validate-Umm-C': 'false'
+        'Cmr-Validate-Umm-C': 'false',
+        'Cmr-Send-Kms-Metadata-Fixer': 'false'
       }
     })
   })
@@ -125,7 +126,8 @@ describe('when writing corrected metadata to cmr', () => {
         Authorization: 'Bearer writer-token',
         'Client-Id': 'kms-metadata-correction-service',
         'Cmr-Validate-Keywords': 'true',
-        'Cmr-Validate-Umm-C': 'true'
+        'Cmr-Validate-Umm-C': 'true',
+        'Cmr-Send-Kms-Metadata-Fixer': 'false'
       }
     }))
   })
@@ -287,6 +289,7 @@ describe('when writing corrected metadata to cmr', () => {
       headers: {
         Authorization: 'Bearer writer-token',
         'Client-Id': 'kms-metadata-correction-service',
+        'Cmr-Send-Kms-Metadata-Fixer': 'false',
         'Cmr-Validate-Keywords': 'false',
         'Cmr-Validate-Umm-C': 'false'
       }

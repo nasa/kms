@@ -354,7 +354,8 @@ export const writeCorrectedMetadataToCmr = async ({
       Authorization: authorizationToken,
       'Client-Id': CMR_WRITEBACK_CLIENT_ID,
       'Cmr-Validate-Keywords': getValidationHeaderValue('CMR_WRITEBACK_VALIDATE_KEYWORDS'),
-      'Cmr-Validate-Umm-C': getValidationHeaderValue('CMR_WRITEBACK_VALIDATE_UMM_C')
+      'Cmr-Validate-Umm-C': getValidationHeaderValue('CMR_WRITEBACK_VALIDATE_UMM_C'),
+      'Cmr-Send-Kms-Metadata-Fixer': 'false' // Explicitly disable the CMR metadata fixer for writeback requests to prevent loops
     }
   })
 
