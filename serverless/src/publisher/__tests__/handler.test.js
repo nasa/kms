@@ -217,6 +217,17 @@ describe('publisher handler', () => {
       NewKeywordObject: SCIENCE_PATH_KEYWORD
     }))
 
+    expect(logger.info).toHaveBeenCalledWith('[publisher] Published keyword event', {
+      versionName: 'v1.0.0',
+      messageId: 'message-1',
+      eventType: 'INSERTED',
+      scheme: 'sciencekeywords',
+      uuid: 'uuid1',
+      timestamp: '2023-06-01T00:00:00.000Z',
+      oldKeywordObject: undefined,
+      newKeywordObject: SCIENCE_PATH_KEYWORD
+    })
+
     expect(eventBridgeMock.commandCalls(PutEventsCommand).length).toBe(1)
 
     expect(result).toEqual({

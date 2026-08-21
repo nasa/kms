@@ -1,3 +1,5 @@
+import { gunzipSync } from 'zlib'
+
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import {
   beforeEach,
@@ -82,6 +84,33 @@ describe('exportRdfToS3', () => {
         Body: expect.any(String),
         ContentType: 'application/rdf+xml'
       }))
+    })
+
+    test('should compress an RDF export with gzip', async () => {
+      const result = await exportRdfToS3({
+        version: 'published',
+        archive: true
+      })
+
+      const upload = vi.mocked(PutObjectCommand).mock.calls[0][0]
+
+      expect(result).toEqual({
+        bucketName: 'kms-rdf-backup-test',
+        s3Key: '21.4/rdf.xml.gz'
+      })
+
+      expect(upload).toEqual(expect.objectContaining({
+        ContentType: 'application/gzip'
+      }))
+
+      expect(gunzipSync(upload.Body).toString('utf8')).toBe('<rdf>Test RDF Data</rdf>')
+    })
+
+    test('should reject an unsupported RDF version', async () => {
+      await expect(exportRdfToS3({ version: 'invalid' }))
+        .rejects.toThrow('Unsupported RDF version: invalid')
+
+      expect(sparqlRequest).not.toHaveBeenCalled()
     })
 
     test('should handle S3 upload failure', async () => {

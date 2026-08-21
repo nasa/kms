@@ -45,6 +45,7 @@ interface LambdaFunctionsProps {
     LOG_LEVEL?: string;
     RDF_BUCKET_NAME: string,
     RDF4J_PASSWORD: string;
+    RDF_MIRROR_SOURCE_ENV?: string;
     RDF4J_SERVICE_URL: string;
     RDF4J_USER_NAME: string;
     KEYWORD_EVENTS_TOPIC_ARN?: string;
@@ -144,6 +145,7 @@ export class LambdaFunctions {
     this.createTreeOperationApiLambdas(scope)
     this.createNightlyCachePrimeCron(scope)
     this.createCrudOperationApiLambdas(scope)
+    this.createRdfMirrorApiAndCron(scope)
     this.createPublishEventBridgeWiring(scope)
   }
 
@@ -407,6 +409,16 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'exportRdf/handler.js',
+      'export-rdf',
+      'exportRdf',
+      '/rdf/export',
+      'POST',
+      false
+    )
+
+    this.createApiLambda(
+      scope,
       'rebuildRedisCache/handler.js',
       'rebuild-redis-cache',
       'requestRebuildRedisCache',
@@ -658,6 +670,37 @@ export class LambdaFunctions {
       'cron(0 6 * * ? *)',
       { version: 'published' },
       'NightlyConceptsCachePrime'
+    )
+  }
+
+  /**
+   * Creates the manually invokable RDF mirror endpoint and its optional nightly schedule.
+   * The schedule is omitted when no source environment is configured.
+   * @param {Construct} scope Construct scope.
+   * @private
+   */
+  private createRdfMirrorApiAndCron(scope: Construct) {
+    const mirrorLambda = this.createApiLambda(
+      scope,
+      'mirrorRdf/handler.js',
+      'mirror-rdf',
+      'mirrorRdf',
+      '/rdf/mirror',
+      'POST',
+      true,
+      Duration.minutes(15),
+      2048
+    )
+
+    if (!this.props.environment.RDF_MIRROR_SOURCE_ENV) return
+
+    this.setupCronJob(
+      scope,
+      mirrorLambda,
+      // EventBridge cron is UTC; 05:00 UTC is midnight EST (01:00 EDT).
+      'cron(0 5 * * ? *)',
+      {},
+      'NightlyRdfMirror'
     )
   }
 

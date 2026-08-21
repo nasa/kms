@@ -103,8 +103,7 @@ export class IamSetup {
         's3:ListBucket',
         's3:PutLifecycleConfiguration',
         's3:GetBucketLocation',
-        's3:ListAllMyBuckets',
-        's3:HeadBucket'
+        's3:ListAllMyBuckets'
       ],
       resources: [
         `arn:aws:s3:::kms-rdf-backup-${stage}`,

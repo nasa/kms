@@ -120,13 +120,14 @@ const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => 
  *
  * @async
  * @param {Array<Object>} keywordEvents - Keyword event payloads to publish.
+ * @param {string} versionName - Unique KMS version being published.
  * @returns {Promise<{
  *   attemptedCount: number,
  *   publishedCount: number,
  *   failedEvents: Array<{ keywordEvent: Object, error: string, attempts: number }>
  * }>} SNS publish summary for the completed batch.
  */
-const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
+const publishKeywordEvents = async (keywordEvents, versionName) => keywordEvents.reduce(
   async (summaryPromise, keywordEvent) => {
     const summary = await summaryPromise
     let lastError
@@ -145,7 +146,19 @@ const publishKeywordEvents = async (keywordEvents) => keywordEvents.reduce(
         }
 
         // eslint-disable-next-line no-await-in-loop
-        await publishKeywordEvent(keywordEvent)
+        const publishResult = await publishKeywordEvent(keywordEvent)
+
+        logger.info('[publisher] Published keyword event', {
+          versionName,
+          messageId: publishResult.messageId || 'n/a',
+          eventType: keywordEvent.EventType,
+          scheme: keywordEvent.Scheme,
+          uuid: keywordEvent.UUID,
+          timestamp: keywordEvent.Timestamp,
+          oldKeywordObject: keywordEvent.OldKeywordObject,
+          newKeywordObject: keywordEvent.NewKeywordObject
+        })
+
         summary.publishedCount += 1
         lastError = undefined
         break
@@ -326,7 +339,7 @@ export const publisher = async (event) => {
         postPublishFailures.push(skipMessage)
         logger.warn(`[publisher] ${skipMessage}`)
       } else {
-        const publishSummary = await publishKeywordEvents(keywordEvents)
+        const publishSummary = await publishKeywordEvents(keywordEvents, versionName)
         keywordEventsPublished = publishSummary.publishedCount
         keywordEventPublishFailures = publishSummary.failedEvents.length
 

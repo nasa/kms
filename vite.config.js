@@ -19,7 +19,7 @@ function getHandlerEntries(dir) {
     }, {})
 }
 
-const handlerEntries = getHandlerEntries('./serverless/src')
+const handlerEntries = getHandlerEntries(path.resolve(__dirname, 'serverless/src'))
 
 export default defineConfig({
   build: {

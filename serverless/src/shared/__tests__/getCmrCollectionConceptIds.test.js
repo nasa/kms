@@ -8,9 +8,14 @@ import {
 
 import { cmrGetRequest } from '../cmrGetRequest'
 import { getCmrCollectionConceptIds } from '../getCmrCollectionConceptIds'
+import { getCmrSystemToken } from '../getCmrWriterToken'
 import { logger } from '../logger'
 
 vi.mock('../cmrGetRequest')
+vi.mock('../getCmrWriterToken', () => ({
+  getCmrSystemToken: vi.fn()
+}))
+
 vi.mock('../logger', () => ({
   logger: {
     info: vi.fn(),
@@ -34,6 +39,7 @@ describe('getCmrCollectionConceptIds', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getCmrSystemToken).mockResolvedValue('Bearer system-token')
   })
 
   const mockHeaders = (cmrHits) => ({
@@ -72,8 +78,19 @@ describe('getCmrCollectionConceptIds', () => {
     ])
 
     expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/collections.umm_json?keyword=1234-5678-9ABC-DEF0&page_size=2000&page_num=1'
+      path: '/search/collections.umm_json?keyword=1234-5678-9ABC-DEF0&page_size=2000&page_num=1',
+      headers: {
+        Authorization: 'Bearer system-token'
+      }
     })
+
+    expect(logger.info).toHaveBeenCalledWith(
+      '[cmr-lookup] Sending authenticated CMR collection UUID search '
+      + 'scheme=sciencekeywords '
+      + 'uuid=1234-5678-9ABC-DEF0 '
+      + 'pageNumber=1 '
+      + 'authorizationPresent=true'
+    )
   })
 
   test('should return unique collection concept ids for any keyword scheme because lookup is UUID driven', async () => {
@@ -102,7 +119,10 @@ describe('getCmrCollectionConceptIds', () => {
     ])
 
     expect(cmrGetRequest).toHaveBeenCalledWith({
-      path: '/search/collections.umm_json?keyword=DATA-CENTER-UUID&page_size=2000&page_num=1'
+      path: '/search/collections.umm_json?keyword=DATA-CENTER-UUID&page_size=2000&page_num=1',
+      headers: {
+        Authorization: 'Bearer system-token'
+      }
     })
   })
 
@@ -137,11 +157,17 @@ describe('getCmrCollectionConceptIds', () => {
     })
 
     expect(cmrGetRequest).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      path: '/search/collections.umm_json?keyword=1234-5678-9ABC-DEF0&page_size=2000&page_num=1'
+      path: '/search/collections.umm_json?keyword=1234-5678-9ABC-DEF0&page_size=2000&page_num=1',
+      headers: {
+        Authorization: 'Bearer system-token'
+      }
     }))
 
     expect(cmrGetRequest).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      path: '/search/collections.umm_json?keyword=1234-5678-9ABC-DEF0&page_size=2000&page_num=2'
+      path: '/search/collections.umm_json?keyword=1234-5678-9ABC-DEF0&page_size=2000&page_num=2',
+      headers: {
+        Authorization: 'Bearer system-token'
+      }
     }))
 
     expect(result).toEqual([
@@ -155,6 +181,17 @@ describe('getCmrCollectionConceptIds', () => {
     await expect(getCmrCollectionConceptIds({
       scheme: 'sciencekeywords'
     })).rejects.toThrow('Missing keyword UUID for CMR concept-id lookup')
+  })
+
+  test('should reject before requesting CMR when the system token is unavailable', async () => {
+    vi.mocked(getCmrSystemToken).mockResolvedValue(undefined)
+
+    await expect(getCmrCollectionConceptIds({
+      scheme: 'sciencekeywords',
+      uuid: '1234'
+    })).rejects.toThrow('Missing CMR system token for CMR concept-id lookup')
+
+    expect(cmrGetRequest).not.toHaveBeenCalled()
   })
 
   test('should throw when the CMR response is not ok', async () => {

@@ -32,6 +32,7 @@ describe('sparqlRequest', () => {
 
   afterEach(() => {
     delete process.env.RDF4J_SERVICE_URL
+    delete process.env.RDF4J_REPOSITORY_ID
     delete process.env.RDF4J_USER_NAME
     delete process.env.RDF4J_PASSWORD
   })
@@ -245,6 +246,18 @@ describe('sparqlRequest', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:8080/rdf4j-server/repositories/kms',
+        expect.any(Object)
+      )
+    })
+
+    test('should use the configured RDF4J repository', async () => {
+      process.env.RDF4J_REPOSITORY_ID = 'alternate-repository'
+      global.fetch.mockResolvedValue({ ok: true })
+
+      await sparqlRequest({ method: 'GET' })
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://test-server.com/rdf4j-server/repositories/alternate-repository',
         expect.any(Object)
       )
     })

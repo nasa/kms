@@ -71,6 +71,8 @@ const publishCollectionCorrectionRequests = async (collectionConceptIds, keyword
     logger.info(
       '[consumer] Published metadata correction request '
       + `collectionConceptId=${metadataCorrectionRequest.collectionConceptId} `
+      + `uuid=${metadataCorrectionRequest.keywordEvent.uuid || 'n/a'} `
+      + `eventTimestamp=${metadataCorrectionRequest.keywordEvent.timestamp || 'n/a'} `
       + `messageId=${publishResult.messageId || 'n/a'} `
       + `topicArn=${publishResult.topicArn || 'n/a'}`
     )

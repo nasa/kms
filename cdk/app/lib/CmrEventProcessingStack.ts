@@ -88,6 +88,7 @@ export class CmrEventProcessingStack extends cdk.Stack {
 
     const listenerSetup = new CmrKeywordEventsListenerSetup(this, 'CmrKeywordEventsListener', {
       cmrBaseUrl: props.cmrBaseUrl,
+      cmrSystemTokenParameterName: props.cmrSystemTokenParameterName,
       prefix: props.prefix,
       stage: props.stage,
       keywordEventsTopic: topic,

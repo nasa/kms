@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=bin/env/local_env.sh
@@ -37,14 +39,14 @@ fi
 
 clearStaleSAMContainers
 
-"${PROJECT_ROOT}/scripts/localstack/run_bridge.sh" &
-LOCAL_BRIDGE_PID=$!
-
 rm -rf "${PROJECT_ROOT}/cdk/cdk.out"
 
 # Synthesize the CDK stack
-cd cdk
-cdk synth --context useLocalstack="true" --output ./cdk.out > /dev/null 2>&1
+cd "${PROJECT_ROOT}/cdk"
+npx cdk synth --context useLocalstack="true" --output ./cdk.out > /dev/null
+
+"${PROJECT_ROOT}/scripts/localstack/run_bridge.sh" &
+LOCAL_BRIDGE_PID=$!
 
 # Start SAM local
 sam local start-api \
