@@ -118,7 +118,8 @@ export class KmsStack extends cdk.Stack {
       this.stage,
       this.account,
       this.region,
-      this.stackName
+      this.stackName,
+      environment.RDF_BUCKET_NAME
     )
     this.lambdaRole = iamSetup.lambdaRole
 

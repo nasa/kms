@@ -22,7 +22,8 @@ export class IamSetup {
     stage: string,
     account: string,
     region: string,
-    stackName: string
+    stackName: string,
+    rdfBucketName: string
   ) {
     this.lambdaRole = new iam.Role(scope, `${prefix}-KmsServerlessAppRole`, {
       assumedBy: new iam.CompositePrincipal(
@@ -41,7 +42,7 @@ export class IamSetup {
       )
     })
 
-    this.addPolicies(prefix, stage, account, region, stackName)
+    this.addPolicies(prefix, stage, account, region, stackName, rdfBucketName)
   }
 
   /**
@@ -80,9 +81,10 @@ export class IamSetup {
     stage: string,
     account: string,
     region: string,
-    stackName: string
+    stackName: string,
+    rdfBucketName: string
   ) {
-    this.addS3AccessPolicy(prefix, stage)
+    this.addS3AccessPolicy(prefix, stage, rdfBucketName)
     this.addKMSLambdaBasePolicy()
     this.addLambdaInvocationPolicy(prefix, region, account, stage, stackName)
     this.addServiceDiscoveryPolicy(prefix, stage)
@@ -94,7 +96,7 @@ export class IamSetup {
    * @param {string} prefix - The prefix to use for naming resources.
    * @param {string} stage - The deployment stage.
    */
-  private addS3AccessPolicy(prefix: string, stage: string) {
+  private addS3AccessPolicy(prefix: string, stage: string, rdfBucketName: string) {
     this.lambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: [
         's3:CreateBucket',
@@ -107,8 +109,8 @@ export class IamSetup {
         's3:HeadBucket'
       ],
       resources: [
-        `arn:aws:s3:::kms-rdf-backup-${stage}`,
-        `arn:aws:s3:::kms-rdf-backup-${stage}/*`
+        `arn:aws:s3:::${rdfBucketName}`,
+        `arn:aws:s3:::${rdfBucketName}/*`
       ]
     }))
   }
