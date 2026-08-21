@@ -1,4 +1,5 @@
 import {
+  getCsvRowValues,
   parseCsv,
   parseFullPathCsvRecords,
   parseKeywordCsvContent,
@@ -7,6 +8,25 @@ import {
 } from '../keywordCsv'
 
 describe('when preparing CSV rows by header name', () => {
+  test('includes provider long names and URLs in CSV row values', () => {
+    expect(getCsvRowValues({
+      path: ['NASA', 'GSFC', 'EOSDIS', 'GHRC', 'GHRC_DAAC'],
+      scheme: 'providers',
+      longName: 'Global Hydrometeorology Resource Center DAAC',
+      dataCenterUrl: 'https://ghrc.example.test',
+      uuid: 'uuid-ghrc'
+    })).toEqual([
+      'NASA',
+      'GSFC',
+      'EOSDIS',
+      'GHRC',
+      'GHRC_DAAC',
+      'Global Hydrometeorology Resource Center DAAC',
+      'https://ghrc.example.test',
+      'uuid-ghrc'
+    ])
+  })
+
   test('places a platform leaf hierarchy under reordered headers', () => {
     expect(prepareCsvRows({
       csvHeaders: ['Long_Name', 'UUID', 'Sub_Category', 'Short_Name', 'Category', 'Basis'],
