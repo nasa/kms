@@ -27,4 +27,5 @@ docker run \
   -e "RDF4J_USER_NAME=${RDF4J_USER_NAME}" \
   -e "RDF4J_PASSWORD=${RDF4J_PASSWORD}" \
   -e "RDF4J_CONTAINER_MEMORY_LIMIT=${RDF4J_CONTAINER_MEMORY_LIMIT}" \
+  -v logs:/usr/local/tomcat/logs \
   rdf4j:latest

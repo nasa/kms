@@ -156,6 +156,7 @@ const replaceDestinationGraph = async ({ rdfXml, version }) => {
  */
 export const mirrorRdf = async (event = {}) => {
   const { defaultResponseHeaders } = getApplicationConfig()
+  // Scheduled failures must be thrown for Lambda retry/alarm handling; API calls receive JSON.
   const isApiRequest = Boolean(event.requestContext)
 
   try {
