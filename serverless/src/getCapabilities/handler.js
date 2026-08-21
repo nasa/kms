@@ -168,6 +168,22 @@ export const getCapabilities = async () => {
                 params: 'scheme=',
                 action: 'GET'
               }
+            },
+            {
+              ':@': {
+                name: 'get_historical_concept_versions',
+                href: '/concept_versions/historical',
+                params: 'None',
+                action: 'GET'
+              }
+            },
+            {
+              ':@': {
+                name: 'get_historical_concepts_in_scheme',
+                href: '/concepts/historical/concept_scheme/{conceptScheme}',
+                params: 'version=',
+                action: 'GET'
+              }
             }
 
           ]

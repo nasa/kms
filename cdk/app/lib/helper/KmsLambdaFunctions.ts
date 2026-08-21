@@ -238,6 +238,15 @@ export class LambdaFunctions {
 
     this.createApiLambda(
       scope,
+      'getHistoricalConceptsInScheme/handler.js',
+      'get-historical-concepts-in-scheme',
+      'getHistoricalConceptsInScheme',
+      '/concepts/historical/concept_scheme/{conceptScheme}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
       'getConcepts/handler.js',
       'get-concepts-root',
       'getConcepts',
@@ -278,6 +287,15 @@ export class LambdaFunctions {
       'get-concept-versions',
       'getConceptVersions',
       '/concept_versions/version_type/{versionType}',
+      'GET'
+    )
+
+    this.createApiLambda(
+      scope,
+      'getHistoricalConceptVersions/handler.js',
+      'get-historical-concept-versions',
+      'getHistoricalConceptVersions',
+      '/concept_versions/historical',
       'GET'
     )
 
