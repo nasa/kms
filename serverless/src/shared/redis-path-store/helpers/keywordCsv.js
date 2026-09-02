@@ -5,6 +5,7 @@ import { isCsvProviderUrlFlag } from '@/shared/isCsvProviderUrlFlag'
 
 import { buildKeywordObjectFromPath } from './buildKeywordObjectFromPath'
 import {
+  AUXILIARY_CSV_HEADERS,
   CSV_FIELDS,
   KEYWORD_DIFF_SKIP_HEADER_ROWS,
   KEYWORD_PATH_SEPARATOR
@@ -28,8 +29,6 @@ export const normalizeCsvHeader = (header) => String(header)
   .trim()
   .toLowerCase()
   .replace(/[^a-z0-9]/g, '')
-
-const AUXILIARY_CSV_HEADERS = new Set(['uuid', 'longname', 'datacenterurl'])
 
 /**
  * Pads a hierarchy path to the number of fields configured for its scheme. Leaf values for

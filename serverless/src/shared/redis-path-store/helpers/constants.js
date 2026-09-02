@@ -13,6 +13,17 @@ export const KEYWORD_PATH_SEPARATOR = ' > '
 export const KEYWORD_DIFF_SKIP_HEADER_ROWS = 2
 
 /**
+ * Normalized CSV column names excluded from keyword hierarchy paths.
+ *
+ * @type {ReadonlySet<string>}
+ */
+export const AUXILIARY_CSV_HEADERS = new Set([
+  'uuid',
+  'longname',
+  'datacenterurl'
+])
+
+/**
  * Exact CSV column names and canonical hierarchy order used by each keyword scheme.
  * UUID, Long_Name, and Data_Center_URL are auxiliary fields and are intentionally omitted.
  *
