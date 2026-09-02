@@ -163,14 +163,14 @@ describe('resolveOldKeywordConceptUuid', () => {
     vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-scalar',
       keywordObject: {
-        Value: ''
+        ISOTopicCategory: ''
       }
     })
 
     vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
       uuid: 'resolved-scalar',
       keywordObject: {
-        Value: 'BOUNDARIES'
+        ISOTopicCategory: 'BOUNDARIES'
       }
     })
 
@@ -180,10 +180,10 @@ describe('resolveOldKeywordConceptUuid', () => {
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-scalar',
       oldKeywordObject: {
-        Value: ''
+        ISOTopicCategory: ''
       },
       newKeywordObject: {
-        Value: 'BOUNDARIES'
+        ISOTopicCategory: 'BOUNDARIES'
       },
       newKeywordPath: 'BOUNDARIES',
       action: 'replace'

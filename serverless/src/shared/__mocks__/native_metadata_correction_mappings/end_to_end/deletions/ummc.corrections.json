@@ -7,12 +7,12 @@
       "scheme": "locations",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "OCEAN",
-        "Type": "ATLANTIC OCEAN",
-        "Subregion1": "SOUTH ATLANTIC OCEAN",
-        "Subregion2": "SOUTH GEORGIA ISLAND_SHOULD_DELETE",
-        "Subregion3": "",
-        "DetailedLocation": ""
+        "LocationCategory": "OCEAN",
+        "LocationType": "ATLANTIC OCEAN",
+        "LocationSubregion1": "SOUTH ATLANTIC OCEAN",
+        "LocationSubregion2": "SOUTH GEORGIA ISLAND_SHOULD_DELETE",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
       }
     },
     {
@@ -21,7 +21,8 @@
       "oldKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "SSALT_SHOULD_DELETE"
       }
     },
@@ -36,8 +37,9 @@
       "scheme": "platforms",
       "action": "delete",
       "oldKeywordObject": {
-        "Class": "Air-based Platforms",
-        "Type": "Rotorcraft/Helicopter",
+        "Basis": "Air-based Platforms",
+        "Category": "Rotorcraft/Helicopter",
+        "SubCategory": "",
         "ShortName": "AS350-B3_SHOULD_DELETE"
       }
     },
@@ -70,7 +72,7 @@
       "scheme": "projects",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "CASERTZ_SHOULD_DELETE"
       }
     },
@@ -98,7 +100,7 @@
       "scheme": "isotopiccategory",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "GEOSCIENTIFIC INFORMATION_SHOULD_DELETE"
+        "ISOTopicCategory": "GEOSCIENTIFIC INFORMATION_SHOULD_DELETE"
       }
     },
     {
@@ -112,7 +114,7 @@
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "2_SHOULD_DELETE"
+        "ProductLevelId": "2_SHOULD_DELETE"
       }
     }
   ]

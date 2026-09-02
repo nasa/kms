@@ -13,11 +13,103 @@ export const KEYWORD_PATH_SEPARATOR = ' > '
 export const KEYWORD_DIFF_SKIP_HEADER_ROWS = 2
 
 /**
- * Full-path schemes mapped to their canonical slot order.
+ * Normalized CSV column names excluded from keyword hierarchy paths.
  *
- * @type {Readonly<Record<string, string[]>>}
+ * @type {ReadonlySet<string>}
  */
-export const FULL_PATH_VALUE_FIELDS = Object.freeze({
+export const AUXILIARY_CSV_HEADERS = new Set([
+  'uuid',
+  'longname',
+  'datacenterurl'
+])
+
+/**
+ * Exact CSV column names and canonical hierarchy order used by each keyword scheme.
+ * UUID, Long_Name, and Data_Center_URL are auxiliary fields and are intentionally omitted.
+ *
+ * @type {Readonly<Record<string, string|string[]>>}
+ */
+export const CSV_FIELDS = Object.freeze({
+  category: 'Category',
+  shortName: 'ShortName',
+  providerRole: 'BucketLevel0',
+  urlContentType: 'URLContentType',
+  type: 'Type',
+  subtype: 'Subtype',
+  isoTopicCategory: 'ISOTopicCategory',
+  productLevelId: 'ProductLevelId',
+  sciencekeywords: [
+    'Category',
+    'Topic',
+    'Term',
+    'VariableLevel1',
+    'VariableLevel2',
+    'VariableLevel3',
+    'DetailedVariable'
+  ],
+  locations: [
+    'LocationCategory',
+    'LocationType',
+    'LocationSubregion1',
+    'LocationSubregion2',
+    'LocationSubregion3',
+    'LocationSubregion4'
+  ],
+  chronounits: [
+    'Eon',
+    'Era',
+    'Period',
+    'Epoch',
+    'Age',
+    'SubAge'
+  ],
+  rucontenttype: [
+    'URLContentType',
+    'Type',
+    'Subtype'
+  ],
+  platforms: [
+    'Basis',
+    'Category',
+    'SubCategory',
+    'ShortName'
+  ],
+  instruments: [
+    'Category',
+    'Class',
+    'Type',
+    'Subtype',
+    'ShortName'
+  ],
+  projects: [
+    'Bucket',
+    'ShortName'
+  ],
+  providers: [
+    'BucketLevel0',
+    'BucketLevel1',
+    'BucketLevel2',
+    'BucketLevel3',
+    'ShortName'
+  ],
+  idnnode: ['ShortName'],
+  dataformat: ['ShortName'],
+  granuledataformat: ['ShortName'],
+  discipline: ['DisciplineName', 'Subdiscipline'],
+  isotopiccategory: ['ISOTopicCategory'],
+  temporalresolutionrange: ['TemporalResolutionRange'],
+  verticalresolutionrange: ['VerticalResolutionRange'],
+  horizontalresolutionrange: ['HorizontalResolutionRange'],
+  productlevelid: ['ProductLevelId'],
+  measurementname: ['ContextMedium', 'Object', 'Quantity']
+})
+
+/**
+ * Native UMM-C JSON fields used when reading and writing metadata.
+ *
+ * @type {Readonly<Record<string, string|string[]>>}
+ */
+export const UMMC_FIELDS = Object.freeze({
   sciencekeywords: [
     'Category',
     'Topic',
@@ -40,54 +132,94 @@ export const FULL_PATH_VALUE_FIELDS = Object.freeze({
     'Era',
     'Period',
     'Epoch',
-    'Age',
-    'SubAge'
+    'Stage',
+    'DetailedClassification'
   ],
-  rucontenttype: [
-    'URLContentType',
-    'Type',
-    'Subtype'
-  ]
+  platformType: 'Type',
+  shortName: 'ShortName',
+  longName: 'LongName',
+  rucontenttype: ['URLContentType', 'Type', 'Subtype'],
+  dataformat: 'Format',
+  processingLevelId: 'Id'
 })
 
 /**
- * Short-name schemes mapped to the fields used to rebuild canonical keyword paths.
+ * Native ECHO10 XML fields used when reading and writing metadata.
  *
- * @type {Readonly<Record<string, string[]>>}
+ * @type {Readonly<Record<string, string|string[]>>}
  */
-export const SHORT_NAME_OBJECT_FIELDS = Object.freeze({
-  platforms: [
+export const ECHO10_FIELDS = Object.freeze({
+  sciencekeywords: [
+    'CategoryKeyword',
+    'TopicKeyword',
+    'TermKeyword',
+    'VariableLevel1Keyword/Value',
+    'VariableLevel1Keyword/VariableLevel2Keyword/Value',
+    'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword',
+    'DetailedVariableKeyword'
+  ],
+  platformType: 'Type',
+  shortName: 'ShortName',
+  longName: 'LongName',
+  providers: ['Role', 'OrganizationName'],
+  providerOrganizationName: 'OrganizationName',
+  processingCenter: '//Collection/ProcessingCenter',
+  archiveCenter: '//Collection/ArchiveCenter',
+  rucontenttype: ['Type'],
+  relatedUrlType: 'Type'
+})
+
+/**
+ * Native DIF10 XML fields used when reading and writing metadata.
+ *
+ * @type {Readonly<Record<string, string|string[]>>}
+ */
+export const DIF10_FIELDS = Object.freeze({
+  sciencekeywords: [
     'Category',
-    'Class',
-    'Type',
-    'ShortName'
+    'Topic',
+    'Term',
+    'Variable_Level_1',
+    'Variable_Level_2',
+    'Variable_Level_3',
+    'Detailed_Variable'
   ],
-  instruments: [
-    'Category',
-    'Class',
-    'Subclass',
-    'ShortName'
+  locations: [
+    'Location_Category',
+    'Location_Type',
+    'Location_Subregion1',
+    'Location_Subregion2',
+    'Location_Subregion3',
+    'Detailed_Location'
   ],
-  projects: [
-    'Category',
-    'ShortName'
+  chronounits: [
+    'Eon',
+    'Era',
+    'Period',
+    'Epoch',
+    'Stage',
+    'Detailed_Classification'
   ],
-  providers: [
-    'BucketLevel0',
-    'BucketLevel1',
-    'BucketLevel2',
-    'BucketLevel3',
-    'ShortName'
-  ],
-  idnnode: [
-    'ShortName'
-  ],
-  dataformat: [
-    'ShortName'
-  ],
-  granuledataformat: [
-    'ShortName'
-  ]
+  platformType: 'Type',
+  shortName: 'Short_Name',
+  longName: 'Long_Name',
+  providerShortName: 'Organization_Name/Short_Name',
+  providerLongName: 'Organization_Name/Long_Name',
+  rucontenttype: ['Type', 'Subtype']
+})
+
+/**
+ * Native ISO 19115 XML fields used when reading and writing metadata.
+ *
+ * @type {Readonly<Record<string, string|string[]>>}
+ */
+export const ISO19115_FIELDS = Object.freeze({
+  keywordValue: ['gmx:Anchor', 'gco:CharacterString'],
+  keywordLongName: 'LongName',
+  isoTopicCategory: 'gmd:MD_TopicCategoryCode',
+  isoTopicCategoryCodeListValue: 'gmd:MD_TopicCategoryCode/@codeListValue',
+  productLevelId: 'gmd:code/gco:CharacterString',
+  dataformat: 'gmd:MD_Format/gmd:name/gco:CharacterString'
 })
 
 /**

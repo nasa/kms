@@ -39,8 +39,9 @@ const defaultContext = {
  * const concept = await getHistoricalConceptByKeyword({
  *   scheme: 'platforms',
  *   keywordObject: {
- *     Class: 'Space-based Platforms',
- *     Type: 'Earth Observation Satellites',
+ *     Basis: 'Space-based Platforms',
+ *     Category: 'Earth Observation Satellites',
+ *     SubCategory: '',
  *     ShortName: 'Aqua Legacy'
  *   }
  * })

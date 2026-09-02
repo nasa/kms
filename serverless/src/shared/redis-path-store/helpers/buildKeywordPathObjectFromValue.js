@@ -1,5 +1,5 @@
 import { buildKeywordPathObjectFromSegments } from './buildKeywordPathObjectFromSegments'
-import { FULL_PATH_VALUE_FIELDS } from './constants'
+import { CSV_FIELDS } from './constants'
 import { flattenKeywordPathValue } from './flattenKeywordPathValue'
 import { normalizeKeywordScheme } from './normalizeKeywordScheme'
 
@@ -17,7 +17,7 @@ export const buildKeywordPathObjectFromValue = ({
   keywordValue
 }) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
-  const slotFields = FULL_PATH_VALUE_FIELDS[normalizedScheme]
+  const slotFields = CSV_FIELDS[normalizedScheme]
 
   if (!Array.isArray(slotFields)) {
     return {}

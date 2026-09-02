@@ -1,0 +1,5 @@
+"Keyword Version: Draft","Revision: 2026-08-20T00:00:00.000Z","Timestamp: 2026-08-20 00:00:00","Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf","The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/rucontenttype/?format=xml"
+"URLContentType","Type","Subtype","UUID"
+"DistributionURL","GET DATA","VIRTUAL COLLECTION_CHANGED","cc9c6d5e-63d1-4c00-8392-bf341679082c"
+"DistributionURL","VIEW RELATED INFORMATION","OpenSearch_CHANGED","47ee2b6f-3c1f-4dc2-b476-381a1805be5a"
+"PublicationURL_CHANGED","VIEW RELATED INFORMATION_CHANGED","Subtype_CHANGED","40a75b8a-ab53-410f-b36b-0dad0be95d61"

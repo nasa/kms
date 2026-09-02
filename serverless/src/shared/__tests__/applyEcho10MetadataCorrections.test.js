@@ -182,15 +182,15 @@ describe('when applying ECHO10 metadata corrections', () => {
         scheme: 'platforms',
         action: 'replace',
         oldKeywordObject: {
-          Category: '',
-          Class: '',
-          Type: 'In Situ Land-based Platforms',
+          SubCategory: '',
+          Basis: '',
+          Category: 'In Situ Land-based Platforms',
           ShortName: 'GROUND STATIONS'
         },
         newKeywordObject: {
-          Category: '',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          SubCategory: '',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
           ShortName: 'C-130'
         }
       }
@@ -275,15 +275,15 @@ describe('when correcting a ECHO10 record', () => {
         scheme: 'platforms',
         action: 'replace',
         oldKeywordObject: {
-          Category: '',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          SubCategory: '',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
           ShortName: 'SPOT-4'
         },
         newKeywordObject: {
-          Category: '',
-          Class: 'Space-based Platforms',
-          Type: 'Earth Observation Satellites',
+          SubCategory: '',
+          Basis: 'Space-based Platforms',
+          Category: 'Earth Observation Satellites',
           ShortName: 'SPOT-4-UPDATED'
         },
         newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -294,13 +294,15 @@ describe('when correcting a ECHO10 record', () => {
         oldKeywordObject: {
           Category: 'Imaging Spectrometers/Radiometers',
           Class: '',
-          Subclass: '',
+          Type: '',
+          Subtype: '',
           ShortName: 'GEOPHONES'
         },
         newKeywordObject: {
           Category: 'Imaging Spectrometers/Radiometers',
           Class: '',
-          Subclass: '',
+          Type: '',
+          Subtype: '',
           ShortName: 'GEOPHONES-UPDATED'
         },
         newLongName: 'Updated Geophone Array'
@@ -308,11 +310,11 @@ describe('when correcting a ECHO10 record', () => {
       {
         scheme: 'projects',
         oldKeywordObject: {
-          Category: 'A - C',
+          Bucket: 'A - C',
           ShortName: 'ALIENS'
         },
         newKeywordObject: {
-          Category: 'A - C',
+          Bucket: 'A - C',
           ShortName: 'ALIENS-UPDATED'
         },
         newLongName: 'Aliens in Antarctica Updated'
@@ -386,10 +388,10 @@ describe('when correcting a ECHO10 record', () => {
         scheme: 'ProductLevelId',
         action: 'replace',
         oldKeywordObject: {
-          Value: 'NA'
+          ProductLevelId: 'NA'
         },
         newKeywordObject: {
-          Value: '1A'
+          ProductLevelId: '1A'
         }
       }
     ]
@@ -490,15 +492,15 @@ describe('when verifying ECHO10 corrections do not remove unrelated metadata', (
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4-UPDATED'
           },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -509,7 +511,8 @@ describe('when verifying ECHO10 corrections do not remove unrelated metadata', (
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'GEOPHONES'
           }
         },
@@ -517,11 +520,11 @@ describe('when verifying ECHO10 corrections do not remove unrelated metadata', (
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS'
           },
           newKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS-UPDATED'
           },
           newLongName: 'Aliens in Antarctica Updated'
@@ -573,10 +576,10 @@ describe('when verifying ECHO10 corrections do not remove unrelated metadata', (
           scheme: 'productlevelid',
           action: 'replace',
           oldKeywordObject: {
-            Value: 'NA'
+            ProductLevelId: 'NA'
           },
           newKeywordObject: {
-            Value: '1A'
+            ProductLevelId: '1A'
           }
         }
       ]
@@ -668,13 +671,15 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newLongName: 'Updated Infrared Multispectral Scanner'
@@ -708,13 +713,15 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'LISS-II'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'LISSUPDATE-II'
           },
           newLongName: 'Linear Imaging Self Scanning Sensor II Updated'
@@ -746,7 +753,8 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {}
@@ -785,7 +793,8 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'I1'
           }
         },
@@ -795,7 +804,8 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'I2'
           }
         }
@@ -830,7 +840,8 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'I1'
           }
         }
@@ -865,13 +876,15 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Instrument',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'OLD-SHORT'
           },
           newKeywordObject: {
             Category: 'Category',
             Class: 'Topic',
-            Subclass: 'Term',
+            Type: 'Term',
+            Subtype: '',
             ShortName: 'NEW-SHORT'
           },
           newLongName: '' // Triggers delete target['LongName']
@@ -908,13 +921,15 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS1'
           }
         }
@@ -939,13 +954,15 @@ describe('when applying instrument ECHO10 corrections', () => {
           oldKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS'
           },
           newKeywordObject: {
             Category: 'Imaging Spectrometers/Radiometers',
             Class: '',
-            Subclass: '',
+            Type: '',
+            Subtype: '',
             ShortName: 'IRMSS1'
           },
           newLongName: 'Infrared Multispectral Scanner Updated'
@@ -968,7 +985,8 @@ describe('when instrument guard clauses prevent a correction', () => {
         newKeywordObject: {
           Category: 'Category',
           Class: 'Topic',
-          Subclass: 'Term',
+          Type: 'Term',
+          Subtype: '',
           ShortName: 'NEW-SHORT'
         }
       }]
@@ -988,7 +1006,8 @@ describe('when instrument guard clauses prevent a correction', () => {
         newKeywordObject: {
           Category: 'Category',
           Class: 'Topic',
-          Subclass: 'Term',
+          Type: 'Term',
+          Subtype: '',
           ShortName: 'NEW-SHORT'
         }
       }]
@@ -1006,13 +1025,15 @@ describe('when instrument guard clauses prevent a correction', () => {
         oldKeywordObject: {
           Category: 'Imaging Spectrometers/Radiometers',
           Class: '',
-          Subclass: '',
+          Type: '',
+          Subtype: '',
           ShortName: 'NOT-REAL'
         },
         newKeywordObject: {
           Category: 'Category',
           Class: 'Topic',
-          Subclass: 'Term',
+          Type: 'Term',
+          Subtype: '',
           ShortName: 'NEW-SHORT'
         }
       }]
@@ -1063,6 +1084,19 @@ const mockEcho10WithPlatforms = `<Collection>
     </Platforms>
 </Collection>`
 
+const mockEcho10WithPlatformBasis = `<Collection>
+    <ShortName>Platforms_Basis_Test</ShortName>
+    <VersionId>001</VersionId>
+    <Platforms>
+        <Platform>
+          <Basis>Other</Basis>
+          <Type>Aircraft</Type>
+          <ShortName>SPOT-4</ShortName>
+          <LongName>Systeme Observation de la Terre-4 Baseline</LongName>
+        </Platform>
+    </Platforms>
+</Collection>`
+
 describe('when applying platform ECHO10 corrections', () => {
   test('should apply long name correction to first Platform', async () => {
     const result = await applyEcho10MetadataCorrections({
@@ -1075,15 +1109,15 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -1119,15 +1153,15 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-7-New'
           },
           newLongName: 'Systeme Observation de la Terre-5 Updated'
@@ -1147,6 +1181,43 @@ describe('when applying platform ECHO10 corrections', () => {
 
     expect(result.correctedMetadata).toContain('<Type>Earth Observation Satellites</Type>')
     expect(result.correctedMetadata).not.toContain('<Type>Earth Observation planes</Type>')
+  })
+
+  test('should preserve platform Basis while updating short and long name', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      collectionConceptId: 'C1',
+      providerId: 'PROV',
+      nativeId: 'native-1',
+      metadataPayload: mockEcho10WithPlatformBasis,
+      corrections: [
+        {
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordObject: {
+            Basis: 'Other',
+            SubCategory: '',
+            Category: 'Aircraft',
+            ShortName: 'SPOT-4'
+          },
+          newKeywordObject: {
+            Basis: 'Other-UPDATED',
+            SubCategory: '',
+            Category: 'Aircraft',
+            ShortName: 'SPOT-4-UPDATED'
+          },
+          newLongName: 'Systeme Observation de la Terre-4 Updated'
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctionsApplied).toHaveLength(1)
+
+    expect(result.correctedMetadata).toContain('<Basis>Other</Basis>')
+    expect(result.correctedMetadata).not.toContain('<Basis>Other-UPDATED</Basis>')
+    expect(result.correctedMetadata).toContain('<ShortName>SPOT-4-UPDATED</ShortName>')
+    expect(result.correctedMetadata).toContain('<LongName>Systeme Observation de la Terre-4 Updated</LongName>')
+    expect(result.correctedMetadata).not.toContain('<LongName>Systeme Observation de la Terre-4 Baseline</LongName>')
   })
 
   test('should apply platform correction when there is only a single platform (object branch)', async () => {
@@ -1169,15 +1240,15 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'In Situ Land-based Platforms',
             Category: '',
-            Class: 'In Situ Land-based Platforms',
-            Type: '',
             ShortName: 'GROUND STATIONS'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'In Situ Land-based Platforms',
-            Type: 'Aircraft',
+            SubCategory: '',
+            Basis: 'In Situ Land-based Platforms',
+            Category: 'Aircraft',
             ShortName: 'C-130'
           },
           newLongName: 'Lockheed C-130 Hercules'
@@ -1216,9 +1287,9 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'A1'
           }
         },
@@ -1226,9 +1297,9 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'A2'
           }
         }
@@ -1252,9 +1323,9 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {}
@@ -1281,9 +1352,9 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'not_an_action', // Triggers the final return false
           newKeywordObject: {
-            Category: '',
-            Class: 'A',
-            Type: 'B',
+            SubCategory: '',
+            Basis: 'A',
+            Category: 'B',
             ShortName: 'C'
           }
         }
@@ -1311,9 +1382,9 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'delete',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'A1'
           }
         }
@@ -1344,16 +1415,16 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Aircraft',
             Category: '',
-            Class: 'Aircraft',
-            Type: '',
             ShortName: 'OLD-SHORT'
           },
           // Providing only one segment forces the LongName field to hit the 'else { delete }' branch
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'NEW-SHORT'
           },
           newLongName: ''
@@ -1386,15 +1457,15 @@ describe('when applying platform ECHO10 corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
+            SubCategory: '',
+            Basis: 'Earth Observation planes',
             Category: '',
-            Class: 'Earth Observation planes',
-            Type: '',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
+            SubCategory: '',
+            Basis: 'Earth Observation rockets',
             Category: '',
-            Class: 'Earth Observation rockets',
-            Type: '',
             ShortName: 'SPOT-7'
           }
         }
@@ -1417,15 +1488,15 @@ describe('when applying platform ECHO10 corrections', () => {
           action: 'replace',
           ummPath: ['Platform', 10],
           oldKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
-            Category: '',
-            Class: 'Space-based Platforms',
-            Type: 'Earth Observation Satellites',
+            SubCategory: '',
+            Basis: 'Space-based Platforms',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-7'
           }
         }
@@ -1473,6 +1544,28 @@ describe('when applying Dataformat ECHO10 corrections', () => {
 
       expect(result.correctionCount).toBe(1)
       expect(result.correctedMetadata).toContain('<DataFormat>HDF5</DataFormat>')
+    })
+
+    test('should not apply a correction when only the unsupported long name changed', async () => {
+      const result = await applyEcho10MetadataCorrections({
+        metadataPayload: '<Collection><DataFormat>NetCDF</DataFormat></Collection>',
+        corrections: [{
+          scheme: 'dataformat',
+          action: 'replace',
+          oldKeywordObject: {
+            ShortName: 'NetCDF',
+            LongName: 'Network Common Data Form'
+          },
+          newKeywordObject: {
+            ShortName: 'NetCDF',
+            LongName: 'Network Common Data Form Updated'
+          }
+        }]
+      })
+
+      expect(result.correctionCount).toBe(0)
+      expect(result.correctionsApplied).toEqual([])
+      expect(result.correctedMetadata).toContain('<DataFormat>NetCDF</DataFormat>')
     })
 
     test('should return false and not modify the field if newKeywordObject is empty or invalid', async () => {
@@ -1600,7 +1693,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 2'
+            ProductLevelId: 'Level 2'
           }
         }]
       })
@@ -1616,7 +1709,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
         corrections: [{
           scheme: 'productlevelid',
           newKeywordObject: {
-            Value: 'Level 3'
+            ProductLevelId: 'Level 3'
           }
         }]
       })
@@ -1676,7 +1769,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 4'
+            ProductLevelId: 'Level 4'
           }
         }]
       })
@@ -1693,7 +1786,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 4'
+            ProductLevelId: 'Level 4'
           }
         }]
       })
@@ -1709,7 +1802,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
           scheme: 'productlevelid',
           action: 'replace',
           newKeywordObject: {
-            Value: 'Level 4'
+            ProductLevelId: 'Level 4'
           }
         }]
       })
@@ -1726,7 +1819,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
           scheme: 'productlevelid',
           action: 'invalid_action_type',
           newKeywordObject: {
-            Value: 'Level 2'
+            ProductLevelId: 'Level 2'
           }
         }]
       })
@@ -1764,11 +1857,11 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newLongName: 'Updated Earth Science Information Partners Program'
@@ -1798,11 +1891,11 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS'
           },
           newKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS UP'
           },
           newLongName: 'Aliens research in Antarctica'
@@ -1832,7 +1925,7 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {}
@@ -1858,7 +1951,7 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           }
         },
@@ -1866,7 +1959,7 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'A - C',
+            Bucket: 'A - C',
             ShortName: 'ALIENS'
           }
         }
@@ -1897,7 +1990,7 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'S - U',
+            Bucket: 'S - U',
             ShortName: 'SINGLE-PROJ'
           }
         }
@@ -1929,7 +2022,7 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'S - U',
+            Bucket: 'S - U',
             ShortName: 'SINGLE-PROJ'
           }
         }
@@ -1958,11 +2051,11 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP-7'
           }
         }
@@ -1981,13 +2074,13 @@ describe('when applying project ECHO10 corrections', () => {
           scheme: 'projects',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           // Providing a single segment and NO newLongName
           // results in normalizedSegments[1] (LongName) being undefined
           newKeywordObject: {
-            Category: 'M - O',
+            Bucket: 'M - O',
             ShortName: 'ONLY_SHORT'
           }
         }
@@ -2018,11 +2111,11 @@ describe('when applying project ECHO10 corrections', () => {
           action: 'replace',
           ummPath: ['Project', 10],
           oldKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP'
           },
           newKeywordObject: {
-            Category: 'D - F',
+            Bucket: 'D - F',
             ShortName: 'ESIP-7'
           },
           newLongName: 'Updated Earth Science Information Partners Program'
@@ -2064,7 +2157,7 @@ describe('when applying project ECHO10 corrections', () => {
         corrections: [{
           scheme: 'projects',
           oldKeywordObject: {
-            Category: 'S - U',
+            Bucket: 'S - U',
             ShortName: 'NOT-REAL'
           }
         }]

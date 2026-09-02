@@ -403,11 +403,11 @@ describe('when correcting a UMM-C record', () => {
         scheme: 'platforms',
         action: 'replace',
         oldKeywordObject: {
-          Type: 'Space Stations/Crewed Spacecraft',
+          Category: 'Space Stations/Crewed Spacecraft',
           ShortName: 'ISS'
         },
         newKeywordObject: {
-          Type: 'Space Stations/Crewed Spacecraft',
+          Category: 'Space Stations/Crewed Spacecraft',
           ShortName: 'ISS-UPDATED'
         },
         newLongName: 'International Space Station Updated'
@@ -427,20 +427,20 @@ describe('when correcting a UMM-C record', () => {
         scheme: 'locations',
         action: 'replace',
         oldKeywordObject: {
-          Category: 'GEOGRAPHIC REGION',
-          Type: 'GLOBAL LAND',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'GLOBAL LAND',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         },
         newKeywordObject: {
-          Category: 'GEOGRAPHIC REGION',
-          Type: 'GLOBAL',
-          Subregion1: '',
-          Subregion2: '',
-          Subregion3: '',
-          DetailedLocation: ''
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'GLOBAL',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       },
       {
@@ -490,20 +490,20 @@ describe('when correcting a UMM-C record', () => {
         scheme: 'isotopiccategory',
         action: 'replace',
         oldKeywordObject: {
-          Value: 'GEOSCIENTIFIC INFORMATION'
+          ISOTopicCategory: 'GEOSCIENTIFIC INFORMATION'
         },
         newKeywordObject: {
-          Value: 'OCEANS'
+          ISOTopicCategory: 'OCEANS'
         }
       },
       {
         scheme: 'productlevelid',
         action: 'replace',
         oldKeywordObject: {
-          Value: '2'
+          ProductLevelId: '2'
         },
         newKeywordObject: {
-          Value: '3'
+          ProductLevelId: '3'
         }
       }
     ]
@@ -1580,20 +1580,20 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'SOUTH AMERICA',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'SOUTH AMERICA',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1617,20 +1617,20 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'CANADA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'CANADA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1650,20 +1650,20 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: 'CALIFORNIA',
-            Subregion3: 'LOS ANGELES',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: 'CALIFORNIA',
+            LocationSubregion3: 'LOS ANGELES',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1685,20 +1685,20 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'NORTH AMERICA',
-            Subregion1: 'UNITED STATES OF AMERICA',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'NORTH AMERICA',
+            LocationSubregion1: 'UNITED STATES OF AMERICA',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'CONTINENT',
-            Type: 'EUROPE',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'CONTINENT',
+            LocationType: 'EUROPE',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1719,12 +1719,12 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'PACIFIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'PACIFIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1755,12 +1755,12 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'delete',
           oldKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'ATLANTIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'ATLANTIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1784,20 +1784,20 @@ describe('when applying location UMM-C corrections', () => {
           scheme: 'locations',
           action: 'replace',
           oldKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'ATLANTIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'ATLANTIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           },
           newKeywordObject: {
-            Category: 'OCEAN',
-            Type: 'PACIFIC OCEAN',
-            Subregion1: '',
-            Subregion2: '',
-            Subregion3: '',
-            DetailedLocation: ''
+            LocationCategory: 'OCEAN',
+            LocationType: 'PACIFIC OCEAN',
+            LocationSubregion1: '',
+            LocationSubregion2: '',
+            LocationSubregion3: '',
+            LocationSubregion4: ''
           }
         }
       ]
@@ -1845,11 +1845,11 @@ describe('when applying platform UMM-C corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Type: 'Earth Observation Satellites',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newKeywordObject: {
-            Type: 'Earth Observation Satellites',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-4'
           },
           newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -1873,11 +1873,11 @@ describe('when applying platform UMM-C corrections', () => {
           scheme: 'platforms',
           action: 'replace',
           oldKeywordObject: {
-            Type: 'Aircraft',
+            Category: 'Aircraft',
             ShortName: 'SPOT-5'
           },
           newKeywordObject: {
-            Type: 'Earth Observation Satellites',
+            Category: 'Earth Observation Satellites',
             ShortName: 'SPOT-7-New'
           },
           newLongName: 'Systeme Observation de la Terre-7 New'

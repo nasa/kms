@@ -16,9 +16,9 @@ describe('buildKeywordPathFromObject', () => {
     expect(buildKeywordPathFromObject({
       scheme: 'platforms',
       keywordObject: {
-        Category: '',
-        Class: 'Space-based Platforms',
-        Type: 'Earth Observation Satellites',
+        Basis: '',
+        Category: 'Space-based Platforms',
+        SubCategory: 'Earth Observation Satellites',
         ShortName: 'Aqua'
       }
     })).toEqual('Space-based Platforms > Earth Observation Satellites > Aqua')
@@ -26,17 +26,40 @@ describe('buildKeywordPathFromObject', () => {
     expect(buildKeywordPathFromObject({
       scheme: 'platforms',
       keywordObject: {
+        Basis: '',
         Category: '',
-        Class: '',
-        Type: '',
+        SubCategory: '',
         ShortName: ''
       }
     })).toEqual(' >  >  > ')
   })
 
+  test('rebuilds short-name paths that include intentional blank slots', () => {
+    expect(buildKeywordPathFromObject({
+      scheme: 'platforms',
+      keywordObject: {
+        Basis: 'Other',
+        Category: '',
+        SubCategory: '',
+        ShortName: 'Auxiliary Data'
+      }
+    })).toEqual('Other >  >  > Auxiliary Data')
+
+    expect(buildKeywordPathFromObject({
+      scheme: 'instruments',
+      keywordObject: {
+        Category: 'Earth Remote Sensing Instruments',
+        Class: '',
+        Type: '',
+        Subtype: '',
+        ShortName: 'MODIS'
+      }
+    })).toEqual('Earth Remote Sensing Instruments >  >  >  > MODIS')
+  })
+
   test('flattens scalar objects for non-slotted schemes', () => {
     expect(buildKeywordPathFromObject({
-      scheme: 'temporalresolutionrange',
+      scheme: 'unsupported',
       keywordObject: {
         Value: 'P1D'
       }

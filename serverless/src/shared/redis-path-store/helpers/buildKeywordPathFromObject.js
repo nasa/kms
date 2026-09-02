@@ -1,4 +1,4 @@
-import { FULL_PATH_VALUE_FIELDS, SHORT_NAME_OBJECT_FIELDS } from './constants'
+import { CSV_FIELDS } from './constants'
 import { flattenKeywordPathValue } from './flattenKeywordPathValue'
 import { joinKeywordPath } from './joinKeywordPath'
 import { normalizeKeywordScheme } from './normalizeKeywordScheme'
@@ -17,27 +17,16 @@ export const buildKeywordPathFromObject = ({
   keywordObject
 }) => {
   const normalizedScheme = normalizeKeywordScheme(scheme)
-  const slotFields = FULL_PATH_VALUE_FIELDS[normalizedScheme]
-  const shortNameObjectFields = SHORT_NAME_OBJECT_FIELDS[normalizedScheme]
+  const fields = CSV_FIELDS[normalizedScheme]
 
-  if (!Array.isArray(slotFields)) {
-    if (Array.isArray(shortNameObjectFields)) {
-      const keywordPathSegments = shortNameObjectFields.map(
-        (fieldName) => keywordObject?.[fieldName]
-      )
-      const firstNonEmptyIndex = keywordPathSegments.findIndex(
-        (segment) => trimKeywordPathSegment(segment).length > 0
-      )
-
-      return joinKeywordPath(
-        firstNonEmptyIndex >= 0
-          ? keywordPathSegments.slice(firstNonEmptyIndex)
-          : keywordPathSegments
-      )
-    }
-
+  if (!Array.isArray(fields)) {
     return joinKeywordPath(flattenKeywordPathValue(keywordObject))
   }
 
-  return joinKeywordPath(slotFields.map((fieldName) => keywordObject?.[fieldName]))
+  const segments = fields.map((fieldName) => keywordObject?.[fieldName])
+  const firstNonEmptyIndex = segments.findIndex(
+    (segment) => trimKeywordPathSegment(segment).length > 0
+  )
+
+  return joinKeywordPath(firstNonEmptyIndex >= 0 ? segments.slice(firstNonEmptyIndex) : segments)
 }

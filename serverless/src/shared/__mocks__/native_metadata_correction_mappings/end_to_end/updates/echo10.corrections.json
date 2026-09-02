@@ -30,15 +30,15 @@
       "action": "replace",
       "newLongName": "Earth Observing System, Terra (AM-1)_CHANGED",
       "oldKeywordObject": {
-        "Category": "Platforms",
-        "Class": "Space-based Platforms",
-        "Type": "Earth Observation Satellites",
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
         "ShortName": "Terra"
       },
       "newKeywordObject": {
-        "Category": "Platforms",
-        "Class": "Space-based Platforms",
-        "Type": "Earth Observation Satellites",
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
         "ShortName": "Terra_CHANGED"
       }
     },
@@ -48,44 +48,29 @@
       "oldKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "AMSR-E"
       },
       "newKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "AMSR-E_CHANGED"
       },
       "newLongName": "Advanced Microwave Scanning Radiometer-EOS_CHANGED"
-    },
-    {
-      "scheme": "instruments",
-      "action": "replace",
-      "newLongName": "Advanced Microwave Scanning Radiometer-EOS_CHANGED",
-      "oldKeywordObject": {
-        "Category": "Imaging Spectrometers/Radiometers",
-        "Class": "",
-        "Subclass": "",
-        "ShortName": "AMSR-E"
-      },
-      "newKeywordObject": {
-        "Category": "Imaging Spectrometers/Radiometers",
-        "Class": "",
-        "Subclass": "",
-        "ShortName": "AMSR-E_CHANGED"
-      }
     },
     {
       "scheme": "projects",
       "action": "replace",
       "newLongName": "Advanced Microwave Scanning Radiometer Sea Ice Product Validation_CHANGED",
       "oldKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "AMSRICE06"
       },
       "newKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "AMSRICE06_CHANGED"
       }
     },
@@ -130,7 +115,8 @@
       "action": "replace",
       "oldKeywordObject": {
         "URLContentType": "PublicationURL",
-        "Type": "VIEW RELATED INFORMATION"
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": ""
       },
       "newKeywordObject": {
         "URLContentType": "PublicationURL_CHANGED",
@@ -142,20 +128,20 @@
       "scheme": "dataformat",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "netCDF-4"
+        "ShortName": "netCDF-4"
       },
       "newKeywordObject": {
-        "Value": "netCDF-4_CHANGED"
+        "ShortName": "netCDF-4_CHANGED"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "3"
+        "ProductLevelId": "3"
       },
       "newKeywordObject": {
-        "Value": "3_CHANGED"
+        "ProductLevelId": "3_CHANGED"
       }
     }
   ]

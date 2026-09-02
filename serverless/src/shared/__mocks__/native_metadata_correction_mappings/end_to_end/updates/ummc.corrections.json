@@ -29,20 +29,20 @@
       "scheme": "locations",
       "action": "replace",
       "oldKeywordObject": {
-        "Category": "OCEAN",
-        "Type": "ATLANTIC OCEAN",
-        "Subregion1": "NORTH ATLANTIC OCEAN",
-        "Subregion2": "CARIBBEAN SEA",
-        "Subregion3": "BARBADOS",
-        "DetailedLocation": ""
+        "LocationCategory": "OCEAN",
+        "LocationType": "ATLANTIC OCEAN",
+        "LocationSubregion1": "NORTH ATLANTIC OCEAN",
+        "LocationSubregion2": "CARIBBEAN SEA",
+        "LocationSubregion3": "BARBADOS",
+        "LocationSubregion4": ""
       },
       "newKeywordObject": {
-        "Category": "OCEAN",
-        "Type": "ATLANTIC OCEAN",
-        "Subregion1": "NORTH ATLANTIC OCEAN",
-        "Subregion2": "CARIBBEAN SEA",
-        "Subregion3": "BARBADOS_CHANGED",
-        "DetailedLocation": ""
+        "LocationCategory": "OCEAN",
+        "LocationType": "ATLANTIC OCEAN",
+        "LocationSubregion1": "NORTH ATLANTIC OCEAN",
+        "LocationSubregion2": "CARIBBEAN SEA",
+        "LocationSubregion3": "BARBADOS_CHANGED",
+        "LocationSubregion4": ""
       },
       "newLongName": null
     },
@@ -50,20 +50,20 @@
       "scheme": "locations",
       "action": "replace",
       "oldKeywordObject": {
-        "Category": "GEOGRAPHIC REGION",
-        "Type": "GLOBAL LAND",
-        "Subregion1": "",
-        "Subregion2": "",
-        "Subregion3": "",
-        "DetailedLocation": ""
+        "LocationCategory": "GEOGRAPHIC REGION",
+        "LocationType": "GLOBAL LAND",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
       },
       "newKeywordObject": {
-        "Category": "GEOGRAPHIC REGION",
-        "Type": "GLOBAL LAND_CHANGED",
-        "Subregion1": "",
-        "Subregion2": "",
-        "Subregion3": "",
-        "DetailedLocation": ""
+        "LocationCategory": "GEOGRAPHIC REGION",
+        "LocationType": "GLOBAL LAND_CHANGED",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
       }
     },
     {
@@ -91,14 +91,32 @@
       "action": "replace",
       "newLongName": "Helicopter AS350-B3_CHANGED",
       "oldKeywordObject": {
-        "Class": "Air-based Platforms",
-        "Type": "Rotorcraft/Helicopter",
+        "Basis": "Air-based Platforms",
+        "Category": "Rotorcraft/Helicopter",
+        "SubCategory": "",
         "ShortName": "AS350-B3"
       },
       "newKeywordObject": {
-        "Class": "Air-based Platforms",
-        "Type": "Rotorcraft/Helicopter",
+        "Basis": "Air-based Platforms",
+        "Category": "Rotorcraft/Helicopter",
+        "SubCategory": "",
         "ShortName": "AS350-B3_CHANGED"
+      }
+    },
+    {
+      "scheme": "platforms",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
+        "ShortName": "Amazonia-1"
+      },
+      "newKeywordObject": {
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
+        "ShortName": "Amazonia-1-Chris-Test_CHANGED"
       }
     },
     {
@@ -107,13 +125,15 @@
       "oldKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "MABEL"
       },
       "newKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "MABEL_CHANGED"
       },
       "newLongName": "Multiple Altimeter Beam Experimental Lidar_CHANGED"
@@ -123,11 +143,11 @@
       "action": "replace",
       "newLongName": "Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED",
       "oldKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "CASERTZ"
       },
       "newKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "CASERTZ_CHANGED"
       }
     },
@@ -179,20 +199,20 @@
       "scheme": "isotopiccategory",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "GEOSCIENTIFIC INFORMATION"
+        "ISOTopicCategory": "GEOSCIENTIFIC INFORMATION"
       },
       "newKeywordObject": {
-        "Value": "GEOSCIENTIFIC INFORMATION_CHANGED"
+        "ISOTopicCategory": "GEOSCIENTIFIC INFORMATION_CHANGED"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "replace",
       "oldKeywordObject": {
-        "Value": "2"
+        "ProductLevelId": "2"
       },
       "newKeywordObject": {
-        "Value": "2_CHANGED"
+        "ProductLevelId": "2_CHANGED"
       }
     },
     {

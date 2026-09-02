@@ -36,6 +36,31 @@ describe('ISO_19115_SCHEME_EDITORS', () => {
     )
   })
 
+  test('should return empty fields when an ISO keyword block has no value node', () => {
+    ISO_19115_SCHEME_EDITORS.sciencekeywords(mockEditor, {
+      action: 'replace',
+      oldKeywordObject: {}
+    })
+
+    const config = mockEditor.updateBlockNode.mock.calls[0][1]
+    const keywordObject = config.find.getNodeValueObject({
+      node: {},
+      editor: {
+        selectNodes: vi.fn().mockReturnValue([])
+      }
+    })
+
+    expect(keywordObject).toEqual({
+      Category: '',
+      Topic: '',
+      Term: '',
+      VariableLevel1: '',
+      VariableLevel2: '',
+      VariableLevel3: '',
+      DetailedVariable: ''
+    })
+  })
+
   test('should trigger updateLeafNode for leaf types', () => {
     const correction = {
       action: 'replace',

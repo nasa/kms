@@ -1,0 +1,119 @@
+[
+  {
+    "EventType": "UPDATED",
+    "Scheme": "dataformat",
+    "UUID": "464bd0da-8af4-4976-8ad1-5e3201c08016",
+    "OldKeywordObject": {
+      "ShortName": "GeoTIFF",
+      "LongName": "Georeferenced Tagged Image File Format"
+    },
+    "NewKeywordObject": {
+      "ShortName": "GeoTIFF - Test1",
+      "LongName": "Georeferenced Tagged Image File Format"
+    }
+  },
+  {
+    "EventType": "UPDATED",
+    "Scheme": "granuledataformat",
+    "UUID": "3139eabd-24d2-4d4a-99aa-8e955938ac38",
+    "OldKeywordObject": {
+      "ShortName": "GeoTIFF",
+      "LongName": "Georeferenced Tagged Image File Format"
+    },
+    "NewKeywordObject": {
+      "ShortName": "GeoTIFF - Test1",
+      "LongName": "Georeferenced Tagged Image File Format"
+    }
+  },
+  {
+    "EventType": "UPDATED",
+    "Scheme": "idnnode",
+    "UUID": "47f0cffe-4e1a-4716-a82c-7f026ef4fb63",
+    "OldKeywordObject": {
+      "ShortName": "IDN_TEST",
+      "LongName": "International Directory Network Test Node"
+    },
+    "NewKeywordObject": {
+      "ShortName": "IDN_TEST - Test1",
+      "LongName": "International Directory Network Test Node"
+    }
+  },
+  {
+    "EventType": "UPDATED",
+    "Scheme": "instruments",
+    "UUID": "3ef0c50f-9935-4480-9ab8-0a9fe5c20211",
+    "OldKeywordObject": {
+      "Category": "Earth Remote Sensing Instruments",
+      "Class": "Active Remote Sensing",
+      "Type": "Altimeters",
+      "Subtype": "",
+      "ShortName": "ALT-TEST",
+      "LongName": "Altitude Test Instrument"
+    },
+    "NewKeywordObject": {
+      "Category": "Earth Remote Sensing Instruments",
+      "Class": "Active Remote Sensing",
+      "Type": "Altimeters",
+      "Subtype": "",
+      "ShortName": "ALT-TEST - Test1",
+      "LongName": "Altitude Test Instrument"
+    }
+  },
+  {
+    "EventType": "UPDATED",
+    "Scheme": "platforms",
+    "UUID": "918b8740-4d85-4b75-90fd-315bea76747a",
+    "OldKeywordObject": {
+      "Basis": "Space-based Platforms",
+      "Category": "Earth Observation Satellites",
+      "SubCategory": "",
+      "ShortName": "GOSAT",
+      "LongName": "Greenhouse Gases Observing Satellite"
+    },
+    "NewKeywordObject": {
+      "Basis": "Space-based Platforms",
+      "Category": "Earth Observation Satellites",
+      "SubCategory": "",
+      "ShortName": "GOSAT - Test1",
+      "LongName": "Greenhouse Gases Observing Satellite"
+    }
+  },
+  {
+    "EventType": "UPDATED",
+    "Scheme": "projects",
+    "UUID": "297f51be-14cb-49e5-9711-5286d9953ade",
+    "OldKeywordObject": {
+      "Bucket": "G - I",
+      "ShortName": "GPM",
+      "LongName": "Global Precipitation Measurement"
+    },
+    "NewKeywordObject": {
+      "Bucket": "G - I",
+      "ShortName": "GPM - Test1",
+      "LongName": "Global Precipitation Measurement"
+    }
+  },
+  {
+    "EventType": "UPDATED",
+    "Scheme": "providers",
+    "UUID": "9d230f00-3b1b-48df-a70c-a46a9bedca7c",
+    "OldKeywordObject": {
+      "BucketLevel0": "ARCHIVER",
+      "BucketLevel1": "",
+      "BucketLevel2": "",
+      "BucketLevel3": "",
+      "ShortName": "TEST_DAAC",
+      "LongName": "Test Distributed Active Archive Center",
+      "DataCenterURL": "https://example.earthdata.nasa.gov"
+    },
+    "NewKeywordObject": {
+      "BucketLevel0": "ARCHIVER",
+      "BucketLevel1": "",
+      "BucketLevel2": "",
+      "BucketLevel3": "",
+      "ShortName": "TEST_DAAC - Test1",
+      "LongName": "Test Distributed Active Archive Center",
+      "DataCenterURL": "https://example.earthdata.nasa.gov"
+    }
+  }
+]

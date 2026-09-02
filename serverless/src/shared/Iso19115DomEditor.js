@@ -1,5 +1,5 @@
 import Iso19115MetadataPathEditor from './Iso19115MetadataPathEditor'
-import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
+import { CSV_FIELDS, ISO19115_FIELDS } from './redis-path-store/helpers/constants'
 
 /**
  * Helper factory function to create a block editor configuration.
@@ -55,25 +55,32 @@ const createKeywordBlock = (type, {
     ]`.replace(/\s+/g, ' '),
 
   find: {
-    fieldPaths: ['gmx:Anchor', 'gco:CharacterString'],
+    fieldPaths: ISO19115_FIELDS.keywordValue,
     valueKeys: fieldKeys,
     matchKeys,
     getNodeValueObject: ({ node, editor }) => {
-      const anchorNode = editor.selectNodes('./gmx:Anchor', node)[0]
-      const charStringNode = editor.selectNodes('./gco:CharacterString', node)[0]
+      const anchorNode = editor.selectNodes(`./${ISO19115_FIELDS.keywordValue[0]}`, node)[0]
+      const charStringNode = editor.selectNodes(`./${ISO19115_FIELDS.keywordValue[1]}`, node)[0]
       const fullString = (anchorNode || charStringNode)?.textContent || ''
       const parts = fullString.split(' > ').map((s) => s.trim())
 
+      // Example: "EARTH SCIENCE > ATMOSPHERE > AEROSOLS" with fieldKeys
+      // ["Category", "Topic", "Term"] becomes
+      // { Category: "EARTH SCIENCE", Topic: "ATMOSPHERE", Term: "AEROSOLS" }.
       return fieldKeys.reduce((acc, key, index) => {
         acc[key] = parts[index] || ''
 
         return acc
-      }, { Value: fullString.trim() })
+      }, {})
     }
   },
   replace: [
     {
-      fieldPath: ({ node, editor }) => (editor.selectNodes('./gmx:Anchor', node).length > 0 ? 'gmx:Anchor' : 'gco:CharacterString'),
+      fieldPath: ({ node, editor }) => (
+        editor.selectNodes(`./${ISO19115_FIELDS.keywordValue[0]}`, node).length > 0
+          ? ISO19115_FIELDS.keywordValue[0]
+          : ISO19115_FIELDS.keywordValue[1]
+      ),
       source: {
         type: 'computed',
         getValue: getValue || (({ correction }) => buildKeywordPath(
@@ -99,23 +106,29 @@ const createKeywordBlock = (type, {
 const createIsoTopicCategoryEditor = () => leafScheme({
   nodeXPath: '//gmd:identificationInfo/gmd:MD_DataIdentification/gmd:topicCategory',
   find: {
-    getNodeValueObject: ({ node }) => ({ Value: node.textContent?.trim() || '' })
+    getNodeValueObject: ({ node }) => ({
+      [CSV_FIELDS.isoTopicCategory]: node.textContent?.trim() || ''
+    })
   },
   replace: [
     {
       // 1. Update the visible text content
-      fieldPath: 'gmd:MD_TopicCategoryCode',
+      fieldPath: ISO19115_FIELDS.isoTopicCategory,
       source: {
         type: 'computed',
-        getValue: ({ correction }) => correction.newKeywordObject.Value
+        getValue: ({ correction }) => (
+          correction.newKeywordObject[CSV_FIELDS.isoTopicCategory]
+        )
       }
     },
     {
       // 2. Update the codeListValue attribute
-      fieldPath: 'gmd:MD_TopicCategoryCode/@codeListValue',
+      fieldPath: ISO19115_FIELDS.isoTopicCategoryCodeListValue,
       source: {
         type: 'computed',
-        getValue: ({ correction }) => correction.newKeywordObject.Value
+        getValue: ({ correction }) => (
+          correction.newKeywordObject[CSV_FIELDS.isoTopicCategory]
+        )
       }
     }
   ]
@@ -128,7 +141,8 @@ const createProductLevelIdEditor = () => leafScheme({
   nodeXPath: '//gmd:processingLevel/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]',
   find: {
     getNodeValueObject: ({ node, editor }) => ({
-      Value: editor.getNestedText(node, 'gmd:code/gco:CharacterString')?.trim() || ''
+      [CSV_FIELDS.productLevelId]: editor
+        .getNestedText(node, ISO19115_FIELDS.productLevelId)?.trim() || ''
     })
   },
   delete: [
@@ -145,10 +159,10 @@ const createProductLevelIdEditor = () => leafScheme({
   ],
   replace: [
     {
-      fieldPath: 'gmd:code/gco:CharacterString',
+      fieldPath: ISO19115_FIELDS.productLevelId,
       source: {
         type: 'computed',
-        getValue: ({ correction }) => correction.newKeywordObject.Value
+        getValue: ({ correction }) => correction.newKeywordObject[CSV_FIELDS.productLevelId]
       }
     },
     {
@@ -156,7 +170,7 @@ const createProductLevelIdEditor = () => leafScheme({
       fieldPath: '//gmd:contentInfo/gmd:MD_ImageDescription/gmd:processingLevelCode/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.processinglevelid"]/gmd:code/gco:CharacterString',
       source: {
         type: 'computed',
-        getValue: ({ correction }) => correction.newKeywordObject.Value
+        getValue: ({ correction }) => correction.newKeywordObject[CSV_FIELDS.productLevelId]
       }
     }
   ]
@@ -171,27 +185,27 @@ export const ISO_19115_SCHEME_EDITORS = {
   sciencekeywords: createKeywordBlock(
     'theme',
     {
-      fieldKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords,
-      matchKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords
+      fieldKeys: CSV_FIELDS.sciencekeywords,
+      matchKeys: CSV_FIELDS.sciencekeywords
     }
   ),
 
   locations: createKeywordBlock(
     'place',
     {
-      fieldKeys: FULL_PATH_VALUE_FIELDS.locations,
-      matchKeys: FULL_PATH_VALUE_FIELDS.locations
+      fieldKeys: CSV_FIELDS.locations,
+      matchKeys: CSV_FIELDS.locations
     }
   ),
 
   platforms: createKeywordBlock('platform', {
-    fieldKeys: ['ShortName', 'LongName'],
-    matchKeys: ['ShortName'],
+    fieldKeys: [CSV_FIELDS.shortName, ISO19115_FIELDS.keywordLongName],
+    matchKeys: [CSV_FIELDS.shortName],
     getValue: ({ correction }) => {
-      const { ShortName } = correction.newKeywordObject
+      const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
       const LongName = correction.newLongName || ''
 
-      return LongName ? `${ShortName} > ${LongName}` : ShortName
+      return LongName ? `${shortName} > ${LongName}` : shortName
     },
     // Sync with acquisition information section
     // Smart detection: if gmd:code contains ' > ', use combined format (CWIC style)
@@ -203,14 +217,14 @@ export const ISO_19115_SCHEME_EDITORS = {
           const existingValue = node?.textContent || ''
           // If existing value contains ' > ', keep combined format
           if (existingValue.includes(' > ')) {
-            const { ShortName } = correction.newKeywordObject
+            const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
             const LongName = correction.newLongName || ''
 
-            return LongName ? `${ShortName} > ${LongName}` : ShortName
+            return LongName ? `${shortName} > ${LongName}` : shortName
           }
 
           // Otherwise use ShortName only (NSIDC/NOAA format)
-          return correction.newKeywordObject.ShortName
+          return correction.newKeywordObject[CSV_FIELDS.shortName]
         }
       },
       {
@@ -218,13 +232,13 @@ export const ISO_19115_SCHEME_EDITORS = {
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
-            const { ShortName } = correction.newKeywordObject
+            const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
             const LongName = correction.newLongName || ''
 
-            return LongName ? `${ShortName} > ${LongName}` : ShortName
+            return LongName ? `${shortName} > ${LongName}` : shortName
           }
 
-          return correction.newKeywordObject.ShortName
+          return correction.newKeywordObject[CSV_FIELDS.shortName]
         }
       },
       {
@@ -257,13 +271,13 @@ export const ISO_19115_SCHEME_EDITORS = {
   }),
 
   instruments: createKeywordBlock('instrument', {
-    fieldKeys: ['ShortName', 'LongName'],
-    matchKeys: ['ShortName'],
+    fieldKeys: [CSV_FIELDS.shortName, ISO19115_FIELDS.keywordLongName],
+    matchKeys: [CSV_FIELDS.shortName],
     getValue: ({ correction }) => {
-      const { ShortName } = correction.newKeywordObject
+      const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
       const LongName = correction.newLongName || ''
 
-      return LongName ? `${ShortName} > ${LongName}` : ShortName
+      return LongName ? `${shortName} > ${LongName}` : shortName
     },
     // Sync with acquisition information section
     // Smart detection: if gmd:code contains ' > ', use combined format (CWIC style)
@@ -274,13 +288,13 @@ export const ISO_19115_SCHEME_EDITORS = {
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
-            const { ShortName } = correction.newKeywordObject
+            const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
             const LongName = correction.newLongName || ''
 
-            return LongName ? `${ShortName} > ${LongName}` : ShortName
+            return LongName ? `${shortName} > ${LongName}` : shortName
           }
 
-          return correction.newKeywordObject.ShortName
+          return correction.newKeywordObject[CSV_FIELDS.shortName]
         }
       },
       {
@@ -288,13 +302,13 @@ export const ISO_19115_SCHEME_EDITORS = {
         getValue: ({ correction, node }) => {
           const existingValue = node?.textContent || ''
           if (existingValue.includes(' > ')) {
-            const { ShortName } = correction.newKeywordObject
+            const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
             const LongName = correction.newLongName || ''
 
-            return LongName ? `${ShortName} > ${LongName}` : ShortName
+            return LongName ? `${shortName} > ${LongName}` : shortName
           }
 
-          return correction.newKeywordObject.ShortName
+          return correction.newKeywordObject[CSV_FIELDS.shortName]
         }
       },
       {
@@ -325,23 +339,23 @@ export const ISO_19115_SCHEME_EDITORS = {
   }),
 
   projects: createKeywordBlock('project', {
-    fieldKeys: ['ShortName', 'LongName'],
-    matchKeys: ['ShortName'],
+    fieldKeys: [CSV_FIELDS.shortName, ISO19115_FIELDS.keywordLongName],
+    matchKeys: [CSV_FIELDS.shortName],
     getValue: ({ correction }) => {
-      const { ShortName } = correction.newKeywordObject
+      const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
       const LongName = correction.newLongName || ''
 
-      return LongName ? `${ShortName} > ${LongName}` : ShortName
+      return LongName ? `${shortName} > ${LongName}` : shortName
     },
     // Sync with acquisition information section (gmi:MI_Operation)
     additionalPaths: [
       {
         path: '//gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:operation/gmi:MI_Operation/gmi:identifier/gmd:MD_Identifier[gmd:codeSpace/gco:CharacterString="gov.nasa.esdis.umm.projectshortname"]/gmd:code/gco:CharacterString',
         getValue: ({ correction }) => {
-          const { ShortName } = correction.newKeywordObject
+          const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
           const LongName = correction.newLongName || ''
 
-          return LongName ? `${ShortName} > ${LongName}` : ShortName
+          return LongName ? `${shortName} > ${LongName}` : shortName
         }
       },
       {
@@ -352,13 +366,13 @@ export const ISO_19115_SCHEME_EDITORS = {
   }),
 
   providers: createKeywordBlock('dataCentre', {
-    fieldKeys: ['ShortName', 'LongName'],
-    matchKeys: ['ShortName'],
+    fieldKeys: [CSV_FIELDS.shortName, ISO19115_FIELDS.keywordLongName],
+    matchKeys: [CSV_FIELDS.shortName],
     getValue: ({ correction }) => {
-      const { ShortName } = correction.newKeywordObject
+      const shortName = correction.newKeywordObject[CSV_FIELDS.shortName]
       const LongName = correction.newLongName || ''
 
-      return LongName ? `${ShortName} > ${LongName}` : ShortName
+      return LongName ? `${shortName} > ${LongName}` : shortName
     }
   }),
 
@@ -369,15 +383,17 @@ export const ISO_19115_SCHEME_EDITORS = {
       getNodeValueObject: ({ node, editor }) => {
         const charStringNode = editor.selectNodes('.//gmd:name/gco:CharacterString', node)[0]
 
-        return { ShortName: charStringNode?.textContent?.trim() || '' }
+        return {
+          [CSV_FIELDS.shortName]: charStringNode?.textContent?.trim() || ''
+        }
       }
     },
     replace: [
       {
-        fieldPath: 'gmd:MD_Format/gmd:name/gco:CharacterString',
+        fieldPath: ISO19115_FIELDS.dataformat,
         source: {
           type: 'computed',
-          getValue: ({ correction }) => correction.newKeywordObject.ShortName
+          getValue: ({ correction }) => correction.newKeywordObject[CSV_FIELDS.shortName]
         }
       }
     ]

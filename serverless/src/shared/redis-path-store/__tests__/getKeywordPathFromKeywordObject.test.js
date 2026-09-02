@@ -1,24 +1,17 @@
 import { getKeywordPathFromKeywordObject } from '../getKeywordPathFromKeywordObject'
 
 describe('getKeywordPathFromKeywordObject', () => {
-  test('returns canonical scalar keyword paths only when the object has a usable value', () => {
+  test('returns undefined for unknown schemes and invalid keyword objects', () => {
     expect(getKeywordPathFromKeywordObject({
       scheme: 'customscalar',
       keywordObject: {
         Value: 'P1D'
       }
-    })).toBe('P1D')
-
-    expect(getKeywordPathFromKeywordObject({
-      scheme: 'customscalar',
-      keywordObject: null
     })).toBeUndefined()
 
     expect(getKeywordPathFromKeywordObject({
       scheme: 'customscalar',
-      keywordObject: {
-        Value: ''
-      }
+      keywordObject: null
     })).toBeUndefined()
   })
 
@@ -26,12 +19,12 @@ describe('getKeywordPathFromKeywordObject', () => {
     expect(getKeywordPathFromKeywordObject({
       scheme: 'platforms',
       keywordObject: {
-        Category: '',
-        Class: 'Space-based Platforms',
-        Type: 'Earth Observation Satellites',
+        Basis: 'Space-based Platforms',
+        Category: 'Earth Observation Satellites',
+        SubCategory: '',
         ShortName: 'Aqua'
       }
-    })).toBe('Space-based Platforms > Earth Observation Satellites > Aqua')
+    })).toBe('Space-based Platforms > Earth Observation Satellites >  > Aqua')
 
     expect(getKeywordPathFromKeywordObject({
       scheme: 'sciencekeywords',
@@ -67,9 +60,9 @@ describe('getKeywordPathFromKeywordObject', () => {
     expect(getKeywordPathFromKeywordObject({
       scheme: 'platforms',
       keywordObject: {
+        Basis: '',
         Category: '',
-        Class: '',
-        Type: '',
+        SubCategory: '',
         ShortName: ''
       }
     })).toBeUndefined()

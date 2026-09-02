@@ -70,12 +70,21 @@ describe('resolveLookupKeywordObject', () => {
     expect(buildShortNameLookupValue(42)).toBe('42')
   })
 
-  test('buildKeywordLookupObject falls back to scalar full-path values for non-slotted full-path schemes', () => {
+  test('buildKeywordLookupObject uses the configured CSV field for scalar full-path schemes', () => {
     expect(buildKeywordLookupObject({
       scheme: 'temporalresolutionrange',
       keywordValue: 'P1D'
     })).toEqual({
-      Value: 'P1D'
+      TemporalResolutionRange: 'P1D'
+    })
+
+    expect(buildKeywordLookupObject({
+      scheme: 'productlevelid',
+      keywordValue: {
+        ProductLevelId: '2'
+      }
+    })).toEqual({
+      ProductLevelId: '2'
     })
   })
 

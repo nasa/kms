@@ -216,8 +216,8 @@ describe('writePublishedConceptCaches', () => {
     const context = createContext({ redisClient })
 
     vi.mocked(downloadConcepts).mockResolvedValue(`"Version"
-"Category","Class","Type","Short_Name","Long_Name","UUID"
-"Platforms","Space-based Platforms","Earth Observation Satellites","AQUA","Aqua satellite","uuid-2"`)
+"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"
+"Space-based Platforms","Earth Observation Satellites","","AQUA","Aqua satellite","uuid-2"`)
 
     vi.mocked(getConceptSchemeDetails).mockResolvedValue(['platforms'])
 

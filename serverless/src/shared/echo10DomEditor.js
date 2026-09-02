@@ -1,3 +1,4 @@
+import { CSV_FIELDS, ECHO10_FIELDS } from './redis-path-store/helpers/constants'
 import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
 
 // Wrap a block-style scheme config in the shared editor contract used by the ECHO10 delegate.
@@ -25,26 +26,8 @@ export const ECHO10_SCHEME_EDITORS = {
     nodeXPath: '//Collection/ScienceKeywords/ScienceKeyword',
     removeEmptyParent: true,
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'CategoryKeyword',
-        'TopicKeyword',
-        'TermKeyword',
-        'VariableLevel1Keyword/Value',
-        'VariableLevel1Keyword/VariableLevel2Keyword/Value',
-        'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword',
-        'DetailedVariableKeyword'
-      ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ]
+      fieldPaths: ECHO10_FIELDS.sciencekeywords,
+      valueKeys: CSV_FIELDS.sciencekeywords
     },
     // Example correction input:
     // {
@@ -68,82 +51,54 @@ export const ECHO10_SCHEME_EDITORS = {
     // - TopicKeyword <- 'OCEANS'
     // - TermKeyword <- 'MARINE SEDIMENTS'
     replace: sequentialValueReplace(
-      [
-        // XML fields to write to
-        'CategoryKeyword',
-        'TopicKeyword',
-        'TermKeyword',
-        'VariableLevel1Keyword/Value',
-        'VariableLevel1Keyword/VariableLevel2Keyword/Value',
-        'VariableLevel1Keyword/VariableLevel2Keyword/VariableLevel3Keyword',
-        'DetailedVariableKeyword'
-      ],
-      [
-        // Keys from newKeywordObject to read from
-        'Category',
-        'Topic',
-        'Term',
-        'VariableLevel1',
-        'VariableLevel2',
-        'VariableLevel3',
-        'DetailedVariable'
-      ]
+      ECHO10_FIELDS.sciencekeywords,
+      CSV_FIELDS.sciencekeywords
     )
   }),
   platforms: blockScheme({
-    // Platform corrections are normalized into an object that can carry:
-    // - Class: the GCMD platform class, for example "Space-based Platforms"
-    // - Type: ECHO10 <Type>
-    // - ShortName: ECHO10 <Short_Name>
-    //
-    // ECHO10 Platform only persists `Type` and `ShortName`, so those are the
-    // only object fields written back into the XML.
+    // The platform CSV Category maps to the native ECHO10 <Type> field.
     nodeXPath: '//Collection/Platforms/Platform',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'ShortName'
-      ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'ShortName'
-      ]
+      fieldPaths: [ECHO10_FIELDS.shortName],
+      valueKeys: [CSV_FIELDS.shortName]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'Type',
+        fieldPath: ECHO10_FIELDS.platformType,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'Type'
+          key: CSV_FIELDS.category
         }
       },
       {
         // XML field to write to
-        fieldPath: 'ShortName',
+        fieldPath: ECHO10_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'LongName',
+        fieldPath: ECHO10_FIELDS.longName,
         source: {
           // Example correction input:
           // {
           //   scheme: 'platforms',
           //   action: 'replace',
           //   oldKeywordObject: {
-          //     Class: 'Space-based Platforms',
-          //     Type: 'Earth Observation Satellites',
+          //     Basis: 'Space-based Platforms',
+          //     Category: 'Earth Observation Satellites',
+          //     SubCategory: '',
           //     ShortName: 'SPOT-4'
           //   },
           //   newKeywordObject: {
-          //     Class: 'Space-based Platforms',
-          //     Type: 'Earth Observation Satellites',
+          //     Basis: 'Space-based Platforms',
+          //     Category: 'Earth Observation Satellites',
+          //     SubCategory: '',
           //     ShortName: 'SPOT-4-UPDATED'
           //   },
           //   newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -161,28 +116,25 @@ export const ECHO10_SCHEME_EDITORS = {
   instruments: blockScheme({
     nodeXPath: '//Collection/Platforms/Platform/Instruments/Instrument',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'ShortName'
-      ],
+      fieldPaths: [ECHO10_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'ShortName',
+        fieldPath: ECHO10_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'LongName',
+        fieldPath: ECHO10_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -194,28 +146,25 @@ export const ECHO10_SCHEME_EDITORS = {
   projects: blockScheme({
     nodeXPath: '//Collection/Campaigns/Campaign',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'ShortName'
-      ],
+      fieldPaths: [ECHO10_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'ShortName',
+        fieldPath: ECHO10_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'LongName',
+        fieldPath: ECHO10_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -228,35 +177,31 @@ export const ECHO10_SCHEME_EDITORS = {
     nodeXPath: '//Collection/Contacts/Contact',
     removeEmptyParent: true,
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Role',
-        'OrganizationName'
-      ],
+      fieldPaths: ECHO10_FIELDS.providers,
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'BucketLevel0',
-        'ShortName'
+        CSV_FIELDS.providerRole,
+        CSV_FIELDS.shortName
       ]
     },
     delete: [
       {
-        fieldPath: '//Collection/ProcessingCenter',
-        matchOldValueKey: 'ShortName',
+        fieldPath: ECHO10_FIELDS.processingCenter,
+        matchOldValueKey: CSV_FIELDS.shortName,
         condition: ({ correction, editor: currentEditor }) => (
-          correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
-          && currentEditor.resolveAbsoluteFieldElement('//Collection/ProcessingCenter', {
-            expectedText: correction.oldKeywordObject?.ShortName
+          correction.oldKeywordObject?.[CSV_FIELDS.providerRole] === 'PROCESSOR'
+          && currentEditor.resolveAbsoluteFieldElement(ECHO10_FIELDS.processingCenter, {
+            expectedText: correction.oldKeywordObject?.[CSV_FIELDS.shortName]
           }) !== null
         )
       },
       {
-        fieldPath: '//Collection/ArchiveCenter',
-        matchOldValueKey: 'ShortName',
+        fieldPath: ECHO10_FIELDS.archiveCenter,
+        matchOldValueKey: CSV_FIELDS.shortName,
         condition: ({ correction, editor: currentEditor }) => (
-          correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
-          && currentEditor.resolveAbsoluteFieldElement('//Collection/ArchiveCenter', {
-            expectedText: correction.oldKeywordObject?.ShortName
+          correction.oldKeywordObject?.[CSV_FIELDS.providerRole] === 'ARCHIVER'
+          && currentEditor.resolveAbsoluteFieldElement(ECHO10_FIELDS.archiveCenter, {
+            expectedText: correction.oldKeywordObject?.[CSV_FIELDS.shortName]
           }) !== null
         )
       }
@@ -264,45 +209,45 @@ export const ECHO10_SCHEME_EDITORS = {
     replace: [
       {
         // XML field to write to
-        fieldPath: 'OrganizationName',
+        fieldPath: ECHO10_FIELDS.providerOrganizationName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: '//Collection/ProcessingCenter',
-        matchOldValueKey: 'ShortName',
+        fieldPath: ECHO10_FIELDS.processingCenter,
+        matchOldValueKey: CSV_FIELDS.shortName,
         // Condition to satisfy before replacement can occur
         condition: ({ correction, editor: currentEditor }) => (
-          correction.oldKeywordObject?.BucketLevel0 === 'PROCESSOR'
-          && currentEditor.resolveAbsoluteFieldElement('//Collection/ProcessingCenter', {
-            expectedText: correction.oldKeywordObject?.ShortName
+          correction.oldKeywordObject?.[CSV_FIELDS.providerRole] === 'PROCESSOR'
+          && currentEditor.resolveAbsoluteFieldElement(ECHO10_FIELDS.processingCenter, {
+            expectedText: correction.oldKeywordObject?.[CSV_FIELDS.shortName]
           }) !== null
         ),
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: '//Collection/ArchiveCenter',
-        matchOldValueKey: 'ShortName',
+        fieldPath: ECHO10_FIELDS.archiveCenter,
+        matchOldValueKey: CSV_FIELDS.shortName,
         // Condition to satisfy before replacement can occur
         condition: ({ correction, editor: currentEditor }) => (
-          correction.oldKeywordObject?.BucketLevel0 === 'ARCHIVER'
-          && currentEditor.resolveAbsoluteFieldElement('//Collection/ArchiveCenter', {
-            expectedText: correction.oldKeywordObject?.ShortName
+          correction.oldKeywordObject?.[CSV_FIELDS.providerRole] === 'ARCHIVER'
+          && currentEditor.resolveAbsoluteFieldElement(ECHO10_FIELDS.archiveCenter, {
+            expectedText: correction.oldKeywordObject?.[CSV_FIELDS.shortName]
           }) !== null
         ),
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       }
     ]
@@ -310,29 +255,26 @@ export const ECHO10_SCHEME_EDITORS = {
   rucontenttype: blockScheme({
     nodeXPath: '//Collection/OnlineResources/OnlineResource',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Type'
-      ],
+      fieldPaths: ECHO10_FIELDS.rucontenttype,
       valueKeys: ['CombinedType'],
       getExpectedValueObject: ({ correction }) => ({
         CombinedType: [
-          correction.oldKeywordObject?.URLContentType,
-          correction.oldKeywordObject?.Type,
-          correction.oldKeywordObject?.Subtype
+          correction.oldKeywordObject?.[CSV_FIELDS.urlContentType],
+          correction.oldKeywordObject?.[CSV_FIELDS.type],
+          correction.oldKeywordObject?.[CSV_FIELDS.subtype]
         ].filter(Boolean).join(' : ')
       })
     },
     replace: [
       {
         // XML fields to write to and keys from newKeywordObject to read from
-        fieldPath: 'Type',
+        fieldPath: ECHO10_FIELDS.relatedUrlType,
         source: {
           type: 'computed',
           getValue: ({ correction }) => [
-            correction.newKeywordObject?.URLContentType,
-            correction.newKeywordObject?.Type,
-            correction.newKeywordObject?.Subtype
+            correction.newKeywordObject?.[CSV_FIELDS.urlContentType],
+            correction.newKeywordObject?.[CSV_FIELDS.type],
+            correction.newKeywordObject?.[CSV_FIELDS.subtype]
           ].filter(Boolean).join(' : ')
         }
       }
@@ -348,10 +290,10 @@ export const ECHO10_SCHEME_EDITORS = {
     //   scheme: 'productlevelid',
     //   action: 'replace',
     //   oldKeywordObject: {
-    //     Value: 'NA'
+    //     ProductLevelId: 'NA'
     //   },
     //   newKeywordObject: {
-    //     Value: '1A'
+    //     ProductLevelId: '1A'
     //   }
     // }
     //

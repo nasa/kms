@@ -9,7 +9,8 @@
       "oldKeywordObject": {
         "Category": "Imaging Spectrometers/Radiometers",
         "Class": "",
-        "Subclass": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "AMSR-E_SHOULD_DELETE"
       }
     },
@@ -17,9 +18,9 @@
       "scheme": "platforms",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "Platforms",
-        "Class": "Space-based Platforms",
-        "Type": "Earth Observation Satellites",
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
         "ShortName": "Terra_SHOULD_DELETE"
       }
     },
@@ -40,7 +41,7 @@
       "scheme": "projects",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "A - C",
+        "Bucket": "A - C",
         "ShortName": "AMSRICE06_SHOULD_DELETE"
       }
     },
@@ -79,14 +80,14 @@
       "scheme": "dataformat",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "netCDF-4_SHOULD_DELETE"
+        "ShortName": "netCDF-4_SHOULD_DELETE"
       }
     },
     {
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "3_SHOULD_DELETE"
+        "ProductLevelId": "3_SHOULD_DELETE"
       }
     }
   ]

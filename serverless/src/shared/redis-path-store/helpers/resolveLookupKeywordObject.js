@@ -1,4 +1,3 @@
-import { buildFullPathLookupValue } from './buildFullPathLookupValue'
 import { buildKeywordPathObjectFromValue } from './buildKeywordPathObjectFromValue'
 import { flattenKeywordPathValue } from './flattenKeywordPathValue'
 import { hasKeywordObjectValue } from './hasKeywordObjectValue'
@@ -60,12 +59,7 @@ export const buildKeywordLookupObject = ({
       return keywordObject
     }
 
-    const fullPathLookupValue = buildFullPathLookupValue({
-      scheme: normalizedScheme,
-      keywordValue
-    })
-
-    return fullPathLookupValue ? { Value: fullPathLookupValue } : {}
+    return {}
   }
 
   if (isLookupShortNameScheme(normalizedScheme)) {

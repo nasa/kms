@@ -1,4 +1,4 @@
-import { FULL_PATH_VALUE_FIELDS } from './redis-path-store/helpers/constants'
+import { CSV_FIELDS, DIF10_FIELDS } from './redis-path-store/helpers/constants'
 import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
 
 // Wrap a block-style scheme config in the shared editor contract used by the DIF10 delegate.
@@ -27,17 +27,8 @@ export const DIF10_SCHEME_EDITORS = {
   sciencekeywords: blockScheme({
     nodeXPath: '//DIF/Science_Keywords',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Category',
-        'Topic',
-        'Term',
-        'Variable_Level_1',
-        'Variable_Level_2',
-        'Variable_Level_3',
-        'Detailed_Variable'
-      ],
-      valueKeys: FULL_PATH_VALUE_FIELDS.sciencekeywords
+      fieldPaths: DIF10_FIELDS.sciencekeywords,
+      valueKeys: CSV_FIELDS.sciencekeywords
     },
     // Example correction input:
     // {
@@ -61,127 +52,76 @@ export const DIF10_SCHEME_EDITORS = {
     // - Topic <- 'OCEANS'
     // - Term <- 'MARINE SEDIMENTS'
     replace: sequentialValueReplace(
-      [
-        // XML fields to write to
-        'Category',
-        'Topic',
-        'Term',
-        'Variable_Level_1',
-        'Variable_Level_2',
-        'Variable_Level_3',
-        'Detailed_Variable'
-      ],
-      FULL_PATH_VALUE_FIELDS.sciencekeywords
+      DIF10_FIELDS.sciencekeywords,
+      CSV_FIELDS.sciencekeywords
     )
   }),
   locations: blockScheme({
     nodeXPath: '//DIF/Location',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Location_Category',
-        'Location_Type',
-        'Location_Subregion1',
-        'Location_Subregion2',
-        'Location_Subregion3',
-        'Detailed_Location'
-      ],
-      valueKeys: FULL_PATH_VALUE_FIELDS.locations
+      fieldPaths: DIF10_FIELDS.locations,
+      valueKeys: CSV_FIELDS.locations
     },
     replace: sequentialValueReplace(
-      [
-        // XML fields to write to
-        'Location_Category',
-        'Location_Type',
-        'Location_Subregion1',
-        'Location_Subregion2',
-        'Location_Subregion3',
-        'Detailed_Location'
-      ],
-      FULL_PATH_VALUE_FIELDS.locations
+      DIF10_FIELDS.locations,
+      CSV_FIELDS.locations
     )
   }),
   chronounits: blockScheme({
     nodeXPath: '//DIF/Temporal_Coverage/Paleo_DateTime/Chronostratigraphic_Unit',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Eon',
-        'Era',
-        'Period',
-        'Epoch',
-        'Stage',
-        'Detailed_Classification'
-      ],
-      valueKeys: FULL_PATH_VALUE_FIELDS.chronounits
+      fieldPaths: DIF10_FIELDS.chronounits,
+      valueKeys: CSV_FIELDS.chronounits
     },
     replace: sequentialValueReplace(
-      [
-        // XML fields to write to
-        'Eon',
-        'Era',
-        'Period',
-        'Epoch',
-        'Stage',
-        'Detailed_Classification'
-      ],
-      FULL_PATH_VALUE_FIELDS.chronounits
+      DIF10_FIELDS.chronounits,
+      CSV_FIELDS.chronounits
     )
   }),
   platforms: blockScheme({
-    // Platform corrections are normalized into an object that can carry:
-    // - Class: the GCMD platform class, for example "Space-based Platforms"
-    // - Type: DIF10 <Type>
-    // - ShortName: DIF10 <Short_Name>
-    //
-    // DIF10 Platform only persists `Type` and `ShortName`, so those are the
-    // only object fields written back into the XML.
+    // The platform CSV Category maps to the native DIF10 <Type> field.
     nodeXPath: '//DIF/Platform',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Short_Name'
-      ],
-      valueKeys: [
-        // Keys from oldKeywordObject to compare against
-        'ShortName'
-      ]
+      fieldPaths: [DIF10_FIELDS.shortName],
+      valueKeys: [CSV_FIELDS.shortName]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'Type',
+        fieldPath: DIF10_FIELDS.platformType,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'Type'
+          key: CSV_FIELDS.category
         }
       },
       {
         // XML field to write to
-        fieldPath: 'Short_Name',
+        fieldPath: DIF10_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'Long_Name',
+        fieldPath: DIF10_FIELDS.longName,
         source: {
           // Example correction input:
           // {
           //   scheme: 'platforms',
           //   action: 'replace',
           //   oldKeywordObject: {
-          //     Class: 'Space-based Platforms',
-          //     Type: 'Earth Observation Satellites',
+          //     Basis: 'Space-based Platforms',
+          //     Category: 'Earth Observation Satellites',
+          //     SubCategory: '',
           //     ShortName: 'SPOT-4'
           //   },
           //   newKeywordObject: {
-          //     Class: 'Space-based Platforms',
-          //     Type: 'Earth Observation Satellites',
+          //     Basis: 'Space-based Platforms',
+          //     Category: 'Earth Observation Satellites',
+          //     SubCategory: '',
           //     ShortName: 'SPOT-4-UPDATED'
           //   },
           //   newLongName: 'Systeme Observation de la Terre-4 Updated'
@@ -199,28 +139,25 @@ export const DIF10_SCHEME_EDITORS = {
   instruments: blockScheme({
     nodeXPath: '//DIF/Platform/Instrument',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Short_Name'
-      ],
+      fieldPaths: [DIF10_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'Short_Name',
+        fieldPath: DIF10_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'Long_Name',
+        fieldPath: DIF10_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -232,28 +169,25 @@ export const DIF10_SCHEME_EDITORS = {
   projects: blockScheme({
     nodeXPath: '//DIF/Project',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Short_Name'
-      ],
+      fieldPaths: [DIF10_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'Short_Name',
+        fieldPath: DIF10_FIELDS.shortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'Long_Name',
+        fieldPath: DIF10_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -265,28 +199,25 @@ export const DIF10_SCHEME_EDITORS = {
   providers: blockScheme({
     nodeXPath: '//DIF/Organization',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Organization_Name/Short_Name'
-      ],
+      fieldPaths: [DIF10_FIELDS.providerShortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'Organization_Name/Short_Name',
+        fieldPath: DIF10_FIELDS.providerShortName,
         source: {
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'Organization_Name/Long_Name',
+        fieldPath: DIF10_FIELDS.providerLongName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -298,40 +229,32 @@ export const DIF10_SCHEME_EDITORS = {
   rucontenttype: blockScheme({
     nodeXPath: '//DIF/Related_URL/URL_Content_Type',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Type',
-        'Subtype'
-      ],
+      fieldPaths: DIF10_FIELDS.rucontenttype,
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'Type',
-        'Subtype'
+        CSV_FIELDS.type,
+        CSV_FIELDS.subtype
       ]
     },
-    replace: sequentialValueReplace([
-      // XML fields to write to and keys from newKeywordObject to read from
-      'Type',
-      'Subtype'
-    ]),
+    replace: sequentialValueReplace(
+      DIF10_FIELDS.rucontenttype,
+      CSV_FIELDS.rucontenttype.slice(1)
+    ),
     removeNodeIfEmptyAfterReplace: true
   }),
   idnnode: blockScheme({
     nodeXPath: '//DIF/IDN_Node',
     find: {
-      fieldPaths: [
-        // XML fields to read from
-        'Short_Name'
-      ],
+      fieldPaths: [DIF10_FIELDS.shortName],
       valueKeys: [
         // Keys from oldKeywordObject to compare against
-        'ShortName'
+        CSV_FIELDS.shortName
       ]
     },
     replace: [
       {
         // XML field to write to
-        fieldPath: 'Short_Name',
+        fieldPath: DIF10_FIELDS.shortName,
         source: {
           // Example correction input:
           // {
@@ -350,12 +273,12 @@ export const DIF10_SCHEME_EDITORS = {
           // correction object carries the replacement in `newKeywordObject.ShortName`.
           // Key from newKeywordObject to read from
           type: 'value',
-          key: 'ShortName'
+          key: CSV_FIELDS.shortName
         }
       },
       {
         // XML field to write to
-        fieldPath: 'Long_Name',
+        fieldPath: DIF10_FIELDS.longName,
         source: {
           // Correction param to read from
           type: 'param',
@@ -381,10 +304,10 @@ export const DIF10_SCHEME_EDITORS = {
     //   scheme: 'productlevelid',
     //   action: 'replace',
     //   oldKeywordObject: {
-    //     Value: 'NA'
+    //     ProductLevelId: 'NA'
     //   },
     //   newKeywordObject: {
-    //     Value: '1A'
+    //     ProductLevelId: '1A'
     //   }
     // }
     //

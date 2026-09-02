@@ -102,7 +102,7 @@ describe('getHistoricalConceptByKeyword', () => {
       statusCode: 200,
       body: JSON.stringify({
         uuid: 'platform-uuid',
-        fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > AQUA',
+        fullPath: 'Space-based Platforms > Earth Observation Satellites >  > AQUA',
         longName: 'Aqua satellite'
       })
     })
@@ -116,12 +116,12 @@ describe('getHistoricalConceptByKeyword', () => {
       cachedJsonResponseReader
     })).resolves.toMatchObject({
       uuid: 'platform-uuid',
-      fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > AQUA',
+      fullPath: 'Space-based Platforms > Earth Observation Satellites >  > AQUA',
       longName: 'Aqua satellite',
       keywordObject: {
-        Category: 'Platforms',
-        Class: 'Space-based Platforms',
-        Type: 'Earth Observation Satellites',
+        Basis: 'Space-based Platforms',
+        Category: 'Earth Observation Satellites',
+        SubCategory: '',
         ShortName: 'AQUA',
         LongName: 'Aqua satellite'
       }

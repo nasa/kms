@@ -1,4 +1,4 @@
-import { FULL_PATH_VALUE_FIELDS } from './constants'
+import { CSV_FIELDS } from './constants'
 import { normalizeKeywordScheme } from './normalizeKeywordScheme'
 import { trimKeywordPathSegment } from './trimKeywordPathSegment'
 
@@ -14,7 +14,7 @@ export const buildKeywordPathObjectFromSegments = ({
   scheme,
   segments = []
 }) => {
-  const slotFields = FULL_PATH_VALUE_FIELDS[normalizeKeywordScheme(scheme)]
+  const slotFields = CSV_FIELDS[normalizeKeywordScheme(scheme)]
 
   if (!Array.isArray(slotFields)) {
     return {}

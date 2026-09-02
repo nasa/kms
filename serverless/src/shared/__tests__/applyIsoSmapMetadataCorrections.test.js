@@ -19,8 +19,8 @@ describe('when applying isotopiccategory ISO-SMAP corrections', () => {
     const correction = {
       scheme: 'isotopiccategory',
       action: 'replace',
-      newKeywordObject: { Value: 'oceans' },
-      oldKeywordObject: { Value: 'climatology' }
+      newKeywordObject: { ISOTopicCategory: 'oceans' },
+      oldKeywordObject: { ISOTopicCategory: 'climatology' }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.isotopiccategory
@@ -38,7 +38,7 @@ describe('when applying isotopiccategory ISO-SMAP corrections', () => {
     const correction = {
       scheme: 'isotopiccategory',
       action: 'delete',
-      oldKeywordObject: { Value: 'water' }
+      oldKeywordObject: { ISOTopicCategory: 'water' }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.isotopiccategory
@@ -58,8 +58,8 @@ describe('when applying productlevelid ISO-SMAP corrections', () => {
     const correction = {
       scheme: 'productlevelid',
       action: 'replace',
-      oldKeywordObject: { Value: '3' },
-      newKeywordObject: { Value: '5' }
+      oldKeywordObject: { ProductLevelId: '3' },
+      newKeywordObject: { ProductLevelId: '5' }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.productlevelid
@@ -81,7 +81,7 @@ describe('when applying productlevelid ISO-SMAP corrections', () => {
     const correction = {
       scheme: 'productlevelid',
       action: 'delete',
-      oldKeywordObject: { Value: '3' }
+      oldKeywordObject: { ProductLevelId: '3' }
     }
 
     const config = ISO_19115_SCHEME_EDITORS.productlevelid
@@ -262,20 +262,20 @@ describe('when applying locations ISO-SMAP corrections', () => {
       scheme: 'locations',
       action: 'replace',
       oldKeywordObject: {
-        Category: 'CONTINENT',
-        Type: 'NORTH AMERICA',
-        Subregion1: 'CANADA',
-        Subregion2: 'ALBERTA',
-        Subregion3: '',
-        DetailedLocation: ''
+        LocationCategory: 'CONTINENT',
+        LocationType: 'NORTH AMERICA',
+        LocationSubregion1: 'CANADA',
+        LocationSubregion2: 'ALBERTA',
+        LocationSubregion3: '',
+        LocationSubregion4: ''
       },
       newKeywordObject: {
-        Category: 'CONTINENT',
-        Type: 'NORTH AMERICA',
-        Subregion1: 'MEXICO',
-        Subregion2: '',
-        Subregion3: '',
-        DetailedLocation: ''
+        LocationCategory: 'CONTINENT',
+        LocationType: 'NORTH AMERICA',
+        LocationSubregion1: 'MEXICO',
+        LocationSubregion2: '',
+        LocationSubregion3: '',
+        LocationSubregion4: ''
       }
     }
 
@@ -296,12 +296,12 @@ describe('when applying locations ISO-SMAP corrections', () => {
       scheme: 'locations',
       action: 'delete',
       oldKeywordObject: {
-        Category: 'Continent',
-        Type: 'North America',
-        Subregion1: 'Greenland',
-        Subregion2: '',
-        Subregion3: '',
-        DetailedLocation: ''
+        LocationCategory: 'Continent',
+        LocationType: 'North America',
+        LocationSubregion1: 'Greenland',
+        LocationSubregion2: '',
+        LocationSubregion3: '',
+        LocationSubregion4: ''
       }
     }
 

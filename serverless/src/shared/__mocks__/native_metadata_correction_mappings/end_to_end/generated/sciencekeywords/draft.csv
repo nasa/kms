@@ -1,0 +1,6 @@
+"Keyword Version: Draft","Revision: 2026-08-20T00:00:00.000Z","Timestamp: 2026-08-20 00:00:00","Terms Of Use: https://cdn.earthdata.nasa.gov/conduit/upload/5182/KeywordsCommunityGuide_Baseline_v1_SIGNED_FINAL.pdf","The most up to date XML representations can be found here: https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords/?format=xml"
+"Category","Topic","Term","Variable_Level_1","Variable_Level_2","Variable_Level_3","Detailed_Variable","UUID"
+"EARTH SCIENCE_CHANGED","TERRESTRIAL HYDROSPHERE_CHANGED","SNOW/ICE_CHANGED","SNOW WATER EQUIVALENT_CHANGED","SNOW ICE TEST_CHANGED","WATER ICE TEST_CHANGED","RAIN_CHANGED","be0d7a14-e1d5-4b44-b5c1-059274fc2dfb"
+"EARTH SCIENCE","ATMOSPHERE","AEROSOLS_CHANGED",,,,,"d568c349-8559-4657-a57f-7c4b014c6acb"
+"EARTH SCIENCE","ATMOSPHERE","ATMOSPHERIC TEMPERATURE","UPPER AIR TEMPERATURE","BOUNDARY LAYER TEMPERATURE","BOUNDARY LAYER TEMPERATURE PROFILES_CHANGED",,"f0af0cc9-2f22-4563-8a91-06b969c61d2c"
+"EARTH SCIENCE","OCEANS","MARINE SEDIMENTS_CHANGED",,,,,"b9bb5978-2e0c-48a4-97d8-b484e3ef9511"

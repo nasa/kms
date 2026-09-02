@@ -21,7 +21,17 @@
  */
 export const isCsvLongNameFlag = (scheme) => {
   // Check if the scheme is in the list of schemes that require long names
-  if (['platforms', 'instruments', 'projects', 'providers', 'idnnode', 'dataformat'].includes(scheme)) {
+  if (
+    [
+      'platforms',
+      'instruments',
+      'projects',
+      'providers',
+      'idnnode',
+      'dataformat',
+      'granuledataformat'
+    ].includes(scheme)
+  ) {
     return true
   }
 

@@ -7,6 +7,10 @@
       "scheme": "instruments",
       "action": "delete",
       "oldKeywordObject": {
+        "Category": "",
+        "Class": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "MODIS_SHOULD_DELETE"
       }
     },
@@ -14,6 +18,10 @@
       "scheme": "instruments",
       "action": "delete",
       "oldKeywordObject": {
+        "Category": "",
+        "Class": "",
+        "Type": "",
+        "Subtype": "",
         "ShortName": "ATLAS_SHOULD_DELETE"
       }
     },
@@ -21,6 +29,9 @@
       "scheme": "platforms",
       "action": "delete",
       "oldKeywordObject": {
+        "Basis": "",
+        "Category": "",
+        "SubCategory": "",
         "ShortName": "AQUA_SHOULD_DELETE"
       }
     },
@@ -28,6 +39,9 @@
       "scheme": "platforms",
       "action": "delete",
       "oldKeywordObject": {
+        "Basis": "",
+        "Category": "",
+        "SubCategory": "",
         "ShortName": "TERRA_SHOULD_DELETE"
       }
     },
@@ -48,19 +62,19 @@
       "scheme": "locations",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "CONTINENT",
-        "Type": "NORTH AMERICA",
-        "Subregion1": "CANADA",
-        "Subregion2": "ALBERTA_SHOULD_DELETE",
-        "Subregion3": "",
-        "DetailedLocation": ""
+        "LocationCategory": "CONTINENT",
+        "LocationType": "NORTH AMERICA",
+        "LocationSubregion1": "CANADA",
+        "LocationSubregion2": "ALBERTA_SHOULD_DELETE",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
       }
     },
     {
       "scheme": "projects",
       "action": "delete",
       "oldKeywordObject": {
-        "Category": "M - N",
+        "Bucket": "M - N",
         "ShortName": "MEASURES_SHOULD_DELETE"
       }
     },
@@ -79,7 +93,7 @@
       "scheme": "isotopiccategory",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "FARMING_SHOULD_DELETE"
+        "ISOTopicCategory": "FARMING_SHOULD_DELETE"
       }
     },
     {
@@ -93,7 +107,7 @@
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {
-        "Value": "3_SHOULD_DELETE"
+        "ProductLevelId": "3_SHOULD_DELETE"
       }
     }
   ]

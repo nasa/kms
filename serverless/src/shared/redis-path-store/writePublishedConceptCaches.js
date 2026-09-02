@@ -21,9 +21,8 @@ import {
 } from './helpers/constants'
 import { createShortNameConceptResponseBody } from './helpers/createShortNameConceptResponseBody'
 import { delay } from './helpers/delay'
+import { parseFullPathCsvRecords, parseShortNameCsvRecords } from './helpers/keywordCsv'
 import { normalizeKeywordScheme } from './helpers/normalizeKeywordScheme'
-import { parseFullPathCsvRecords } from './helpers/parseFullPathCsvRecords'
-import { parseShortNameCsvRecords } from './helpers/parseShortNameCsvRecords'
 import { writeCacheEntries } from './helpers/writeCacheEntries'
 
 const defaultContext = {
@@ -64,7 +63,10 @@ const writePublishedConceptCacheFromCsv = async (
     if (PUBLISHED_CACHE_FULL_PATH_SCHEME_SET.has(normalizedScheme)) {
       return {
         cacheEntries: buildCacheEntries({
-          records: parseFullPathCsvRecords(publishedCsvContent),
+          records: parseFullPathCsvRecords({
+            csvContent: publishedCsvContent,
+            scheme: normalizedScheme
+          }),
           createCacheKey: (fullPath) => createPublishedConceptResponseCacheKeyByFullPath({
             fullPath: fullPath.toLowerCase(),
             scheme: normalizedScheme

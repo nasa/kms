@@ -119,6 +119,10 @@
       ]
     },
     {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "Amazonia-1"
+    },
+    {
       "Type": "Rotorcraft/Helicopter",
       "ShortName": "AS350-B3_SHOULD_DELETE",
       "LongName": "Helicopter AS350-B3_SHOULD_DELETE",
