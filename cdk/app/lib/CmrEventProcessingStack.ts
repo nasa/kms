@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 
@@ -20,12 +21,12 @@ export interface CmrEventProcessingStackProps extends cdk.StackProps {
   cmrWritebackProviders?: string
   cmrWritebackValidateKeywords?: string
   cmrWritebackValidateUmmC?: string
+  metadataCorrectionAuditClientSecurityGroup?: ec2.ISecurityGroup
+  metadataCorrectionAuditEnvironment: Record<string, string>
+  metadataCorrectionAuditSecret?: secretsmanager.ISecret
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
-  rdf4jPassword: string
-  rdf4jServiceUrl: string
-  rdf4jUserName: string
   prefix: string
   stage: string
   topicArn: string
@@ -73,13 +74,14 @@ export class CmrEventProcessingStack extends cdk.Stack {
       cmrWritebackProviders: props.cmrWritebackProviders,
       cmrWritebackValidateKeywords: props.cmrWritebackValidateKeywords,
       cmrWritebackValidateUmmC: props.cmrWritebackValidateUmmC,
+      metadataCorrectionAuditClientSecurityGroup:
+        props.metadataCorrectionAuditClientSecurityGroup,
+      metadataCorrectionAuditEnvironment: props.metadataCorrectionAuditEnvironment,
+      metadataCorrectionAuditSecret: props.metadataCorrectionAuditSecret,
       prefix: props.prefix,
       redisEnabled: props.redisEnabled,
       redisHost: props.redisHost,
       redisPort: props.redisPort,
-      rdf4jPassword: props.rdf4jPassword,
-      rdf4jServiceUrl: props.rdf4jServiceUrl,
-      rdf4jUserName: props.rdf4jUserName,
       stage: props.stage,
       securityGroup: this.securityGroup,
       useLocalstack,

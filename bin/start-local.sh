@@ -25,7 +25,7 @@ clearStaleSAMContainers() {
     echo "Clearing stale SAM containers..."
 
     docker ps --format '{{.ID}} {{.Image}}' \
-      | awk '$2 ~ /public\.ecr\.aws\/lambda\/nodejs:22-rapid-/ { print $1 }' \
+      | awk '$2 ~ /public\.ecr\.aws\/lambda\/nodejs:[0-9]+-rapid-/ { print $1 }' \
       | xargs -r docker rm -f >/dev/null 2>&1 || true
 }
 

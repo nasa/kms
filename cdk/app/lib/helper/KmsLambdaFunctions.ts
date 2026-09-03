@@ -11,6 +11,10 @@ import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-node
 import { Construct } from 'constructs'
 
 import { ApiResources } from './ApiResources'
+import {
+  getDocumentDbCertificateBundling,
+  getDocumentDbLambdaSecurityGroups
+} from './DocumentDbLambdaConfig'
 import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 
 /**
@@ -20,12 +24,21 @@ interface LambdaFunctionsProps {
   api: apigateway.IRestApi;
   apiResources: ApiResources;
   lambdaRole: iam.Role;
+  metadataCorrectionAuditClientSecurityGroup?: ec2.ISecurityGroup;
   metadataCorrectionEnvironment?: {
     CMR_SYSTEM_TOKEN_PARAMETER_NAME?: string;
     CMR_WRITER_TOKEN: string;
     CMR_WRITEBACK_PROVIDERS: string;
     CMR_WRITEBACK_VALIDATE_KEYWORDS: string;
     CMR_WRITEBACK_VALIDATE_UMM_C: string;
+    DOCUMENTDB_AUDIT_COLLECTION_NAME?: string;
+    DOCUMENTDB_DATABASE_NAME?: string;
+    DOCUMENTDB_HOST?: string;
+    DOCUMENTDB_MAX_POOL_SIZE?: string;
+    DOCUMENTDB_PORT?: string;
+    DOCUMENTDB_SECRET_ARN?: string;
+    DOCUMENTDB_TLS_CA_FILE?: string;
+    DOCUMENTDB_URI?: string;
     METADATA_CORRECTION_REQUESTS_TOPIC_ARN?: string;
   };
   prefix: string;
@@ -327,12 +340,16 @@ export class LambdaFunctions {
     )
 
     this.createApiLambda(
-      scope,
-      'getMetadataCorrectionAudit/handler.js',
-      'get-metadata-correction-audit',
-      'getMetadataCorrectionAudit',
-      '/metadata_correction_audit',
-      'GET'
+      scope, // CDK construct scope
+      'getMetadataCorrectionAudit/handler.js', // Lambda handler path
+      'get-metadata-correction-audit', // Lambda function name
+      'getMetadataCorrectionAudit', // Exported handler name
+      '/metadata_correction_audit', // API resource path
+      'GET', // HTTP method
+      false, // Do not use the EDL authorizer
+      Duration.seconds(30), // Lambda timeout
+      1024, // Lambda memory in MB
+      this.props.metadataCorrectionEnvironment || {} // Additional Lambda environment variables
     )
 
     this.createApiLambda(
@@ -784,13 +801,18 @@ export class LambdaFunctions {
           ...this.props.environment,
           ...additionalEnvironment
         },
+        ...getDocumentDbCertificateBundling(additionalEnvironment),
         // Conditionally add VPC configuration
         ...(this.useLocalstack ? {} : {
           vpc: this.props.vpc,
           vpcSubnets: {
             subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
           },
-          securityGroups: [this.props.securityGroup]
+          securityGroups: getDocumentDbLambdaSecurityGroups({
+            clientSecurityGroup: this.props.metadataCorrectionAuditClientSecurityGroup,
+            environment: additionalEnvironment,
+            securityGroup: this.props.securityGroup
+          })
         })
       }
 

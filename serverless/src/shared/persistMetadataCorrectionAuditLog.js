@@ -1,43 +1,78 @@
 import { v4 as uuidv4 } from 'uuid'
 
-import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import {
-  createMetadataCorrectionAuditRecordUri,
-  escapeSparqlLiteral,
-  METADATA_CORRECTION_AUDIT_GRAPH
-} from '@/shared/metadataCorrectionAudit'
+import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 import {
   getKeywordPathFromKeywordObject
 } from '@/shared/redis-path-store/getKeywordPathFromKeywordObject'
-import { sparqlRequest } from '@/shared/sparqlRequest'
+
+export const METADATA_CORRECTION_AUDIT_STATUSES = Object.freeze([
+  'checked',
+  'pending',
+  'applied',
+  'failed'
+])
+
+const TERMINAL_STATUS = 'applied'
+const STATUS_ORDER = Object.freeze({
+  checked: 0,
+  pending: 1,
+  failed: 2,
+  applied: 3
+})
 
 /**
- * RDF4J audit-log writer for metadata-correction activity.
+ * Removes only undefined values so meaningful `null`, false, and empty-string values are retained.
  *
- * This module is the write-side counterpart to `getMetadataCorrectionAuditLog`. It takes the
- * resolved corrections produced by the metadata-correction service and appends one RDF audit
- * record per correction into the dedicated metadata-correction audit graph.
+ * @example
+ * compactObject({ status: 'checked', error: undefined, outcome: null })
+ * // { status: 'checked', outcome: null }
  *
- * The audit records are intentionally append-only and correction-centric. That means one keyword
- * event affecting one collection can produce multiple audit rows when several resolved corrections
- * are applied during the same run.
- *
- * The delegate correction contract can now carry optional long-name metadata for some short-name
- * schemes. The audit log does not persist those keyword objects directly. Instead, it derives and
- * stores only the human-readable keyword paths needed for audit inspection.
+ * @param {Object} value Source object.
+ * @returns {Object} Object without undefined entries.
  */
+const compactObject = (value) => Object.fromEntries(
+  Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
+)
 
-// Emits a triple only when the optional value is present so audit rows stay compact.
-const optionalLiteralTriple = (subject, predicate, value) => {
-  if (value === undefined || value === null || value === '') {
-    return ''
-  }
+/**
+ * Builds a link to the latest CMR record for an audited collection.
+ *
+ * @example
+ * // With CMR_BASE_URL=https://cmr.earthdata.nasa.gov/
+ * buildCmrCollectionUri('C123-PROV')
+ * // 'https://cmr.earthdata.nasa.gov/search/concepts/C123-PROV'
+ *
+ * @param {string} collectionConceptId CMR collection concept id.
+ * @returns {string|undefined} CMR concept URI, or undefined when CMR is not configured.
+ */
+const buildCmrCollectionUri = (collectionConceptId) => {
+  const cmrBaseUrl = String(process.env.CMR_BASE_URL || '').trim().replace(/\/+$/, '')
 
-  return `      <${subject}> ${predicate} "${escapeSparqlLiteral(value)}" .\n`
+  if (!cmrBaseUrl) return undefined
+
+  return `${cmrBaseUrl}/search/concepts/${encodeURIComponent(collectionConceptId)}`
 }
 
-// Reconstructs a human-readable keyword path from the normalized keyword object when the object
-// contains enough non-blank values to form a meaningful path.
+/**
+ * Builds the readable CSV-shaped keyword path stored alongside a correction.
+ *
+ * @example
+ * buildAuditKeywordPath({
+ *   scheme: 'platforms',
+ *   keywordObject: {
+ *     Basis: 'Platforms',
+ *     Category: 'Space-based Platforms',
+ *     SubCategory: 'Earth Observation Satellites',
+ *     ShortName: 'GOSAT'
+ *   }
+ * })
+ * // 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT'
+ *
+ * @param {Object} params Path inputs.
+ * @param {string} params.scheme Keyword scheme.
+ * @param {Object} params.keywordObject CSV-shaped keyword object.
+ * @returns {string} Human-readable keyword path, or an empty string when unavailable.
+ */
 const buildAuditKeywordPath = ({
   scheme,
   keywordObject
@@ -47,117 +82,218 @@ const buildAuditKeywordPath = ({
 }) || ''
 
 /**
- * Persists append-only metadata-correction audit rows to a dedicated RDF4J graph.
+ * Preserves each correction and adds readable old/new paths for filtering and display.
  *
- * Current behavior defaults each resolved correction to `pending`, but callers can persist
- * `applied` immediately once metadata write-back succeeds.
+ * @example
+ * normalizeCorrections([{
+ *   scheme: 'dataformat',
+ *   oldKeywordObject: { ShortName: 'NetCDF' },
+ *   newKeywordObject: { ShortName: 'NetCDF-4' }
+ * }])
+ * // [{ ..., oldKeywordPath: 'NetCDF', newKeywordPath: 'NetCDF-4' }]
  *
- * @param {object} params - Audit persistence parameters.
- * @param {string} params.collectionConceptId - CMR collection concept id.
- * @param {{ eventType?: string, scheme?: string, uuid?: string }} [params.keywordEvent={}] - Triggering keyword event.
- * @param {string} params.nativeFormat - Normalized native format used for delegate selection.
- * @param {string} params.delegateName - Delegate name returned by the correction delegate.
- * @param {Array<{
- *   scheme: string,
- *   keywordConceptUuid: string,
- *   oldKeywordObject: Record<string, string>,
- *   newKeywordObject?: Record<string, string>
- * }>} params.corrections - Fully resolved corrections to persist. Audit rows store only the
- * derived keyword paths, not the original keyword objects.
- * @param {string} [params.status='pending'] - Audit lifecycle status.
- * @param {string} [params.writebackErrorMessage] - Optional CMR ingest/writeback error message for
- * failed writeback attempts.
- * @param {string} [params.timestamp] - ISO timestamp override for tests.
- * @returns {Promise<{ insertedCount: number, publishedVersionName: string, status: string }>}
- * Insert summary for logging/verification.
+ * @param {Array<Object>} corrections Resolved correction objects.
+ * @returns {Array<Object>} Corrections enriched with audit paths.
  */
-export const persistMetadataCorrectionAuditLog = async ({
+const normalizeCorrections = (corrections) => corrections.map((correction) => compactObject({
+  ...correction,
+  oldKeywordPath: buildAuditKeywordPath({
+    scheme: correction.scheme,
+    keywordObject: correction.oldKeywordObject
+  }),
+  newKeywordPath: buildAuditKeywordPath({
+    scheme: correction.scheme,
+    keywordObject: correction.newKeywordObject
+  })
+}))
+
+/**
+ * Maps a lifecycle status to its timestamp field in the audit document.
+ *
+ * @example
+ * buildStatusTimestampField('pending') // 'timestamps.pendingAt'
+ *
+ * @param {string} status Audit lifecycle status.
+ * @returns {string} Dot-notation MongoDB field name.
+ */
+const buildStatusTimestampField = (status) => `timestamps.${status}At`
+
+/**
+ * Converts correction-run inputs into the stable fields stored on one audit document.
+ *
+ * Error instances are reduced to serializable diagnostic fields, and keyword events are reduced
+ * to the trigger fields needed for filtering and traceability.
+ *
+ * @example
+ * buildAuditPatch({
+ *   collectionConceptId: 'C123-PROV',
+ *   keywordEvent: { eventType: 'UPDATED', scheme: 'platforms', uuid: 'platform-uuid' }
+ * })
+ * // {
+ * //   collectionConceptId: 'C123-PROV',
+ * //   trigger: { eventType: 'UPDATED', scheme: 'platforms', keywordConceptUuid: 'platform-uuid' }
+ * // }
+ *
+ * @param {Object} auditFields Correction-run audit values.
+ * @returns {Object} Serializable partial audit document for `$set`.
+ */
+const buildAuditPatch = ({
   collectionConceptId,
-  keywordEvent = {},
+  corrections,
+  delegateName,
+  error,
+  keywordEvent,
+  keywordValidationFailures,
+  messageId,
+  nativeFormat,
+  outcome,
+  priorRevisionId,
+  providerId,
+  publishedVersionName,
+  resultingRevisionId,
+  source
+}) => compactObject({
+  collectionConceptId,
+  collectionUri: buildCmrCollectionUri(collectionConceptId),
+  providerId,
+  publishedVersionName: publishedVersionName || null,
   nativeFormat,
   delegateName,
-  corrections = [],
-  status = 'pending',
-  writebackErrorMessage,
-  timestamp
+  source,
+  messageId,
+  trigger: keywordEvent && Object.keys(keywordEvent).length > 0
+    ? compactObject({
+      eventType: keywordEvent.eventType,
+      scheme: keywordEvent.scheme,
+      keywordConceptUuid: keywordEvent.uuid,
+      timestamp: keywordEvent.timestamp
+    })
+    : undefined,
+  corrections: Array.isArray(corrections)
+    ? normalizeCorrections(corrections)
+    : undefined,
+  keywordValidationFailures: Array.isArray(keywordValidationFailures)
+    ? keywordValidationFailures
+    : undefined,
+  keywordValidationFailureCount: Array.isArray(keywordValidationFailures)
+    ? keywordValidationFailures.length
+    : undefined,
+  outcome,
+  error: error ? compactObject({
+    message: error.message || String(error),
+    status: error.status,
+    statusText: error.statusText,
+    url: error.url,
+    cmrRequest: error.cmrRequest,
+    cmrResponseBody: error.cmrResponseBody
+  }) : undefined,
+  priorRevisionId,
+  resultingRevisionId
+})
+
+/**
+ * Creates or updates the single DocumentDB audit document for a correction run.
+ *
+ * Repeated lifecycle calls use the same `runId`, update the current status, and append a status
+ * history entry only when the status changes. An applied run cannot be regressed by an SQS retry.
+ *
+ * @param {Object} params Audit run fields.
+ * @param {string} [params.runId] Stable run identifier. Generated when omitted.
+ * @param {'checked'|'pending'|'applied'|'failed'} [params.status='checked'] Lifecycle status.
+ * @param {string} params.collectionConceptId CMR collection concept id.
+ * @param {string} [params.timestamp] ISO timestamp override for tests.
+ * @returns {Promise<{runId: string, status: string, created: boolean}>} Persistence summary.
+ *
+ * @example
+ * await persistMetadataCorrectionAuditLog({
+ *   runId: 'run-1',
+ *   collectionConceptId: 'C123-PROV',
+ *   priorRevisionId: 7,
+ *   status: 'pending'
+ * })
+ * // { runId: 'run-1', status: 'pending', created: true }
+ */
+export const persistMetadataCorrectionAuditLog = async ({
+  runId = uuidv4(),
+  status = 'checked',
+  timestamp,
+  ...auditFields
 }) => {
-  if (!collectionConceptId) {
+  if (!auditFields.collectionConceptId) {
     throw new Error('Missing collectionConceptId for metadata correction audit persistence')
   }
 
-  if (!nativeFormat) {
-    throw new Error('Missing nativeFormat for metadata correction audit persistence')
+  if (!METADATA_CORRECTION_AUDIT_STATUSES.includes(status)) {
+    throw new Error(`Invalid metadata correction audit status: ${status}`)
   }
 
-  if (!delegateName) {
-    throw new Error('Missing delegateName for metadata correction audit persistence')
-  }
+  const collection = await getMetadataCorrectionAuditCollection()
+  const auditTimestamp = new Date(timestamp || Date.now())
+  const existingDocument = await collection.findOne(
+    { _id: runId },
+    { projection: { status: 1 } }
+  )
 
-  if (!Array.isArray(corrections) || corrections.length === 0) {
+  if (existingDocument?.status === TERMINAL_STATUS && status !== TERMINAL_STATUS) {
     return {
-      insertedCount: 0,
-      publishedVersionName: 'published',
-      status
+      runId,
+      status: existingDocument.status,
+      created: false
     }
   }
 
-  const publishedVersionMetadata = await getVersionMetadata('published')
-  const publishedVersionName = publishedVersionMetadata?.versionName || 'published'
-  const auditTimestamp = timestamp || new Date().toISOString()
+  const effectiveStatus = existingDocument?.status !== 'failed'
+    && STATUS_ORDER[existingDocument?.status] > STATUS_ORDER[status]
+    ? existingDocument.status
+    : status
+  const auditPatch = buildAuditPatch(auditFields)
+  const statusChanged = existingDocument?.status !== effectiveStatus
+  const setFields = {
+    ...auditPatch,
+    status: effectiveStatus,
+    updatedAt: auditTimestamp
+  }
 
-  const triples = corrections.map((correction) => {
-    const recordUri = createMetadataCorrectionAuditRecordUri(uuidv4())
-    const oldKeywordPath = buildAuditKeywordPath({
-      scheme: correction.scheme,
-      keywordObject: correction.oldKeywordObject
-    })
-    const newKeywordPath = buildAuditKeywordPath({
-      scheme: correction.scheme,
-      keywordObject: correction.newKeywordObject
-    })
+  if (statusChanged) {
+    setFields[buildStatusTimestampField(effectiveStatus)] = auditTimestamp
+  }
 
-    return [
-      `      <${recordUri}> a gcmd:MetadataCorrectionAuditRecord .`,
-      `      <${recordUri}> dcterms:created "${escapeSparqlLiteral(auditTimestamp)}"^^xsd:dateTime .`,
-      `      <${recordUri}> gcmd:publishedVersionName "${escapeSparqlLiteral(publishedVersionName)}" .`,
-      `      <${recordUri}> gcmd:collectionConceptId "${escapeSparqlLiteral(collectionConceptId)}" .`,
-      `      <${recordUri}> gcmd:keywordConceptUuid "${escapeSparqlLiteral(correction.keywordConceptUuid)}" .`,
-      `      <${recordUri}> gcmd:scheme "${escapeSparqlLiteral(correction.scheme)}" .`,
-      `      <${recordUri}> gcmd:action "${escapeSparqlLiteral(keywordEvent.eventType || 'UNKNOWN')}" .`,
-      optionalLiteralTriple(recordUri, 'gcmd:oldKeywordPath', oldKeywordPath),
-      optionalLiteralTriple(recordUri, 'gcmd:newKeywordPath', newKeywordPath),
-      `      <${recordUri}> gcmd:nativeFormat "${escapeSparqlLiteral(nativeFormat)}" .`,
-      `      <${recordUri}> gcmd:delegateName "${escapeSparqlLiteral(delegateName)}" .`,
-      `      <${recordUri}> gcmd:status "${escapeSparqlLiteral(status)}" .`,
-      optionalLiteralTriple(recordUri, 'gcmd:writebackErrorMessage', writebackErrorMessage),
-      optionalLiteralTriple(recordUri, 'gcmd:triggerScheme', keywordEvent.scheme),
-      optionalLiteralTriple(recordUri, 'gcmd:triggerKeywordUuid', keywordEvent.uuid)
-    ].join('\n')
-  }).join('\n')
+  const update = {
+    $set: setFields,
+    $setOnInsert: {
+      _id: runId,
+      runId,
+      createdAt: auditTimestamp
+    }
+  }
 
-  const query = `
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-    PREFIX dcterms: <http://purl.org/dc/terms/>
-    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-
-    INSERT DATA {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-${triples}
+  if (statusChanged) {
+    update.$push = {
+      statusHistory: {
+        status: effectiveStatus,
+        timestamp: auditTimestamp,
+        ...(auditFields.outcome ? { outcome: auditFields.outcome } : {}),
+        ...(auditFields.error
+          ? { error: auditFields.error.message || String(auditFields.error) }
+          : {})
       }
     }
-  `
+  }
 
-  await sparqlRequest({
-    method: 'POST',
-    contentType: 'application/sparql-update',
-    accept: 'application/json',
-    body: query
-  })
+  if (effectiveStatus !== 'failed' && !auditFields.error) {
+    update.$unset = { error: '' }
+  }
+
+  await collection.updateOne(
+    { _id: runId },
+    update,
+    { upsert: true }
+  )
 
   return {
-    insertedCount: corrections.length,
-    publishedVersionName,
-    status
+    runId,
+    status: effectiveStatus,
+    created: !existingDocument
   }
 }
 

@@ -140,6 +140,7 @@ export const metadataCorrectionService = async (event) => {
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
         keywordEvent: metadataCorrectionRequest.keywordEvent,
         messageId: record.messageId,
+        publishedVersionName: metadataCorrectionRequest.publishedVersionName,
         source: metadataCorrectionRequest.source
       })
     } catch (error) {

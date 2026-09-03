@@ -49,10 +49,10 @@ const normalizeKeywordEvent = (keywordEvent) => (
 )
 
 /**
- * Normalizes the audit trigger metadata used when persisting correction audit rows.
+ * Normalizes the trigger metadata stored on a correction-run audit document.
  *
  * The synchronous concept-id endpoint does not originate from a keyword event, so we stamp those
- * audit rows with a synthetic `MANUAL` action to distinguish them from event-driven runs.
+ * the audit document with a synthetic `MANUAL` action to distinguish it from event-driven runs.
  *
  * @param {Object} params Normalization inputs.
  * @param {Object} params.keywordEvent Optional triggering keyword event context.
@@ -266,6 +266,7 @@ const getWritebackErrorMessage = (error) => {
  * @param {string} params.collectionConceptId Collection concept id to correct.
  * @param {Object} [params.keywordEvent] Optional triggering keyword event context.
  * @param {string} [params.messageId] Optional request/message identifier for logging.
+ * @param {string} [params.publishedVersionName] Published KMS version associated with the run.
  * @param {string} [params.source='metadataCorrectionService'] Source label for audit/writeback telemetry.
  * @returns {Promise<Object>} Rich per-collection correction result.
  */
@@ -273,6 +274,7 @@ export const runCollectionMetadataCorrection = async ({
   collectionConceptId,
   keywordEvent: rawKeywordEvent,
   messageId,
+  publishedVersionName,
   source = 'metadataCorrectionService'
 } = {}) => {
   validateMetadataCorrectionRequest({
@@ -302,6 +304,54 @@ export const runCollectionMetadataCorrection = async ({
     collectionDetails,
     keywordEvent
   })
+  const checkedOutcome = resolvedCorrections.length === 0
+    ? determineNoOpOutcome(keywordValidationFailures)
+    : 'corrections-resolved'
+  const checkedAuditResult = await persistMetadataCorrectionAuditLog({
+    runId: messageId,
+    collectionConceptId: collectionDetails.collectionConceptId,
+    providerId: collectionDetails.providerId,
+    publishedVersionName,
+    keywordEvent: auditKeywordEvent,
+    nativeFormat,
+    corrections: resolvedCorrections,
+    keywordValidationFailures,
+    priorRevisionId: collectionDetails.revisionId,
+    outcome: checkedOutcome,
+    source,
+    messageId,
+    status: 'checked'
+  })
+  const auditRunId = checkedAuditResult.runId
+
+  if (checkedAuditResult.status === 'applied') {
+    logger.info('[metadata-correction] Skipping an already-applied correction run', {
+      collectionConceptId: collectionDetails.collectionConceptId,
+      messageId,
+      runId: auditRunId
+    })
+
+    return {
+      outcome: 'already-applied',
+      collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      nativeId: collectionDetails.nativeId,
+      revisionId: collectionDetails.revisionId,
+      nativeFormat,
+      keywordValidationFailureCount: keywordValidationFailures.length,
+      keywordValidationFailures,
+      resolvedCorrectionCount: resolvedCorrections.length,
+      resolvedCorrections,
+      correctionResult: null,
+      auditResults: {
+        checked: checkedAuditResult,
+        pending: null,
+        applied: checkedAuditResult
+      },
+      writeResult: null,
+      source
+    }
+  }
 
   logger.info('[metadata-correction] Resolved metadata corrections from collection UMM', {
     collectionConceptId: collectionDetails.collectionConceptId,
@@ -349,6 +399,7 @@ export const runCollectionMetadataCorrection = async ({
       resolvedCorrections: [],
       correctionResult: null,
       auditResults: {
+        checked: checkedAuditResult,
         pending: null,
         applied: null
       },
@@ -364,26 +415,52 @@ export const runCollectionMetadataCorrection = async ({
     resolvedCorrections
   })
 
-  const nativeMetadataResponse = await getCmrCollectionNativeMetadata({
-    collectionConceptId: collectionDetails.collectionConceptId,
-    revisionId: collectionDetails.revisionId,
-    includeResponseMetadata: nativeFormat === 'UMM'
-  })
-  const metadataPayload = nativeFormat === 'UMM'
-    ? nativeMetadataResponse.metadataPayload
-    : nativeMetadataResponse
+  let nativeMetadataResponse
+  let rawCorrectionResult
+
+  try {
+    nativeMetadataResponse = await getCmrCollectionNativeMetadata({
+      collectionConceptId: collectionDetails.collectionConceptId,
+      revisionId: collectionDetails.revisionId,
+      includeResponseMetadata: nativeFormat === 'UMM'
+    })
+
+    const metadataPayload = nativeFormat === 'UMM'
+      ? nativeMetadataResponse.metadataPayload
+      : nativeMetadataResponse
+
+    rawCorrectionResult = await invokeMetadataCorrectionDelegate({
+      collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      nativeId: collectionDetails.nativeId,
+      nativeFormat,
+      metadataPayload,
+      corrections: resolvedCorrections
+    })
+  } catch (error) {
+    await persistMetadataCorrectionAuditLog({
+      runId: auditRunId,
+      collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      publishedVersionName,
+      keywordEvent: auditKeywordEvent,
+      nativeFormat,
+      corrections: resolvedCorrections,
+      keywordValidationFailures,
+      priorRevisionId: collectionDetails.revisionId,
+      outcome: 'correction-failed',
+      error,
+      source,
+      messageId,
+      status: 'failed'
+    })
+
+    throw error
+  }
+
   const nativeMetadataContentType = nativeFormat === 'UMM'
     ? nativeMetadataResponse.contentType
     : String(collectionDetails.format || '')
-
-  const rawCorrectionResult = await invokeMetadataCorrectionDelegate({
-    collectionConceptId: collectionDetails.collectionConceptId,
-    providerId: collectionDetails.providerId,
-    nativeId: collectionDetails.nativeId,
-    nativeFormat,
-    metadataPayload,
-    corrections: resolvedCorrections
-  })
   const delegateName = rawCorrectionResult.delegateName || nativeFormat.toLowerCase()
   const correctionsApplied = Array.isArray(rawCorrectionResult.correctionsApplied)
     ? rawCorrectionResult.correctionsApplied
@@ -395,11 +472,19 @@ export const runCollectionMetadataCorrection = async ({
 
   if (correctionsApplied.length > 0) {
     pendingAuditResult = await persistMetadataCorrectionAuditLog({
+      runId: auditRunId,
       collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      publishedVersionName,
       keywordEvent: auditKeywordEvent,
       nativeFormat,
       delegateName,
       corrections: correctionsApplied,
+      keywordValidationFailures,
+      priorRevisionId: collectionDetails.revisionId,
+      outcome: 'writeback-pending',
+      source,
+      messageId,
       status: 'pending'
     })
 
@@ -438,13 +523,21 @@ export const runCollectionMetadataCorrection = async ({
     if (correctionsApplied.length > 0) {
       try {
         await persistMetadataCorrectionAuditLog({
+          runId: auditRunId,
           collectionConceptId: collectionDetails.collectionConceptId,
+          providerId: collectionDetails.providerId,
+          publishedVersionName,
           keywordEvent: auditKeywordEvent,
           nativeFormat,
           delegateName,
           corrections: correctionsApplied,
-          status: 'failed',
-          writebackErrorMessage: getWritebackErrorMessage(error)
+          keywordValidationFailures,
+          priorRevisionId: collectionDetails.revisionId,
+          outcome: 'writeback-failed',
+          error,
+          source,
+          messageId,
+          status: 'failed'
         })
 
         logger.debug('[metadata-correction] Persisted failed metadata correction audit log', {
@@ -469,11 +562,20 @@ export const runCollectionMetadataCorrection = async ({
 
   if (correctionsApplied.length > 0 && writeResult?.ingestResult?.updated === true) {
     appliedAuditResult = await persistMetadataCorrectionAuditLog({
+      runId: auditRunId,
       collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      publishedVersionName,
       keywordEvent: auditKeywordEvent,
       nativeFormat,
       delegateName,
       corrections: correctionsApplied,
+      keywordValidationFailures,
+      priorRevisionId: collectionDetails.revisionId,
+      resultingRevisionId: writeResult.ingestResult.revisionId,
+      outcome: 'writeback-applied',
+      source,
+      messageId,
       status: 'applied'
     })
 
@@ -531,6 +633,7 @@ export const runCollectionMetadataCorrection = async ({
         && rawCorrectionResult.correctedMetadata !== null
     },
     auditResults: {
+      checked: checkedAuditResult,
       pending: pendingAuditResult,
       applied: appliedAuditResult
     },

@@ -5,11 +5,16 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 
+import {
+  getDocumentDbCertificateBundling,
+  getDocumentDbLambdaSecurityGroups
+} from './DocumentDbLambdaConfig'
 import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 
 /**
@@ -24,13 +29,13 @@ interface MetadataCorrectionSetupProps {
   cmrWritebackProviders?: string
   cmrWritebackValidateKeywords?: string
   cmrWritebackValidateUmmC?: string
+  metadataCorrectionAuditClientSecurityGroup?: ec2.ISecurityGroup
+  metadataCorrectionAuditEnvironment: Record<string, string>
+  metadataCorrectionAuditSecret?: secretsmanager.ISecret
   prefix: string
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
-  rdf4jPassword: string
-  rdf4jServiceUrl: string
-  rdf4jUserName: string
   securityGroup: ec2.SecurityGroup
   stage: string
   useLocalstack: boolean
@@ -78,13 +83,13 @@ export class MetadataCorrectionSetup extends Construct {
       cmrWritebackProviders,
       cmrWritebackValidateKeywords,
       cmrWritebackValidateUmmC,
+      metadataCorrectionAuditClientSecurityGroup,
+      metadataCorrectionAuditEnvironment,
+      metadataCorrectionAuditSecret,
       prefix,
       redisEnabled,
       redisHost,
       redisPort,
-      rdf4jPassword,
-      rdf4jServiceUrl,
-      rdf4jUserName,
       securityGroup,
       stage,
       useLocalstack,
@@ -168,10 +173,9 @@ export class MetadataCorrectionSetup extends Construct {
           ...(metadataCorrectionRequestDelayMs
             ? { METADATA_CORRECTION_REQUEST_DELAY_MS: metadataCorrectionRequestDelayMs }
             : {}),
-          RDF4J_PASSWORD: rdf4jPassword,
-          RDF4J_SERVICE_URL: rdf4jServiceUrl,
-          RDF4J_USER_NAME: rdf4jUserName
+          ...metadataCorrectionAuditEnvironment
         },
+        ...getDocumentDbCertificateBundling(metadataCorrectionAuditEnvironment),
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
         projectRoot,
         ...(useLocalstack ? {} : {
@@ -179,7 +183,11 @@ export class MetadataCorrectionSetup extends Construct {
           vpcSubnets: {
             subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
           },
-          securityGroups: [securityGroup]
+          securityGroups: getDocumentDbLambdaSecurityGroups({
+            clientSecurityGroup: metadataCorrectionAuditClientSecurityGroup,
+            environment: metadataCorrectionAuditEnvironment,
+            securityGroup
+          })
         })
       }
     )
@@ -193,6 +201,7 @@ export class MetadataCorrectionSetup extends Construct {
     ))
 
     this.metadataCorrectionRequestsQueue.grantConsumeMessages(this.metadataCorrectionServiceLambda)
+    metadataCorrectionAuditSecret?.grantRead(this.metadataCorrectionServiceLambda)
     this.metadataCorrectionServiceLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['cloudwatch:PutMetricData'],
       resources: ['*'],

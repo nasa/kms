@@ -1,215 +1,248 @@
-import {
-  escapeSparqlLiteral,
-  METADATA_CORRECTION_AUDIT_GRAPH
-} from '@/shared/metadataCorrectionAudit'
-import { sparqlRequest } from '@/shared/sparqlRequest'
+import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
+import { METADATA_CORRECTION_AUDIT_STATUSES } from '@/shared/persistMetadataCorrectionAuditLog'
+
+const DEFAULT_LIMIT = 100
+const MAX_LIMIT = 250
 
 /**
- * Normalizes a query-string boolean flag.
+ * Converts the API limit to an integer within the supported page-size range.
  *
- * @param {unknown} value - Raw query-string value.
- * @returns {boolean} True when the caller explicitly enabled the flag.
+ * @example
+ * normalizeLimit('500') // 250
+ * normalizeLimit(undefined) // 100
+ *
+ * @param {unknown} limit Requested page size.
+ * @returns {number} A page size from 1 through 250.
  */
-const normalizeBoolean = (value) => ['1', 'true', 'yes'].includes(
-  String(value || '').toLowerCase()
-)
-
 const normalizeLimit = (limit) => {
-  const parsed = Number.parseInt(limit, 10)
+  const parsedLimit = Number.parseInt(limit, 10)
 
-  if (Number.isNaN(parsed)) {
-    return 100
+  if (Number.isNaN(parsedLimit)) {
+    return DEFAULT_LIMIT
   }
 
-  return Math.max(1, parsed)
+  return Math.min(MAX_LIMIT, Math.max(1, parsedLimit))
 }
 
 /**
- * Builds a stable collapse key for one logical correction row.
+ * Parses an optional date filter and reports which request field was invalid.
  *
- * The append-only audit writer persists separate `pending` and `applied` rows for the same
- * logical correction. This key intentionally ignores row-specific fields like `recordUri`,
- * `timestamp`, and `status` so the read path can collapse those lifecycle rows into the newest
- * effective state when requested.
+ * @example
+ * normalizeDate('2026-09-02', 'startDate') // Date for 2026-09-02
+ * normalizeDate(undefined, 'startDate') // undefined
  *
- * @param {object} item - Normalized audit row.
- * @returns {string} Stable key used to identify duplicate lifecycle rows.
+ * @param {unknown} value Date-compatible filter value.
+ * @param {string} fieldName Filter name used in validation errors.
+ * @returns {Date|undefined} Parsed date when supplied.
  */
-const buildCollapsedAuditKey = (item) => JSON.stringify([
-  item.publishedVersionName,
-  item.collectionConceptId,
-  item.keywordConceptUuid,
-  item.scheme,
-  item.action,
-  item.oldKeywordPath,
-  item.newKeywordPath,
-  item.nativeFormat,
-  item.delegateName,
-  item.triggerScheme,
-  item.triggerKeywordUuid
-])
+const normalizeDate = (value, fieldName) => {
+  if (!value) {
+    return undefined
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid metadata correction audit ${fieldName}`)
+  }
+
+  return date
+}
 
 /**
- * Collapses append-only lifecycle rows into a latest-only view.
+ * Decodes the opaque API pagination token into its keyset cursor values.
  *
- * The SPARQL query already returns rows newest-first, so keeping the first row for each
- * correction key preserves the most recent status while hiding older duplicate lifecycle rows.
+ * @example
+ * decodePaginationToken(encodePaginationToken({
+ *   createdAt: new Date('2026-09-02T12:00:00.000Z'),
+ *   runId: 'run-2'
+ * }))
+ * // { createdAt: Date('2026-09-02T12:00:00.000Z'), runId: 'run-2' }
  *
- * @param {Array<object>} items - Normalized audit rows ordered newest-first.
- * @returns {Array<object>} Collapsed audit rows.
+ * @param {string|undefined} paginationToken Base64url token returned by an earlier query.
+ * @returns {{createdAt: Date, runId: string}|undefined} Decoded cursor values.
  */
-const collapseAuditRows = (items) => {
-  const seenKeys = new Set()
+const decodePaginationToken = (paginationToken) => {
+  if (!paginationToken) {
+    return undefined
+  }
 
-  return items.filter((item) => {
-    const collapseKey = buildCollapsedAuditKey(item)
+  try {
+    const parsedToken = JSON.parse(Buffer.from(paginationToken, 'base64url').toString('utf8'))
+    const createdAt = normalizeDate(parsedToken.createdAt, 'paginationToken')
 
-    if (seenKeys.has(collapseKey)) {
-      return false
+    if (!createdAt || typeof parsedToken.runId !== 'string' || !parsedToken.runId) {
+      throw new Error('invalid pagination token payload')
     }
 
-    seenKeys.add(collapseKey)
-
-    return true
-  })
+    return {
+      createdAt,
+      runId: parsedToken.runId
+    }
+  } catch {
+    throw new Error('Invalid metadata correction audit paginationToken')
+  }
 }
 
 /**
- * Reads metadata-correction audit rows from the dedicated RDF4J audit graph.
+ * Encodes the last audit document on a page as an opaque keyset pagination token.
  *
- * This helper is the read-side pair to `persistMetadataCorrectionAuditLog`. It builds a SPARQL
- * query against the dedicated audit graph, applies any optional filters the caller supplied, and
- * returns a normalized array of audit records ordered newest-first.
+ * @example
+ * encodePaginationToken({
+ *   createdAt: new Date('2026-09-02T12:00:00.000Z'),
+ *   runId: 'run-2'
+ * })
+ * // Base64url for {"createdAt":"2026-09-02T12:00:00.000Z","runId":"run-2"}
  *
- * The returned rows describe resolved metadata corrections, not raw keyword events. Each row
- * represents one correction the service decided to apply (or mark pending), including the
- * collection it targeted, the resolved keyword UUID/path information, the delegate/native format
- * used, and the triggering event metadata when present.
- *
- * These audit rows expose the canonical UUID plus the derived human-readable keyword paths.
- * Keyword objects themselves are intentionally not stored in the audit graph.
- *
- * @param {object} [filters={}] - Optional query filters.
- * @param {string} [filters.collectionConceptId] - Filter by collection concept id.
- * @param {string} [filters.keywordConceptUuid] - Filter by resolved keyword UUID.
- * @param {string} [filters.action] - Filter by triggering event action.
- * @param {string} [filters.scheme] - Filter by corrected keyword scheme.
- * @param {string} [filters.status] - Filter by audit status.
- * @param {string|boolean} [filters.latestOnly=false] - When truthy, collapses duplicate
- * append-only lifecycle rows so only the newest row for each logical correction is returned.
- * @param {string|number} [filters.limit=100] - Maximum number of rows to return. Values are
- * normalized to a minimum of `1`, with invalid values falling back to `100`.
- * @returns {Promise<Array<{
- *   recordUri: string | undefined,
- *   timestamp: string | undefined,
- *   publishedVersionName: string | undefined,
- *   collectionConceptId: string | undefined,
- *   keywordConceptUuid: string | undefined,
- *   scheme: string | undefined,
- *   action: string | undefined,
- *   oldKeywordPath?: string | undefined,
- *   newKeywordPath?: string | undefined,
- *   nativeFormat: string | undefined,
- *   delegateName: string | undefined,
- *   status: string | undefined,
- *   writebackErrorMessage: string | undefined,
- *   triggerScheme: string | undefined,
- *   triggerKeywordUuid: string | undefined
- * }>>} Audit log rows ordered newest-first.
+ * @param {{createdAt: Date, runId: string}} document Last document returned on a page.
+ * @returns {string} Opaque Base64url pagination token.
  */
-export const getMetadataCorrectionAuditLog = async (filters = {}) => {
+const encodePaginationToken = (document) => Buffer.from(JSON.stringify({
+  createdAt: document.createdAt.toISOString(),
+  runId: document.runId
+})).toString('base64url')
+
+/**
+ * Maps supported API filters to the fixed MongoDB fields used by audit documents.
+ *
+ * @example
+ * buildAuditQuery({ scheme: 'platforms', status: 'applied' })
+ * // {
+ * //   $or: [{ 'corrections.scheme': 'platforms' }, { 'trigger.scheme': 'platforms' }],
+ * //   status: 'applied'
+ * // }
+ *
+ * @param {Object} filters Validated request filter values.
+ * @returns {Object} MongoDB query document.
+ */
+const buildAuditQuery = (filters) => {
+  const query = {}
   const {
-    collectionConceptId,
-    keywordConceptUuid,
     action,
+    collectionConceptId,
+    endDate,
+    keywordConceptUuid,
+    nativeFormat,
+    publishedVersionName,
     scheme,
-    status,
-    latestOnly = false,
-    limit = 100
+    source,
+    startDate,
+    status
   } = filters
 
-  const filterClauses = [
-    collectionConceptId ? `FILTER(?collectionConceptId = "${escapeSparqlLiteral(collectionConceptId)}")` : '',
-    keywordConceptUuid ? `FILTER(?keywordConceptUuid = "${escapeSparqlLiteral(keywordConceptUuid)}")` : '',
-    action ? `FILTER(?action = "${escapeSparqlLiteral(action)}")` : '',
-    scheme ? `FILTER(?scheme = "${escapeSparqlLiteral(scheme)}")` : '',
-    status ? `FILTER(?status = "${escapeSparqlLiteral(status)}")` : ''
-  ].filter(Boolean).join('\n      ')
+  if (collectionConceptId) query.collectionConceptId = collectionConceptId
+  if (action) query['trigger.eventType'] = action
+  if (keywordConceptUuid) query['corrections.keywordConceptUuid'] = keywordConceptUuid
+  if (nativeFormat) query.nativeFormat = nativeFormat
+  if (publishedVersionName) query.publishedVersionName = publishedVersionName
+  if (scheme) {
+    query.$or = [
+      { 'corrections.scheme': scheme },
+      { 'trigger.scheme': scheme }
+    ]
+  }
 
-  const query = `
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-    PREFIX dcterms: <http://purl.org/dc/terms/>
+  if (source) query.source = source
 
-    SELECT
-      ?record
-      ?timestamp
-      ?publishedVersionName
-      ?collectionConceptId
-      ?keywordConceptUuid
-      ?scheme
-      ?action
-      ?oldKeywordPath
-      ?newKeywordPath
-      ?nativeFormat
-      ?delegateName
-      ?status
-      ?writebackErrorMessage
-      ?triggerScheme
-      ?triggerKeywordUuid
-    WHERE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record a gcmd:MetadataCorrectionAuditRecord ;
-                dcterms:created ?timestamp ;
-                gcmd:publishedVersionName ?publishedVersionName ;
-                gcmd:collectionConceptId ?collectionConceptId ;
-                gcmd:keywordConceptUuid ?keywordConceptUuid ;
-                gcmd:scheme ?scheme ;
-                gcmd:action ?action ;
-                gcmd:nativeFormat ?nativeFormat ;
-                gcmd:delegateName ?delegateName ;
-                gcmd:status ?status .
-        OPTIONAL { ?record gcmd:oldKeywordPath ?oldKeywordPath }
-        OPTIONAL { ?record gcmd:newKeywordPath ?newKeywordPath }
-        OPTIONAL { ?record gcmd:writebackErrorMessage ?writebackErrorMessage }
-        OPTIONAL { ?record gcmd:triggerScheme ?triggerScheme }
-        OPTIONAL { ?record gcmd:triggerKeywordUuid ?triggerKeywordUuid }
-      }
-      ${filterClauses}
+  if (status) {
+    if (!METADATA_CORRECTION_AUDIT_STATUSES.includes(status)) {
+      throw new Error(`Invalid metadata correction audit status: ${status}`)
     }
-    ORDER BY DESC(?timestamp)
-    LIMIT ${normalizeLimit(limit)}
-  `
 
-  const response = await sparqlRequest({
-    method: 'POST',
-    body: query,
-    contentType: 'application/sparql-query',
-    accept: 'application/sparql-results+json'
-  })
+    query.status = status
+  }
 
-  const result = await response.json()
-  const bindings = result?.results?.bindings || []
-  const items = bindings.map((binding) => ({
-    recordUri: binding.record?.value,
-    timestamp: binding.timestamp?.value,
-    publishedVersionName: binding.publishedVersionName?.value,
-    collectionConceptId: binding.collectionConceptId?.value,
-    keywordConceptUuid: binding.keywordConceptUuid?.value,
-    scheme: binding.scheme?.value,
-    action: binding.action?.value,
-    oldKeywordPath: binding.oldKeywordPath?.value,
-    newKeywordPath: binding.newKeywordPath?.value,
-    nativeFormat: binding.nativeFormat?.value,
-    delegateName: binding.delegateName?.value,
-    status: binding.status?.value,
-    writebackErrorMessage: binding.writebackErrorMessage?.value,
-    triggerScheme: binding.triggerScheme?.value,
-    triggerKeywordUuid: binding.triggerKeywordUuid?.value
-  }))
+  const normalizedStartDate = normalizeDate(startDate, 'startDate')
+  const normalizedEndDate = normalizeDate(endDate, 'endDate')
 
-  return normalizeBoolean(latestOnly)
-    ? collapseAuditRows(items)
-    : items
+  if (normalizedStartDate || normalizedEndDate) {
+    query.createdAt = {
+      ...(normalizedStartDate ? { $gte: normalizedStartDate } : {}),
+      ...(normalizedEndDate ? { $lte: normalizedEndDate } : {})
+    }
+  }
+
+  return query
+}
+
+/**
+ * Adds a newest-first keyset boundary to a MongoDB audit query.
+ *
+ * For a token representing `{ createdAt: 2026-09-02, runId: 'run-2' }`, the added condition
+ * selects documents older than that date, or lower run ids at the exact same date.
+ *
+ * @param {Object} query Existing field/date query.
+ * @param {string|undefined} paginationToken Opaque cursor from the previous page.
+ * @returns {Object} Original query or a query combined with the keyset boundary.
+ */
+const addPaginationTokenToQuery = (query, paginationToken) => {
+  const decodedToken = decodePaginationToken(paginationToken)
+
+  if (!decodedToken) {
+    return query
+  }
+
+  return {
+    $and: [
+      query,
+      {
+        $or: [
+          { createdAt: { $lt: decodedToken.createdAt } },
+          {
+            createdAt: decodedToken.createdAt,
+            _id: { $lt: decodedToken.runId }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+/**
+ * Removes MongoDB's internal `_id` field from the public API representation.
+ *
+ * @example
+ * normalizeAuditDocument({ _id: 'run-1', runId: 'run-1', status: 'applied' })
+ * // { runId: 'run-1', status: 'applied' }
+ *
+ * @param {Object} document Stored audit document.
+ * @returns {Object} Public audit document.
+ */
+const normalizeAuditDocument = (document) => Object.fromEntries(
+  Object.entries(document).filter(([key]) => key !== '_id')
+)
+
+/**
+ * Returns metadata-correction audit runs using newest-first token pagination.
+ *
+ * @param {Object} [filters={}] Supported field, date, and pagination filters.
+ * @returns {Promise<{items: Array<Object>, nextPaginationToken: string|null}>} Audit page.
+ *
+ * @example
+ * await getMetadataCorrectionAuditLog({ status: 'applied', limit: 25 })
+ * // { items: [{ runId: '...', status: 'applied', ... }], nextPaginationToken: '...' }
+ */
+export const getMetadataCorrectionAuditLog = async (filters = {}) => {
+  const collection = await getMetadataCorrectionAuditCollection()
+
+  const limit = normalizeLimit(filters.limit)
+  const query = addPaginationTokenToQuery(buildAuditQuery(filters), filters.paginationToken)
+  const documents = await collection.find(query)
+    .sort({
+      createdAt: -1,
+      _id: -1
+    })
+    .limit(limit + 1)
+    .toArray()
+  const hasNextPage = documents.length > limit
+  const pageDocuments = hasNextPage ? documents.slice(0, limit) : documents
+
+  return {
+    items: pageDocuments.map(normalizeAuditDocument),
+    nextPaginationToken: hasNextPage
+      ? encodePaginationToken(pageDocuments[pageDocuments.length - 1])
+      : null
+  }
 }
 
 export default getMetadataCorrectionAuditLog

@@ -35,19 +35,23 @@ describe('getMetadataCorrectionAudit', () => {
     vi.clearAllMocks()
   })
 
-  test('returns audit rows as json', async () => {
-    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue([
-      {
-        recordUri: 'https://example.org/audit/1',
+  test('returns audit documents as json', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [{
+        runId: 'run-1',
         collectionConceptId: 'C1234567890-LOCAL',
-        action: 'UPDATED'
-      }
-    ])
+        collectionUri: 'https://cmr.example.com/search/concepts/C1234567890-LOCAL',
+        status: 'applied',
+        trigger: {
+          eventType: 'UPDATED'
+        }
+      }],
+      nextPaginationToken: null
+    })
 
     const result = await getMetadataCorrectionAudit({
       queryStringParameters: {
         collectionConceptId: 'C1234567890-LOCAL',
-        latestOnly: 'true',
         limit: '10'
       }
     })
@@ -56,9 +60,14 @@ describe('getMetadataCorrectionAudit', () => {
       collectionConceptId: 'C1234567890-LOCAL',
       keywordConceptUuid: undefined,
       action: undefined,
+      paginationToken: undefined,
+      endDate: undefined,
       scheme: undefined,
       status: undefined,
-      latestOnly: 'true',
+      nativeFormat: undefined,
+      publishedVersionName: undefined,
+      source: undefined,
+      startDate: undefined,
       limit: '10'
     })
 
@@ -68,11 +77,16 @@ describe('getMetadataCorrectionAudit', () => {
     expect(JSON.parse(result.body)).toEqual({
       items: [
         {
-          recordUri: 'https://example.org/audit/1',
+          runId: 'run-1',
           collectionConceptId: 'C1234567890-LOCAL',
-          action: 'UPDATED'
+          collectionUri: 'https://cmr.example.com/search/concepts/C1234567890-LOCAL',
+          status: 'applied',
+          trigger: {
+            eventType: 'UPDATED'
+          }
         }
-      ]
+      ],
+      nextPaginationToken: null
     })
   })
 
@@ -86,5 +100,15 @@ describe('getMetadataCorrectionAudit', () => {
     expect(JSON.parse(result.body)).toEqual({
       error: 'Error: Audit query failed'
     })
+  })
+
+  test('returns 400 for invalid filters', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockRejectedValue(
+      new Error('Invalid metadata correction audit paginationToken')
+    )
+
+    const result = await getMetadataCorrectionAudit({})
+
+    expect(result.statusCode).toBe(400)
   })
 })

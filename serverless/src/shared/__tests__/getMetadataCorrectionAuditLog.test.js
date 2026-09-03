@@ -6,279 +6,163 @@ import {
   vi
 } from 'vitest'
 
-import { sparqlRequest } from '@/shared/sparqlRequest'
+import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 
 import { getMetadataCorrectionAuditLog } from '../getMetadataCorrectionAuditLog'
 
-vi.mock('@/shared/sparqlRequest', () => ({
-  sparqlRequest: vi.fn()
+vi.mock('@/shared/documentDbClient', () => ({
+  getMetadataCorrectionAuditCollection: vi.fn()
 }))
 
-describe('getMetadataCorrectionAuditLog', () => {
+describe('metadata correction audit queries', () => {
+  let collection
+  let mongoCursor
+
   beforeEach(() => {
     vi.clearAllMocks()
+    mongoCursor = {
+      sort: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      toArray: vi.fn().mockResolvedValue([])
+    }
+
+    collection = {
+      find: vi.fn().mockReturnValue(mongoCursor),
+      findOne: vi.fn().mockResolvedValue(null)
+    }
+
+    vi.mocked(getMetadataCorrectionAuditCollection).mockResolvedValue(collection)
   })
 
-  test('queries the audit graph and maps bindings into audit rows', async () => {
-    vi.mocked(sparqlRequest).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        results: {
-          bindings: [
-            {
-              record: { value: 'https://gcmd.earthdata.nasa.gov/kms/metadata-correction-audit/audit-1' },
-              timestamp: { value: '2026-05-06T18:00:00.000Z' },
-              publishedVersionName: { value: '9.1.5' },
-              collectionConceptId: { value: 'C1234567890-LOCAL' },
-              keywordConceptUuid: { value: 'uuid-1' },
-              scheme: { value: 'sciencekeywords' },
-              action: { value: 'UPDATED' },
-              oldKeywordPath: { value: 'EARTH SCIENCE > ATMOSPHERE' },
-              newKeywordPath: { value: 'EARTH SCIENCE > OCEANS' },
-              nativeFormat: { value: 'UMM' },
-              delegateName: { value: 'umm' },
-              status: { value: 'pending' },
-              writebackErrorMessage: { value: 'CMR writeback failed with status 400: {"errors":["boom"]}' },
-              triggerScheme: { value: 'sciencekeywords' },
-              triggerKeywordUuid: { value: 'uuid-trigger' }
-            }
-          ]
-        }
-      })
-    })
+  test('filters and returns newest-first audit documents', async () => {
+    const createdAt = new Date('2026-09-02T12:00:00.000Z')
+    mongoCursor.toArray.mockResolvedValue([{
+      _id: 'run-1',
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      createdAt,
+      status: 'applied'
+    }])
 
     const result = await getMetadataCorrectionAuditLog({
-      collectionConceptId: 'C1234567890-LOCAL',
       action: 'UPDATED',
-      status: 'pending',
-      limit: '25'
-    })
-
-    expect(result).toEqual([
-      {
-        recordUri: 'https://gcmd.earthdata.nasa.gov/kms/metadata-correction-audit/audit-1',
-        timestamp: '2026-05-06T18:00:00.000Z',
-        publishedVersionName: '9.1.5',
-        collectionConceptId: 'C1234567890-LOCAL',
-        keywordConceptUuid: 'uuid-1',
-        scheme: 'sciencekeywords',
-        action: 'UPDATED',
-        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE',
-        newKeywordPath: 'EARTH SCIENCE > OCEANS',
-        nativeFormat: 'UMM',
-        delegateName: 'umm',
-        status: 'pending',
-        writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}',
-        triggerScheme: 'sciencekeywords',
-        triggerKeywordUuid: 'uuid-trigger'
-      }
-    ])
-
-    expect(sparqlRequest).toHaveBeenCalledWith({
-      method: 'POST',
-      body: expect.stringContaining('GRAPH <https://gcmd.earthdata.nasa.gov/kms/audit/metadata-corrections>'),
-      contentType: 'application/sparql-query',
-      accept: 'application/sparql-results+json'
-    })
-
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('FILTER(?collectionConceptId = "C1234567890-LOCAL")')
-    expect(sparqlCall.body).toContain('FILTER(?action = "UPDATED")')
-    expect(sparqlCall.body).toContain('FILTER(?status = "pending")')
-    expect(sparqlCall.body).toContain('LIMIT 25')
-  })
-
-  test('normalizes invalid limits, applies keyword and scheme filters, and leaves optional fields undefined when absent', async () => {
-    vi.mocked(sparqlRequest).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        results: {
-          bindings: [
-            {
-              record: { value: 'https://gcmd.earthdata.nasa.gov/kms/metadata-correction-audit/audit-2' },
-              timestamp: { value: '2026-05-07T18:00:00.000Z' },
-              publishedVersionName: { value: '9.1.6' },
-              collectionConceptId: { value: 'C0000000002-LOCAL' },
-              keywordConceptUuid: { value: 'uuid-2' },
-              scheme: { value: 'platforms' },
-              action: { value: 'UPDATED' },
-              oldKeywordPath: { value: 'OLD PLATFORM' },
-              newKeywordPath: { value: 'NEW PLATFORM' },
-              nativeFormat: { value: 'DIF10' },
-              delegateName: { value: 'dif10' },
-              status: { value: 'applied' }
-            }
-          ]
-        }
-      })
-    })
-
-    const result = await getMetadataCorrectionAuditLog({
-      keywordConceptUuid: 'uuid-2',
+      collectionConceptId: 'C123-PROV',
+      endDate: '2026-09-03',
+      keywordConceptUuid: 'keyword-1',
+      limit: '25',
+      nativeFormat: 'UMM',
+      publishedVersionName: '20.1',
       scheme: 'platforms',
-      limit: 'not-a-number'
+      source: 'cmrKeywordEventsListener',
+      startDate: '2026-09-01',
+      status: 'applied'
     })
 
-    expect(result).toEqual([
-      {
-        recordUri: 'https://gcmd.earthdata.nasa.gov/kms/metadata-correction-audit/audit-2',
-        timestamp: '2026-05-07T18:00:00.000Z',
-        publishedVersionName: '9.1.6',
-        collectionConceptId: 'C0000000002-LOCAL',
-        keywordConceptUuid: 'uuid-2',
-        scheme: 'platforms',
-        action: 'UPDATED',
-        oldKeywordPath: 'OLD PLATFORM',
-        newKeywordPath: 'NEW PLATFORM',
-        nativeFormat: 'DIF10',
-        delegateName: 'dif10',
-        status: 'applied',
-        writebackErrorMessage: undefined,
-        triggerScheme: undefined,
-        triggerKeywordUuid: undefined
+    expect(collection.find).toHaveBeenCalledWith({
+      collectionConceptId: 'C123-PROV',
+      'trigger.eventType': 'UPDATED',
+      'corrections.keywordConceptUuid': 'keyword-1',
+      nativeFormat: 'UMM',
+      publishedVersionName: '20.1',
+      $or: [
+        { 'corrections.scheme': 'platforms' },
+        { 'trigger.scheme': 'platforms' }
+      ],
+      source: 'cmrKeywordEventsListener',
+      status: 'applied',
+      createdAt: {
+        $gte: new Date('2026-09-01'),
+        $lte: new Date('2026-09-03')
       }
-    ])
+    })
 
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('FILTER(?keywordConceptUuid = "uuid-2")')
-    expect(sparqlCall.body).toContain('FILTER(?scheme = "platforms")')
-    expect(sparqlCall.body).toContain('LIMIT 100')
-    expect(sparqlCall.body).not.toContain('FILTER(?collectionConceptId =')
-    expect(sparqlCall.body).not.toContain('FILTER(?action =')
-    expect(sparqlCall.body).not.toContain('FILTER(?status =')
+    expect(mongoCursor.sort).toHaveBeenCalledWith({
+      createdAt: -1,
+      _id: -1
+    })
+
+    expect(mongoCursor.limit).toHaveBeenCalledWith(26)
+    expect(result).toEqual({
+      items: [{
+        runId: 'run-1',
+        collectionConceptId: 'C123-PROV',
+        createdAt,
+        status: 'applied'
+      }],
+      nextPaginationToken: null
+    })
   })
 
-  test('keeps large explicit limits instead of clamping them', async () => {
-    vi.mocked(sparqlRequest).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        results: {
-          bindings: []
-        }
-      })
-    })
-
-    await expect(getMetadataCorrectionAuditLog({
-      limit: '5000'
-    })).resolves.toEqual([])
-
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('LIMIT 5000')
-  })
-
-  test('uses default filters and returns an empty array when the query result has no bindings', async () => {
-    vi.mocked(sparqlRequest).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({})
-    })
-
-    await expect(getMetadataCorrectionAuditLog()).resolves.toEqual([])
-
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('LIMIT 100')
-    expect(sparqlCall.body).not.toContain('FILTER(?collectionConceptId =')
-    expect(sparqlCall.body).not.toContain('FILTER(?keywordConceptUuid =')
-    expect(sparqlCall.body).not.toContain('FILTER(?scheme =')
-  })
-
-  test('collapses duplicate pending and applied lifecycle rows when latestOnly is enabled', async () => {
-    vi.mocked(sparqlRequest).mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        results: {
-          bindings: [
-            {
-              record: { value: 'https://example.org/audit/applied-1' },
-              timestamp: { value: '2026-06-17T12:00:01.000Z' },
-              publishedVersionName: { value: '9.1.6' },
-              collectionConceptId: { value: 'C1234567890-LOCAL' },
-              keywordConceptUuid: { value: 'uuid-1' },
-              scheme: { value: 'sciencekeywords' },
-              action: { value: 'UPDATED' },
-              oldKeywordPath: { value: 'EARTH SCIENCE > ATMOSPHERE' },
-              newKeywordPath: { value: 'EARTH SCIENCE > OCEANS' },
-              nativeFormat: { value: 'DIF10' },
-              delegateName: { value: 'dif10' },
-              status: { value: 'applied' },
-              writebackErrorMessage: { value: 'CMR writeback failed with status 400: {"errors":["boom"]}' },
-              triggerScheme: { value: 'sciencekeywords' },
-              triggerKeywordUuid: { value: 'uuid-trigger' }
-            },
-            {
-              record: { value: 'https://example.org/audit/pending-1' },
-              timestamp: { value: '2026-06-17T12:00:00.000Z' },
-              publishedVersionName: { value: '9.1.6' },
-              collectionConceptId: { value: 'C1234567890-LOCAL' },
-              keywordConceptUuid: { value: 'uuid-1' },
-              scheme: { value: 'sciencekeywords' },
-              action: { value: 'UPDATED' },
-              oldKeywordPath: { value: 'EARTH SCIENCE > ATMOSPHERE' },
-              newKeywordPath: { value: 'EARTH SCIENCE > OCEANS' },
-              nativeFormat: { value: 'DIF10' },
-              delegateName: { value: 'dif10' },
-              status: { value: 'pending' },
-              writebackErrorMessage: undefined,
-              triggerScheme: { value: 'sciencekeywords' },
-              triggerKeywordUuid: { value: 'uuid-trigger' }
-            },
-            {
-              record: { value: 'https://example.org/audit/pending-2' },
-              timestamp: { value: '2026-06-17T11:59:59.000Z' },
-              publishedVersionName: { value: '9.1.6' },
-              collectionConceptId: { value: 'C9999999999-LOCAL' },
-              keywordConceptUuid: { value: 'uuid-2' },
-              scheme: { value: 'platforms' },
-              action: { value: 'UPDATED' },
-              oldKeywordPath: { value: 'OLD PLATFORM' },
-              newKeywordPath: { value: 'NEW PLATFORM' },
-              nativeFormat: { value: 'UMM' },
-              delegateName: { value: 'umm' },
-              status: { value: 'pending' }
-            }
-          ]
-        }
-      })
-    })
-
-    const result = await getMetadataCorrectionAuditLog({
-      latestOnly: 'true'
-    })
-
-    expect(result).toEqual([
+  test('returns a pagination token when another page exists and applies it to the next query', async () => {
+    const documents = [
       {
-        recordUri: 'https://example.org/audit/applied-1',
-        timestamp: '2026-06-17T12:00:01.000Z',
-        publishedVersionName: '9.1.6',
-        collectionConceptId: 'C1234567890-LOCAL',
-        keywordConceptUuid: 'uuid-1',
-        scheme: 'sciencekeywords',
-        action: 'UPDATED',
-        oldKeywordPath: 'EARTH SCIENCE > ATMOSPHERE',
-        newKeywordPath: 'EARTH SCIENCE > OCEANS',
-        nativeFormat: 'DIF10',
-        delegateName: 'dif10',
-        status: 'applied',
-        writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}',
-        triggerScheme: 'sciencekeywords',
-        triggerKeywordUuid: 'uuid-trigger'
+        _id: 'run-3',
+        runId: 'run-3',
+        createdAt: new Date('2026-09-03')
       },
       {
-        recordUri: 'https://example.org/audit/pending-2',
-        timestamp: '2026-06-17T11:59:59.000Z',
-        publishedVersionName: '9.1.6',
-        collectionConceptId: 'C9999999999-LOCAL',
-        keywordConceptUuid: 'uuid-2',
-        scheme: 'platforms',
-        action: 'UPDATED',
-        oldKeywordPath: 'OLD PLATFORM',
-        newKeywordPath: 'NEW PLATFORM',
-        nativeFormat: 'UMM',
-        delegateName: 'umm',
-        status: 'pending',
-        writebackErrorMessage: undefined,
-        triggerScheme: undefined,
-        triggerKeywordUuid: undefined
+        _id: 'run-2',
+        runId: 'run-2',
+        createdAt: new Date('2026-09-02')
+      },
+      {
+        _id: 'run-1',
+        runId: 'run-1',
+        createdAt: new Date('2026-09-01')
       }
-    ])
+    ]
+    mongoCursor.toArray.mockResolvedValue(documents)
+
+    const firstPage = await getMetadataCorrectionAuditLog({ limit: '2' })
+
+    expect(firstPage.items).toHaveLength(2)
+    expect(firstPage.nextPaginationToken).toEqual(expect.any(String))
+
+    mongoCursor.toArray.mockResolvedValue([])
+    await getMetadataCorrectionAuditLog({
+      paginationToken: firstPage.nextPaginationToken,
+      limit: '2',
+      status: 'checked'
+    })
+
+    expect(collection.find).toHaveBeenLastCalledWith({
+      $and: [
+        { status: 'checked' },
+        {
+          $or: [
+            { createdAt: { $lt: new Date('2026-09-02') } },
+            {
+              createdAt: new Date('2026-09-02'),
+              _id: { $lt: 'run-2' }
+            }
+          ]
+        }
+      ]
+    })
+  })
+
+  test('uses bounded limits and validates filters', async () => {
+    await getMetadataCorrectionAuditLog({ limit: '5000' })
+    expect(mongoCursor.limit).toHaveBeenCalledWith(251)
+
+    await expect(getMetadataCorrectionAuditLog({
+      status: 'unknown'
+    })).rejects.toThrow('Invalid metadata correction audit status: unknown')
+
+    await expect(getMetadataCorrectionAuditLog({
+      startDate: 'not-a-date'
+    })).rejects.toThrow('Invalid metadata correction audit startDate')
+
+    await expect(getMetadataCorrectionAuditLog({
+      paginationToken: 'not-a-pagination-token'
+    })).rejects.toThrow('Invalid metadata correction audit paginationToken')
+
+    const invalidPaginationToken = Buffer.from(JSON.stringify({
+      createdAt: '2026-09-02T12:00:00.000Z',
+      runId: ''
+    })).toString('base64url')
+    await expect(getMetadataCorrectionAuditLog({
+      paginationToken: invalidPaginationToken
+    })).rejects.toThrow('Invalid metadata correction audit paginationToken')
   })
 })

@@ -146,11 +146,14 @@ describe('when the metadata correction service is invoked', () => {
       correctedMetadataBytes: 21
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValue({
-      insertedCount: 1,
-      publishedVersionName: 'published',
-      status: 'pending'
-    })
+    vi.mocked(persistMetadataCorrectionAuditLog).mockImplementation(async ({
+      runId = 'audit-run-1',
+      status
+    }) => ({
+      runId,
+      status,
+      created: status === 'checked'
+    }))
   })
 
   describe('when the invocation is successful', () => {
@@ -240,6 +243,7 @@ describe('when the metadata correction service is invoked', () => {
             body: JSON.stringify({
               source: 'cmrKeywordEventsListener',
               collectionConceptId: 'C123-PROV',
+              publishedVersionName: '20.1',
               keywordEvent: {
                 eventType: 'UPDATED',
                 scheme: 'sciencekeywords',
@@ -304,7 +308,7 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         keywordEvent: {
           eventType: 'UPDATED',
@@ -315,6 +319,7 @@ describe('when the metadata correction service is invoked', () => {
         },
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
+        publishedVersionName: '20.1',
         corrections: [
           {
             scheme: 'sciencekeywords',
@@ -325,8 +330,9 @@ describe('when the metadata correction service is invoked', () => {
             ummPath: ['ScienceKeywords', 0]
           }
         ],
+        runId: 'message-collection-1',
         status: 'pending'
-      })
+      }))
 
       expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith({
         collectionConceptId: 'C123-PROV',
@@ -350,7 +356,7 @@ describe('when the metadata correction service is invoked', () => {
       })
     })
 
-    test('should append an applied audit record after a successful writeback update', async () => {
+    test('should update the audit document to applied after a successful writeback', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-PROV',
         providerId: 'PROV',
@@ -457,14 +463,14 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
         status: 'pending'
       }))
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(3, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
@@ -472,7 +478,7 @@ describe('when the metadata correction service is invoked', () => {
       }))
     })
 
-    test('should fall back to the normalized native format when applied audit delegateName is absent', async () => {
+    test('should use the normalized native format as delegateName when updating the audit document to applied', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-PROV',
         providerId: 'PROV',
@@ -578,7 +584,7 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(3, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
@@ -893,7 +899,14 @@ describe('when the metadata correction service is invoked', () => {
       })
 
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
-      expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcome: 'no-resolved-corrections',
+          status: 'checked'
+        })
+      )
+
       expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -952,7 +965,14 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(resolveOldKeywordConceptUuid).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
-      expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcome: 'no-keyword-issues',
+          status: 'checked'
+        })
+      )
+
       expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
 
       expect(logger.info).toHaveBeenCalledWith(

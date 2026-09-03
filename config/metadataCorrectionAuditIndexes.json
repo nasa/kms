@@ -1,0 +1,57 @@
+[
+  {
+    "key": {
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "createdAt_desc"
+  },
+  {
+    "key": {
+      "collectionConceptId": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "collection_createdAt_desc"
+  },
+  {
+    "key": {
+      "status": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "status_createdAt_desc"
+  },
+  {
+    "key": {
+      "publishedVersionName": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "version_createdAt_desc"
+  },
+  {
+    "key": {
+      "trigger.scheme": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "triggerScheme_createdAt_desc"
+  },
+  {
+    "key": {
+      "corrections.scheme": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "correctionScheme_createdAt_desc"
+  },
+  {
+    "key": {
+      "corrections.keywordConceptUuid": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "keywordUuid_createdAt_desc"
+  }
+]

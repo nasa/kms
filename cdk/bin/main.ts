@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib'
 
 import { CmrEventProcessingStack } from '../app/lib/CmrEventProcessingStack'
 import { KmsStack, KmsStackProps } from '../app/lib/KmsStack'
+import { MetadataCorrectionAuditStack } from '../app/lib/MetadataCorrectionAuditStack'
 import { RedisStack } from '../app/lib/RedisStack'
 import { EbsStack } from '../rdfdb/lib/EbsStack'
 import { EcsStack } from '../rdfdb/lib/EcsStack'
@@ -180,6 +181,25 @@ async function main() {
     ? String(localRedisEnabled)
     : String(redisConfigured)
 
+  const metadataCorrectionAuditStack = new MetadataCorrectionAuditStack(
+    app, // CDK application scope
+    'MetadataCorrectionAuditStack', // Construct ID
+    {
+      env, // Target AWS account and region
+      localUri: useLocalstack
+        ? process.env.DOCUMENTDB_URI
+          || 'mongodb://kms-documentdb-local:27017/?directConnection=true'
+        : undefined, // Local MongoDB URI; unused in AWS
+      maxCapacity: Number(process.env.DOCUMENTDB_MAX_CAPACITY || 4), // Maximum serverless capacity
+      minCapacity: Number(process.env.DOCUMENTDB_MIN_CAPACITY || 0.5), // Minimum serverless capacity
+      prefix, // Resource naming prefix
+      stage, // Deployment environment
+      stackName: `${prefix}-MetadataCorrectionAuditStack`, // CloudFormation stack name
+      useLocalstack, // Whether to use local service substitutes
+      vpcId // VPC containing the deployed cluster
+    }
+  )
+
   // Create KmsStack
   const kmsStackProps: KmsStackProps = {
     cmrSystemTokenParameterName: process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME || '',
@@ -187,6 +207,10 @@ async function main() {
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     cmrWritebackValidateKeywords: process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS || '',
     cmrWritebackValidateUmmC: process.env.CMR_WRITEBACK_VALIDATE_UMM_C || '',
+    metadataCorrectionAuditClientSecurityGroup:
+      metadataCorrectionAuditStack.clientSecurityGroup,
+    metadataCorrectionAuditEnvironment: metadataCorrectionAuditStack.connectionEnvironment,
+    metadataCorrectionAuditSecret: metadataCorrectionAuditStack.secret,
     prefix,
     env,
     vpcId,
@@ -229,6 +253,8 @@ async function main() {
     kmsStack.addDependency(redisStack)
   }
 
+  kmsStack.addDependency(metadataCorrectionAuditStack)
+
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
     cmrSystemTokenParameterName: process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME || '',
@@ -239,16 +265,15 @@ async function main() {
     cmrWritebackProviders: process.env.CMR_WRITEBACK_PROVIDERS || '',
     cmrWritebackValidateKeywords: process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS || '',
     cmrWritebackValidateUmmC: process.env.CMR_WRITEBACK_VALIDATE_UMM_C || '',
+    metadataCorrectionAuditClientSecurityGroup:
+      metadataCorrectionAuditStack.clientSecurityGroup,
+    metadataCorrectionAuditEnvironment: metadataCorrectionAuditStack.connectionEnvironment,
+    metadataCorrectionAuditSecret: metadataCorrectionAuditStack.secret,
     env,
     prefix,
     redisEnabled: redisEnabledValue,
     redisHost: useLocalstack ? localRedisHost : redisStack?.endpointAddress,
     redisPort: useLocalstack ? localRedisPort : redisStack?.endpointPort,
-    rdf4jPassword: process.env.RDF4J_PASSWORD || 'rdf4j',
-    rdf4jServiceUrl: useLocalstack
-      ? 'http://rdf4j-server:8080'
-      : (lbStack?.rdf4jServiceUrl || process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'),
-    rdf4jUserName: process.env.RDF4J_USER_NAME || 'rdf4j',
     stage,
     stackName: `${prefix}-CmrEventProcessingStack`,
     topicArn: kmsStack.keywordEventsTopic.topicArn,
@@ -257,6 +282,7 @@ async function main() {
   })
 
   cmrEventProcessingStack.addDependency(kmsStack)
+  cmrEventProcessingStack.addDependency(metadataCorrectionAuditStack)
 
   app.synth()
 }

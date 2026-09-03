@@ -89,6 +89,33 @@ const getNativeMetadataContentType = (collection) => {
   return format || 'application/octet-stream'
 }
 
+const nativeRevisionsByConceptId = new Map()
+
+/**
+ * Snapshots a collection's current native payload by revision for revision-specific GET requests.
+ *
+ * @example
+ * saveNativeRevision({ conceptId: 'C123-PROV', revisionId: 2, nativeMetadata: '<Collection />' })
+ * // nativeRevisionsByConceptId.get('C123-PROV').get('2').nativeMetadata === '<Collection />'
+ *
+ * @param {Object} collection Mutable fixture collection to snapshot.
+ * @returns {void}
+ */
+const saveNativeRevision = (collection) => {
+  const revisions = nativeRevisionsByConceptId.get(collection.conceptId) || new Map()
+  const nativeMetadata = getNativeMetadataPayload(collection)
+
+  revisions.set(String(collection.revisionId), {
+    contentType: getNativeMetadataContentType(collection),
+    nativeMetadata: typeof nativeMetadata === 'string'
+      ? nativeMetadata
+      : structuredClone(nativeMetadata)
+  })
+  nativeRevisionsByConceptId.set(collection.conceptId, revisions)
+}
+
+fixture.cmr?.collections?.forEach(saveNativeRevision)
+
 // Keep the concept-id index in sync after local updates.
 const updateCollectionIndexes = (collection) => {
   collectionsByConceptId.set(collection.conceptId, collection)
@@ -328,7 +355,14 @@ const handleNativeCollectionLookupRequest = (conceptId, revisionId, response) =>
     return
   }
 
-  if (revisionId !== undefined && String(collection.revisionId) !== String(revisionId)) {
+  const revision = revisionId === undefined
+    ? {
+      contentType: getNativeMetadataContentType(collection),
+      nativeMetadata: getNativeMetadataPayload(collection)
+    }
+    : nativeRevisionsByConceptId.get(conceptId)?.get(String(revisionId))
+
+  if (!revision) {
     sendJson(response, 404, {
       errors: [`Revision ${revisionId} not found for collection concept id: ${conceptId}`]
     })
@@ -336,16 +370,14 @@ const handleNativeCollectionLookupRequest = (conceptId, revisionId, response) =>
     return
   }
 
-  const nativeMetadata = getNativeMetadataPayload(collection)
-
   response.writeHead(200, {
-    'Content-Type': getNativeMetadataContentType(collection)
+    'Content-Type': revision.contentType
   })
 
   response.end(
-    typeof nativeMetadata === 'string'
-      ? nativeMetadata
-      : JSON.stringify(nativeMetadata)
+    typeof revision.nativeMetadata === 'string'
+      ? revision.nativeMetadata
+      : JSON.stringify(revision.nativeMetadata)
   )
 }
 
@@ -380,6 +412,7 @@ const handleLocalCollectionUpdateRequest = async (request, response, conceptId) 
   collection.revisionId = Number(collection.revisionId || 0) + 1
 
   updateCollectionIndexes(collection)
+  saveNativeRevision(collection)
 
   sendJson(response, 200, {
     updated: true,
@@ -450,6 +483,7 @@ const handleIngestCollectionWriteRequest = async (request, response, providerId,
   collection.revisionId = Number(collection.revisionId || 0) + 1
 
   updateCollectionIndexes(collection)
+  saveNativeRevision(collection)
 
   sendJson(response, 200, {
     'concept-id': collection.conceptId,

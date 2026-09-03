@@ -6,10 +6,8 @@ import { logger } from '@/shared/logger'
 /**
  * Read-side audit endpoint for metadata-correction activity.
  *
- * The metadata-correction service writes one audit record per resolved correction into RDF4J.
- * This handler exposes those records through an API so we can inspect what corrections were
- * attempted, which collection they applied to, what keyword uuid/path was involved, and whether
- * the result is still pending or has been applied.
+ * The metadata-correction service stores one DocumentDB document per collection-correction run.
+ * This handler exposes those runs for MMT audit search, reporting, and troubleshooting.
  *
  * In practice this is useful for:
  * - local smoke-test verification
@@ -18,7 +16,7 @@ import { logger } from '@/shared/logger'
  */
 
 /**
- * Retrieves metadata-correction audit rows from RDF4J.
+ * Retrieves metadata-correction audit runs from DocumentDB.
  *
  * Supported query parameters:
  * - collectionConceptId
@@ -26,12 +24,22 @@ import { logger } from '@/shared/logger'
  * - action
  * - scheme
  * - status
- * - latestOnly
+ * - nativeFormat
+ * - publishedVersionName
+ * - source
+ * - startDate / endDate
+ * - paginationToken
  * - limit
  *
  * @param {object} event - API Gateway event.
  * @param {object} context - Lambda context.
  * @returns {Promise<object>} API Gateway response object.
+ *
+ * @example
+ * await getMetadataCorrectionAudit({
+ *   queryStringParameters: { status: 'applied', limit: '25' }
+ * }, context)
+ * // { statusCode: 200, body: '{"items":[...],"nextPaginationToken":null}' }
  */
 export const getMetadataCorrectionAudit = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
@@ -47,18 +55,28 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     action,
     scheme,
     status,
-    latestOnly,
+    nativeFormat,
+    publishedVersionName,
+    source,
+    startDate,
+    endDate,
+    paginationToken,
     limit
   } = event?.queryStringParameters || {}
 
   try {
-    const items = await getMetadataCorrectionAuditLog({
+    const auditPage = await getMetadataCorrectionAuditLog({
       collectionConceptId,
       keywordConceptUuid,
       action,
       scheme,
       status,
-      latestOnly,
+      nativeFormat,
+      publishedVersionName,
+      source,
+      startDate,
+      endDate,
+      paginationToken,
       limit
     })
 
@@ -68,19 +86,20 @@ export const getMetadataCorrectionAudit = async (event, context) => {
         ...defaultResponseHeaders,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        items
-      }, null, 2)
+      body: JSON.stringify(auditPage, null, 2)
     }
   } catch (error) {
     logger.error(`Error retrieving metadata correction audit log, error=${error.toString()}`)
+
+    const isClientError = String(error?.message || '')
+      .startsWith('Invalid metadata correction audit')
 
     return {
       headers: {
         ...defaultResponseHeaders,
         'Content-Type': 'application/json'
       },
-      statusCode: 500,
+      statusCode: isClientError ? 400 : 500,
       body: JSON.stringify({
         error: error.toString()
       })

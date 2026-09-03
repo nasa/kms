@@ -4,18 +4,20 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { closeDocumentDbClient } from '../../serverless/src/shared/documentDbClient'
+
 /**
  * Local end-to-end audit smoke for failed metadata-correction writeback.
  *
  * This script exercises the real metadataCorrectionService handler against:
  * - the local mock CMR server, configured to fail ingest/writeback
  * - local Redis keyword caches
- * - local RDF4J audit persistence
+ * - local MongoDB-compatible DocumentDB audit persistence
  *
  * It verifies that a failed correction run writes:
  * - `pending` before writeback
  * - `failed` after CMR ingest rejects the corrected metadata
- * - `writebackErrorMessage` on the failed audit row
+ * - structured error details on the failed audit document
  *
  * Run with:
  *   npx vite-node --config vite.config.js scripts/local/run_metadata_correction_failed_audit_smoke.mjs
@@ -154,40 +156,20 @@ const seedKeywordCaches = async () => {
   return redisClient
 }
 
+/**
+ * Removes prior audit documents for the smoke collection so assertions start from a clean state.
+ *
+ * @returns {Promise<void>} Resolves after matching local audit documents are deleted.
+ */
 const clearAuditRowsForCollection = async () => {
-  process.env.RDF4J_SERVICE_URL = process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'
-  process.env.RDF4J_USER_NAME = process.env.RDF4J_USER_NAME || 'rdf4j'
-  process.env.RDF4J_PASSWORD = process.env.RDF4J_PASSWORD || 'rdf4j'
+  process.env.DOCUMENTDB_URI = process.env.DOCUMENTDB_URI
+    || `mongodb://localhost:${process.env.DOCUMENTDB_HOST_PORT || 27018}`
+  const { getMetadataCorrectionAuditCollection } = await import(
+    '../../serverless/src/shared/documentDbClient'
+  )
+  const auditCollection = await getMetadataCorrectionAuditCollection()
 
-  const {
-    escapeSparqlLiteral,
-    METADATA_CORRECTION_AUDIT_GRAPH
-  } = await import('../../serverless/src/shared/metadataCorrectionAudit')
-  const { sparqlRequest } = await import('../../serverless/src/shared/sparqlRequest')
-
-  const query = `
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-
-    DELETE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record ?predicate ?object .
-      }
-    }
-    WHERE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record a gcmd:MetadataCorrectionAuditRecord ;
-                gcmd:collectionConceptId "${escapeSparqlLiteral(collectionConceptId)}" ;
-                ?predicate ?object .
-      }
-    }
-  `
-
-  await sparqlRequest({
-    method: 'POST',
-    contentType: 'application/sparql-update',
-    accept: 'application/json',
-    body: query
-  })
+  await auditCollection.deleteMany({ collectionConceptId })
 }
 
 let mockServerProcess
@@ -215,7 +197,7 @@ try {
 
   process.env.CMR_BASE_URL = baseUrl
   process.env.CMR_WRITEBACK_PROVIDERS = process.env.CMR_WRITEBACK_PROVIDERS || providerId
-  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'local-writer-token'
+  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'Bearer local-writer-token'
 
   redisClient = await seedKeywordCaches()
   await clearAuditRowsForCollection()
@@ -223,7 +205,7 @@ try {
   const { metadataCorrectionService } = await import('../../serverless/src/metadataCorrectionService/handler')
   const { getMetadataCorrectionAuditLog } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
 
-  const beforeRows = await getMetadataCorrectionAuditLog({
+  const { items: beforeRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
     limit: 20
   })
@@ -241,15 +223,17 @@ try {
     ]
   })
 
-  const afterRows = await getMetadataCorrectionAuditLog({
+  const { items: afterRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
     limit: 20
   })
-  const statuses = [...new Set(afterRows.map((row) => row.status))]
+  const statuses = [...new Set(afterRows.flatMap((row) => (
+    row.statusHistory?.map(({ status }) => status) || [row.status]
+  )))]
   const failedRow = afterRows.find((row) => row.status === 'failed')
 
   if (beforeRows.length !== 0) {
-    throw new Error(`Expected no starting audit rows for ${collectionConceptId}, found ${beforeRows.length}`)
+    throw new Error(`Expected no starting audit documents for ${collectionConceptId}, found ${beforeRows.length}`)
   }
 
   if (JSON.stringify(response?.batchItemFailures) !== JSON.stringify([
@@ -273,14 +257,14 @@ try {
     throw new Error(`Did not expect applied audit status for failed writeback on ${collectionConceptId}`)
   }
 
-  if (!failedRow?.writebackErrorMessage) {
-    throw new Error(`Missing writebackErrorMessage on failed audit row for ${collectionConceptId}`)
+  if (!failedRow?.error?.message) {
+    throw new Error(`Missing error details on failed audit document for ${collectionConceptId}`)
   }
 
-  if (failedRow.writebackErrorMessage !== mockIngestErrorBody) {
+  if (JSON.stringify(failedRow.error.cmrResponseBody) !== mockIngestErrorBody) {
     throw new Error(
-      'Expected failed audit writebackErrorMessage to match the mock ingest response body. '
-      + `Received ${failedRow.writebackErrorMessage}`
+      'Expected failed audit response details to match the mock ingest response body. '
+      + `Received ${JSON.stringify(failedRow.error.cmrResponseBody)}`
     )
   }
 
@@ -304,10 +288,12 @@ try {
     baseUrl,
     afterCount: afterRows.length,
     statuses,
-    failedWritebackErrorMessage: failedRow.writebackErrorMessage,
+    failedWritebackErrorMessage: failedRow.error.message,
     outputPath
   }, null, 2))
 } finally {
+  await closeDocumentDbClient()
+
   if (redisClient) {
     await redisClient.quit()
   }

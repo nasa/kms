@@ -1,4 +1,5 @@
 import {
+  afterEach,
   beforeEach,
   describe,
   expect,
@@ -6,242 +7,215 @@ import {
   vi
 } from 'vitest'
 
-import { getVersionMetadata } from '@/shared/getVersionMetadata'
-import { sparqlRequest } from '@/shared/sparqlRequest'
+import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 
 import { persistMetadataCorrectionAuditLog } from '../persistMetadataCorrectionAuditLog'
 
 vi.mock('uuid', () => ({
-  v4: vi.fn(() => 'audit-record-123')
+  v4: vi.fn(() => 'generated-run-id')
 }))
 
-vi.mock('@/shared/getVersionMetadata', () => ({
-  getVersionMetadata: vi.fn()
+vi.mock('@/shared/documentDbClient', () => ({
+  getMetadataCorrectionAuditCollection: vi.fn()
 }))
 
-vi.mock('@/shared/sparqlRequest', () => ({
-  sparqlRequest: vi.fn()
-}))
+const buildCorrection = () => ({
+  scheme: 'platforms',
+  keywordConceptUuid: 'platform-uuid',
+  oldKeywordObject: {
+    Basis: 'Platforms',
+    Category: 'Space-based Platforms',
+    SubCategory: 'Earth Observation Satellites',
+    ShortName: 'GOSAT'
+  },
+  newKeywordObject: {
+    Basis: 'Platforms',
+    Category: 'Space-based Platforms',
+    SubCategory: 'Earth Observation Satellites',
+    ShortName: 'GOSAT - Test1'
+  }
+})
 
 describe('persistMetadataCorrectionAuditLog', () => {
+  let collection
+
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getVersionMetadata).mockResolvedValue({
-      version: 'published',
-      versionName: '9.1.5',
-      versionType: 'published',
-      created: '2026-01-01T00:00:00Z',
-      lastSynced: null
-    })
+    process.env.CMR_BASE_URL = 'https://cmr.example.com/'
+    collection = {
+      findOne: vi.fn().mockResolvedValue(null),
+      updateOne: vi.fn().mockResolvedValue({ acknowledged: true })
+    }
 
-    vi.mocked(sparqlRequest).mockResolvedValue({ ok: true })
+    vi.mocked(getMetadataCorrectionAuditCollection).mockResolvedValue(collection)
   })
 
-  test('persists one audit row per correction with pending status', async () => {
+  afterEach(() => {
+    delete process.env.CMR_BASE_URL
+  })
+
+  test('creates one checked audit document with corrections and status history', async () => {
     const result = await persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C1234567890-LOCAL',
+      collectionConceptId: 'C123-PROV',
+      corrections: [buildCorrection()],
       keywordEvent: {
         eventType: 'UPDATED',
-        scheme: 'sciencekeywords',
-        uuid: '2e5a401b-1507-4f57-82b8-36557c13b154'
+        scheme: 'platforms',
+        uuid: 'platform-uuid'
       },
       nativeFormat: 'UMM',
-      delegateName: 'umm',
-      corrections: [
-        {
-          scheme: 'sciencekeywords',
-          keywordConceptUuid: '2e5a401b-1507-4f57-82b8-36557c13b154',
-          oldKeywordObject: {
-            Category: 'EARTH SCIENCE',
-            Topic: 'ATMOSPHERE',
-            Term: 'AEROSOLS',
-            VariableLevel1: 'LEGACY AEROSOLS',
-            VariableLevel2: '',
-            VariableLevel3: '',
-            DetailedVariable: ''
-          },
-          newKeywordObject: {
-            Category: 'EARTH SCIENCE',
-            Topic: 'ATMOSPHERE',
-            Term: 'AEROSOLS',
-            VariableLevel1: '',
-            VariableLevel2: '',
-            VariableLevel3: '',
-            DetailedVariable: ''
-          }
-        }
-      ],
-      status: 'pending',
-      timestamp: '2026-05-06T18:00:00.000Z'
+      priorRevisionId: 7,
+      providerId: 'PROV',
+      publishedVersionName: '20.1',
+      status: 'checked',
+      timestamp: '2026-09-02T12:00:00.000Z'
     })
 
     expect(result).toEqual({
-      insertedCount: 1,
-      publishedVersionName: '9.1.5',
-      status: 'pending'
+      runId: 'generated-run-id',
+      status: 'checked',
+      created: true
     })
 
-    expect(getVersionMetadata).toHaveBeenCalledWith('published')
-    expect(sparqlRequest).toHaveBeenCalledWith(expect.objectContaining({
-      method: 'POST',
-      contentType: 'application/sparql-update',
-      accept: 'application/json',
-      body: expect.stringContaining('GRAPH <https://gcmd.earthdata.nasa.gov/kms/audit/metadata-corrections>')
-    }))
-
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('gcmd:MetadataCorrectionAuditRecord')
-    expect(sparqlCall.body).toContain('gcmd:publishedVersionName "9.1.5"')
-    expect(sparqlCall.body).toContain('gcmd:collectionConceptId "C1234567890-LOCAL"')
-    expect(sparqlCall.body).toContain('gcmd:action "UPDATED"')
-    expect(sparqlCall.body).toContain('gcmd:scheme "sciencekeywords"')
-    expect(sparqlCall.body).toContain('gcmd:status "pending"')
-    expect(sparqlCall.body).toContain('gcmd:triggerScheme "sciencekeywords"')
-    expect(sparqlCall.body).toContain('gcmd:triggerKeywordUuid "2e5a401b-1507-4f57-82b8-36557c13b154"')
-    expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "EARTH SCIENCE > ATMOSPHERE > AEROSOLS > LEGACY AEROSOLS >  >  > "')
-    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > "')
-    expect(sparqlCall.body).not.toContain('gcmd:oldKeywordObject')
-    expect(sparqlCall.body).not.toContain('gcmd:newKeywordObject')
-    expect(sparqlCall.body).not.toContain('gcmd:writebackErrorMessage')
-    expect(sparqlCall.body).toContain('metadata-correction-audit/audit-record-123')
-  })
-
-  test('persists the writeback error message for failed audit rows', async () => {
-    await persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C1234567890-LOCAL',
-      keywordEvent: {
-        eventType: 'UPDATED'
-      },
-      nativeFormat: 'UMM',
-      delegateName: 'umm',
-      corrections: [
-        {
-          scheme: 'sciencekeywords',
-          keywordConceptUuid: 'uuid-failed',
-          oldKeywordObject: {
-            Category: 'EARTH SCIENCE',
-            Topic: 'ATMOSPHERE',
-            Term: 'AEROSOLS'
-          },
-          newKeywordObject: {
-            Category: 'EARTH SCIENCE',
-            Topic: 'ATMOSPHERE',
-            Term: 'AEROSOLS'
+    expect(collection.updateOne).toHaveBeenCalledWith(
+      { _id: 'generated-run-id' },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          collectionConceptId: 'C123-PROV',
+          collectionUri: 'https://cmr.example.com/search/concepts/C123-PROV',
+          publishedVersionName: '20.1',
+          priorRevisionId: 7,
+          status: 'checked',
+          corrections: [expect.objectContaining({
+            keywordConceptUuid: 'platform-uuid',
+            oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',
+            newKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT - Test1'
+          })]
+        }),
+        $setOnInsert: {
+          _id: 'generated-run-id',
+          runId: 'generated-run-id',
+          createdAt: new Date('2026-09-02T12:00:00.000Z')
+        },
+        $push: {
+          statusHistory: {
+            status: 'checked',
+            timestamp: new Date('2026-09-02T12:00:00.000Z')
           }
-        }
-      ],
-      status: 'failed',
-      writebackErrorMessage: 'CMR writeback failed with status 400: {"errors":["boom"]}'
-    })
-
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('gcmd:status "failed"')
-    expect(sparqlCall.body).toContain(
-      'gcmd:writebackErrorMessage "CMR writeback failed with status 400: {\\"errors\\":[\\"boom\\"]}"'
+        },
+        $unset: { error: '' }
+      }),
+      { upsert: true }
     )
   })
 
-  test('returns without writing when there are no corrections', async () => {
+  test('omits the collection URI when the CMR base URL is not configured', async () => {
+    delete process.env.CMR_BASE_URL
+
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-PROV'
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set).not.toHaveProperty('collectionUri')
+  })
+
+  test('updates the same run to failed and records structured error details', async () => {
+    collection.findOne.mockResolvedValue({ status: 'pending' })
+    const error = Object.assign(new Error('CMR rejected metadata'), {
+      status: 400,
+      cmrResponseBody: { errors: ['invalid'] }
+    })
+
+    await persistMetadataCorrectionAuditLog({
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      error,
+      outcome: 'writeback-failed',
+      status: 'failed',
+      timestamp: '2026-09-02T12:01:00.000Z'
+    })
+
+    const update = collection.updateOne.mock.calls[0][1]
+    expect(update.$set).toEqual(expect.objectContaining({
+      status: 'failed',
+      outcome: 'writeback-failed',
+      error: {
+        message: 'CMR rejected metadata',
+        status: 400,
+        cmrResponseBody: { errors: ['invalid'] }
+      }
+    }))
+
+    expect(update.$push.statusHistory).toEqual({
+      status: 'failed',
+      timestamp: new Date('2026-09-02T12:01:00.000Z'),
+      outcome: 'writeback-failed',
+      error: 'CMR rejected metadata'
+    })
+
+    expect(update.$unset).toBeUndefined()
+  })
+
+  test('does not regress pending status when a retried run is checked again', async () => {
+    collection.findOne.mockResolvedValue({ status: 'pending' })
+
     const result = await persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C1234567890-LOCAL',
-      nativeFormat: 'UMM',
-      delegateName: 'umm'
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      status: 'checked'
     })
 
-    expect(result).toEqual({
-      insertedCount: 0,
-      publishedVersionName: 'published',
-      status: 'pending'
-    })
-
-    expect(getVersionMetadata).not.toHaveBeenCalled()
-    expect(sparqlRequest).not.toHaveBeenCalled()
+    expect(result.status).toBe('pending')
+    const update = collection.updateOne.mock.calls[0][1]
+    expect(update.$set.status).toBe('pending')
+    expect(update.$set['timestamps.pendingAt']).toBeUndefined()
+    expect(update.$push).toBeUndefined()
   })
 
-  test('throws when required audit fields are missing', async () => {
-    await expect(persistMetadataCorrectionAuditLog({
-      nativeFormat: 'UMM',
-      delegateName: 'umm',
-      corrections: [{}]
-    })).rejects.toThrow('Missing collectionConceptId for metadata correction audit persistence')
+  test('does not update an applied run during a retry', async () => {
+    collection.findOne.mockResolvedValue({ status: 'applied' })
 
     await expect(persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C1234567890-LOCAL',
-      delegateName: 'umm',
-      corrections: [{}]
-    })).rejects.toThrow('Missing nativeFormat for metadata correction audit persistence')
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      status: 'checked'
+    })).resolves.toEqual({
+      runId: 'run-1',
+      status: 'applied',
+      created: false
+    })
 
-    await expect(persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C1234567890-LOCAL',
-      nativeFormat: 'UMM',
-      corrections: [{}]
-    })).rejects.toThrow('Missing delegateName for metadata correction audit persistence')
+    expect(collection.updateOne).not.toHaveBeenCalled()
   })
 
-  test('defaults published version, timestamp, and action while omitting optional trigger triples', async () => {
-    vi.mocked(getVersionMetadata).mockResolvedValue({
-      version: 'published',
-      versionName: '',
-      versionType: 'published',
-      created: '2026-01-01T00:00:00Z',
-      lastSynced: null
+  test('allows a failed run to restart and clears its previous error', async () => {
+    collection.findOne.mockResolvedValue({ status: 'failed' })
+
+    const result = await persistMetadataCorrectionAuditLog({
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      status: 'checked'
     })
 
-    await persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C2222222222-LOCAL',
-      nativeFormat: 'DIF10',
-      delegateName: 'dif10',
-      corrections: [
-        {
-          scheme: 'platforms',
-          keywordConceptUuid: 'uuid-optional',
-          oldKeywordObject: {
-            Basis: 'Platforms',
-            Category: 'Space-based Platforms',
-            SubCategory: 'Earth Observation Satellites',
-            ShortName: 'OLD PLATFORM'
-          },
-          newKeywordObject: {
-            Basis: 'Platforms',
-            Category: 'Space-based Platforms',
-            SubCategory: 'Earth Observation Satellites',
-            ShortName: 'NEW PLATFORM'
-          }
-        }
-      ]
-    })
-
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).toContain('gcmd:publishedVersionName "published"')
-    expect(sparqlCall.body).toContain('gcmd:action "UNKNOWN"')
-    expect(sparqlCall.body).toContain('gcmd:delegateName "dif10"')
-    expect(sparqlCall.body).toContain('gcmd:nativeFormat "DIF10"')
-    expect(sparqlCall.body).toContain('gcmd:oldKeywordPath "Platforms > Space-based Platforms > Earth Observation Satellites > OLD PLATFORM"')
-    expect(sparqlCall.body).toContain('gcmd:newKeywordPath "Platforms > Space-based Platforms > Earth Observation Satellites > NEW PLATFORM"')
-    expect(sparqlCall.body).not.toContain('gcmd:oldKeywordObject')
-    expect(sparqlCall.body).not.toContain('gcmd:newKeywordObject')
-    expect(sparqlCall.body).toContain('^^xsd:dateTime')
-    expect(sparqlCall.body).not.toContain('gcmd:triggerScheme')
-    expect(sparqlCall.body).not.toContain('gcmd:triggerKeywordUuid')
+    expect(result.status).toBe('checked')
+    expect(collection.updateOne.mock.calls[0][1]).toEqual(expect.objectContaining({
+      $unset: { error: '' },
+      $push: expect.objectContaining({
+        statusHistory: expect.objectContaining({ status: 'checked' })
+      })
+    }))
   })
 
-  test('omits keyword-path triples when the correction objects do not produce meaningful paths', async () => {
-    await persistMetadataCorrectionAuditLog({
-      collectionConceptId: 'C3333333333-LOCAL',
-      nativeFormat: 'UMM',
-      delegateName: 'umm',
-      corrections: [
-        {
-          scheme: 'platforms',
-          keywordConceptUuid: 'uuid-empty-paths',
-          oldKeywordObject: {},
-          newKeywordObject: {}
-        }
-      ]
-    })
+  test('validates required fields and lifecycle status', async () => {
+    await expect(persistMetadataCorrectionAuditLog({
+      status: 'checked'
+    })).rejects.toThrow('Missing collectionConceptId')
 
-    const sparqlCall = vi.mocked(sparqlRequest).mock.calls[0][0]
-    expect(sparqlCall.body).not.toContain('gcmd:oldKeywordPath')
-    expect(sparqlCall.body).not.toContain('gcmd:newKeywordPath')
+    await expect(persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-PROV',
+      status: 'unknown'
+    })).rejects.toThrow('Invalid metadata correction audit status: unknown')
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
   })
 })
