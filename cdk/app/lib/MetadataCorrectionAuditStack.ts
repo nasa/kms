@@ -83,6 +83,7 @@ export class MetadataCorrectionAuditStack extends cdk.Stack {
       && this.cluster
       && this.clientSecurityGroup
       && this.secret
+      && databaseSetup.dbInstance
     ) {
       // Define the deployment Lambda that connects to DocumentDB and creates the indexes.
       const indexInitializer = new NodejsFunction(this, 'IndexInitializer', {
@@ -120,7 +121,7 @@ export class MetadataCorrectionAuditStack extends cdk.Stack {
           IndexDefinitions: METADATA_CORRECTION_AUDIT_INDEXES
         }
       })
-      indexResource.node.addDependency(this.cluster)
+      indexResource.node.addDependency(databaseSetup.dbInstance)
     }
   }
 }

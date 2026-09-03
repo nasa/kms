@@ -1,6 +1,62 @@
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 
 const PHYSICAL_RESOURCE_ID = 'metadata-correction-audit-indexes'
+const INDEX_CREATION_MAX_ATTEMPTS = 24
+const INDEX_CREATION_RETRY_DELAY_MS = 5_000
+const RETRYABLE_CONNECTION_ERROR_CODES = [
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'ETIMEDOUT'
+]
+
+/**
+ * Returns whether DocumentDB is still becoming reachable after cluster creation.
+ *
+ * @example
+ * isRetryableConnectionError(new Error('getaddrinfo ENOTFOUND cluster.example')) // true
+ *
+ * @param {unknown} error Connection error from the MongoDB driver.
+ * @returns {boolean} Whether retrying may succeed once the endpoint is ready.
+ */
+const isRetryableConnectionError = (error) => {
+  const errorMessage = String(error)
+
+  return RETRYABLE_CONNECTION_ERROR_CODES.some((code) => errorMessage.includes(code))
+}
+
+/**
+ * Creates the configured indexes, retrying while a new DocumentDB endpoint becomes reachable.
+ *
+ * @param {Array<object>} indexDefinitions MongoDB index definitions.
+ * @param {number} attempt Current connection attempt.
+ * @returns {Promise<Array<string>>} Names returned by MongoDB for the created indexes.
+ */
+const createAuditIndexes = async (indexDefinitions, attempt = 1) => {
+  try {
+    const collection = await getMetadataCorrectionAuditCollection()
+
+    return await collection.createIndexes(indexDefinitions)
+  } catch (error) {
+    if (
+      !isRetryableConnectionError(error)
+      || attempt >= INDEX_CREATION_MAX_ATTEMPTS
+    ) {
+      throw error
+    }
+
+    console.warn('DocumentDB endpoint is not ready; retrying audit index creation', {
+      attempt,
+      error: String(error)
+    })
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, INDEX_CREATION_RETRY_DELAY_MS)
+    })
+
+    return createAuditIndexes(indexDefinitions, attempt + 1)
+  }
+}
 
 /**
  * Creates the metadata-correction audit indexes during CloudFormation deployment.
@@ -33,8 +89,7 @@ export const initializeMetadataCorrectionAudit = async (event) => {
     throw new Error('Metadata correction audit index definitions are required')
   }
 
-  const collection = await getMetadataCorrectionAuditCollection()
-  const indexNames = await collection.createIndexes(indexDefinitions)
+  const indexNames = await createAuditIndexes(indexDefinitions)
   console.log('Metadata correction audit indexes are ready', { indexNames })
 
   return {

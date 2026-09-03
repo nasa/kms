@@ -27,6 +27,8 @@ export class MetadataCorrectionAuditDatabaseSetup extends Construct {
 
   public readonly secret?: secretsmanager.ISecret
 
+  public readonly dbInstance?: docdb.DatabaseInstance
+
   /**
    * Configures a local MongoDB URI for LocalStack, or provisions the deployed DocumentDB cluster,
    * secret, TLS environment, and paired database/client security groups.
@@ -94,13 +96,21 @@ export class MetadataCorrectionAuditDatabaseSetup extends Construct {
         retention: cdk.Duration.days(7)
       },
       deletionProtection: ['ops', 'prod'].includes(props.stage.toLowerCase()),
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
       storageEncrypted: true,
       securityGroup: databaseSecurityGroup,
       vpc: props.vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
       }
+    })
+
+    // The scaling configuration defines capacity bounds; a db.serverless instance is still required.
+    this.dbInstance = new docdb.DatabaseInstance(this, 'DbInstance', {
+      cluster: this.cluster,
+      dbInstanceName: `${props.prefix}-${props.stage}-metadata-correction-audit-writer`,
+      instanceType: new ec2.InstanceType('serverless'),
+      removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE
     })
 
     this.secret = this.cluster.secret
