@@ -24,6 +24,14 @@
   },
   {
     "key": {
+      "trigger.eventType": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "triggerAction_createdAt_desc"
+  },
+  {
+    "key": {
       "publishedVersionName": 1,
       "createdAt": -1,
       "_id": -1
@@ -53,5 +61,13 @@
       "_id": -1
     },
     "name": "keywordUuid_createdAt_desc"
+  },
+  {
+    "key": {
+      "trigger.keywordConceptUuid": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "triggerKeywordUuid_createdAt_desc"
   }
 ]

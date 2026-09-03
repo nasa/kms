@@ -454,7 +454,8 @@ The audit API is:
 
 - `GET /metadata_correction_audit` for newest-first, token-paginated audit searches. Supported
   filters include collection, keyword UUID, action, scheme, status, native format, KMS version,
-  source, and date range.
+  source, and date range. Supplied actions and schemes must be recognized KMS values, limits must
+  be integers from 1 through 250, and `startDate` must not be after `endDate`.
 
 Publisher events carry the published KMS version through the queue into this document. Manual
 correction endpoints look up the current published version before starting the run, so the

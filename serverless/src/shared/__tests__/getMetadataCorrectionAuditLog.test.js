@@ -45,35 +45,46 @@ describe('metadata correction audit queries', () => {
     }])
 
     const result = await getMetadataCorrectionAuditLog({
-      action: 'UPDATED',
+      action: 'updated',
       collectionConceptId: 'C123-PROV',
       endDate: '2026-09-03',
       keywordConceptUuid: 'keyword-1',
       limit: '25',
       nativeFormat: 'UMM',
       publishedVersionName: '20.1',
-      scheme: 'platforms',
+      scheme: 'dataformat',
       source: 'cmrKeywordEventsListener',
       startDate: '2026-09-01',
       status: 'applied'
     })
 
     expect(collection.find).toHaveBeenCalledWith({
-      collectionConceptId: 'C123-PROV',
-      'trigger.eventType': 'UPDATED',
-      'corrections.keywordConceptUuid': 'keyword-1',
-      nativeFormat: 'UMM',
-      publishedVersionName: '20.1',
-      $or: [
-        { 'corrections.scheme': 'platforms' },
-        { 'trigger.scheme': 'platforms' }
-      ],
-      source: 'cmrKeywordEventsListener',
-      status: 'applied',
-      createdAt: {
-        $gte: new Date('2026-09-01'),
-        $lte: new Date('2026-09-03')
-      }
+      $and: [
+        {
+          collectionConceptId: 'C123-PROV',
+          'trigger.eventType': 'UPDATED',
+          nativeFormat: 'UMM',
+          publishedVersionName: '20.1',
+          source: 'cmrKeywordEventsListener',
+          status: 'applied',
+          createdAt: {
+            $gte: new Date('2026-09-01'),
+            $lte: new Date('2026-09-03')
+          }
+        },
+        {
+          $or: [
+            { 'corrections.keywordConceptUuid': 'keyword-1' },
+            { 'trigger.keywordConceptUuid': 'keyword-1' }
+          ]
+        },
+        {
+          $or: [
+            { 'corrections.scheme': { $in: ['DataFormat', 'dataformat'] } },
+            { 'trigger.scheme': { $in: ['DataFormat', 'dataformat'] } }
+          ]
+        }
+      ]
     })
 
     expect(mongoCursor.sort).toHaveBeenCalledWith({
@@ -141,10 +152,32 @@ describe('metadata correction audit queries', () => {
     })
   })
 
-  test('uses bounded limits and validates filters', async () => {
-    await getMetadataCorrectionAuditLog({ limit: '5000' })
-    expect(mongoCursor.limit).toHaveBeenCalledWith(251)
+  test('supports default filters, one-sided date ranges, and lowercase scheme storage', async () => {
+    await getMetadataCorrectionAuditLog()
 
+    expect(collection.find).toHaveBeenLastCalledWith({})
+    expect(mongoCursor.limit).toHaveBeenLastCalledWith(101)
+
+    await getMetadataCorrectionAuditLog({ scheme: 'PLATFORMS' })
+    expect(collection.find).toHaveBeenLastCalledWith({
+      $or: [
+        { 'corrections.scheme': 'platforms' },
+        { 'trigger.scheme': 'platforms' }
+      ]
+    })
+
+    await getMetadataCorrectionAuditLog({ startDate: '2026-09-01' })
+    expect(collection.find).toHaveBeenLastCalledWith({
+      createdAt: { $gte: new Date('2026-09-01') }
+    })
+
+    await getMetadataCorrectionAuditLog({ endDate: '2026-09-03' })
+    expect(collection.find).toHaveBeenLastCalledWith({
+      createdAt: { $lte: new Date('2026-09-03') }
+    })
+  })
+
+  test('validates filters before querying DocumentDB', async () => {
     await expect(getMetadataCorrectionAuditLog({
       status: 'unknown'
     })).rejects.toThrow('Invalid metadata correction audit status: unknown')
@@ -152,6 +185,29 @@ describe('metadata correction audit queries', () => {
     await expect(getMetadataCorrectionAuditLog({
       startDate: 'not-a-date'
     })).rejects.toThrow('Invalid metadata correction audit startDate')
+
+    await expect(getMetadataCorrectionAuditLog({
+      action: 'renamed'
+    })).rejects.toThrow('Invalid metadata correction audit action: renamed')
+
+    await expect(getMetadataCorrectionAuditLog({
+      scheme: 'not-a-scheme'
+    })).rejects.toThrow('Invalid metadata correction audit scheme: not-a-scheme')
+
+    await expect(getMetadataCorrectionAuditLog({
+      limit: '5000'
+    })).rejects.toThrow('Invalid metadata correction audit limit: expected an integer from 1 to 250')
+
+    await expect(getMetadataCorrectionAuditLog({
+      limit: '12records'
+    })).rejects.toThrow('Invalid metadata correction audit limit: expected an integer from 1 to 250')
+
+    await expect(getMetadataCorrectionAuditLog({
+      startDate: '2026-09-03',
+      endDate: '2026-09-01'
+    })).rejects.toThrow(
+      'Invalid metadata correction audit date range: startDate must not be after endDate'
+    )
 
     await expect(getMetadataCorrectionAuditLog({
       paginationToken: 'not-a-pagination-token'
@@ -164,5 +220,7 @@ describe('metadata correction audit queries', () => {
     await expect(getMetadataCorrectionAuditLog({
       paginationToken: invalidPaginationToken
     })).rejects.toThrow('Invalid metadata correction audit paginationToken')
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
   })
 })
