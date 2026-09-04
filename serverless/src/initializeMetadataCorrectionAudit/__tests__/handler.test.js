@@ -42,10 +42,11 @@ describe('initializeMetadataCorrectionAudit', () => {
   test.each(['Create', 'Update'])('creates indexes for a %s deployment event', async (requestType) => {
     const result = await initializeMetadataCorrectionAudit({
       RequestType: requestType,
-      ResourceProperties: { IndexDefinitions: indexDefinitions }
+      ResourceProperties: { IndexDefinitions: JSON.stringify(indexDefinitions) }
     })
 
     expect(createIndexes).toHaveBeenCalledWith(indexDefinitions)
+    expect(createIndexes.mock.calls[0][0][0].key.createdAt).toBeTypeOf('number')
     expect(consoleLog).toHaveBeenCalledWith(
       'Metadata correction audit indexes are ready',
       { indexNames: ['createdAt_desc'] }

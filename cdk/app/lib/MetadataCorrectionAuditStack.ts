@@ -118,7 +118,8 @@ export class MetadataCorrectionAuditStack extends cdk.Stack {
         serviceToken: indexProvider.serviceToken,
         properties: {
           ClusterEndpoint: this.cluster.clusterEndpoint.hostname,
-          IndexDefinitions: METADATA_CORRECTION_AUDIT_INDEXES
+          // Preserve numeric index directions across the string-based custom-resource boundary.
+          IndexDefinitions: JSON.stringify(METADATA_CORRECTION_AUDIT_INDEXES)
         }
       })
       indexResource.node.addDependency(databaseSetup.dbInstance)

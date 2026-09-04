@@ -66,7 +66,7 @@ const createAuditIndexes = async (indexDefinitions, attempt = 1) => {
  * await initializeMetadataCorrectionAudit({
  *   RequestType: 'Create',
  *   ResourceProperties: {
- *     IndexDefinitions: [{ key: { createdAt: -1 }, name: 'createdAt_desc' }]
+ *     IndexDefinitions: '[{"key":{"createdAt":-1},"name":"createdAt_desc"}]'
  *   }
  * })
  * // { PhysicalResourceId: 'metadata-correction-audit-indexes', Data: { IndexCount: 1 } }
@@ -83,7 +83,10 @@ export const initializeMetadataCorrectionAudit = async (event) => {
     return { PhysicalResourceId: physicalResourceId }
   }
 
-  const indexDefinitions = event.ResourceProperties?.IndexDefinitions
+  const indexDefinitionsProperty = event.ResourceProperties?.IndexDefinitions
+  const indexDefinitions = typeof indexDefinitionsProperty === 'string'
+    ? JSON.parse(indexDefinitionsProperty)
+    : indexDefinitionsProperty
 
   if (!Array.isArray(indexDefinitions) || indexDefinitions.length === 0) {
     throw new Error('Metadata correction audit index definitions are required')
