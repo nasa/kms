@@ -1250,6 +1250,7 @@ describe('when the metadata correction service is invoked', () => {
         format: 'application/dif10+xml',
         umm: {}
       })
+
       vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
         status: 200,
         errors: [],
@@ -1259,6 +1260,7 @@ describe('when the metadata correction service is invoked', () => {
           warnings: []
         }
       })
+
       vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
 
       await metadataCorrectionService({

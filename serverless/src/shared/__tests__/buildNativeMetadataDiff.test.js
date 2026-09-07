@@ -1,4 +1,8 @@
-import { describe, expect, test } from 'vitest'
+import {
+  describe,
+  expect,
+  test
+} from 'vitest'
 
 import { buildNativeMetadataDiff } from '../buildNativeMetadataDiff'
 
@@ -17,6 +21,7 @@ describe('buildNativeMetadataDiff', () => {
       originalBytes: 26,
       correctedBytes: 34
     }))
+
     expect(result.patch).toContain('--- cmr-revision-3')
     expect(result.patch).toContain('+++ corrected-metadata')
     expect(result.patch).toContain('-<Platform>GOSAT</Platform>')

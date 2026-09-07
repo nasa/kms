@@ -141,7 +141,7 @@ export const getCapabilities = async () => {
               ':@': {
                 name: 'get_metadata_correction_audit',
                 href: '/metadata_correction_audit',
-                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&nativeFormat=&publishedVersionName=&source=&startDate=&endDate=&paginationToken=&limit=',
+                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&nativeFormat=&publishedVersionName=&source=&startDate=&endDate=&paginationToken=&includeDiff=&limit=',
                 action: 'GET'
               }
             },

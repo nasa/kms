@@ -500,6 +500,7 @@ describe('runCollectionMetadataCorrection', () => {
 
     expect(persistMetadataCorrectionAuditLog.mock.calls[1][0].metadataDiff.patch)
       .toContain('-<DIF/>')
+
     expect(persistMetadataCorrectionAuditLog.mock.calls[1][0].metadataDiff.patch)
       .toContain('+<DIF>corrected</DIF>')
 
@@ -1294,7 +1295,9 @@ describe('runCollectionMetadataCorrection', () => {
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     })
 
-    vi.mocked(invokeMetadataCorrectionDelegate).mockImplementation(async ({ metadataPayload }) => {
+    vi.mocked(invokeMetadataCorrectionDelegate).mockImplementation(async (input) => {
+      const { metadataPayload } = input
+
       expect(metadataPayload.ShortName).toBe('TEST')
       metadataPayload.ShortName = 'TEST-UPDATED'
 

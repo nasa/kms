@@ -29,8 +29,22 @@ const AUDIT_SUMMARY_PROJECTION = {
   'corrections.action': 1,
   'corrections.oldKeywordPath': 1,
   'corrections.newKeywordPath': 1,
-  'metadataDiff.changed': 1,
   'error.message': 1
+}
+
+/**
+ * Adds the complete stored diff to list queries only when requested.
+ *
+ * @param {boolean} includeDiff Whether list results should include native-metadata patches.
+ * @returns {Object} MongoDB projection for the audit list query.
+ */
+const auditSummaryProjection = (includeDiff) => {
+  if (!includeDiff) return AUDIT_SUMMARY_PROJECTION
+
+  return {
+    ...AUDIT_SUMMARY_PROJECTION,
+    metadataDiff: 1
+  }
 }
 
 /**
@@ -344,9 +358,10 @@ const normalizeAuditChange = (correction = {}) => ({
  * Builds the compact representation returned by paginated audit searches.
  *
  * @param {Object} document Stored audit document.
+ * @param {boolean} includeDiff Whether to include the native-metadata diff.
  * @returns {Object} Audit summary suitable for list views.
  */
-const normalizeAuditSummary = (document) => ({
+const normalizeAuditSummary = (document, includeDiff = false) => ({
   runId: document.runId,
   collectionConceptId: document.collectionConceptId,
   collectionUri: document.collectionUri,
@@ -355,12 +370,12 @@ const normalizeAuditSummary = (document) => ({
   changes: Array.isArray(document.corrections)
     ? document.corrections.map(normalizeAuditChange)
     : [],
-  hasMetadataDiff: document.metadataDiff?.changed === true,
+  ...(includeDiff && document.metadataDiff ? { metadataDiff: document.metadataDiff } : {}),
   ...(document.error?.message ? { errorMessage: document.error.message } : {})
 })
 
 /**
- * Parses the optional detail flag used to include a potentially large native-metadata diff.
+ * Parses the optional flag used to include a potentially large native-metadata diff.
  *
  * @example
  * normalizeIncludeDiff('true') // true
@@ -389,10 +404,11 @@ const normalizeIncludeDiff = (includeDiff) => {
  */
 export const getMetadataCorrectionAuditLog = async (filters = {}) => {
   const limit = normalizeLimit(filters.limit)
+  const shouldIncludeDiff = normalizeIncludeDiff(filters.includeDiff)
   const query = addPaginationTokenToQuery(buildAuditQuery(filters), filters.paginationToken)
   const collection = await getMetadataCorrectionAuditCollection()
   const documents = await collection.find(query, {
-    projection: AUDIT_SUMMARY_PROJECTION
+    projection: auditSummaryProjection(shouldIncludeDiff)
   })
     .sort({
       createdAt: -1,
@@ -404,7 +420,7 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
   const pageDocuments = hasNextPage ? documents.slice(0, limit) : documents
 
   return {
-    items: pageDocuments.map(normalizeAuditSummary),
+    items: pageDocuments.map((document) => normalizeAuditSummary(document, shouldIncludeDiff)),
     nextPaginationToken: hasNextPage
       ? encodePaginationToken(pageDocuments[pageDocuments.length - 1])
       : null
@@ -438,7 +454,10 @@ export const getMetadataCorrectionAuditByRunId = async ({
     {
       projection: shouldIncludeDiff
         ? { _id: 0 }
-        : { _id: 0, metadataDiff: 0 }
+        : {
+          _id: 0,
+          metadataDiff: 0
+        }
     }
   )
 

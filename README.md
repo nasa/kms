@@ -458,7 +458,8 @@ The audit API is:
   filters include collection, keyword UUID, action, scheme, status, native format, KMS version,
   source, and date range. Supplied actions and schemes must be recognized KMS values, limits must
   be integers from 1 through 250, and `startDate` must not be after `endDate`. List results contain
-  compact collection, status, and old-to-new keyword path summaries.
+  compact collection, status, and old-to-new keyword path summaries. Add `?includeDiff=true` to
+  include each available native-metadata diff in the list results.
 - `GET /metadata_correction_audit/{runId}` for the complete audit document. Add
   `?includeDiff=true` when the native-metadata diff is needed; it is omitted by default to keep
   routine responses small.

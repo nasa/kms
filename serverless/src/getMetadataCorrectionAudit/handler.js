@@ -32,10 +32,11 @@ import { logger } from '@/shared/logger'
  * - source
  * - startDate / endDate
  * - paginationToken
+ * - includeDiff
  * - limit
  *
- * A `runId` path parameter returns one detailed audit document. Add `includeDiff=true` to that
- * request to include its native-metadata patch.
+ * Add `includeDiff=true` to a list or detail request to include native-metadata patches.
+ * A `runId` path parameter returns one detailed audit document.
  *
  * @param {object} event - API Gateway event.
  * @param {object} context - Lambda context.
@@ -105,6 +106,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
       startDate,
       endDate,
       paginationToken,
+      includeDiff,
       limit
     })
 

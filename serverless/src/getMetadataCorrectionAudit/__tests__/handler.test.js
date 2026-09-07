@@ -50,8 +50,7 @@ describe('getMetadataCorrectionAudit', () => {
           scheme: 'platforms',
           oldKeywordPath: 'Platforms > GOSAT',
           newKeywordPath: 'Platforms > GOSAT - Test1'
-        }],
-        hasMetadataDiff: true
+        }]
       }],
       nextPaginationToken: null
     })
@@ -69,6 +68,7 @@ describe('getMetadataCorrectionAudit', () => {
       action: undefined,
       paginationToken: undefined,
       endDate: undefined,
+      includeDiff: undefined,
       scheme: undefined,
       status: undefined,
       nativeFormat: undefined,
@@ -92,12 +92,26 @@ describe('getMetadataCorrectionAudit', () => {
             scheme: 'platforms',
             oldKeywordPath: 'Platforms > GOSAT',
             newKeywordPath: 'Platforms > GOSAT - Test1'
-          }],
-          hasMetadataDiff: true
+          }]
         }
       ],
       nextPaginationToken: null
     })
+  })
+
+  test('requests native metadata diffs in list results when requested', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    await getMetadataCorrectionAudit({
+      queryStringParameters: { includeDiff: 'true' }
+    })
+
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      includeDiff: 'true'
+    }))
   })
 
   test('returns 500 when the audit query fails', async () => {
@@ -141,6 +155,7 @@ describe('getMetadataCorrectionAudit', () => {
       runId: 'run-1',
       includeDiff: 'true'
     })
+
     expect(getMetadataCorrectionAuditLog).not.toHaveBeenCalled()
     expect(result.statusCode).toBe(200)
     expect(JSON.parse(result.body).metadataDiff.patch).toBe('-old\n+new')

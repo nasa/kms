@@ -29,7 +29,6 @@ const SUMMARY_PROJECTION = {
   'corrections.action': 1,
   'corrections.oldKeywordPath': 1,
   'corrections.newKeywordPath': 1,
-  'metadataDiff.changed': 1,
   'error.message': 1
 }
 
@@ -139,7 +138,6 @@ describe('metadata correction audit queries', () => {
           oldKeywordPath: 'Platforms > GOSAT',
           newKeywordPath: 'Platforms > GOSAT - Test1'
         }],
-        hasMetadataDiff: true,
         errorMessage: 'CMR writeback timed out'
       }],
       nextPaginationToken: null
@@ -197,6 +195,33 @@ describe('metadata correction audit queries', () => {
     )
   })
 
+  test('includes native metadata diffs in list results when requested', async () => {
+    const metadataDiff = {
+      changed: true,
+      format: 'unified',
+      patch: '-old\n+new'
+    }
+    mongoCursor.toArray.mockResolvedValue([{
+      _id: 'run-1',
+      runId: 'run-1',
+      metadataDiff
+    }])
+
+    const result = await getMetadataCorrectionAuditLog({ includeDiff: 'true' })
+
+    expect(collection.find).toHaveBeenCalledWith({}, {
+      projection: {
+        ...SUMMARY_PROJECTION,
+        metadataDiff: 1
+      }
+    })
+
+    expect(result.items[0]).toMatchObject({
+      runId: 'run-1',
+      metadataDiff
+    })
+  })
+
   test('supports default filters, one-sided date ranges, and lowercase scheme storage', async () => {
     await getMetadataCorrectionAuditLog()
 
@@ -204,6 +229,7 @@ describe('metadata correction audit queries', () => {
       {},
       { projection: SUMMARY_PROJECTION }
     )
+
     expect(mongoCursor.limit).toHaveBeenLastCalledWith(101)
 
     await getMetadataCorrectionAuditLog({ scheme: 'PLATFORMS' })
@@ -266,6 +292,12 @@ describe('metadata correction audit queries', () => {
       paginationToken: 'not-a-pagination-token'
     })).rejects.toThrow('Invalid metadata correction audit paginationToken')
 
+    await expect(getMetadataCorrectionAuditLog({
+      includeDiff: 'yes'
+    })).rejects.toThrow(
+      'Invalid metadata correction audit includeDiff: expected true or false'
+    )
+
     const invalidPaginationToken = Buffer.from(JSON.stringify({
       createdAt: '2026-09-02T12:00:00.000Z',
       runId: ''
@@ -292,7 +324,12 @@ describe('metadata correction audit queries', () => {
 
     expect(collection.findOne).toHaveBeenCalledWith(
       { _id: 'run-1' },
-      { projection: { _id: 0, metadataDiff: 0 } }
+      {
+        projection: {
+          _id: 0,
+          metadataDiff: 0
+        }
+      }
     )
   })
 
