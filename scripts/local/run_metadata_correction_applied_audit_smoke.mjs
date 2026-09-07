@@ -195,7 +195,10 @@ try {
   await clearAuditRowsForCollection()
 
   const { metadataCorrectionService } = await import('../../serverless/src/metadataCorrectionService/handler')
-  const { getMetadataCorrectionAuditLog } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
+  const {
+    getMetadataCorrectionAuditByRunId,
+    getMetadataCorrectionAuditLog
+  } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
 
   const { items: beforeRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
@@ -220,9 +223,16 @@ try {
     collectionConceptId,
     limit: 20
   })
-  const statuses = [...new Set(afterRows.flatMap((row) => (
-    row.statusHistory?.map(({ status }) => status) || [row.status]
-  )))]
+  const appliedSummary = afterRows.find(({ status }) => status === 'applied')
+  const appliedRow = appliedSummary
+    ? await getMetadataCorrectionAuditByRunId({
+      runId: appliedSummary.runId,
+      includeDiff: true
+    })
+    : null
+  const statuses = [...new Set(
+    appliedRow?.statusHistory?.map(({ status }) => status) || []
+  )]
 
   if (beforeRows.length !== 0) {
     throw new Error(`Expected no starting audit documents for ${collectionConceptId}, found ${beforeRows.length}`)
@@ -236,7 +246,6 @@ try {
     throw new Error(`Missing applied audit status for ${collectionConceptId}`)
   }
 
-  const appliedRow = afterRows.find(({ status }) => status === 'applied')
   if (appliedRow?.publishedVersionName !== 'local-published') {
     throw new Error(`Missing published KMS version for ${collectionConceptId}`)
   }
@@ -250,6 +259,10 @@ try {
     throw new Error(`Missing the expected CMR collection URI for ${collectionConceptId}`)
   }
 
+  if (appliedRow.metadataDiff?.changed !== true || !appliedRow.metadataDiff.patch) {
+    throw new Error(`Missing the native metadata diff for ${collectionConceptId}`)
+  }
+
   await fs.mkdir(outputDir, { recursive: true })
   await fs.writeFile(outputPath, JSON.stringify({
     collectionConceptId,
@@ -258,7 +271,8 @@ try {
     beforeCount: beforeRows.length,
     afterCount: afterRows.length,
     statuses,
-    rows: afterRows
+    rows: afterRows,
+    appliedRow
   }, null, 2), 'utf8')
 
   console.log('[metadata-correction-audit-smoke] Completed successfully')

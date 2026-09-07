@@ -487,9 +487,21 @@ describe('runCollectionMetadataCorrection', () => {
         keywordEvent: {
           eventType: 'MANUAL'
         },
+        metadataDiff: expect.objectContaining({
+          changed: true,
+          format: 'unified',
+          truncated: false,
+          originalBytes: 6,
+          correctedBytes: 20
+        }),
         status: 'pending'
       })
     )
+
+    expect(persistMetadataCorrectionAuditLog.mock.calls[1][0].metadataDiff.patch)
+      .toContain('-<DIF/>')
+    expect(persistMetadataCorrectionAuditLog.mock.calls[1][0].metadataDiff.patch)
+      .toContain('+<DIF>corrected</DIF>')
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
       3,
@@ -1282,18 +1294,21 @@ describe('runCollectionMetadataCorrection', () => {
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     })
 
-    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
-      delegateName: 'umm',
-      nativeFormat: 'UMM',
-      correctionCount: 1,
-      correctionsApplied: [
-        {
-          scheme: 'sciencekeywords',
-          keywordConceptUuid: 'uuid-1'
-        }
-      ],
-      correctedMetadata: {
-        ShortName: 'TEST-UPDATED'
+    vi.mocked(invokeMetadataCorrectionDelegate).mockImplementation(async ({ metadataPayload }) => {
+      expect(metadataPayload.ShortName).toBe('TEST')
+      metadataPayload.ShortName = 'TEST-UPDATED'
+
+      return {
+        delegateName: 'umm',
+        nativeFormat: 'UMM',
+        correctionCount: 1,
+        correctionsApplied: [
+          {
+            scheme: 'sciencekeywords',
+            keywordConceptUuid: 'uuid-1'
+          }
+        ],
+        correctedMetadata: metadataPayload
       }
     })
 
@@ -1316,16 +1331,18 @@ describe('runCollectionMetadataCorrection', () => {
     })
 
     expect(invokeMetadataCorrectionDelegate).toHaveBeenCalledWith(expect.objectContaining({
-      nativeFormat: 'UMM',
-      metadataPayload: {
-        ShortName: 'TEST'
-      }
+      nativeFormat: 'UMM'
     }))
 
     expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
       nativeFormat: 'UMM',
       nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     }))
+
+    const pendingAudit = persistMetadataCorrectionAuditLog.mock.calls[1][0]
+    expect(pendingAudit.metadataDiff.changed).toBe(true)
+    expect(pendingAudit.metadataDiff.patch).toContain('-  "ShortName": "TEST"')
+    expect(pendingAudit.metadataDiff.patch).toContain('+  "ShortName": "TEST-UPDATED"')
 
     expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
       metrics: [

@@ -145,6 +145,7 @@ const buildAuditPatch = ({
   keywordEvent,
   keywordValidationFailures,
   messageId,
+  metadataDiff,
   nativeFormat,
   outcome,
   priorRevisionId,
@@ -178,6 +179,7 @@ const buildAuditPatch = ({
   keywordValidationFailureCount: Array.isArray(keywordValidationFailures)
     ? keywordValidationFailures.length
     : undefined,
+  metadataDiff,
   outcome,
   error: error ? compactObject({
     message: error.message || String(error),

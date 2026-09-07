@@ -1,3 +1,7 @@
+import {
+  buildNativeMetadataDiff,
+  snapshotNativeMetadataForDiff
+} from '@/shared/buildNativeMetadataDiff'
 import { detectNativeMetadataFormat } from '@/shared/detectNativeMetadataFormat'
 import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
@@ -416,6 +420,7 @@ export const runCollectionMetadataCorrection = async ({
   })
 
   let nativeMetadataResponse
+  let originalMetadata
   let rawCorrectionResult
 
   try {
@@ -428,6 +433,8 @@ export const runCollectionMetadataCorrection = async ({
     const metadataPayload = nativeFormat === 'UMM'
       ? nativeMetadataResponse.metadataPayload
       : nativeMetadataResponse
+    // Snapshot JSON before invoking editors because some delegates mutate the payload in place.
+    originalMetadata = snapshotNativeMetadataForDiff(metadataPayload)
 
     rawCorrectionResult = await invokeMetadataCorrectionDelegate({
       collectionConceptId: collectionDetails.collectionConceptId,
@@ -467,6 +474,13 @@ export const runCollectionMetadataCorrection = async ({
     : []
   const normalizedCorrectionCount = Number(rawCorrectionResult.correctionCount || 0)
   const correctedMetadata = rawCorrectionResult.correctedMetadata ?? ''
+  const metadataDiff = correctionsApplied.length > 0
+    ? buildNativeMetadataDiff({
+      originalMetadata,
+      correctedMetadata,
+      priorRevisionId: collectionDetails.revisionId
+    })
+    : undefined
   let pendingAuditResult = null
   let appliedAuditResult = null
 
@@ -481,6 +495,7 @@ export const runCollectionMetadataCorrection = async ({
       delegateName,
       corrections: correctionsApplied,
       keywordValidationFailures,
+      metadataDiff,
       priorRevisionId: collectionDetails.revisionId,
       outcome: 'writeback-pending',
       source,

@@ -43,6 +43,16 @@ const extractErrorDetails = (error) => {
 }
 
 /**
+ * Reads the request identifier returned by CMR for latency troubleshooting.
+ *
+ * @param {Response} response Fetch response from CMR.
+ * @returns {string|undefined} CMR request identifier when present.
+ */
+const getCmrRequestId = (response) => response.headers?.get?.('cmr-request-id')
+  || response.headers?.get?.('x-request-id')
+  || undefined
+
+/**
  * Makes a PUT request to the CMR (Common Metadata Repository) API.
  *
  * @param {Object} options - The options for the PUT request.
@@ -64,6 +74,7 @@ export const cmrPutRequest = async ({
 }) => {
   const { endpoint } = getEndpointConfig()
   const fullUrl = `${endpoint}${path}`
+  const startedAt = Date.now()
 
   const fetchOptions = {
     method: 'PUT',
@@ -103,7 +114,17 @@ export const cmrPutRequest = async ({
       fetchOptions.signal = controller.signal
     }
 
-    return await fetch(fullUrl, fetchOptions)
+    const response = await fetch(fullUrl, fetchOptions)
+
+    logger.info('[cmr-put] CMR response received', {
+      method: 'PUT',
+      path,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      requestId: getCmrRequestId(response)
+    })
+
+    return response
   } catch (error) {
     const requestContext = {
       method: 'PUT',
@@ -111,7 +132,9 @@ export const cmrPutRequest = async ({
       path,
       fullUrl,
       bodyLength: typeof body === 'string' ? body.length : undefined,
-      timeoutMs
+      timeoutMs,
+      durationMs: Date.now() - startedAt,
+      timedOut: controller.signal.aborted
     }
 
     logger.error('[cmr-put] CMR write failed', {

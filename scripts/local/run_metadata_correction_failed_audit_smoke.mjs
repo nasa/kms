@@ -203,7 +203,10 @@ try {
   await clearAuditRowsForCollection()
 
   const { metadataCorrectionService } = await import('../../serverless/src/metadataCorrectionService/handler')
-  const { getMetadataCorrectionAuditLog } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
+  const {
+    getMetadataCorrectionAuditByRunId,
+    getMetadataCorrectionAuditLog
+  } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
 
   const { items: beforeRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
@@ -227,10 +230,16 @@ try {
     collectionConceptId,
     limit: 20
   })
-  const statuses = [...new Set(afterRows.flatMap((row) => (
-    row.statusHistory?.map(({ status }) => status) || [row.status]
-  )))]
-  const failedRow = afterRows.find((row) => row.status === 'failed')
+  const failedSummary = afterRows.find(({ status }) => status === 'failed')
+  const failedRow = failedSummary
+    ? await getMetadataCorrectionAuditByRunId({
+      runId: failedSummary.runId,
+      includeDiff: true
+    })
+    : null
+  const statuses = [...new Set(
+    failedRow?.statusHistory?.map(({ status }) => status) || []
+  )]
 
   if (beforeRows.length !== 0) {
     throw new Error(`Expected no starting audit documents for ${collectionConceptId}, found ${beforeRows.length}`)
@@ -266,6 +275,10 @@ try {
       'Expected failed audit response details to match the mock ingest response body. '
       + `Received ${JSON.stringify(failedRow.error.cmrResponseBody)}`
     )
+  }
+
+  if (failedRow.metadataDiff?.changed !== true || !failedRow.metadataDiff.patch) {
+    throw new Error(`Missing the native metadata diff for failed run ${collectionConceptId}`)
   }
 
   await fs.mkdir(outputDir, { recursive: true })

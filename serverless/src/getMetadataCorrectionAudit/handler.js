@@ -1,5 +1,8 @@
 import { getApplicationConfig } from '@/shared/getConfig'
-import { getMetadataCorrectionAuditLog } from '@/shared/getMetadataCorrectionAuditLog'
+import {
+  getMetadataCorrectionAuditByRunId,
+  getMetadataCorrectionAuditLog
+} from '@/shared/getMetadataCorrectionAuditLog'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 
@@ -31,6 +34,9 @@ import { logger } from '@/shared/logger'
  * - paginationToken
  * - limit
  *
+ * A `runId` path parameter returns one detailed audit document. Add `includeDiff=true` to that
+ * request to include its native-metadata patch.
+ *
  * @param {object} event - API Gateway event.
  * @param {object} context - Lambda context.
  * @returns {Promise<object>} API Gateway response object.
@@ -61,10 +67,32 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     startDate,
     endDate,
     paginationToken,
+    includeDiff,
     limit
   } = event?.queryStringParameters || {}
+  const runId = event?.pathParameters?.runId
 
   try {
+    if (runId) {
+      const auditDocument = await getMetadataCorrectionAuditByRunId({
+        runId,
+        includeDiff
+      })
+
+      return {
+        statusCode: auditDocument ? 200 : 404,
+        headers: {
+          ...defaultResponseHeaders,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(
+          auditDocument || { error: `Metadata correction audit run not found: ${runId}` },
+          null,
+          2
+        )
+      }
+    }
+
     const auditPage = await getMetadataCorrectionAuditLog({
       collectionConceptId,
       keywordConceptUuid,

@@ -63,6 +63,12 @@ describe('persistMetadataCorrectionAuditLog', () => {
         scheme: 'platforms',
         uuid: 'platform-uuid'
       },
+      metadataDiff: {
+        changed: true,
+        format: 'unified',
+        patch: '-GOSAT\n+GOSAT - Test1',
+        truncated: false
+      },
       nativeFormat: 'UMM',
       priorRevisionId: 7,
       providerId: 'PROV',
@@ -86,6 +92,12 @@ describe('persistMetadataCorrectionAuditLog', () => {
           publishedVersionName: '20.1',
           priorRevisionId: 7,
           status: 'checked',
+          metadataDiff: {
+            changed: true,
+            format: 'unified',
+            patch: '-GOSAT\n+GOSAT - Test1',
+            truncated: false
+          },
           corrections: [expect.objectContaining({
             keywordConceptUuid: 'platform-uuid',
             oldKeywordPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > GOSAT',

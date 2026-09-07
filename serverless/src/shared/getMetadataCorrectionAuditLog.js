@@ -17,6 +17,21 @@ const VALID_AUDIT_SCHEMES = new Map([
     .map(([scheme]) => [scheme.toLowerCase(), scheme]),
   ...VALID_SCHEMES.map((scheme) => [scheme.toLowerCase(), scheme])
 ])
+const AUDIT_SUMMARY_PROJECTION = {
+  _id: 1,
+  runId: 1,
+  collectionConceptId: 1,
+  collectionUri: 1,
+  status: 1,
+  createdAt: 1,
+  updatedAt: 1,
+  'corrections.scheme': 1,
+  'corrections.action': 1,
+  'corrections.oldKeywordPath': 1,
+  'corrections.newKeywordPath': 1,
+  'metadataDiff.changed': 1,
+  'error.message': 1
+}
 
 /**
  * Validates the optional API page size.
@@ -304,6 +319,65 @@ const normalizeAuditDocument = (document) => Object.fromEntries(
 )
 
 /**
+ * Reduces a stored correction to the old-to-new path information needed in audit search results.
+ *
+ * @example
+ * normalizeAuditChange({
+ *   scheme: 'platforms',
+ *   action: 'replace',
+ *   oldKeywordPath: 'Platforms > GOSAT',
+ *   newKeywordPath: 'Platforms > GOSAT - Test1'
+ * })
+ * // { scheme: 'platforms', action: 'replace', oldKeywordPath: '...', newKeywordPath: '...' }
+ *
+ * @param {Object} correction Stored correction details.
+ * @returns {Object} Compact path change.
+ */
+const normalizeAuditChange = (correction = {}) => ({
+  scheme: correction.scheme,
+  action: correction.action,
+  oldKeywordPath: correction.oldKeywordPath,
+  newKeywordPath: correction.newKeywordPath
+})
+
+/**
+ * Builds the compact representation returned by paginated audit searches.
+ *
+ * @param {Object} document Stored audit document.
+ * @returns {Object} Audit summary suitable for list views.
+ */
+const normalizeAuditSummary = (document) => ({
+  runId: document.runId,
+  collectionConceptId: document.collectionConceptId,
+  collectionUri: document.collectionUri,
+  status: document.status,
+  updatedAt: document.updatedAt,
+  changes: Array.isArray(document.corrections)
+    ? document.corrections.map(normalizeAuditChange)
+    : [],
+  hasMetadataDiff: document.metadataDiff?.changed === true,
+  ...(document.error?.message ? { errorMessage: document.error.message } : {})
+})
+
+/**
+ * Parses the optional detail flag used to include a potentially large native-metadata diff.
+ *
+ * @example
+ * normalizeIncludeDiff('true') // true
+ * normalizeIncludeDiff(undefined) // false
+ *
+ * @param {unknown} includeDiff Requested flag value.
+ * @returns {boolean} Whether the detailed response should include the diff.
+ */
+const normalizeIncludeDiff = (includeDiff) => {
+  if (includeDiff === undefined || includeDiff === null || includeDiff === false) return false
+  if (includeDiff === true || includeDiff === 'true') return true
+  if (includeDiff === 'false') return false
+
+  throw new Error('Invalid metadata correction audit includeDiff: expected true or false')
+}
+
+/**
  * Returns metadata-correction audit runs using newest-first token pagination.
  *
  * @param {Object} [filters={}] Supported field, date, and pagination filters.
@@ -317,7 +391,9 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
   const limit = normalizeLimit(filters.limit)
   const query = addPaginationTokenToQuery(buildAuditQuery(filters), filters.paginationToken)
   const collection = await getMetadataCorrectionAuditCollection()
-  const documents = await collection.find(query)
+  const documents = await collection.find(query, {
+    projection: AUDIT_SUMMARY_PROJECTION
+  })
     .sort({
       createdAt: -1,
       _id: -1
@@ -328,11 +404,45 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
   const pageDocuments = hasNextPage ? documents.slice(0, limit) : documents
 
   return {
-    items: pageDocuments.map(normalizeAuditDocument),
+    items: pageDocuments.map(normalizeAuditSummary),
     nextPaginationToken: hasNextPage
       ? encodePaginationToken(pageDocuments[pageDocuments.length - 1])
       : null
   }
+}
+
+/**
+ * Retrieves one complete audit run, excluding the native diff unless explicitly requested.
+ *
+ * @example
+ * await getMetadataCorrectionAuditByRunId({ runId: 'run-1', includeDiff: 'true' })
+ * // { runId: 'run-1', status: 'applied', metadataDiff: { ... } }
+ *
+ * @param {Object} params Detail lookup parameters.
+ * @param {string} params.runId Audit run identifier.
+ * @param {boolean|string} [params.includeDiff=false] Whether to include the stored metadata patch.
+ * @returns {Promise<Object|null>} Detailed audit document or null when it does not exist.
+ */
+export const getMetadataCorrectionAuditByRunId = async ({
+  runId,
+  includeDiff = false
+} = {}) => {
+  if (!runId) {
+    throw new Error('Invalid metadata correction audit runId')
+  }
+
+  const shouldIncludeDiff = normalizeIncludeDiff(includeDiff)
+  const collection = await getMetadataCorrectionAuditCollection()
+  const document = await collection.findOne(
+    { _id: runId },
+    {
+      projection: shouldIncludeDiff
+        ? { _id: 0 }
+        : { _id: 0, metadataDiff: 0 }
+    }
+  )
+
+  return document ? normalizeAuditDocument(document) : null
 }
 
 export default getMetadataCorrectionAuditLog

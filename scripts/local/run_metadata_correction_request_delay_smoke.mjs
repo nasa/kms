@@ -230,7 +230,10 @@ try {
   await clearAuditRowsForCollection()
 
   const { metadataCorrectionService } = await import('../../serverless/src/metadataCorrectionService/handler')
-  const { getMetadataCorrectionAuditLog } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
+  const {
+    getMetadataCorrectionAuditByRunId,
+    getMetadataCorrectionAuditLog
+  } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
   const { getCmrCollectionNativeMetadata } = await import('../../serverless/src/shared/getCmrCollectionNativeMetadata')
 
   const requestedAt = new Date().toISOString()
@@ -294,9 +297,16 @@ try {
     collectionConceptId,
     limit: 20
   })
-  const statuses = [...new Set(auditRows.flatMap((row) => (
-    row.statusHistory?.map(({ status }) => status) || [row.status]
-  )))]
+  const appliedSummary = auditRows.find(({ status }) => status === 'applied')
+  const appliedRow = appliedSummary
+    ? await getMetadataCorrectionAuditByRunId({
+      runId: appliedSummary.runId,
+      includeDiff: true
+    })
+    : null
+  const statuses = [...new Set(
+    appliedRow?.statusHistory?.map(({ status }) => status) || []
+  )]
 
   if (!statuses.includes('pending')) {
     throw new Error(`Missing pending audit status for ${collectionConceptId}`)
@@ -304,6 +314,10 @@ try {
 
   if (!statuses.includes('applied')) {
     throw new Error(`Missing applied audit status for ${collectionConceptId}`)
+  }
+
+  if (appliedRow?.metadataDiff?.changed !== true || !appliedRow.metadataDiff.patch) {
+    throw new Error(`Missing the native metadata diff for ${collectionConceptId}`)
   }
 
   await fs.mkdir(outputDir, { recursive: true })
@@ -320,7 +334,8 @@ try {
     statuses,
     updatedPlatform,
     response,
-    rows: auditRows
+    rows: auditRows,
+    appliedRow
   }, null, 2), 'utf8')
 
   console.log('[metadata-correction-request-delay-smoke] Completed successfully')

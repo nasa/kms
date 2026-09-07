@@ -124,6 +124,7 @@ describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     delete process.env.METADATA_CORRECTION_REQUEST_DELAY_MS
+    delete process.env.METADATA_CORRECTION_RUNS_PER_MINUTE
     vi.mocked(delay).mockResolvedValue(undefined)
     vi.mocked(emitConsumerMetricsSafely).mockResolvedValue(undefined)
 
@@ -1237,6 +1238,50 @@ describe('when the metadata correction service is invoked', () => {
           recordCount: 1
         })
       }))
+    })
+
+    test('should pace correction runs when a per-minute rate is configured', async () => {
+      process.env.METADATA_CORRECTION_RUNS_PER_MINUTE = '10'
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [{
+          messageId: 'message-paced',
+          body: JSON.stringify({
+            source: 'cmrKeywordEventsListener',
+            collectionConceptId: 'C1234567890-PROV'
+          })
+        }]
+      })
+
+      expect(delay).toHaveBeenCalledOnce()
+      expect(delay).toHaveBeenCalledWith(6000)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] Pacing queued metadata correction request',
+        {
+          collectionConceptId: 'C1234567890-PROV',
+          messageId: 'message-paced',
+          pacingDelayMs: 6000,
+          runsPerMinute: 10
+        }
+      )
     })
 
     test('should delay queued manual api requests when configured before running correction', async () => {

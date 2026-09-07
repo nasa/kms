@@ -147,6 +147,14 @@ export const getCapabilities = async () => {
             },
             {
               ':@': {
+                name: 'get_metadata_correction_audit_run',
+                href: '/metadata_correction_audit/{runId}',
+                params: 'includeDiff=',
+                action: 'GET'
+              }
+            },
+            {
+              ':@': {
                 name: 'get_concept_versions',
                 href: '/concept_versions/version_type/{versionType}',
                 params: 'None',

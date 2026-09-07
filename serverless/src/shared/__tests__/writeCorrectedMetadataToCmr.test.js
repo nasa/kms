@@ -48,6 +48,7 @@ describe('when writing corrected metadata to cmr', () => {
     vi.clearAllMocks()
     process.env.CMR_WRITEBACK_PROVIDERS = 'KMS'
     process.env.CMR_WRITER_TOKEN = 'Bearer writer-token'
+    delete process.env.CMR_WRITEBACK_TIMEOUT_MS
     delete process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS
     delete process.env.CMR_WRITEBACK_VALIDATE_UMM_C
 
@@ -97,7 +98,7 @@ describe('when writing corrected metadata to cmr', () => {
       body: '<DIF><Entry_ID/></DIF>',
       contentType: 'application/dif10+xml',
       accept: 'application/json',
-      timeoutMs: 10000,
+      timeoutMs: 25000,
       headers: {
         Authorization: 'Bearer writer-token',
         'Client-Id': 'kms-metadata-correction-service',
@@ -285,7 +286,7 @@ describe('when writing corrected metadata to cmr', () => {
       body: JSON.stringify(correctedMetadata),
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2',
       accept: 'application/json',
-      timeoutMs: 10000,
+      timeoutMs: 25000,
       headers: {
         Authorization: 'Bearer writer-token',
         'Client-Id': 'kms-metadata-correction-service',
@@ -542,5 +543,30 @@ describe('when writing corrected metadata to cmr', () => {
       correctionCount: 1,
       correctedMetadata: '<Native/>'
     })).rejects.toThrow('Unsupported native format for CMR writeback: UNKNOWN')
+  })
+
+  test.each([
+    ['30000', 30000],
+    ['60000', 45000],
+    ['not-a-number', 25000],
+    ['0', 25000]
+  ])('should resolve CMR writeback timeout %s to %i milliseconds', async (
+    configuredTimeout,
+    expectedTimeout
+  ) => {
+    process.env.CMR_WRITEBACK_TIMEOUT_MS = configuredTimeout
+
+    await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-KMS',
+      providerId: 'KMS',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(cmrPutRequest).toHaveBeenCalledWith(expect.objectContaining({
+      timeoutMs: expectedTimeout
+    }))
   })
 })

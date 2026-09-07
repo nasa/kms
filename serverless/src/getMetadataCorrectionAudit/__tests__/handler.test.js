@@ -6,7 +6,10 @@ import {
   vi
 } from 'vitest'
 
-import { getMetadataCorrectionAuditLog } from '@/shared/getMetadataCorrectionAuditLog'
+import {
+  getMetadataCorrectionAuditByRunId,
+  getMetadataCorrectionAuditLog
+} from '@/shared/getMetadataCorrectionAuditLog'
 
 import { getMetadataCorrectionAudit } from '../handler'
 
@@ -17,6 +20,7 @@ vi.mock('@/shared/getConfig', () => ({
 }))
 
 vi.mock('@/shared/getMetadataCorrectionAuditLog', () => ({
+  getMetadataCorrectionAuditByRunId: vi.fn(),
   getMetadataCorrectionAuditLog: vi.fn()
 }))
 
@@ -42,9 +46,12 @@ describe('getMetadataCorrectionAudit', () => {
         collectionConceptId: 'C1234567890-LOCAL',
         collectionUri: 'https://cmr.example.com/search/concepts/C1234567890-LOCAL',
         status: 'applied',
-        trigger: {
-          eventType: 'UPDATED'
-        }
+        changes: [{
+          scheme: 'platforms',
+          oldKeywordPath: 'Platforms > GOSAT',
+          newKeywordPath: 'Platforms > GOSAT - Test1'
+        }],
+        hasMetadataDiff: true
       }],
       nextPaginationToken: null
     })
@@ -81,9 +88,12 @@ describe('getMetadataCorrectionAudit', () => {
           collectionConceptId: 'C1234567890-LOCAL',
           collectionUri: 'https://cmr.example.com/search/concepts/C1234567890-LOCAL',
           status: 'applied',
-          trigger: {
-            eventType: 'UPDATED'
-          }
+          changes: [{
+            scheme: 'platforms',
+            oldKeywordPath: 'Platforms > GOSAT',
+            newKeywordPath: 'Platforms > GOSAT - Test1'
+          }],
+          hasMetadataDiff: true
         }
       ],
       nextPaginationToken: null
@@ -108,6 +118,56 @@ describe('getMetadataCorrectionAudit', () => {
     )
 
     const result = await getMetadataCorrectionAudit({})
+
+    expect(result.statusCode).toBe(400)
+  })
+
+  test('returns one detailed audit document with its native metadata diff', async () => {
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue({
+      runId: 'run-1',
+      status: 'applied',
+      metadataDiff: {
+        changed: true,
+        patch: '-old\n+new'
+      }
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      pathParameters: { runId: 'run-1' },
+      queryStringParameters: { includeDiff: 'true' }
+    })
+
+    expect(getMetadataCorrectionAuditByRunId).toHaveBeenCalledWith({
+      runId: 'run-1',
+      includeDiff: 'true'
+    })
+    expect(getMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+    expect(result.statusCode).toBe(200)
+    expect(JSON.parse(result.body).metadataDiff.patch).toBe('-old\n+new')
+  })
+
+  test('returns 404 when a detailed audit run does not exist', async () => {
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue(null)
+
+    const result = await getMetadataCorrectionAudit({
+      pathParameters: { runId: 'missing-run' }
+    })
+
+    expect(result.statusCode).toBe(404)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Metadata correction audit run not found: missing-run'
+    })
+  })
+
+  test('returns 400 when the detail diff flag is invalid', async () => {
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockRejectedValue(
+      new Error('Invalid metadata correction audit includeDiff: expected true or false')
+    )
+
+    const result = await getMetadataCorrectionAudit({
+      pathParameters: { runId: 'run-1' },
+      queryStringParameters: { includeDiff: 'yes' }
+    })
 
     expect(result.statusCode).toBe(400)
   })

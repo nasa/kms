@@ -8,11 +8,30 @@ import {
 
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 
-import { getMetadataCorrectionAuditLog } from '../getMetadataCorrectionAuditLog'
+import {
+  getMetadataCorrectionAuditByRunId,
+  getMetadataCorrectionAuditLog
+} from '../getMetadataCorrectionAuditLog'
 
 vi.mock('@/shared/documentDbClient', () => ({
   getMetadataCorrectionAuditCollection: vi.fn()
 }))
+
+const SUMMARY_PROJECTION = {
+  _id: 1,
+  runId: 1,
+  collectionConceptId: 1,
+  collectionUri: 1,
+  status: 1,
+  createdAt: 1,
+  updatedAt: 1,
+  'corrections.scheme': 1,
+  'corrections.action': 1,
+  'corrections.oldKeywordPath': 1,
+  'corrections.newKeywordPath': 1,
+  'metadataDiff.changed': 1,
+  'error.message': 1
+}
 
 describe('metadata correction audit queries', () => {
   let collection
@@ -36,12 +55,23 @@ describe('metadata correction audit queries', () => {
 
   test('filters and returns newest-first audit documents', async () => {
     const createdAt = new Date('2026-09-02T12:00:00.000Z')
+    const updatedAt = new Date('2026-09-02T12:01:00.000Z')
     mongoCursor.toArray.mockResolvedValue([{
       _id: 'run-1',
       runId: 'run-1',
       collectionConceptId: 'C123-PROV',
+      collectionUri: 'https://cmr.example.com/search/concepts/C123-PROV',
       createdAt,
-      status: 'applied'
+      updatedAt,
+      status: 'failed',
+      corrections: [{
+        scheme: 'platforms',
+        action: 'replace',
+        oldKeywordPath: 'Platforms > GOSAT',
+        newKeywordPath: 'Platforms > GOSAT - Test1'
+      }],
+      metadataDiff: { changed: true },
+      error: { message: 'CMR writeback timed out' }
     }])
 
     const result = await getMetadataCorrectionAuditLog({
@@ -58,34 +88,37 @@ describe('metadata correction audit queries', () => {
       status: 'applied'
     })
 
-    expect(collection.find).toHaveBeenCalledWith({
-      $and: [
-        {
-          collectionConceptId: 'C123-PROV',
-          'trigger.eventType': 'UPDATED',
-          nativeFormat: 'UMM',
-          publishedVersionName: '20.1',
-          source: 'cmrKeywordEventsListener',
-          status: 'applied',
-          createdAt: {
-            $gte: new Date('2026-09-01'),
-            $lte: new Date('2026-09-03')
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        $and: [
+          {
+            collectionConceptId: 'C123-PROV',
+            'trigger.eventType': 'UPDATED',
+            nativeFormat: 'UMM',
+            publishedVersionName: '20.1',
+            source: 'cmrKeywordEventsListener',
+            status: 'applied',
+            createdAt: {
+              $gte: new Date('2026-09-01'),
+              $lte: new Date('2026-09-03')
+            }
+          },
+          {
+            $or: [
+              { 'corrections.keywordConceptUuid': 'keyword-1' },
+              { 'trigger.keywordConceptUuid': 'keyword-1' }
+            ]
+          },
+          {
+            $or: [
+              { 'corrections.scheme': { $in: ['DataFormat', 'dataformat'] } },
+              { 'trigger.scheme': { $in: ['DataFormat', 'dataformat'] } }
+            ]
           }
-        },
-        {
-          $or: [
-            { 'corrections.keywordConceptUuid': 'keyword-1' },
-            { 'trigger.keywordConceptUuid': 'keyword-1' }
-          ]
-        },
-        {
-          $or: [
-            { 'corrections.scheme': { $in: ['DataFormat', 'dataformat'] } },
-            { 'trigger.scheme': { $in: ['DataFormat', 'dataformat'] } }
-          ]
-        }
-      ]
-    })
+        ]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
 
     expect(mongoCursor.sort).toHaveBeenCalledWith({
       createdAt: -1,
@@ -97,8 +130,17 @@ describe('metadata correction audit queries', () => {
       items: [{
         runId: 'run-1',
         collectionConceptId: 'C123-PROV',
-        createdAt,
-        status: 'applied'
+        collectionUri: 'https://cmr.example.com/search/concepts/C123-PROV',
+        status: 'failed',
+        updatedAt,
+        changes: [{
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Platforms > GOSAT',
+          newKeywordPath: 'Platforms > GOSAT - Test1'
+        }],
+        hasMetadataDiff: true,
+        errorMessage: 'CMR writeback timed out'
       }],
       nextPaginationToken: null
     })
@@ -136,45 +178,56 @@ describe('metadata correction audit queries', () => {
       status: 'checked'
     })
 
-    expect(collection.find).toHaveBeenLastCalledWith({
-      $and: [
-        { status: 'checked' },
-        {
-          $or: [
-            { createdAt: { $lt: new Date('2026-09-02') } },
-            {
-              createdAt: new Date('2026-09-02'),
-              _id: { $lt: 'run-2' }
-            }
-          ]
-        }
-      ]
-    })
+    expect(collection.find).toHaveBeenLastCalledWith(
+      {
+        $and: [
+          { status: 'checked' },
+          {
+            $or: [
+              { createdAt: { $lt: new Date('2026-09-02') } },
+              {
+                createdAt: new Date('2026-09-02'),
+                _id: { $lt: 'run-2' }
+              }
+            ]
+          }
+        ]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
   })
 
   test('supports default filters, one-sided date ranges, and lowercase scheme storage', async () => {
     await getMetadataCorrectionAuditLog()
 
-    expect(collection.find).toHaveBeenLastCalledWith({})
+    expect(collection.find).toHaveBeenLastCalledWith(
+      {},
+      { projection: SUMMARY_PROJECTION }
+    )
     expect(mongoCursor.limit).toHaveBeenLastCalledWith(101)
 
     await getMetadataCorrectionAuditLog({ scheme: 'PLATFORMS' })
-    expect(collection.find).toHaveBeenLastCalledWith({
-      $or: [
-        { 'corrections.scheme': 'platforms' },
-        { 'trigger.scheme': 'platforms' }
-      ]
-    })
+    expect(collection.find).toHaveBeenLastCalledWith(
+      {
+        $or: [
+          { 'corrections.scheme': 'platforms' },
+          { 'trigger.scheme': 'platforms' }
+        ]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
 
     await getMetadataCorrectionAuditLog({ startDate: '2026-09-01' })
-    expect(collection.find).toHaveBeenLastCalledWith({
-      createdAt: { $gte: new Date('2026-09-01') }
-    })
+    expect(collection.find).toHaveBeenLastCalledWith(
+      { createdAt: { $gte: new Date('2026-09-01') } },
+      { projection: SUMMARY_PROJECTION }
+    )
 
     await getMetadataCorrectionAuditLog({ endDate: '2026-09-03' })
-    expect(collection.find).toHaveBeenLastCalledWith({
-      createdAt: { $lte: new Date('2026-09-03') }
-    })
+    expect(collection.find).toHaveBeenLastCalledWith(
+      { createdAt: { $lte: new Date('2026-09-03') } },
+      { projection: SUMMARY_PROJECTION }
+    )
   })
 
   test('validates filters before querying DocumentDB', async () => {
@@ -222,5 +275,63 @@ describe('metadata correction audit queries', () => {
     })).rejects.toThrow('Invalid metadata correction audit paginationToken')
 
     expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('returns one detailed audit run without the native metadata diff by default', async () => {
+    collection.findOne.mockResolvedValue({
+      runId: 'run-1',
+      status: 'applied'
+    })
+
+    await expect(getMetadataCorrectionAuditByRunId({
+      runId: 'run-1'
+    })).resolves.toEqual({
+      runId: 'run-1',
+      status: 'applied'
+    })
+
+    expect(collection.findOne).toHaveBeenCalledWith(
+      { _id: 'run-1' },
+      { projection: { _id: 0, metadataDiff: 0 } }
+    )
+  })
+
+  test('includes the native metadata diff only when requested', async () => {
+    collection.findOne.mockResolvedValue({
+      runId: 'run-1',
+      status: 'failed',
+      metadataDiff: {
+        changed: true,
+        patch: '-old\n+new'
+      }
+    })
+
+    const result = await getMetadataCorrectionAuditByRunId({
+      runId: 'run-1',
+      includeDiff: 'true'
+    })
+
+    expect(result.metadataDiff.patch).toBe('-old\n+new')
+    expect(collection.findOne).toHaveBeenCalledWith(
+      { _id: 'run-1' },
+      { projection: { _id: 0 } }
+    )
+  })
+
+  test('returns null for an unknown run and validates detail parameters', async () => {
+    await expect(getMetadataCorrectionAuditByRunId({
+      runId: 'missing-run'
+    })).resolves.toBeNull()
+
+    await expect(getMetadataCorrectionAuditByRunId()).rejects.toThrow(
+      'Invalid metadata correction audit runId'
+    )
+
+    await expect(getMetadataCorrectionAuditByRunId({
+      runId: 'run-1',
+      includeDiff: 'yes'
+    })).rejects.toThrow(
+      'Invalid metadata correction audit includeDiff: expected true or false'
+    )
   })
 })

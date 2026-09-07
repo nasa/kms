@@ -20,6 +20,7 @@ import { VpcSetup } from './helper/VpcSetup'
  */
 export interface KmsStackProps extends cdk.StackProps {
   cmrSystemTokenParameterName?: string
+  cmrWritebackTimeoutMs?: string
   cmrWritebackProviders?: string
   cmrWritebackValidateKeywords?: string
   cmrWritebackValidateUmmC?: string
@@ -181,6 +182,7 @@ export class KmsStack extends cdk.Stack {
       lambdaRole: this.lambdaRole,
       metadataCorrectionEnvironment: {
         CMR_SYSTEM_TOKEN_PARAMETER_NAME: props.cmrSystemTokenParameterName || '',
+        CMR_WRITEBACK_TIMEOUT_MS: props.cmrWritebackTimeoutMs || '',
         CMR_WRITER_TOKEN: props.cmrWriterToken || '',
         CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || '',
         CMR_WRITEBACK_VALIDATE_KEYWORDS: props.cmrWritebackValidateKeywords || '',
