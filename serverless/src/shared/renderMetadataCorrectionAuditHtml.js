@@ -75,6 +75,12 @@ const PAGE_STYLES = `
 
   .audit-header a { color: var(--accent); }
 
+  .audit-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
   .audit-meta {
     margin: 0;
     color: var(--muted);
@@ -115,6 +121,34 @@ const PAGE_STYLES = `
     text-transform: uppercase;
   }
 
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .detail-grid div {
+    min-width: 0;
+    padding: 0.7rem 0.8rem;
+    border-left: 0.2rem solid var(--accent);
+    background: #f1f6f4;
+  }
+
+  .detail-grid dt {
+    margin-bottom: 0.25rem;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .detail-grid dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
   .changes-table {
     width: 100%;
     table-layout: fixed;
@@ -141,6 +175,27 @@ const PAGE_STYLES = `
 
   .changes-table th:nth-child(1) { width: 14%; }
   .changes-table th:nth-child(2) { width: 11%; }
+
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+  }
+
+  .history-table th,
+  .history-table td {
+    padding: 0.6rem 0.7rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .history-table th {
+    color: var(--muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
 
   .previous-path { background: #fff4f3; }
   .updated-path { background: #edf9f3; }
@@ -196,6 +251,25 @@ const PAGE_STYLES = `
     text-decoration: none;
   }
 
+  .view-details {
+    display: inline-block;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.35rem;
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .diagnostic {
+    max-width: 100%;
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre;
+    font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
   @media (max-width: 700px) {
     main { width: min(94vw, 1600px); padding-top: 1.5rem; }
     .audit-header { display: block; }
@@ -215,6 +289,33 @@ const PAGE_STYLES = `
 const displayValue = (value, fallback = 'Not available') => escape(
   String(value ?? fallback)
 )
+
+/**
+ * Formats a stored date consistently for detail fields and lifecycle history.
+ *
+ * @param {unknown} value Stored date value.
+ * @returns {string} HTML-safe ISO date or fallback text.
+ */
+const displayDate = (value) => displayValue(value instanceof Date ? value.toISOString() : value)
+
+/**
+ * Renders labeled audit values in a responsive detail grid.
+ *
+ * @param {Array<[string, unknown]>} entries Label/value pairs, including optional values.
+ * @returns {string} Detail grid containing only available values.
+ */
+const renderDetailGrid = (entries) => {
+  const availableEntries = entries.filter(([, value]) => value !== undefined && value !== null && value !== '')
+
+  if (availableEntries.length === 0) return ''
+
+  return `<dl class="detail-grid">${availableEntries.map(([label, value]) => `
+    <div>
+      <dt>${displayValue(label)}</dt>
+      <dd>${displayValue(value)}</dd>
+    </div>
+  `).join('')}</dl>`
+}
 
 /**
  * Returns either a safe CMR collection link or a plain collection identifier.
@@ -308,12 +409,110 @@ const renderNativeMetadataDiff = (audit) => {
 }
 
 /**
+ * Renders the fields available only on a complete audit document.
+ *
+ * @param {Object} audit Detailed audit document.
+ * @returns {string} Run overview and optional trigger detail sections.
+ */
+const renderRunDetails = (audit) => {
+  const overview = renderDetailGrid([
+    ['Provider', audit.providerId],
+    ['Published KMS version', audit.publishedVersionName],
+    ['Native format', audit.nativeFormat],
+    ['Delegate', audit.delegateName],
+    ['Source', audit.source],
+    ['Outcome', audit.outcome],
+    ['Prior CMR revision', audit.priorRevisionId],
+    ['Resulting CMR revision', audit.resultingRevisionId],
+    ['Message ID', audit.messageId],
+    ['Created', audit.createdAt instanceof Date ? audit.createdAt.toISOString() : audit.createdAt],
+    ['Updated', audit.updatedAt instanceof Date ? audit.updatedAt.toISOString() : audit.updatedAt]
+  ])
+  const trigger = audit.trigger && typeof audit.trigger === 'object'
+    ? renderDetailGrid([
+      ['Event type', audit.trigger.eventType],
+      ['Scheme', audit.trigger.scheme],
+      ['Keyword UUID', audit.trigger.keywordConceptUuid],
+      ['Event timestamp', audit.trigger.timestamp]
+    ])
+    : ''
+
+  return `
+    ${overview ? `<section class="section"><h3>Run details</h3>${overview}</section>` : ''}
+    ${trigger ? `<section class="section"><h3>Trigger</h3>${trigger}</section>` : ''}
+  `
+}
+
+/**
+ * Renders the status transitions recorded throughout one correction run.
+ *
+ * @param {Object} audit Detailed audit document.
+ * @returns {string} Lifecycle history section or an empty string.
+ */
+const renderStatusHistory = (audit) => {
+  if (!Array.isArray(audit.statusHistory) || audit.statusHistory.length === 0) return ''
+
+  const rows = audit.statusHistory.map((entry) => `
+    <tr>
+      <td>${displayValue(entry.status)}</td>
+      <td>${displayDate(entry.timestamp)}</td>
+      <td>${displayValue(entry.outcome, '')}</td>
+      <td>${displayValue(entry.error, '')}</td>
+    </tr>
+  `).join('')
+
+  return `
+    <section class="section">
+      <h3>Lifecycle history</h3>
+      <table class="history-table">
+        <thead><tr><th>Status</th><th>Timestamp</th><th>Outcome</th><th>Error</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
+  `
+}
+
+/**
+ * Renders validation diagnostics retained on a detailed audit document.
+ *
+ * @param {Object} audit Detailed audit document.
+ * @returns {string} Escaped validation diagnostics or an empty string.
+ */
+const renderValidationFailures = (audit) => {
+  if (!Array.isArray(audit.keywordValidationFailures)
+    || audit.keywordValidationFailures.length === 0) return ''
+
+  return `
+    <section class="section">
+      <h3>Keyword validation failures</h3>
+      <pre class="diagnostic">${displayValue(JSON.stringify(audit.keywordValidationFailures, null, 2))}</pre>
+    </section>
+  `
+}
+
+/**
+ * Builds a relative browser link from an audit summary to its complete record.
+ *
+ * @param {Object} audit Audit summary document.
+ * @returns {string} Detail link or an empty string when no run id exists.
+ */
+const renderDetailLink = (audit) => {
+  if (!audit.runId) return ''
+
+  const runId = encodeURIComponent(String(audit.runId))
+
+  return `<a class="view-details" href="metadata_correction_audit/${runId}?format=html">View details</a>`
+}
+
+/**
  * Renders one audit run with its status, path changes, and native metadata diff.
  *
  * @param {Object} audit Audit summary or detail document.
+ * @param {Object} options Rendering options.
+ * @param {boolean} options.detail Whether this is the complete run view.
  * @returns {string} HTML audit card.
  */
-const renderAuditCard = (audit) => {
+const renderAuditCard = (audit, { detail }) => {
   const status = String(audit.status || 'unknown').toLowerCase()
   const statusClass = status === 'failed' ? ' status-failed' : ''
   const updatedAt = audit.updatedAt || audit.createdAt
@@ -332,17 +531,23 @@ const renderAuditCard = (audit) => {
           <h2>${renderCollectionHeading(audit)}</h2>
           <p class="audit-meta">Run ${displayValue(audit.runId)}${updatedText}</p>
         </div>
-        <span class="status${statusClass}">${displayValue(status)}</span>
+        <div class="audit-actions">
+          <span class="status${statusClass}">${displayValue(status)}</span>
+          ${detail ? '' : renderDetailLink(audit)}
+        </div>
       </header>
+      ${detail ? renderRunDetails(audit) : ''}
       ${errorSection}
       <section class="section">
         <h3>Keyword changes</h3>
         ${renderChangesTable(audit)}
       </section>
-      <section class="section">
+      ${detail ? renderValidationFailures(audit) : ''}
+      ${detail ? renderStatusHistory(audit) : ''}
+      ${detail || audit.metadataDiff ? `<section class="section">
         <h3>Native metadata diff</h3>
         ${renderNativeMetadataDiff(audit)}
-      </section>
+      </section>` : ''}
     </article>
   `
 }
@@ -357,6 +562,7 @@ const renderAuditCard = (audit) => {
  * // '<!doctype html>...'
  *
  * @param {Object} params Page data.
+ * @param {boolean} [params.detail=false] Whether to render complete run information.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
  * @param {string} [params.message] Optional empty-state or error message.
  * @param {string} [params.nextPageHref] Link to the next result page.
@@ -364,13 +570,14 @@ const renderAuditCard = (audit) => {
  * @returns {string} Complete HTML document.
  */
 export const renderMetadataCorrectionAuditHtml = ({
+  detail = false,
   items = [],
   message,
   nextPageHref,
   title = 'Metadata correction audit'
 } = {}) => {
   const cards = items.length > 0
-    ? items.map(renderAuditCard).join('')
+    ? items.map((audit) => renderAuditCard(audit, { detail })).join('')
     : `<p class="empty">${displayValue(message, 'No matching audit records were found.')}</p>`
   const nextPageLink = nextPageHref
     ? `<a class="next-page" href="${displayValue(nextPageHref)}">Next page</a>`

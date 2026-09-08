@@ -114,7 +114,7 @@ describe('getMetadataCorrectionAudit', () => {
     }))
   })
 
-  test('renders an html change table and diff for browser requests', async () => {
+  test('renders a compact html summary with detail links for browser requests', async () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [{
         runId: 'run-html',
@@ -125,11 +125,7 @@ describe('getMetadataCorrectionAudit', () => {
           action: 'UPDATED',
           oldKeywordPath: 'Platforms > GOSAT',
           newKeywordPath: 'Platforms > GOSAT - Test1'
-        }],
-        metadataDiff: {
-          changed: true,
-          patch: '--- old\n+++ new\n@@ -1,1 +1,1 @@\n-GOSAT\n+GOSAT - Test1\n'
-        }
+        }]
       }],
       nextPaginationToken: 'next-token'
     })
@@ -143,7 +139,7 @@ describe('getMetadataCorrectionAudit', () => {
 
     expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       collectionConceptId: 'C1234567890-LOCAL',
-      includeDiff: true,
+      includeDiff: undefined,
       limit: '10'
     }))
 
@@ -151,7 +147,8 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
     expect(result.headers['Cache-Control']).toBe('no-store')
     expect(result.body).toContain('<table class="changes-table">')
-    expect(result.body).toContain('class="d2h-ins d2h-change"')
+    expect(result.body).toContain('metadata_correction_audit/run-html?format=html')
+    expect(result.body).not.toContain('Native metadata diff')
     expect(result.body).toContain('paginationToken=next-token')
   })
 
@@ -159,8 +156,15 @@ describe('getMetadataCorrectionAudit', () => {
     vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue({
       runId: 'run-1',
       collectionConceptId: 'C123-PROV',
+      providerId: 'PROV',
+      priorRevisionId: 3,
+      resultingRevisionId: 4,
       status: 'applied',
-      corrections: []
+      corrections: [],
+      statusHistory: [{
+        status: 'applied',
+        timestamp: '2026-09-08T12:00:00.000Z'
+      }]
     })
 
     const result = await getMetadataCorrectionAudit({
@@ -176,6 +180,11 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.statusCode).toBe(200)
     expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
     expect(result.body).toContain('Metadata correction audit detail')
+    expect(result.body).toContain('Run details')
+    expect(result.body).toContain('Prior CMR revision')
+    expect(result.body).toContain('Lifecycle history')
+    expect(result.body).toContain('Native metadata diff')
+    expect(result.body).not.toContain('View details')
   })
 
   test('renders missing detail and server errors as html', async () => {

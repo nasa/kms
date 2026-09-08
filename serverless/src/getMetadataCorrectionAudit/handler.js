@@ -79,7 +79,7 @@ const HTML_RESPONSE_HEADERS = {
  * - limit
  *
  * Add `includeDiff=true` to a list or detail request to include native-metadata patches.
- * HTML responses include native-metadata patches automatically.
+ * HTML detail responses include native-metadata patches automatically.
  * A `runId` path parameter returns one detailed audit document.
  *
  * @param {object} event - API Gateway event.
@@ -121,7 +121,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
 
   try {
     responseFormat = normalizeResponseFormat(format)
-    const requestedIncludeDiff = responseFormat === 'html' ? true : includeDiff
+    const requestedIncludeDiff = responseFormat === 'html' && runId ? true : includeDiff
     const requestedLimit = responseFormat === 'html' && !limit ? '10' : limit
 
     if (runId) {
@@ -138,6 +138,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
             ...HTML_RESPONSE_HEADERS
           },
           body: renderMetadataCorrectionAuditHtml({
+            detail: true,
             items: auditDocument ? [auditDocument] : [],
             message: auditDocument
               ? undefined

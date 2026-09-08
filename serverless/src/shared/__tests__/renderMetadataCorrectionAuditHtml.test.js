@@ -48,10 +48,86 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('white-space: pre;')
     expect(view).toContain('overflow-x: auto;')
     expect(view).toContain('Next page')
+    expect(view).toContain('metadata_correction_audit/run-1?format=html')
+  })
+
+  test('keeps summaries compact when a native metadata diff was not requested', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      items: [{
+        runId: 'run/summary',
+        collectionConceptId: 'C123-PROV',
+        status: 'applied',
+        changes: [{
+          scheme: 'platforms',
+          action: 'UPDATED',
+          oldKeywordPath: 'Platforms > GOSAT',
+          newKeywordPath: 'Platforms > GOSAT - Test1'
+        }]
+      }]
+    })
+
+    expect(view).toContain('Keyword changes')
+    expect(view).toContain('metadata_correction_audit/run%2Fsummary?format=html')
+    expect(view).not.toContain('Native metadata diff')
+    expect(view).not.toContain('Run details')
+  })
+
+  test('renders complete run context and lifecycle history in detail mode', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{
+        runId: 'run-detail',
+        collectionConceptId: 'C123-PROV',
+        providerId: 'PROV',
+        publishedVersionName: 'version-1',
+        nativeFormat: 'UMM-C',
+        delegateName: 'umm',
+        source: 'cmrKeywordEventsListener',
+        outcome: 'writeback-applied',
+        priorRevisionId: 4,
+        resultingRevisionId: 5,
+        messageId: 'message-1',
+        createdAt: new Date('2026-09-07T11:59:00.000Z'),
+        updatedAt: new Date('2026-09-07T12:00:00.000Z'),
+        status: 'applied',
+        trigger: {
+          eventType: 'UPDATED',
+          scheme: 'platforms',
+          keywordConceptUuid: 'platform-uuid',
+          timestamp: '2026-09-07T11:58:00.000Z'
+        },
+        corrections: [],
+        keywordValidationFailures: [{ path: 'Platforms > Missing' }],
+        statusHistory: [{
+          status: 'checked',
+          timestamp: new Date('2026-09-07T11:59:00.000Z'),
+          outcome: 'corrections-resolved'
+        }, {
+          status: 'failed',
+          timestamp: '2026-09-07T12:00:00.000Z',
+          error: 'CMR failed'
+        }]
+      }]
+    })
+
+    expect(view).toContain('Run details')
+    expect(view).toContain('Published KMS version')
+    expect(view).toContain('version-1')
+    expect(view).toContain('Prior CMR revision')
+    expect(view).toContain('Trigger')
+    expect(view).toContain('platform-uuid')
+    expect(view).toContain('Keyword validation failures')
+    expect(view).toContain('&quot;path&quot;: &quot;Platforms &gt; Missing&quot;')
+    expect(view).toContain('Lifecycle history')
+    expect(view).toContain('corrections-resolved')
+    expect(view).toContain('CMR failed')
+    expect(view).toContain('No native metadata diff was recorded for this run.')
+    expect(view).not.toContain('View details')
   })
 
   test('escapes audit content and reports absent and truncated diffs', () => {
     const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
       items: [
         {
           runId: '<script>alert("run")</script>',
