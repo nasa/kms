@@ -141,7 +141,7 @@ export const getCapabilities = async () => {
               ':@': {
                 name: 'get_metadata_correction_audit',
                 href: '/metadata_correction_audit',
-                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&nativeFormat=&publishedVersionName=&source=&startDate=&endDate=&paginationToken=&includeDiff=&limit=',
+                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&nativeFormat=&publishedVersionName=&source=&startDate=&endDate=&paginationToken=&includeDiff=&format=&limit=',
                 action: 'GET'
               }
             },
@@ -149,7 +149,7 @@ export const getCapabilities = async () => {
               ':@': {
                 name: 'get_metadata_correction_audit_run',
                 href: '/metadata_correction_audit/{runId}',
-                params: 'includeDiff=',
+                params: 'includeDiff=&format=',
                 action: 'GET'
               }
             },

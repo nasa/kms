@@ -114,6 +114,103 @@ describe('getMetadataCorrectionAudit', () => {
     }))
   })
 
+  test('renders an html change table and diff for browser requests', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [{
+        runId: 'run-html',
+        collectionConceptId: 'C1234567890-LOCAL',
+        status: 'applied',
+        changes: [{
+          scheme: 'platforms',
+          action: 'UPDATED',
+          oldKeywordPath: 'Platforms > GOSAT',
+          newKeywordPath: 'Platforms > GOSAT - Test1'
+        }],
+        metadataDiff: {
+          changed: true,
+          patch: '--- old\n+++ new\n@@ -1,1 +1,1 @@\n-GOSAT\n+GOSAT - Test1\n'
+        }
+      }],
+      nextPaginationToken: 'next-token'
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: {
+        collectionConceptId: 'C1234567890-LOCAL',
+        format: 'html'
+      }
+    })
+
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      collectionConceptId: 'C1234567890-LOCAL',
+      includeDiff: true,
+      limit: '10'
+    }))
+
+    expect(result.statusCode).toBe(200)
+    expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
+    expect(result.headers['Cache-Control']).toBe('no-store')
+    expect(result.body).toContain('<table class="changes-table">')
+    expect(result.body).toContain('class="d2h-ins d2h-change"')
+    expect(result.body).toContain('paginationToken=next-token')
+  })
+
+  test('renders one detailed audit document as html', async () => {
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue({
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      status: 'applied',
+      corrections: []
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      pathParameters: { runId: 'run-1' },
+      queryStringParameters: { format: 'html' }
+    })
+
+    expect(getMetadataCorrectionAuditByRunId).toHaveBeenCalledWith({
+      runId: 'run-1',
+      includeDiff: true
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
+    expect(result.body).toContain('Metadata correction audit detail')
+  })
+
+  test('renders missing detail and server errors as html', async () => {
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue(null)
+
+    const missingResult = await getMetadataCorrectionAudit({
+      pathParameters: { runId: 'missing-run' },
+      queryStringParameters: { format: 'html' }
+    })
+
+    expect(missingResult.statusCode).toBe(404)
+    expect(missingResult.body).toContain('Metadata correction audit run not found: missing-run')
+
+    vi.mocked(getMetadataCorrectionAuditLog).mockRejectedValue(new Error('DocumentDB unavailable'))
+
+    const errorResult = await getMetadataCorrectionAudit({
+      queryStringParameters: { format: 'html' }
+    })
+
+    expect(errorResult.statusCode).toBe(500)
+    expect(errorResult.headers['Content-Type']).toBe('text/html; charset=utf-8')
+    expect(errorResult.body).toContain('Error: DocumentDB unavailable')
+  })
+
+  test('returns 400 for an unsupported response format', async () => {
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: { format: 'xml' }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Error: Invalid metadata correction audit format: expected json or html'
+    })
+  })
+
   test('returns 500 when the audit query fails', async () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockRejectedValue(new Error('Audit query failed'))
 

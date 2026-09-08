@@ -463,6 +463,9 @@ The audit API is:
 - `GET /metadata_correction_audit/{runId}` for the complete audit document. Add
   `?includeDiff=true` when the native-metadata diff is needed; it is omitted by default to keep
   routine responses small.
+- Add `?format=html` to either endpoint for a self-contained browser view with a keyword-change
+  table and colored side-by-side native metadata diff. HTML responses include diffs automatically
+  and default to 10 records per page to keep rendered responses bounded.
 
 Publisher events carry the published KMS version through the queue into this document. Manual
 correction endpoints look up the current published version before starting the run, so the

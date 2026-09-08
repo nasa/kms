@@ -51,6 +51,7 @@
     "csv": "^6.3.11",
     "date-fns": "^4.1.0",
     "diff": "^5.2.2",
+    "diff2html": "^3.4.56",
     "fast-xml-parser": "^5.3.4",
     "html-entities": "^2.5.2",
     "html-escaper": "^3.0.3",

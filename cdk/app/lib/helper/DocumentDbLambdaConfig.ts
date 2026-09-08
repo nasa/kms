@@ -27,6 +27,9 @@ export const getDocumentDbCertificateBundling = (
       bundling: {
         // Node.js 24 SAM images do not supply AWS SDK packages to local Lambda containers.
         externalModules: [],
+        loader: {
+          '.css': 'text'
+        },
         ...(environment.DOCUMENTDB_TLS_CA_FILE
           ? {
             commandHooks: {

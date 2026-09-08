@@ -5,6 +5,48 @@ import {
 } from '@/shared/getMetadataCorrectionAuditLog'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
+import { renderMetadataCorrectionAuditHtml } from '@/shared/renderMetadataCorrectionAuditHtml'
+
+/**
+ * Validates the requested audit response representation.
+ *
+ * @param {unknown} format Requested response format.
+ * @returns {'json'|'html'} Normalized response format.
+ */
+const normalizeResponseFormat = (format) => {
+  if (format === undefined || format === null || format === '' || format === 'json') return 'json'
+  if (format === 'html') return 'html'
+
+  throw new Error('Invalid metadata correction audit format: expected json or html')
+}
+
+/**
+ * Preserves the current filters while advancing an HTML audit search to its next page.
+ *
+ * @param {Object} queryStringParameters Current API query parameters.
+ * @param {string|null} paginationToken Opaque next-page token.
+ * @returns {string|undefined} Relative next-page URL when another page exists.
+ */
+const buildNextPageHref = (queryStringParameters, paginationToken) => {
+  if (!paginationToken) return undefined
+
+  const parameters = new URLSearchParams()
+  Object.entries(queryStringParameters || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) parameters.set(key, String(value))
+  })
+
+  parameters.set('format', 'html')
+  parameters.set('paginationToken', paginationToken)
+
+  return `?${parameters.toString()}`
+}
+
+const HTML_RESPONSE_HEADERS = {
+  'Cache-Control': 'no-store',
+  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+  'Content-Type': 'text/html; charset=utf-8',
+  'X-Content-Type-Options': 'nosniff'
+}
 
 /**
  * Read-side audit endpoint for metadata-correction activity.
@@ -33,9 +75,11 @@ import { logger } from '@/shared/logger'
  * - startDate / endDate
  * - paginationToken
  * - includeDiff
+ * - format (`json` or `html`)
  * - limit
  *
  * Add `includeDiff=true` to a list or detail request to include native-metadata patches.
+ * HTML responses include native-metadata patches automatically.
  * A `runId` path parameter returns one detailed audit document.
  *
  * @param {object} event - API Gateway event.
@@ -69,16 +113,39 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     endDate,
     paginationToken,
     includeDiff,
+    format,
     limit
   } = event?.queryStringParameters || {}
   const runId = event?.pathParameters?.runId
+  let responseFormat = 'json'
 
   try {
+    responseFormat = normalizeResponseFormat(format)
+    const requestedIncludeDiff = responseFormat === 'html' ? true : includeDiff
+    const requestedLimit = responseFormat === 'html' && !limit ? '10' : limit
+
     if (runId) {
       const auditDocument = await getMetadataCorrectionAuditByRunId({
         runId,
-        includeDiff
+        includeDiff: requestedIncludeDiff
       })
+
+      if (responseFormat === 'html') {
+        return {
+          statusCode: auditDocument ? 200 : 404,
+          headers: {
+            ...defaultResponseHeaders,
+            ...HTML_RESPONSE_HEADERS
+          },
+          body: renderMetadataCorrectionAuditHtml({
+            items: auditDocument ? [auditDocument] : [],
+            message: auditDocument
+              ? undefined
+              : `Metadata correction audit run not found: ${runId}`,
+            title: 'Metadata correction audit detail'
+          })
+        }
+      }
 
       return {
         statusCode: auditDocument ? 200 : 404,
@@ -106,9 +173,26 @@ export const getMetadataCorrectionAudit = async (event, context) => {
       startDate,
       endDate,
       paginationToken,
-      includeDiff,
-      limit
+      includeDiff: requestedIncludeDiff,
+      limit: requestedLimit
     })
+
+    if (responseFormat === 'html') {
+      return {
+        statusCode: 200,
+        headers: {
+          ...defaultResponseHeaders,
+          ...HTML_RESPONSE_HEADERS
+        },
+        body: renderMetadataCorrectionAuditHtml({
+          items: auditPage.items,
+          nextPageHref: buildNextPageHref(
+            event?.queryStringParameters,
+            auditPage.nextPaginationToken
+          )
+        })
+      }
+    }
 
     return {
       statusCode: 200,
@@ -124,12 +208,28 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     const isClientError = String(error?.message || '')
       .startsWith('Invalid metadata correction audit')
 
+    const statusCode = isClientError ? 400 : 500
+
+    if (responseFormat === 'html') {
+      return {
+        headers: {
+          ...defaultResponseHeaders,
+          ...HTML_RESPONSE_HEADERS
+        },
+        statusCode,
+        body: renderMetadataCorrectionAuditHtml({
+          message: error.toString(),
+          title: 'Metadata correction audit error'
+        })
+      }
+    }
+
     return {
       headers: {
         ...defaultResponseHeaders,
         'Content-Type': 'application/json'
       },
-      statusCode: isClientError ? 400 : 500,
+      statusCode,
       body: JSON.stringify({
         error: error.toString()
       })
