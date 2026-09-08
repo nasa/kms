@@ -1,6 +1,46 @@
 import { createTwoFilesPatch } from 'diff'
+import {
+  XMLBuilder,
+  XMLParser,
+  XMLValidator
+} from 'fast-xml-parser'
 
 const MAX_METADATA_DIFF_CHARACTERS = 250_000
+const XML_FORMAT_OPTIONS = {
+  cdataPropName: '#cdata',
+  ignoreAttributes: false,
+  preserveOrder: true,
+  processEntities: false,
+  trimValues: true
+}
+const xmlParser = new XMLParser(XML_FORMAT_OPTIONS)
+const xmlBuilder = new XMLBuilder({
+  ...XML_FORMAT_OPTIONS,
+  format: true,
+  indentBy: '  ',
+  suppressEmptyNode: true
+})
+
+/**
+ * Pretty-prints valid XML for a readable line-level diff without changing the CMR write payload.
+ *
+ * @example
+ * formatNativeMetadataTextForDiff('<Collection><ShortName>A</ShortName></Collection>')
+ * // '<Collection>\n  <ShortName>A</ShortName>\n</Collection>'
+ *
+ * @param {string} metadataText Serialized native metadata.
+ * @returns {string} Formatted XML, or the original text for JSON, plain text, or invalid XML.
+ */
+const formatNativeMetadataTextForDiff = (metadataText) => {
+  if (!metadataText.trimStart().startsWith('<')
+    || XMLValidator.validate(metadataText) !== true) return metadataText
+
+  try {
+    return `${xmlBuilder.build(xmlParser.parse(metadataText)).trim()}\n`
+  } catch {
+    return metadataText
+  }
+}
 
 /**
  * Converts native XML or JSON metadata into comparable text without changing the write payload.
@@ -51,13 +91,15 @@ export const buildNativeMetadataDiff = ({
     return undefined
   }
 
-  const changed = originalText !== correctedText
+  const formattedOriginalText = formatNativeMetadataTextForDiff(originalText)
+  const formattedCorrectedText = formatNativeMetadataTextForDiff(correctedText)
+  const changed = formattedOriginalText !== formattedCorrectedText
   const fullPatch = changed
     ? createTwoFilesPatch(
       `cmr-revision-${priorRevisionId ?? 'unknown'}`,
       'corrected-metadata',
-      originalText,
-      correctedText,
+      formattedOriginalText,
+      formattedCorrectedText,
       '',
       '',
       { context: 3 }

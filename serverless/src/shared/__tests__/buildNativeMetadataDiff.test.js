@@ -28,6 +28,40 @@ describe('buildNativeMetadataDiff', () => {
     expect(result.patch).toContain('+<Platform>GOSAT - Test1</Platform>')
   })
 
+  test('formats minified XML into a readable line-level diff', () => {
+    const result = buildNativeMetadataDiff({
+      originalMetadata: '<?xml version="1.0"?><Collection><ShortName>TEST</ShortName><Platforms><Platform><ShortName>GOSAT</ShortName><LongName>Greenhouse Gases Observing Satellite</LongName></Platform></Platforms></Collection>',
+      correctedMetadata: '<?xml version="1.0"?><Collection><ShortName>TEST</ShortName><Platforms><Platform><ShortName>GOSAT - Test1</ShortName><LongName>Greenhouse Gases Observing Satellite</LongName></Platform></Platforms></Collection>',
+      priorRevisionId: 5
+    })
+
+    expect(result.patch).toContain('     <Platform>')
+    expect(result.patch).toContain('-      <ShortName>GOSAT</ShortName>')
+    expect(result.patch).toContain('+      <ShortName>GOSAT - Test1</ShortName>')
+    expect(result.patch).toContain('       <LongName>Greenhouse Gases Observing Satellite</LongName>')
+    expect(result.patch).not.toContain('-<?xml version="1.0"?><Collection>')
+  })
+
+  test('ignores XML formatting differences', () => {
+    const result = buildNativeMetadataDiff({
+      originalMetadata: '<Collection>\n  <ShortName>TEST</ShortName>\n</Collection>',
+      correctedMetadata: '<Collection><ShortName>TEST</ShortName></Collection>'
+    })
+
+    expect(result.changed).toBe(false)
+    expect(result.patch).toBe('')
+  })
+
+  test('leaves invalid XML text unchanged for diffing', () => {
+    const result = buildNativeMetadataDiff({
+      originalMetadata: '<Collection><ShortName>OLD</Collection>',
+      correctedMetadata: '<Collection><ShortName>NEW</Collection>'
+    })
+
+    expect(result.patch).toContain('-<Collection><ShortName>OLD</Collection>')
+    expect(result.patch).toContain('+<Collection><ShortName>NEW</Collection>')
+  })
+
   test('serializes JSON metadata and reports identical payloads without a patch', () => {
     const metadata = { Platforms: [{ ShortName: 'GOSAT' }] }
 
