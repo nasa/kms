@@ -75,18 +75,17 @@ const PAGE_STYLES = `
 
   .audit-header a { color: var(--accent); }
 
-  .audit-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
   .audit-meta {
     margin: 0;
     color: var(--muted);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.78rem;
     overflow-wrap: anywhere;
+  }
+
+  .audit-meta a {
+    color: var(--accent);
+    font-weight: 700;
   }
 
   .status {
@@ -247,17 +246,6 @@ const PAGE_STYLES = `
     border-radius: 0.4rem;
     background: var(--accent);
     color: #ffffff;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .view-details {
-    display: inline-block;
-    padding: 0.55rem 0.8rem;
-    border: 1px solid var(--accent);
-    border-radius: 0.35rem;
-    color: var(--accent);
-    font-size: 0.8rem;
     font-weight: 700;
     text-decoration: none;
   }
@@ -491,17 +479,20 @@ const renderValidationFailures = (audit) => {
 }
 
 /**
- * Builds a relative browser link from an audit summary to its complete record.
+ * Renders a run id as a detail link in summary mode and plain text in detail mode.
  *
  * @param {Object} audit Audit summary document.
- * @returns {string} Detail link or an empty string when no run id exists.
+ * @param {boolean} detail Whether this is already the complete run view.
+ * @returns {string} Linked or plain-text run id.
  */
-const renderDetailLink = (audit) => {
-  if (!audit.runId) return ''
+const renderRunId = (audit, detail) => {
+  const displayRunId = displayValue(audit.runId)
+
+  if (detail || !audit.runId) return displayRunId
 
   const runId = encodeURIComponent(String(audit.runId))
 
-  return `<a class="view-details" href="metadata_correction_audit/${runId}?format=html">View details</a>`
+  return `<a href="metadata_correction_audit/${runId}?format=html">${displayRunId}</a>`
 }
 
 /**
@@ -529,12 +520,9 @@ const renderAuditCard = (audit, { detail }) => {
       <header class="audit-header">
         <div>
           <h2>${renderCollectionHeading(audit)}</h2>
-          <p class="audit-meta">Run ${displayValue(audit.runId)}${updatedText}</p>
+          <p class="audit-meta">Run ${renderRunId(audit, detail)}${updatedText}</p>
         </div>
-        <div class="audit-actions">
-          <span class="status${statusClass}">${displayValue(status)}</span>
-          ${detail ? '' : renderDetailLink(audit)}
-        </div>
+        <span class="status${statusClass}">${displayValue(status)}</span>
       </header>
       ${detail ? renderRunDetails(audit) : ''}
       ${errorSection}

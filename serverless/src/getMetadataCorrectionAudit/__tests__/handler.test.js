@@ -147,7 +147,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
     expect(result.headers['Cache-Control']).toBe('no-store')
     expect(result.body).toContain('<table class="changes-table">')
-    expect(result.body).toContain('metadata_correction_audit/run-html?format=html')
+    expect(result.body).toContain('<a href="metadata_correction_audit/run-html?format=html">run-html</a>')
     expect(result.body).not.toContain('Native metadata diff')
     expect(result.body).toContain('paginationToken=next-token')
   })
@@ -184,7 +184,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('Prior CMR revision')
     expect(result.body).toContain('Lifecycle history')
     expect(result.body).toContain('Native metadata diff')
-    expect(result.body).not.toContain('View details')
+    expect(result.body).not.toContain('metadata_correction_audit/run-1?format=html')
   })
 
   test('renders missing detail and server errors as html', async () => {

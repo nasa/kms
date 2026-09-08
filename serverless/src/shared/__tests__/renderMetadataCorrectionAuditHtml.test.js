@@ -48,7 +48,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('white-space: pre;')
     expect(view).toContain('overflow-x: auto;')
     expect(view).toContain('Next page')
-    expect(view).toContain('metadata_correction_audit/run-1?format=html')
+    expect(view).toContain('<a href="metadata_correction_audit/run-1?format=html">run-1</a>')
   })
 
   test('keeps summaries compact when a native metadata diff was not requested', () => {
@@ -67,7 +67,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('Keyword changes')
-    expect(view).toContain('metadata_correction_audit/run%2Fsummary?format=html')
+    expect(view).toContain('<a href="metadata_correction_audit/run%2Fsummary?format=html">run/summary</a>')
     expect(view).not.toContain('Native metadata diff')
     expect(view).not.toContain('Run details')
   })
@@ -122,7 +122,8 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('corrections-resolved')
     expect(view).toContain('CMR failed')
     expect(view).toContain('No native metadata diff was recorded for this run.')
-    expect(view).not.toContain('View details')
+    expect(view).toContain('<p class="audit-meta">Run run-detail')
+    expect(view).not.toContain('metadata_correction_audit/run-detail?format=html')
   })
 
   test('escapes audit content and reports absent and truncated diffs', () => {
