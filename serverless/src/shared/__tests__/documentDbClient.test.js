@@ -121,6 +121,15 @@ describe('documentDbClient', () => {
     expect(mongoClientConstructor).toHaveBeenCalledTimes(2)
   })
 
+  test('uses the default database and audit collection names', async () => {
+    process.env.DOCUMENTDB_URI = 'mongodb://localhost:27018'
+    const { getMetadataCorrectionAuditCollection } = await import('../documentDbClient')
+
+    await expect(getMetadataCorrectionAuditCollection()).resolves.toBe(collection)
+
+    expect(db).toHaveBeenCalledWith('kms')
+  })
+
   test('builds the deployed TLS connection from Secrets Manager credentials', async () => {
     process.env.DOCUMENTDB_HOST = 'audit.cluster.docdb.amazonaws.com'
     process.env.DOCUMENTDB_PORT = '27017'

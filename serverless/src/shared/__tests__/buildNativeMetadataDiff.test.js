@@ -1,7 +1,9 @@
+import { XMLBuilder } from 'fast-xml-parser'
 import {
   describe,
   expect,
-  test
+  test,
+  vi
 } from 'vitest'
 
 import { buildNativeMetadataDiff } from '../buildNativeMetadataDiff'
@@ -60,6 +62,19 @@ describe('buildNativeMetadataDiff', () => {
 
     expect(result.patch).toContain('-<Collection><ShortName>OLD</Collection>')
     expect(result.patch).toContain('+<Collection><ShortName>NEW</Collection>')
+  })
+
+  test('uses the original XML when formatting unexpectedly fails', () => {
+    vi.spyOn(XMLBuilder.prototype, 'build')
+      .mockImplementationOnce(() => { throw new Error('formatting failed') })
+
+    const result = buildNativeMetadataDiff({
+      originalMetadata: '<Platform>GOSAT</Platform>',
+      correctedMetadata: '<Platform>GOSAT - Test1</Platform>'
+    })
+
+    expect(result.patch).toContain('-<Platform>GOSAT</Platform>')
+    expect(result.patch).toContain('+<Platform>GOSAT - Test1</Platform>')
   })
 
   test('serializes JSON metadata and reports identical payloads without a patch', () => {

@@ -63,6 +63,10 @@ describe('persistMetadataCorrectionAuditLog', () => {
         scheme: 'platforms',
         uuid: 'platform-uuid'
       },
+      keywordValidationFailures: [{
+        keywordConceptUuid: 'invalid-keyword-uuid',
+        reason: 'Keyword was not found in the published version'
+      }],
       metadataDiff: {
         changed: true,
         format: 'unified',
@@ -89,6 +93,11 @@ describe('persistMetadataCorrectionAuditLog', () => {
         $set: expect.objectContaining({
           collectionConceptId: 'C123-PROV',
           collectionUri: 'https://cmr.example.com/search/concepts/C123-PROV',
+          keywordValidationFailureCount: 1,
+          keywordValidationFailures: [{
+            keywordConceptUuid: 'invalid-keyword-uuid',
+            reason: 'Keyword was not found in the published version'
+          }],
           publishedVersionName: '20.1',
           priorRevisionId: 7,
           status: 'checked',
