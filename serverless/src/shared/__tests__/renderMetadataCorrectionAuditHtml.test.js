@@ -17,6 +17,7 @@ const PATCH = `=================================================================
 describe('renderMetadataCorrectionAuditHtml', () => {
   test('renders a safe change table and colored side-by-side native metadata diff', () => {
     const view = renderMetadataCorrectionAuditHtml({
+      collectionConceptId: 'C123-PROV',
       items: [{
         runId: 'run-1',
         collectionConceptId: 'C123-PROV',
@@ -40,6 +41,10 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('<!doctype html>')
+    expect(view).toContain('<form class="audit-filter" method="get">')
+    expect(view).toContain('name="format" value="html"')
+    expect(view).toContain('name="collectionConceptId" value="C123-PROV"')
+    expect(view).toContain('<a href="?format=html">Clear</a>')
     expect(view).toContain('<table class="changes-table">')
     expect(view).toContain('Platforms &gt; GOSAT - Test1')
     expect(view).toContain('class="d2h-del d2h-change"')

@@ -59,6 +59,60 @@ const PAGE_STYLES = `
     box-shadow: 0 0.7rem 2rem rgba(20, 47, 60, 0.08);
   }
 
+  .audit-filter {
+    display: flex;
+    align-items: end;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--paper);
+    box-shadow: 0 0.7rem 2rem rgba(20, 47, 60, 0.06);
+  }
+
+  .audit-filter label {
+    display: grid;
+    flex: 1;
+    gap: 0.35rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .audit-filter input {
+    width: 100%;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid #9db6b6;
+    border-radius: 0.4rem;
+    background: #ffffff;
+    color: var(--ink);
+    font: 0.9rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .audit-filter button,
+  .audit-filter a {
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.4rem;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .audit-filter button {
+    background: var(--accent);
+    color: #ffffff;
+    cursor: pointer;
+  }
+
+  .audit-filter a {
+    background: transparent;
+    color: var(--accent);
+  }
+
   .audit-header {
     display: flex;
     align-items: flex-start;
@@ -260,6 +314,7 @@ const PAGE_STYLES = `
 
   @media (max-width: 700px) {
     main { width: min(94vw, 1600px); padding-top: 1.5rem; }
+    .audit-filter { align-items: stretch; flex-direction: column; }
     .audit-header { display: block; }
     .status { display: inline-block; margin-top: 0.8rem; }
     .changes-table th:nth-child(1),
@@ -285,6 +340,30 @@ const displayValue = (value, fallback = 'Not available') => escape(
  * @returns {string} HTML-safe ISO date or fallback text.
  */
 const displayDate = (value) => displayValue(value instanceof Date ? value.toISOString() : value)
+
+/**
+ * Renders an HTML-only collection concept ID filter for the audit summary.
+ *
+ * @param {unknown} collectionConceptId Current exact-match filter value.
+ * @returns {string} GET form that retains the HTML response format.
+ */
+const renderCollectionFilter = (collectionConceptId) => {
+  const clearLink = collectionConceptId
+    ? '<a href="?format=html">Clear</a>'
+    : ''
+
+  return `
+    <form class="audit-filter" method="get">
+      <input type="hidden" name="format" value="html">
+      <label for="collectionConceptId">
+        Collection ID
+        <input id="collectionConceptId" name="collectionConceptId" value="${displayValue(collectionConceptId, '')}" placeholder="C1234567890-PROVIDER">
+      </label>
+      <button type="submit">Filter</button>
+      ${clearLink}
+    </form>
+  `
+}
 
 /**
  * Renders labeled audit values in a responsive detail grid.
@@ -550,6 +629,7 @@ const renderAuditCard = (audit, { detail }) => {
  * // '<!doctype html>...'
  *
  * @param {Object} params Page data.
+ * @param {string} [params.collectionConceptId] Current collection ID filter.
  * @param {boolean} [params.detail=false] Whether to render complete run information.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
  * @param {string} [params.message] Optional empty-state or error message.
@@ -558,6 +638,7 @@ const renderAuditCard = (audit, { detail }) => {
  * @returns {string} Complete HTML document.
  */
 export const renderMetadataCorrectionAuditHtml = ({
+  collectionConceptId,
   detail = false,
   items = [],
   message,
@@ -576,7 +657,7 @@ export const renderMetadataCorrectionAuditHtml = ({
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'">
     <title>${displayValue(title)}</title>
     <style>${diff2HtmlStyles}\n${PAGE_STYLES}</style>
   </head>
@@ -584,6 +665,7 @@ export const renderMetadataCorrectionAuditHtml = ({
     <main>
       <h1>${displayValue(title)}</h1>
       <p class="lede">${items.length} audit ${items.length === 1 ? 'record' : 'records'} on this page</p>
+      ${detail ? '' : renderCollectionFilter(collectionConceptId)}
       ${cards}
       ${nextPageLink}
     </main>

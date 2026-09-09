@@ -43,7 +43,7 @@ const buildNextPageHref = (queryStringParameters, paginationToken) => {
 
 const HTML_RESPONSE_HEADERS = {
   'Cache-Control': 'no-store',
-  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
   'Content-Type': 'text/html; charset=utf-8',
   'X-Content-Type-Options': 'nosniff'
 }
@@ -186,6 +186,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
           ...HTML_RESPONSE_HEADERS
         },
         body: renderMetadataCorrectionAuditHtml({
+          collectionConceptId,
           items: auditPage.items,
           nextPageHref: buildNextPageHref(
             event?.queryStringParameters,
