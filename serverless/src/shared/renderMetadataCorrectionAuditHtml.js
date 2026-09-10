@@ -622,6 +622,9 @@ const renderAuditCard = (audit, { detail }) => {
 /**
  * Builds a self-contained browser view of metadata-correction audit records.
  *
+ * This HTML view is a temporary stopgap until MMT provides an audit interface backed by the JSON
+ * API and its filters. Once that MMT interface is available, this renderer can likely be removed.
+ *
  * @example
  * renderMetadataCorrectionAuditHtml({
  *   items: [{ runId: 'run-1', collectionConceptId: 'C123-PROV', status: 'applied' }]
