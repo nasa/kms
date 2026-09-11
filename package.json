@@ -46,7 +46,7 @@
     "@aws-sdk/client-sqs": "^3.997.0",
     "@aws-sdk/client-ssm": "^3.1096.0",
     "@aws-sdk/s3-request-presigner": "3.981.0",
-    "@xmldom/xmldom": "^0.8.10",
+    "@xmldom/xmldom": "^0.9.12",
     "compact-object-deep": "^1.0.0",
     "csv": "^6.3.11",
     "date-fns": "^4.1.0",
