@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { runCollectionMetadataCorrection } from '@/shared/runCollectionMetadataCorrection'
 
@@ -19,6 +20,10 @@ vi.mock('@/shared/getConfig', () => ({
 
 vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
+}))
+
+vi.mock('@/shared/getVersionMetadata', () => ({
+  getVersionMetadata: vi.fn()
 }))
 
 vi.mock('@/shared/logger', () => ({
@@ -35,6 +40,7 @@ vi.mock('@/shared/runCollectionMetadataCorrection', () => ({
 describe('runMetadataCorrection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getVersionMetadata).mockResolvedValue({ versionName: '20.1' })
   })
 
   test('returns the synchronous correction summary as json', async () => {
@@ -83,6 +89,7 @@ describe('runMetadataCorrection', () => {
 
     expect(runCollectionMetadataCorrection).toHaveBeenCalledWith({
       collectionConceptId: 'C1234567890-PROV',
+      publishedVersionName: '20.1',
       source: 'metadataCorrectionApi'
     })
 
@@ -140,6 +147,7 @@ describe('runMetadataCorrection', () => {
 
     expect(runCollectionMetadataCorrection).toHaveBeenCalledWith({
       collectionConceptId: 'C1234567890+PROV',
+      publishedVersionName: '20.1',
       source: 'metadataCorrectionApi'
     })
   })

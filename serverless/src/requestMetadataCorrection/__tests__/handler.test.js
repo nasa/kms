@@ -6,6 +6,7 @@ import {
   vi
 } from 'vitest'
 
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
@@ -19,6 +20,10 @@ vi.mock('@/shared/getConfig', () => ({
 
 vi.mock('@/shared/logAnalyticsData', () => ({
   logAnalyticsData: vi.fn()
+}))
+
+vi.mock('@/shared/getVersionMetadata', () => ({
+  getVersionMetadata: vi.fn()
 }))
 
 vi.mock('@/shared/logger', () => ({
@@ -35,6 +40,7 @@ vi.mock('@/shared/publishMetadataCorrectionRequest', () => ({
 describe('requestMetadataCorrection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getVersionMetadata).mockResolvedValue({ versionName: '20.1' })
   })
 
   test('returns 202 and publishes one deduplicated message per collection concept id', async () => {
@@ -62,12 +68,14 @@ describe('requestMetadataCorrection', () => {
     expect(publishMetadataCorrectionRequest).toHaveBeenNthCalledWith(1, {
       source: 'metadataCorrectionApi',
       collectionConceptId: 'C123-PROV',
+      publishedVersionName: '20.1',
       requestedAt: expect.any(String)
     })
 
     expect(publishMetadataCorrectionRequest).toHaveBeenNthCalledWith(2, {
       source: 'metadataCorrectionApi',
       collectionConceptId: 'C456-PROV',
+      publishedVersionName: '20.1',
       requestedAt: expect.any(String)
     })
 

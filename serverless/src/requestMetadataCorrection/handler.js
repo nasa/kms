@@ -1,4 +1,5 @@
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
@@ -113,6 +114,7 @@ export const requestMetadataCorrection = async (event, context) => {
       acceptedCollectionConceptIds
     } = normalizeCollectionConceptIds(requestBody.collectionConceptIds)
     const requestedAt = new Date().toISOString()
+    const { versionName: publishedVersionName } = await getVersionMetadata('published')
 
     logger.info('[metadata-correction] Received asynchronous metadata correction request', {
       requestedCount,
@@ -125,6 +127,7 @@ export const requestMetadataCorrection = async (event, context) => {
         const publishResult = await publishMetadataCorrectionRequest({
           source: 'metadataCorrectionApi',
           collectionConceptId,
+          publishedVersionName,
           requestedAt
         })
 

@@ -4,6 +4,8 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { closeDocumentDbClient } from '../../serverless/src/shared/documentDbClient'
+
 /**
  * Local end-to-end smoke for metadata-correction consumer partial batch failure handling.
  *
@@ -19,6 +21,7 @@ import path from 'node:path'
  *
  * Prerequisites:
  * - local Redis is running
+ * - local MongoDB-compatible audit storage is running
  * - LocalStack is optional; if present, set AWS_ENDPOINT_URL to avoid metric emission errors
  *
  * Run with:
@@ -192,11 +195,10 @@ try {
 
   process.env.CMR_BASE_URL = cmrBaseUrl
   process.env.CMR_WRITEBACK_PROVIDERS = process.env.CMR_WRITEBACK_PROVIDERS || providerId
-  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'local-writer-token'
+  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'Bearer local-writer-token'
   process.env.AWS_ENDPOINT_URL = process.env.AWS_ENDPOINT_URL || 'http://127.0.0.1:4566'
-  process.env.RDF4J_SERVICE_URL = process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'
-  process.env.RDF4J_USER_NAME = process.env.RDF4J_USER_NAME || 'rdf4j'
-  process.env.RDF4J_PASSWORD = process.env.RDF4J_PASSWORD || 'rdf4j'
+  process.env.DOCUMENTDB_URI = process.env.DOCUMENTDB_URI
+    || `mongodb://localhost:${process.env.DOCUMENTDB_HOST_PORT || 27018}`
 
   redisClient = await seedKeywordCaches()
 
@@ -264,6 +266,8 @@ try {
     outputPath
   }, null, 2))
 } finally {
+  await closeDocumentDbClient()
+
   if (redisClient) {
     await redisClient.quit()
   }

@@ -1,5 +1,6 @@
 import { EventBridgeClient } from '@aws-sdk/client-eventbridge'
 import { S3Client } from '@aws-sdk/client-s3'
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 import { SNSClient } from '@aws-sdk/client-sns'
 
 /**
@@ -74,4 +75,19 @@ export const getSnsClient = () => {
   }
 
   return snsClient
+}
+
+let secretsManagerClient
+
+/**
+ * Returns a shared Secrets Manager client instance for the current process.
+ *
+ * @returns {SecretsManagerClient} Lazily created Secrets Manager client.
+ */
+export const getSecretsManagerClient = () => {
+  if (!secretsManagerClient) {
+    secretsManagerClient = new SecretsManagerClient(getClientConfig())
+  }
+
+  return secretsManagerClient
 }

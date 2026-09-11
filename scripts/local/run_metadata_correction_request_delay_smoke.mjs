@@ -4,6 +4,8 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { closeDocumentDbClient } from '../../serverless/src/shared/documentDbClient'
+
 /**
  * Local end-to-end smoke for the queued manual-request delay path.
  *
@@ -19,7 +21,7 @@ import path from 'node:path'
  *
  * Prerequisites:
  * - local Redis is running
- * - local RDF4J is running
+ * - local MongoDB-compatible audit storage is running
  * - LocalStack is optional; if present, set AWS_ENDPOINT_URL to avoid metric
  *   emission errors in logs
  *
@@ -182,44 +184,19 @@ const seedKeywordCaches = async () => {
 }
 
 /**
- * Removes any existing audit rows for the smoke collection so assertions start clean.
+ * Removes any existing audit documents for the smoke collection so assertions start clean.
  *
- * @returns {Promise<void>} Resolves once prior audit rows have been deleted.
+ * @returns {Promise<void>} Resolves once prior audit documents have been deleted.
  */
 const clearAuditRowsForCollection = async () => {
-  process.env.RDF4J_SERVICE_URL = process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'
-  process.env.RDF4J_USER_NAME = process.env.RDF4J_USER_NAME || 'rdf4j'
-  process.env.RDF4J_PASSWORD = process.env.RDF4J_PASSWORD || 'rdf4j'
+  process.env.DOCUMENTDB_URI = process.env.DOCUMENTDB_URI
+    || `mongodb://localhost:${process.env.DOCUMENTDB_HOST_PORT || 27018}`
+  const { getMetadataCorrectionAuditCollection } = await import(
+    '../../serverless/src/shared/documentDbClient'
+  )
+  const auditCollection = await getMetadataCorrectionAuditCollection()
 
-  const {
-    escapeSparqlLiteral,
-    METADATA_CORRECTION_AUDIT_GRAPH
-  } = await import('../../serverless/src/shared/metadataCorrectionAudit')
-  const { sparqlRequest } = await import('../../serverless/src/shared/sparqlRequest')
-
-  const query = `
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-
-    DELETE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record ?predicate ?object .
-      }
-    }
-    WHERE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record a gcmd:MetadataCorrectionAuditRecord ;
-                gcmd:collectionConceptId "${escapeSparqlLiteral(collectionConceptId)}" ;
-                ?predicate ?object .
-      }
-    }
-  `
-
-  await sparqlRequest({
-    method: 'POST',
-    contentType: 'application/sparql-update',
-    accept: 'application/json',
-    body: query
-  })
+  await auditCollection.deleteMany({ collectionConceptId })
 }
 
 let mockServerProcess
@@ -245,7 +222,7 @@ try {
 
   process.env.CMR_BASE_URL = cmrBaseUrl
   process.env.CMR_WRITEBACK_PROVIDERS = process.env.CMR_WRITEBACK_PROVIDERS || providerId
-  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'local-writer-token'
+  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'Bearer local-writer-token'
   process.env.METADATA_CORRECTION_REQUEST_DELAY_MS = String(configuredDelayMs)
   process.env.AWS_ENDPOINT_URL = process.env.AWS_ENDPOINT_URL || 'http://127.0.0.1:4566'
 
@@ -253,7 +230,10 @@ try {
   await clearAuditRowsForCollection()
 
   const { metadataCorrectionService } = await import('../../serverless/src/metadataCorrectionService/handler')
-  const { getMetadataCorrectionAuditLog } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
+  const {
+    getMetadataCorrectionAuditByRunId,
+    getMetadataCorrectionAuditLog
+  } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
   const { getCmrCollectionNativeMetadata } = await import('../../serverless/src/shared/getCmrCollectionNativeMetadata')
 
   const requestedAt = new Date().toISOString()
@@ -313,11 +293,20 @@ try {
     )
   }
 
-  const auditRows = await getMetadataCorrectionAuditLog({
+  const { items: auditRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
     limit: 20
   })
-  const statuses = [...new Set(auditRows.map((row) => row.status))]
+  const appliedSummary = auditRows.find(({ status }) => status === 'applied')
+  const appliedRow = appliedSummary
+    ? await getMetadataCorrectionAuditByRunId({
+      runId: appliedSummary.runId,
+      includeDiff: true
+    })
+    : null
+  const statuses = [...new Set(
+    appliedRow?.statusHistory?.map(({ status }) => status) || []
+  )]
 
   if (!statuses.includes('pending')) {
     throw new Error(`Missing pending audit status for ${collectionConceptId}`)
@@ -325,6 +314,10 @@ try {
 
   if (!statuses.includes('applied')) {
     throw new Error(`Missing applied audit status for ${collectionConceptId}`)
+  }
+
+  if (appliedRow?.metadataDiff?.changed !== true || !appliedRow.metadataDiff.patch) {
+    throw new Error(`Missing the native metadata diff for ${collectionConceptId}`)
   }
 
   await fs.mkdir(outputDir, { recursive: true })
@@ -341,7 +334,8 @@ try {
     statuses,
     updatedPlatform,
     response,
-    rows: auditRows
+    rows: auditRows,
+    appliedRow
   }, null, 2), 'utf8')
 
   console.log('[metadata-correction-request-delay-smoke] Completed successfully')
@@ -355,6 +349,8 @@ try {
     outputPath
   }, null, 2))
 } finally {
+  await closeDocumentDbClient()
+
   if (redisClient) {
     await redisClient.quit()
   }

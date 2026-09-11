@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { closeDocumentDbClient } from '../../serverless/src/shared/documentDbClient'
 import {
   CONSUMER_METRIC_NAMES,
   CONSUMER_METRIC_NAMESPACE
@@ -20,7 +21,7 @@ import {
  * Prerequisites:
  * - LocalStack is running on `http://127.0.0.1:4566`
  * - local Redis is running
- * - local RDF4J is running
+ * - local MongoDB-compatible audit storage is running
  *
  * Run with:
  *   npx vite-node --config vite.config.js scripts/local/run_metadata_correction_consumer_metrics_async_smoke.mjs
@@ -200,44 +201,19 @@ const seedKeywordCaches = async () => {
 }
 
 /**
- * Removes any existing audit rows for the smoke collection.
+ * Removes any existing audit documents for the smoke collection.
  *
- * @returns {Promise<void>} Resolves once prior audit rows are deleted.
+ * @returns {Promise<void>} Resolves once prior audit documents are deleted.
  */
 const clearAuditRowsForCollection = async () => {
-  process.env.RDF4J_SERVICE_URL = process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'
-  process.env.RDF4J_USER_NAME = process.env.RDF4J_USER_NAME || 'rdf4j'
-  process.env.RDF4J_PASSWORD = process.env.RDF4J_PASSWORD || 'rdf4j'
+  process.env.DOCUMENTDB_URI = process.env.DOCUMENTDB_URI
+    || `mongodb://localhost:${process.env.DOCUMENTDB_HOST_PORT || 27018}`
+  const { getMetadataCorrectionAuditCollection } = await import(
+    '../../serverless/src/shared/documentDbClient'
+  )
+  const auditCollection = await getMetadataCorrectionAuditCollection()
 
-  const {
-    escapeSparqlLiteral,
-    METADATA_CORRECTION_AUDIT_GRAPH
-  } = await import('../../serverless/src/shared/metadataCorrectionAudit')
-  const { sparqlRequest } = await import('../../serverless/src/shared/sparqlRequest')
-
-  const query = `
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-
-    DELETE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record ?predicate ?object .
-      }
-    }
-    WHERE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record a gcmd:MetadataCorrectionAuditRecord ;
-                gcmd:collectionConceptId "${escapeSparqlLiteral(collectionConceptId)}" ;
-                ?predicate ?object .
-      }
-    }
-  `
-
-  await sparqlRequest({
-    method: 'POST',
-    contentType: 'application/sparql-update',
-    accept: 'application/json',
-    body: query
-  })
+  await auditCollection.deleteMany({ collectionConceptId })
 }
 
 /**
@@ -551,7 +527,7 @@ try {
 
   process.env.CMR_BASE_URL = cmrBaseUrl
   process.env.CMR_WRITEBACK_PROVIDERS = process.env.CMR_WRITEBACK_PROVIDERS || providerId
-  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'local-writer-token'
+  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'Bearer local-writer-token'
   process.env.AWS_ENDPOINT_URL = cloudWatchEndpoint
 
   redisClient = await seedKeywordCaches()
@@ -667,6 +643,8 @@ try {
     outputPath
   }, null, 2))
 } finally {
+  await closeDocumentDbClient()
+
   if (redisClient) {
     await redisClient.quit()
   }

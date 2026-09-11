@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import { Construct } from 'constructs'
 
@@ -19,12 +20,16 @@ import { VpcSetup } from './helper/VpcSetup'
  */
 export interface KmsStackProps extends cdk.StackProps {
   cmrSystemTokenParameterName?: string
+  cmrWritebackTimeoutMs?: string
   cmrWritebackProviders?: string
   cmrWritebackValidateKeywords?: string
   cmrWritebackValidateUmmC?: string
   cmrWriterToken?: string
   existingApiId: string | undefined
   keywordSyncAlarmEmails?: string[]
+  metadataCorrectionAuditClientSecurityGroup?: ec2.ISecurityGroup
+  metadataCorrectionAuditEnvironment: Record<string, string>
+  metadataCorrectionAuditSecret?: secretsmanager.ISecret
   prefix: string
   rootResourceId: string | undefined
   stage: string
@@ -124,6 +129,8 @@ export class KmsStack extends cdk.Stack {
     )
     this.lambdaRole = iamSetup.lambdaRole
 
+    props.metadataCorrectionAuditSecret?.grantRead(this.lambdaRole)
+
     this.keywordEventsTopic = new sns.Topic(this, 'KeywordEventsTopic', {
       topicName: keywordEventsTopicName
     })
@@ -175,12 +182,16 @@ export class KmsStack extends cdk.Stack {
       lambdaRole: this.lambdaRole,
       metadataCorrectionEnvironment: {
         CMR_SYSTEM_TOKEN_PARAMETER_NAME: props.cmrSystemTokenParameterName || '',
+        CMR_WRITEBACK_TIMEOUT_MS: props.cmrWritebackTimeoutMs || '',
         CMR_WRITER_TOKEN: props.cmrWriterToken || '',
         CMR_WRITEBACK_PROVIDERS: props.cmrWritebackProviders || '',
         CMR_WRITEBACK_VALIDATE_KEYWORDS: props.cmrWritebackValidateKeywords || '',
         CMR_WRITEBACK_VALIDATE_UMM_C: props.cmrWritebackValidateUmmC || '',
-        METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopicArn
+        METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopicArn,
+        ...props.metadataCorrectionAuditEnvironment
       },
+      metadataCorrectionAuditClientSecurityGroup:
+        props.metadataCorrectionAuditClientSecurityGroup,
       prefix,
       securityGroup: this.securityGroup,
       stage: this.stage,

@@ -41,6 +41,50 @@ const buildBatchProcessingMetrics = ({
 }
 
 const MAX_METADATA_CORRECTION_REQUEST_DELAY_MS = 20_000
+const MILLISECONDS_PER_MINUTE = 60_000
+
+/**
+ * Converts the configured correction-run rate into a per-message pacing delay.
+ *
+ * @example
+ * // With METADATA_CORRECTION_RUNS_PER_MINUTE=10
+ * getCorrectionRunPacingDelayMs() // 6000
+ *
+ * @returns {number} Delay before each queued correction run, or zero when pacing is disabled.
+ */
+const getCorrectionRunPacingDelayMs = () => {
+  const runsPerMinute = Number(process.env.METADATA_CORRECTION_RUNS_PER_MINUTE)
+
+  if (!Number.isInteger(runsPerMinute) || runsPerMinute <= 0) return 0
+
+  return Math.ceil(MILLISECONDS_PER_MINUTE / runsPerMinute)
+}
+
+/**
+ * Holds the single configured consumer slot long enough to cap correction-run throughput.
+ *
+ * @param {Object} params Pacing log context.
+ * @param {string|undefined} params.collectionConceptId Collection being processed.
+ * @param {string|undefined} params.messageId SQS message identifier.
+ * @returns {Promise<void>}
+ */
+const paceQueuedCorrectionRunIfNeeded = async ({
+  collectionConceptId,
+  messageId
+}) => {
+  const pacingDelayMs = getCorrectionRunPacingDelayMs()
+
+  if (pacingDelayMs <= 0) return
+
+  logger.info('[metadata-correction] Pacing queued metadata correction request', {
+    collectionConceptId,
+    messageId,
+    pacingDelayMs,
+    runsPerMinute: Number(process.env.METADATA_CORRECTION_RUNS_PER_MINUTE)
+  })
+
+  await delay(pacingDelayMs)
+}
 
 /**
  * Reads the optional async correction request delay from environment configuration.
@@ -130,6 +174,11 @@ export const metadataCorrectionService = async (event) => {
         metadataCorrectionRequest
       })
 
+      await paceQueuedCorrectionRunIfNeeded({
+        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        messageId: record.messageId
+      })
+
       await delayQueuedManualRequestIfNeeded({
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
         messageId: record.messageId,
@@ -140,6 +189,7 @@ export const metadataCorrectionService = async (event) => {
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
         keywordEvent: metadataCorrectionRequest.keywordEvent,
         messageId: record.messageId,
+        publishedVersionName: metadataCorrectionRequest.publishedVersionName,
         source: metadataCorrectionRequest.source
       })
     } catch (error) {

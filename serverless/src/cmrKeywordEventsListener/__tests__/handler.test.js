@@ -86,6 +86,7 @@ describe('when the CMR keyword events processor is invoked', () => {
                   EventType: 'UPDATED',
                   Scheme: 'sciencekeywords',
                   UUID: '1234',
+                  VersionName: '20.1',
                   OldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
                   NewKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
                   Timestamp: '2026-04-21T00:00:00.000Z'
@@ -138,6 +139,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         expect(publishMetadataCorrectionRequest).toHaveBeenNthCalledWith(1, {
           source: 'cmrKeywordEventsListener',
           collectionConceptId: 'C1000000000-PROV',
+          publishedVersionName: '20.1',
           keywordEvent: {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',
@@ -151,6 +153,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         expect(publishMetadataCorrectionRequest).toHaveBeenNthCalledWith(2, {
           source: 'cmrKeywordEventsListener',
           collectionConceptId: 'C2000000000-PROV',
+          publishedVersionName: '20.1',
           keywordEvent: {
             eventType: 'UPDATED',
             scheme: 'sciencekeywords',

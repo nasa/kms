@@ -2,10 +2,30 @@ import { cmrPutRequest } from './cmrPutRequest'
 import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
-// Keep the writeback timeout comfortably inside the metadataCorrectionService Lambda's
-// 30s timeout so a stalled ingest request can still be recorded as a failed audit row.
-const CMR_WRITEBACK_TIMEOUT_MS = 10_000
+// Keep the writeback timeout inside the metadataCorrectionService Lambda's 60s timeout so a
+// stalled ingest request can still be recorded as a failed audit status.
+const DEFAULT_CMR_WRITEBACK_TIMEOUT_MS = 25_000
+const MAX_CMR_WRITEBACK_TIMEOUT_MS = 45_000
 const CMR_WRITEBACK_CLIENT_ID = 'kms-metadata-correction-service'
+
+/**
+ * Reads the CMR ingest timeout while retaining enough Lambda time to persist a failure audit.
+ *
+ * @example
+ * // With CMR_WRITEBACK_TIMEOUT_MS=30000
+ * getCmrWritebackTimeoutMs() // 30000
+ *
+ * @returns {number} CMR write timeout between 1 and 45000 milliseconds.
+ */
+const getCmrWritebackTimeoutMs = () => {
+  const configuredTimeout = Number(process.env.CMR_WRITEBACK_TIMEOUT_MS)
+
+  if (!Number.isInteger(configuredTimeout) || configuredTimeout <= 0) {
+    return DEFAULT_CMR_WRITEBACK_TIMEOUT_MS
+  }
+
+  return Math.min(configuredTimeout, MAX_CMR_WRITEBACK_TIMEOUT_MS)
+}
 
 /**
  * Reads a CMR validation header flag from environment configuration.
@@ -349,7 +369,7 @@ export const writeCorrectedMetadataToCmr = async ({
     body: serializedMetadata,
     contentType,
     accept: 'application/json',
-    timeoutMs: CMR_WRITEBACK_TIMEOUT_MS,
+    timeoutMs: getCmrWritebackTimeoutMs(),
     headers: {
       Authorization: authorizationToken,
       'Client-Id': CMR_WRITEBACK_CLIENT_ID,

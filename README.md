@@ -39,8 +39,14 @@ npm run localstack:start
 By default, `start-local` enables Redis with the local container settings from `bin/env/local_env.sh`, so the normal local startup path is:
 ```bash
 npm run redis:start
+npm run documentdb:start
 npm run start-local
 ```
+
+The local MongoDB 8 container provides a DocumentDB-compatible metadata-correction audit store.
+It listens on `localhost:27018` for host scripts and uses the shared KMS Docker network for SAM.
+Starting it also creates or verifies the metadata-correction audit indexes used in AWS.
+Stop it with `npm run documentdb:stop`.
 
 If you do not need Redis for your local test, start local with Redis disabled:
 ```bash
@@ -71,7 +77,8 @@ Local development intentionally splits responsibilities between SAM and LocalSta
 
 - SAM runs the API Gateway and Lambda side of KMS locally.
 - LocalStack emulates AWS-managed services that SAM does not model end-to-end for this repo, especially SNS and SQS.
-- RDF4J and Redis remain separate local services because they are not AWS services.
+- RDF4J, Redis, and the MongoDB-compatible audit database remain separate local services because
+  they are not modeled by SAM.
 
 We do not run the entire application stack inside LocalStack because the existing SAM flow is simpler for day-to-day Lambda/API development, while LocalStack is most useful here for the managed messaging pieces. For keyword event processing, `npm run start-local` also starts `scripts/localstack/run_bridge.sh`, which runs `scripts/localstack/bridge.js`.
 
@@ -297,7 +304,7 @@ Internally, the correction flow is now object-first:
   key construction
 - XML and UMM delegates work from `oldKeywordObject` / `newKeywordObject`
 - joined `oldKeywordPath` / `newKeywordPath` strings are now primarily boundary values for Redis,
-  logs, and audit records
+  logs, and audit documents
 
 The important distinction is:
 
@@ -440,6 +447,47 @@ Resolved corrections are also object-first now:
 Audit logging still derives `oldKeywordPath` / `newKeywordPath` strings for readability, but the
 runtime correction and delegate flow works from normalized keyword objects.
 
+Each collection-correction run is stored as one audit document. Its `statusHistory` records the
+`checked`, `pending`, and terminal `applied` or `failed` transitions. The audit document also
+links to the current CMR collection record, records the prior and resulting CMR revision IDs, and
+stores a bounded unified diff between the original native metadata and the corrected writeback
+payload.
+The audit API is:
+
+- `GET /metadata_correction_audit` for newest-first, token-paginated audit searches. Supported
+  filters include collection, keyword UUID, action, scheme, status, native format, KMS version,
+  source, and date range. Supplied actions and schemes must be recognized KMS values, limits must
+  be integers from 1 through 250, and `startDate` must not be after `endDate`. List results contain
+  compact collection, status, and old-to-new keyword path summaries. Add `?includeDiff=true` to
+  include each available native-metadata diff in the list results.
+- `GET /metadata_correction_audit/{runId}` for the complete audit document. Add
+  `?includeDiff=true` when the native-metadata diff is needed; it is omitted by default to keep
+  routine responses small.
+- Add `?format=html` to either endpoint for a self-contained browser view. The list is a compact
+  status and keyword-change summary with links to each run; add `&includeDiff=true` if list-level
+  native diffs are needed. The detail view includes run context, lifecycle history, diagnostics,
+  and the colored side-by-side native metadata diff. HTML lists default to 10 records per page.
+
+Publisher events carry the published KMS version through the queue into this document. Manual
+correction endpoints look up the current published version before starting the run, so the
+metadata-correction consumer and audit API do not query RDF4J.
+
+Deployed Lambdas use the public AWS `us-east-1` CA bundle to validate DocumentDB TLS connections.
+The checked-in `serverless/certs/us-east-1-bundle.pem` was downloaded from the
+[AWS certificate trust store](https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem):
+
+```bash
+curl --fail --location \
+  https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem \
+  --output serverless/certs/us-east-1-bundle.pem
+```
+
+AWS documents the CA-bundle download requirement in
+[Connecting programmatically to Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/latest/developerguide/connect_programmatically.html).
+That example uses the global bundle; KMS uses the equivalent regional bundle listed for
+US East (N. Virginia) in the
+[AWS regional certificate bundle table](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
+
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.
 ### Prerequisites
@@ -499,6 +547,9 @@ export bamboo_CMR_WRITER_TOKEN=[optional complete bearer authorization value use
 export bamboo_CMR_WRITEBACK_PROVIDERS=[optional provider id, comma-separated list, or ALL]
 export bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS=[true|false; defaults to false]
 export bamboo_CMR_WRITEBACK_VALIDATE_UMM_C=[true|false; defaults to false]
+export bamboo_CMR_WRITEBACK_TIMEOUT_MS=[optional timeout in milliseconds; defaults to 25000]
+export bamboo_METADATA_CORRECTION_RUNS_PER_MINUTE=[optional positive integer correction run rate]
+export bamboo_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY=[optional; defaults to 5]
 export bamboo_CORS_ORIGIN=[comma separated list of cors origins]
 export bamboo_RDF4J_CONTAINER_MEMORY_LIMIT=[7168 for sit|uat, 14336 for prod]
 export bamboo_RDF4J_INSTANCE_TYPE=["M5.LARGE" for sit|uat, "R5.LARGE" for prod]
@@ -521,6 +572,11 @@ Notes:
 - Leave `bamboo_CMR_WRITEBACK_PROVIDERS` empty to disable provider rollout for CMR writeback.
 - Set `bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS` and `bamboo_CMR_WRITEBACK_VALIDATE_UMM_C`
   to `true` to reject writebacks that still fail CMR keyword or UMM-C validation.
+- `bamboo_CMR_WRITEBACK_TIMEOUT_MS` is capped at 45000 milliseconds so the worker can record a
+  failed audit before its 60-second Lambda timeout.
+- Setting `bamboo_METADATA_CORRECTION_RUNS_PER_MINUTE` enables queue pacing and forces the
+  metadata-correction worker concurrency to `1`. When it is unset, pacing is disabled and
+  `bamboo_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY` controls concurrency.
 - If you are not deploying into an existing API Gateway, set `bamboo_EXISTING_API_ID` and `bamboo_ROOT_RESOURCE_ID` to empty strings.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is set, `SnapshotStack` imports that existing backup vault. This is useful when `rdf4jSnapshotStack` is being recreated after an RDF4J recovery event and you need the new stack to reuse an existing vault instead of trying to create the same vault name again.
 - If `bamboo_RDF4J_BACKUP_VAULT_NAME` is not set, `SnapshotStack` creates the default `rdf4j-backup-vault`.

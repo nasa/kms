@@ -4,17 +4,19 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+import { closeDocumentDbClient } from '../../serverless/src/shared/documentDbClient'
+
 /**
  * Local end-to-end smoke for the synchronous metadata-correction endpoint.
  *
  * This smoke test drives the new `runMetadataCorrection` API handler directly with an
- * API-Gateway-like event. It uses the checked-in mock CMR fixture plus local Redis/RDF4J so
- * the full correction path runs end to end:
+ * API-Gateway-like event. It uses the checked-in mock CMR fixture plus local Redis, RDF4J, and
+ * MongoDB so the full correction path runs end to end:
  * - fetch collection UMM/native metadata from the mock CMR server
  * - validate keyword problems against the seeded Redis caches
  * - resolve corrections
  * - apply the UMM delegate
- * - persist audit rows
+ * - persist one audit document with lifecycle history
  * - write the corrected metadata back to the mock CMR ingest route
  *
  * The checked-in fixture currently resolves a `platforms` correction from
@@ -178,44 +180,19 @@ const seedKeywordCaches = async () => {
 }
 
 /**
- * Removes any existing audit rows for the smoke collection so assertions start clean.
+ * Removes any existing audit documents for the smoke collection so assertions start clean.
  *
- * @returns {Promise<void>} Resolves once prior audit rows have been deleted.
+ * @returns {Promise<void>} Resolves once prior audit documents have been deleted.
  */
 const clearAuditRowsForCollection = async () => {
-  process.env.RDF4J_SERVICE_URL = process.env.RDF4J_SERVICE_URL || 'http://localhost:8081'
-  process.env.RDF4J_USER_NAME = process.env.RDF4J_USER_NAME || 'rdf4j'
-  process.env.RDF4J_PASSWORD = process.env.RDF4J_PASSWORD || 'rdf4j'
+  process.env.DOCUMENTDB_URI = process.env.DOCUMENTDB_URI
+    || `mongodb://localhost:${process.env.DOCUMENTDB_HOST_PORT || 27018}`
+  const { getMetadataCorrectionAuditCollection } = await import(
+    '../../serverless/src/shared/documentDbClient'
+  )
+  const auditCollection = await getMetadataCorrectionAuditCollection()
 
-  const {
-    escapeSparqlLiteral,
-    METADATA_CORRECTION_AUDIT_GRAPH
-  } = await import('../../serverless/src/shared/metadataCorrectionAudit')
-  const { sparqlRequest } = await import('../../serverless/src/shared/sparqlRequest')
-
-  const query = `
-    PREFIX gcmd: <https://gcmd.earthdata.nasa.gov/kms#>
-
-    DELETE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record ?predicate ?object .
-      }
-    }
-    WHERE {
-      GRAPH <${METADATA_CORRECTION_AUDIT_GRAPH}> {
-        ?record a gcmd:MetadataCorrectionAuditRecord ;
-                gcmd:collectionConceptId "${escapeSparqlLiteral(collectionConceptId)}" ;
-                ?predicate ?object .
-      }
-    }
-  `
-
-  await sparqlRequest({
-    method: 'POST',
-    contentType: 'application/sparql-update',
-    accept: 'application/json',
-    body: query
-  })
+  await auditCollection.deleteMany({ collectionConceptId })
 }
 
 let mockServerProcess
@@ -241,16 +218,19 @@ try {
 
   process.env.CMR_BASE_URL = baseUrl
   process.env.CMR_WRITEBACK_PROVIDERS = process.env.CMR_WRITEBACK_PROVIDERS || providerId
-  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'local-writer-token'
+  process.env.CMR_WRITER_TOKEN = process.env.CMR_WRITER_TOKEN || 'Bearer local-writer-token'
 
   redisClient = await seedKeywordCaches()
   await clearAuditRowsForCollection()
 
   const { runMetadataCorrection } = await import('../../serverless/src/runMetadataCorrection/handler')
-  const { getMetadataCorrectionAuditLog } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
+  const {
+    getMetadataCorrectionAuditByRunId,
+    getMetadataCorrectionAuditLog
+  } = await import('../../serverless/src/shared/getMetadataCorrectionAuditLog')
   const { getCmrCollectionNativeMetadata } = await import('../../serverless/src/shared/getCmrCollectionNativeMetadata')
 
-  const beforeRows = await getMetadataCorrectionAuditLog({
+  const { items: beforeRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
     limit: 20
   })
@@ -295,12 +275,22 @@ try {
     throw new Error(`Expected successful mock CMR writeback for ${collectionConceptId}`)
   }
 
-  if ((responseBody.auditResults?.pending?.insertedCount || 0) < 1) {
-    throw new Error(`Expected pending audit rows for ${collectionConceptId}`)
+  if (responseBody.auditResults?.pending?.status !== 'pending') {
+    throw new Error(`Expected pending audit status for ${collectionConceptId}`)
   }
 
-  if ((responseBody.auditResults?.applied?.insertedCount || 0) < 1) {
-    throw new Error(`Expected applied audit rows for ${collectionConceptId}`)
+  if (responseBody.auditResults?.applied?.status !== 'applied') {
+    throw new Error(`Expected applied audit status for ${collectionConceptId}`)
+  }
+
+  const auditRunIds = [
+    responseBody.auditResults?.checked?.runId,
+    responseBody.auditResults?.pending?.runId,
+    responseBody.auditResults?.applied?.runId
+  ]
+
+  if (new Set(auditRunIds).size !== 1 || !auditRunIds[0]) {
+    throw new Error(`Expected one audit run across all lifecycle states for ${collectionConceptId}`)
   }
 
   const resolvedCorrection = responseBody.resolvedCorrections[0]
@@ -335,14 +325,23 @@ try {
     throw new Error('Expected corrected UMM Platforms[0].Instruments[0].ShortName to remain Legacy MODIS')
   }
 
-  const afterRows = await getMetadataCorrectionAuditLog({
+  const { items: afterRows } = await getMetadataCorrectionAuditLog({
     collectionConceptId,
     limit: 20
   })
-  const statuses = [...new Set(afterRows.map((row) => row.status))]
+  const appliedSummary = afterRows.find(({ status }) => status === 'applied')
+  const appliedRow = appliedSummary
+    ? await getMetadataCorrectionAuditByRunId({
+      runId: appliedSummary.runId,
+      includeDiff: true
+    })
+    : null
+  const statuses = [...new Set(
+    appliedRow?.statusHistory?.map(({ status }) => status) || []
+  )]
 
   if (beforeRows.length !== 0) {
-    throw new Error(`Expected no starting audit rows for ${collectionConceptId}, found ${beforeRows.length}`)
+    throw new Error(`Expected no starting audit documents for ${collectionConceptId}, found ${beforeRows.length}`)
   }
 
   if (!statuses.includes('pending')) {
@@ -351,6 +350,10 @@ try {
 
   if (!statuses.includes('applied')) {
     throw new Error(`Missing applied audit status for ${collectionConceptId}`)
+  }
+
+  if (appliedRow?.metadataDiff?.changed !== true || !appliedRow.metadataDiff.patch) {
+    throw new Error(`Missing the native metadata diff for ${collectionConceptId}`)
   }
 
   await fs.mkdir(outputDir, { recursive: true })
@@ -363,7 +366,8 @@ try {
     beforeCount: beforeRows.length,
     afterCount: afterRows.length,
     statuses,
-    rows: afterRows
+    rows: afterRows,
+    appliedRow
   }, null, 2), 'utf8')
 
   console.log('[metadata-correction-sync-smoke] Completed successfully')
@@ -381,6 +385,8 @@ try {
     outputPath
   }, null, 2))
 } finally {
+  await closeDocumentDbClient()
+
   if (redisClient) {
     await redisClient.quit()
   }

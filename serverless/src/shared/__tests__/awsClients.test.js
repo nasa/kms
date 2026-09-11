@@ -8,14 +8,24 @@ import {
 } from 'vitest'
 
 // Mock the AWS SDK clients before any imports
-const { s3ClientMock, eventBridgeClientMock, snsClientMock } = vi.hoisted(() => ({
+const {
+  s3ClientMock,
+  eventBridgeClientMock,
+  secretsManagerClientMock,
+  snsClientMock
+} = vi.hoisted(() => ({
   s3ClientMock: vi.fn(),
   eventBridgeClientMock: vi.fn(),
+  secretsManagerClientMock: vi.fn(),
   snsClientMock: vi.fn()
 }))
 
 vi.mock('@aws-sdk/client-s3', () => ({ S3Client: s3ClientMock }))
 vi.mock('@aws-sdk/client-eventbridge', () => ({ EventBridgeClient: eventBridgeClientMock }))
+vi.mock('@aws-sdk/client-secrets-manager', () => ({
+  SecretsManagerClient: secretsManagerClientMock
+}))
+
 vi.mock('@aws-sdk/client-sns', () => ({ SNSClient: snsClientMock }))
 
 describe('awsClients', () => {
@@ -54,6 +64,14 @@ describe('awsClients', () => {
       getSnsClient()
 
       expect(snsClientMock).toHaveBeenCalledWith({})
+    })
+
+    test('getSecretsManagerClient should create a client with default config', async () => {
+      const { getSecretsManagerClient } = await import('../awsClients')
+
+      getSecretsManagerClient()
+
+      expect(secretsManagerClientMock).toHaveBeenCalledWith({})
     })
   })
 
@@ -96,6 +114,14 @@ describe('awsClients', () => {
 
       expect(snsClientMock).toHaveBeenCalledWith(expectedConfig)
     })
+
+    test('getSecretsManagerClient should create a client with LocalStack config', async () => {
+      const { getSecretsManagerClient } = await import('../awsClients')
+
+      getSecretsManagerClient()
+
+      expect(secretsManagerClientMock).toHaveBeenCalledWith(expectedConfig)
+    })
   })
 
   describe('singleton behavior', () => {
@@ -126,6 +152,16 @@ describe('awsClients', () => {
       const client2 = getSnsClient()
 
       expect(snsClientMock).toHaveBeenCalledTimes(1)
+      expect(client1).toBe(client2)
+    })
+
+    test('getSecretsManagerClient should only create one instance', async () => {
+      const { getSecretsManagerClient } = await import('../awsClients')
+
+      const client1 = getSecretsManagerClient()
+      const client2 = getSecretsManagerClient()
+
+      expect(secretsManagerClientMock).toHaveBeenCalledTimes(1)
       expect(client1).toBe(client2)
     })
   })

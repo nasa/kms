@@ -20,14 +20,14 @@ const defaultLongName = 'Greenhouse Gases Observing Satellite'
 
 const createPlatformsCsv = (shortName, longName = defaultLongName) => [
   '"Keyword Version: smoke"',
-  '"Category","Class","Type","Short_Name","Long_Name","UUID"',
-  `"Platforms","Space-based Platforms","Earth Observation Satellites","${shortName}","${longName}","${keywordUuid}"`
+  '"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"',
+  `"Space-based Platforms","Earth Observation Satellites",,"${shortName}","${longName}","${keywordUuid}"`
 ].join('\n')
 
 const buildExpectedKeywordObject = (shortName, longName = defaultLongName) => ({
-  Category: 'Platforms',
-  Class: 'Space-based Platforms',
-  Type: 'Earth Observation Satellites',
+  Basis: 'Space-based Platforms',
+  Category: 'Earth Observation Satellites',
+  SubCategory: '',
   ShortName: shortName,
   LongName: longName
 })

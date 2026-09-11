@@ -1,4 +1,5 @@
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
 import { runCollectionMetadataCorrection } from '@/shared/runCollectionMetadataCorrection'
@@ -63,8 +64,11 @@ export const runMetadataCorrection = async (event, context) => {
       collectionConceptId
     })
 
+    const { versionName: publishedVersionName } = await getVersionMetadata('published')
+
     const result = await runCollectionMetadataCorrection({
       collectionConceptId,
+      publishedVersionName,
       source: 'metadataCorrectionApi'
     })
 
