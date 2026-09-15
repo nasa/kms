@@ -31,6 +31,8 @@ const SUMMARY_PROJECTION = {
   'corrections.newKeywordPath': 1,
   'error.message': 1
 }
+const DETAIL_RUN_ID = 'f3351653-dfc3-47d8-9176-294ea90bc118'
+const UNKNOWN_RUN_ID = '11111111-1111-4111-8111-111111111111'
 
 describe('metadata correction audit queries', () => {
   let collection
@@ -311,19 +313,19 @@ describe('metadata correction audit queries', () => {
 
   test('returns one detailed audit run without the native metadata diff by default', async () => {
     collection.findOne.mockResolvedValue({
-      runId: 'run-1',
+      runId: DETAIL_RUN_ID,
       status: 'applied'
     })
 
     await expect(getMetadataCorrectionAuditByRunId({
-      runId: 'run-1'
+      runId: DETAIL_RUN_ID
     })).resolves.toEqual({
-      runId: 'run-1',
+      runId: DETAIL_RUN_ID,
       status: 'applied'
     })
 
     expect(collection.findOne).toHaveBeenCalledWith(
-      { _id: 'run-1' },
+      { _id: DETAIL_RUN_ID },
       {
         projection: {
           _id: 0,
@@ -335,7 +337,7 @@ describe('metadata correction audit queries', () => {
 
   test('includes the native metadata diff only when requested', async () => {
     collection.findOne.mockResolvedValue({
-      runId: 'run-1',
+      runId: DETAIL_RUN_ID,
       status: 'failed',
       metadataDiff: {
         changed: true,
@@ -344,31 +346,43 @@ describe('metadata correction audit queries', () => {
     })
 
     const result = await getMetadataCorrectionAuditByRunId({
-      runId: 'run-1',
+      runId: DETAIL_RUN_ID,
       includeDiff: 'true'
     })
 
     expect(result.metadataDiff.patch).toBe('-old\n+new')
     expect(collection.findOne).toHaveBeenCalledWith(
-      { _id: 'run-1' },
+      { _id: DETAIL_RUN_ID },
       { projection: { _id: 0 } }
     )
   })
 
-  test('returns null for an unknown run and validates detail parameters', async () => {
+  test('returns null for an unknown run', async () => {
     await expect(getMetadataCorrectionAuditByRunId({
-      runId: 'missing-run'
+      runId: UNKNOWN_RUN_ID
     })).resolves.toBeNull()
+  })
 
+  test('validates detail parameters before querying the audit collection', async () => {
     await expect(getMetadataCorrectionAuditByRunId()).rejects.toThrow(
       'Invalid metadata correction audit runId'
     )
 
     await expect(getMetadataCorrectionAuditByRunId({
-      runId: 'run-1',
+      runId: 123
+    })).rejects.toThrow('Invalid metadata correction audit runId')
+
+    await expect(getMetadataCorrectionAuditByRunId({
+      runId: 'run-1'
+    })).rejects.toThrow('Invalid metadata correction audit runId')
+
+    await expect(getMetadataCorrectionAuditByRunId({
+      runId: DETAIL_RUN_ID,
       includeDiff: 'yes'
     })).rejects.toThrow(
       'Invalid metadata correction audit includeDiff: expected true or false'
     )
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
   })
 })

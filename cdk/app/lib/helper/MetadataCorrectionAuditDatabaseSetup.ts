@@ -95,7 +95,7 @@ export class MetadataCorrectionAuditDatabaseSetup extends Construct {
       backup: {
         retention: cdk.Duration.days(7)
       },
-      deletionProtection: ['ops', 'prod'].includes(props.stage.toLowerCase()),
+      deletionProtection: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN_ON_UPDATE_OR_DELETE,
       storageEncrypted: true,
       securityGroup: databaseSecurityGroup,

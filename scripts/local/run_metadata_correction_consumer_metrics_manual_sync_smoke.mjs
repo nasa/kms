@@ -5,11 +5,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { closeDocumentDbClient } from '../../serverless/src/shared/documentDbClient'
-
 import {
   CONSUMER_METRIC_NAMES,
   CONSUMER_METRIC_NAMESPACE
 } from '../../serverless/src/shared/emitConsumerMetrics'
+
+import { clearAuditDocumentsForCollection } from './metadataCorrectionSmokeHelpers.mjs'
 
 /**
  * Local end-to-end smoke for manual sync consumer metrics.
@@ -186,22 +187,6 @@ const seedKeywordCaches = async () => {
   })
 
   return redisClient
-}
-
-/**
- * Removes any existing audit documents for the smoke collection.
- *
- * @returns {Promise<void>} Resolves once prior audit documents are deleted.
- */
-const clearAuditRowsForCollection = async () => {
-  process.env.DOCUMENTDB_URI = process.env.DOCUMENTDB_URI
-    || `mongodb://localhost:${process.env.DOCUMENTDB_HOST_PORT || 27018}`
-  const { getMetadataCorrectionAuditCollection } = await import(
-    '../../serverless/src/shared/documentDbClient'
-  )
-  const auditCollection = await getMetadataCorrectionAuditCollection()
-
-  await auditCollection.deleteMany({ collectionConceptId })
 }
 
 /**
@@ -519,7 +504,7 @@ try {
   process.env.AWS_ENDPOINT_URL = cloudWatchEndpoint
 
   redisClient = await seedKeywordCaches()
-  await clearAuditRowsForCollection()
+  await clearAuditDocumentsForCollection(collectionConceptId)
 
   const { runMetadataCorrection } = await import('../../serverless/src/runMetadataCorrection/handler')
   const { getCmrCollectionNativeMetadata } = await import('../../serverless/src/shared/getCmrCollectionNativeMetadata')

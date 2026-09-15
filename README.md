@@ -473,8 +473,9 @@ correction endpoints look up the current published version before starting the r
 metadata-correction consumer and audit API do not query RDF4J.
 
 Deployed Lambdas use the public AWS `us-east-1` CA bundle to validate DocumentDB TLS connections.
-The checked-in `serverless/certs/us-east-1-bundle.pem` was downloaded from the
-[AWS certificate trust store](https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem):
+The Bamboo deployment downloads the current bundle from the
+[AWS certificate trust store](https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem)
+before building the deployment image. For an AWS deployment outside Bamboo, download it manually:
 
 ```bash
 curl --fail --location \

@@ -1,3 +1,5 @@
+import { validate as isUuid } from 'uuid'
+
 import { VALID_SCHEMES } from '@/shared/constants/validSchemes'
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 import { METADATA_CORRECTION_AUDIT_STATUSES } from '@/shared/persistMetadataCorrectionAuditLog'
@@ -443,7 +445,7 @@ export const getMetadataCorrectionAuditByRunId = async ({
   runId,
   includeDiff = false
 } = {}) => {
-  if (!runId) {
+  if (typeof runId !== 'string' || !isUuid(runId)) {
     throw new Error('Invalid metadata correction audit runId')
   }
 

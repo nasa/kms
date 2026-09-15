@@ -18,6 +18,14 @@ config="`jq '.edl.uid = $newValue' --arg newValue $bamboo_EDL_UID <<< $config`"
 # overwrite static.config.json with new values
 echo $config > tmp.$$.json && mv tmp.$$.json static.config.json
 
+# Download the current public AWS CA bundle before it is packaged with the Lambdas.
+documentDbCaBundleUrl='https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem'
+documentDbCaBundlePath='serverless/certs/us-east-1-bundle.pem'
+mkdir -p "$(dirname "$documentDbCaBundlePath")"
+curl --fail --silent --show-error --location \
+  "$documentDbCaBundleUrl" \
+  --output "$documentDbCaBundlePath"
+
 # Set up Docker image
 #####################
 

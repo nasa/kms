@@ -50,6 +50,31 @@ interface MetadataCorrectionSetupProps {
 export class MetadataCorrectionSetup extends Construct {
   private static readonly DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY = 5
 
+  /**
+   * Resolves the Lambda concurrency limit, forcing one worker when rate limiting is enabled.
+   *
+   * @example
+   * MetadataCorrectionSetup.resolveReservedConcurrency(true, '5') // 1
+   * MetadataCorrectionSetup.resolveReservedConcurrency(false, '3') // 3
+   *
+   * @param hasRateLimit Whether request rate limiting is enabled.
+   * @param configuredReservedConcurrency Configured Lambda concurrency limit.
+   * @returns The concurrency limit to apply to the metadata-correction Lambda.
+   */
+  private static resolveReservedConcurrency(
+    hasRateLimit: boolean,
+    configuredReservedConcurrency?: string
+  ): number {
+    if (hasRateLimit) return 1
+
+    const parsed = Number(configuredReservedConcurrency)
+    const isValid = Number.isInteger(parsed) && parsed > 0
+
+    return isValid
+      ? parsed
+      : MetadataCorrectionSetup.DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
+  }
+
   public readonly metadataCorrectionRequestsTopic: sns.Topic
 
   public readonly metadataCorrectionRequestsQueue: sqs.Queue
@@ -111,19 +136,10 @@ export class MetadataCorrectionSetup extends Construct {
       throw new Error('METADATA_CORRECTION_RUNS_PER_MINUTE must be a positive integer')
     }
 
-    const parsedReservedConcurrency = Number(metadataCorrectionServiceReservedConcurrency)
-    const hasValidReservedConcurrency = Number.isInteger(parsedReservedConcurrency)
-      && parsedReservedConcurrency > 0
-    let reservedConcurrency = MetadataCorrectionSetup
-      .DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
-
-    if (hasValidReservedConcurrency) {
-      reservedConcurrency = parsedReservedConcurrency
-    }
-
-    if (hasRateLimit) {
-      reservedConcurrency = 1
-    }
+    const reservedConcurrency = MetadataCorrectionSetup.resolveReservedConcurrency(
+      hasRateLimit,
+      metadataCorrectionServiceReservedConcurrency
+    )
 
     // TODO: Create a follow-up ticket for DLQ handling. This DLQ is only the
     // redrive target today; before adding a consumer, decide whether failures
