@@ -98,6 +98,10 @@ export class CmrEventProcessingStack extends cdk.Stack {
       prefix: props.prefix,
       stage: props.stage,
       keywordEventsTopic: topic,
+      metadataCorrectionAuditClientSecurityGroup:
+        props.metadataCorrectionAuditClientSecurityGroup,
+      metadataCorrectionAuditEnvironment: props.metadataCorrectionAuditEnvironment,
+      metadataCorrectionAuditSecret: props.metadataCorrectionAuditSecret,
       metadataCorrectionRequestsTopic: metadataCorrectionSetup.metadataCorrectionRequestsTopic,
       securityGroup: this.securityGroup,
       useLocalstack,

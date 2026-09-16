@@ -5,11 +5,16 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 
+import {
+  getDocumentDbCertificateBundling,
+  getDocumentDbLambdaSecurityGroups
+} from './DocumentDbLambdaConfig'
 import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 
 /**
@@ -22,6 +27,9 @@ interface CmrKeywordEventsListenerSetupProps {
   securityGroup: ec2.SecurityGroup
   stage: string
   keywordEventsTopic: sns.ITopic
+  metadataCorrectionAuditClientSecurityGroup?: ec2.ISecurityGroup
+  metadataCorrectionAuditEnvironment: Record<string, string>
+  metadataCorrectionAuditSecret?: secretsmanager.ISecret
   metadataCorrectionRequestsTopic: sns.ITopic
   useLocalstack: boolean
   vpc: ec2.IVpc
@@ -49,6 +57,9 @@ export class CmrKeywordEventsListenerSetup extends Construct {
       cmrBaseUrl,
       cmrSystemTokenParameterName,
       keywordEventsTopic,
+      metadataCorrectionAuditClientSecurityGroup,
+      metadataCorrectionAuditEnvironment,
+      metadataCorrectionAuditSecret,
       metadataCorrectionRequestsTopic,
       prefix,
       securityGroup,
@@ -78,16 +89,22 @@ export class CmrKeywordEventsListenerSetup extends Construct {
         ...(cmrSystemTokenParameterName
           ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
           : {}),
+        ...metadataCorrectionAuditEnvironment,
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopic.topicArn
       },
       depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
       projectRoot,
+      ...getDocumentDbCertificateBundling(metadataCorrectionAuditEnvironment),
       ...(useLocalstack ? {} : {
         vpc,
         vpcSubnets: {
           subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
         },
-        securityGroups: [securityGroup]
+        securityGroups: getDocumentDbLambdaSecurityGroups({
+          clientSecurityGroup: metadataCorrectionAuditClientSecurityGroup,
+          environment: metadataCorrectionAuditEnvironment,
+          securityGroup
+        })
       })
     })
 
@@ -97,6 +114,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
 
     this.queue.grantConsumeMessages(this.listenerLambda)
     metadataCorrectionRequestsTopic.grantPublish(this.listenerLambda)
+    metadataCorrectionAuditSecret?.grantRead(this.listenerLambda)
 
     if (cmrSystemTokenParameterName) {
       const systemTokenParameterArn = cdk.Stack.of(this).formatArn({

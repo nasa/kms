@@ -20,8 +20,12 @@ vi.mock('@/shared/documentDbClient', () => ({
 const SUMMARY_PROJECTION = {
   _id: 1,
   runId: 1,
+  recordType: 1,
   collectionConceptId: 1,
   collectionUri: 1,
+  publishedVersionName: 1,
+  outcome: 1,
+  collectionCount: 1,
   status: 1,
   createdAt: 1,
   updatedAt: 1,
@@ -82,7 +86,7 @@ describe('metadata correction audit queries', () => {
       keywordConceptUuid: 'keyword-1',
       limit: '25',
       nativeFormat: 'UMM',
-      publishedVersionName: '20.1',
+      publishedVersionName: ' 20.1 ',
       scheme: 'dataformat',
       source: 'cmrKeywordEventsListener',
       startDate: '2026-09-01',
@@ -144,6 +148,61 @@ describe('metadata correction audit queries', () => {
       }],
       nextPaginationToken: null
     })
+  })
+
+  test('returns no-op publisher events in published-version searches', async () => {
+    mongoCursor.toArray.mockResolvedValue([{
+      _id: DETAIL_RUN_ID,
+      runId: DETAIL_RUN_ID,
+      recordType: 'publisherEventNoOp',
+      publishedVersionName: '20.1',
+      outcome: 'no-collections-found',
+      collectionCount: 0,
+      status: 'checked',
+      updatedAt: new Date('2026-09-16T12:01:00.000Z'),
+      corrections: [{
+        scheme: 'platforms',
+        action: 'UPDATED',
+        oldKeywordPath: 'Platforms > GOSAT',
+        newKeywordPath: 'Platforms > GOSAT - Test1'
+      }]
+    }])
+
+    const result = await getMetadataCorrectionAuditLog({
+      publishedVersionName: '20.1'
+    })
+
+    expect(result.items).toEqual([{
+      runId: DETAIL_RUN_ID,
+      recordType: 'publisherEventNoOp',
+      publishedVersionName: '20.1',
+      outcome: 'no-collections-found',
+      collectionCount: 0,
+      status: 'checked',
+      updatedAt: new Date('2026-09-16T12:01:00.000Z'),
+      changes: [{
+        scheme: 'platforms',
+        action: 'UPDATED',
+        oldKeywordPath: 'Platforms > GOSAT',
+        newKeywordPath: 'Platforms > GOSAT - Test1'
+      }]
+    }])
+  })
+
+  test('returns audit documents from all published versions', async () => {
+    await getMetadataCorrectionAuditLog({
+      publishedOnly: true
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        publishedVersionName: {
+          $exists: true,
+          $nin: [null, '']
+        }
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
   })
 
   test('returns a pagination token when another page exists and applies it to the next query', async () => {
@@ -298,6 +357,24 @@ describe('metadata correction audit queries', () => {
       includeDiff: 'yes'
     })).rejects.toThrow(
       'Invalid metadata correction audit includeDiff: expected true or false'
+    )
+
+    await expect(getMetadataCorrectionAuditLog({
+      publishedVersionName: { $ne: null }
+    })).rejects.toThrow(
+      'Invalid metadata correction audit published version: expected a nonempty string'
+    )
+
+    await expect(getMetadataCorrectionAuditLog({
+      publishedVersionName: '   '
+    })).rejects.toThrow(
+      'Invalid metadata correction audit published version: expected 1 to 256 characters'
+    )
+
+    await expect(getMetadataCorrectionAuditLog({
+      publishedVersionName: 'v'.repeat(257)
+    })).rejects.toThrow(
+      'Invalid metadata correction audit published version: expected 1 to 256 characters'
     )
 
     const invalidPaginationToken = Buffer.from(JSON.stringify({

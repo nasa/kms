@@ -2,6 +2,9 @@ import { formatKeywordObjectForLog } from '@/shared/formatKeywordObjectForLog'
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { hasMeaningfulKeywordObject } from '@/shared/hasMeaningfulKeywordObject'
 import { logger } from '@/shared/logger'
+import {
+  persistMetadataCorrectionNoOpAuditLog
+} from '@/shared/persistMetadataCorrectionNoOpAuditLog'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 /**
@@ -192,6 +195,12 @@ export const cmrKeywordEventsListener = async (event) => {
         )
 
         if (collectionConceptIds.length === 0) {
+          await persistMetadataCorrectionNoOpAuditLog({
+            keywordEvent,
+            messageId,
+            publisherMessageId: snsEnvelope.MessageId
+          })
+
           logger.info(
             '[consumer] No affected collection concept ids found for keyword event '
             + `scheme=${scheme} `

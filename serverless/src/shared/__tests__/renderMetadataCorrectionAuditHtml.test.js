@@ -61,6 +61,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
       items: [{
         runId: 'run/summary',
         collectionConceptId: 'C123-PROV',
+        publishedVersionName: 'published-42',
         status: 'applied',
         changes: [{
           scheme: 'platforms',
@@ -72,9 +73,74 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('Keyword changes')
+    expect(view).toContain('Published Version published-42')
     expect(view).toContain('<a href="metadata_correction_audit/run%2Fsummary?format=html">run/summary</a>')
     expect(view).not.toContain('Native metadata diff')
     expect(view).not.toContain('Run details')
+  })
+
+  test('renders a published version report as a collection change table', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        runId: 'run-v42-a',
+        collectionConceptId: 'C42-A',
+        publishedVersionName: 'published-42',
+        status: 'applied',
+        changes: [{
+          scheme: 'platforms',
+          action: 'replace',
+          oldKeywordPath: 'Platforms > Old',
+          newKeywordPath: 'Platforms > New'
+        }]
+      }, {
+        runId: 'run-v42-b',
+        recordType: 'publisherEventNoOp',
+        collectionCount: 0,
+        outcome: 'no-collections-found',
+        publishedVersionName: 'published-42',
+        status: 'checked'
+      }, {
+        runId: 'run-v41',
+        publishedVersionName: 'published-41',
+        status: 'applied'
+      }]
+    })
+
+    expect(view).toContain('Published Version: published-42')
+    expect(view).toContain('2 audit records')
+    expect(view).toContain('Published Version: published-41')
+    expect(view).toContain('1 audit record')
+    expect(view).toContain('<table class="published-table">')
+    expect(view).toContain('<th scope="col">Collection ID</th>')
+    expect(view).toContain('<th scope="col">Outcome</th>')
+    expect(view).toContain('C42-A')
+    expect(view).toContain('Platforms &gt; Old')
+    expect(view).toContain('Platforms &gt; New')
+    expect(view).toContain('No collections found')
+    expect(view).toContain('no-collections-found')
+    expect(view.indexOf('Published Version: published-42'))
+      .toBeLessThan(view.indexOf('Published Version: published-41'))
+  })
+
+  test('renders failed and unknown published audit values', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        runId: 'run-failed',
+        collectionConceptId: 'C-FAILED',
+        publishedVersionName: 'published-failed',
+        status: 'failed'
+      }, {
+        runId: 'run-unknown',
+        collectionConceptId: 'C-UNKNOWN'
+      }]
+    })
+
+    expect(view).toContain('Published Version: published-failed')
+    expect(view).toContain('Published Version: Unknown published version')
+    expect(view).toContain('<span class="status status-failed">failed</span>')
+    expect(view).toContain('<span class="status">unknown</span>')
   })
 
   test('renders complete run context and lifecycle history in detail mode', () => {
@@ -129,6 +195,33 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('No native metadata diff was recorded for this run.')
     expect(view).toContain('<p class="audit-meta">Run run-detail')
     expect(view).not.toContain('metadata_correction_audit/run-detail?format=html')
+  })
+
+  test('renders a no-collections-found publisher event clearly', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{
+        runId: 'f3351653-dfc3-47d8-9176-294ea90bc118',
+        recordType: 'publisherEventNoOp',
+        publishedVersionName: '20.1',
+        collectionCount: 0,
+        outcome: 'no-collections-found',
+        status: 'checked',
+        corrections: [{
+          scheme: 'platforms',
+          action: 'UPDATED',
+          oldKeywordPath: 'Platforms > GOSAT',
+          newKeywordPath: 'Platforms > GOSAT - Test1'
+        }]
+      }]
+    })
+
+    expect(view).toContain('Publisher event: no collections found')
+    expect(view).toContain('Published KMS version')
+    expect(view).toContain('20.1')
+    expect(view).toContain('Collections found')
+    expect(view).toContain('no-collections-found')
+    expect(view).toContain('Platforms &gt; GOSAT - Test1')
   })
 
   test('escapes audit content and reports absent and truncated diffs', () => {

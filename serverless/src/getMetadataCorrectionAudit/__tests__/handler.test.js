@@ -73,6 +73,7 @@ describe('getMetadataCorrectionAudit', () => {
       status: undefined,
       nativeFormat: undefined,
       publishedVersionName: undefined,
+      publishedOnly: false,
       source: undefined,
       startDate: undefined,
       limit: '10'
@@ -112,6 +113,113 @@ describe('getMetadataCorrectionAudit', () => {
     expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       includeDiff: 'true'
     }))
+  })
+
+  test('filters audit documents using the published version path', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: {
+        versionName: 'published-42'
+      }
+    })
+
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      publishedVersionName: 'published-42',
+      publishedOnly: true
+    }))
+  })
+
+  test('returns all published versions when the published path omits a version name', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published',
+      pathParameters: {},
+      queryStringParameters: {}
+    })
+
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      publishedVersionName: undefined,
+      publishedOnly: true
+    }))
+  })
+
+  test('renders all published versions as grouped html tables', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [{
+        runId: 'run-published',
+        publishedVersionName: 'published-42',
+        status: 'applied'
+      }],
+      nextPaginationToken: null
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published',
+      pathParameters: {},
+      queryStringParameters: {
+        format: 'html'
+      }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body).toContain('<title>Published metadata correction audit</title>')
+    expect(result.body).toContain('Published Version: published-42')
+    expect(result.body).toContain('<table class="published-table">')
+    expect(result.body).not.toContain('<h1>Published metadata correction audit</h1>')
+    expect(result.body).not.toContain('<form class="audit-filter"')
+  })
+
+  test('renders a selected published version as a table', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [{
+        runId: 'run-published',
+        collectionConceptId: 'C123-PROV',
+        publishedVersionName: 'published-42',
+        status: 'applied'
+      }],
+      nextPaginationToken: null
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: {
+        versionName: 'published-42'
+      },
+      queryStringParameters: {
+        format: 'html'
+      }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(result.body).toContain('Published Version: published-42')
+    expect(result.body).toContain('<table class="published-table">')
+    expect(result.body).toContain('<th scope="col">Collection ID</th>')
+    expect(result.body).toContain('<th scope="col">Outcome</th>')
+  })
+
+  test('directs published version searches to the official published route', async () => {
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: {
+        publishedVersionName: 'published-42'
+      }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Error: Invalid metadata correction audit publishedVersionName: '
+        + 'use /metadata_correction_audit/published/{versionName}'
+    })
+
+    expect(getMetadataCorrectionAuditLog).not.toHaveBeenCalled()
   })
 
   test('renders a compact html summary with detail links for browser requests', async () => {

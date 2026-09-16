@@ -70,7 +70,6 @@ const HTML_RESPONSE_HEADERS = {
  * - scheme
  * - status
  * - nativeFormat
- * - publishedVersionName
  * - source
  * - startDate / endDate
  * - paginationToken
@@ -107,7 +106,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     scheme,
     status,
     nativeFormat,
-    publishedVersionName,
+    publishedVersionName: queryPublishedVersionName,
     source,
     startDate,
     endDate,
@@ -116,11 +115,28 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     format,
     limit
   } = event?.queryStringParameters || {}
-  const runId = event?.pathParameters?.runId
+  const {
+    runId,
+    versionName: pathPublishedVersionName
+  } = event?.pathParameters || {}
+  const isPublishedAuditRoute = event?.resource === '/metadata_correction_audit/published'
+    || event?.resource === '/metadata_correction_audit/published/{versionName}'
+    || pathPublishedVersionName !== undefined
+  const publishedVersionName = isPublishedAuditRoute
+    ? pathPublishedVersionName
+    : undefined
   let responseFormat = 'json'
 
   try {
     responseFormat = normalizeResponseFormat(format)
+
+    if (!isPublishedAuditRoute && queryPublishedVersionName !== undefined) {
+      throw new Error(
+        'Invalid metadata correction audit publishedVersionName: '
+        + 'use /metadata_correction_audit/published/{versionName}'
+      )
+    }
+
     const requestedIncludeDiff = responseFormat === 'html' && runId ? true : includeDiff
     const requestedLimit = responseFormat === 'html' && !limit ? '10' : limit
 
@@ -170,6 +186,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
       status,
       nativeFormat,
       publishedVersionName,
+      publishedOnly: isPublishedAuditRoute,
       source,
       startDate,
       endDate,
@@ -177,6 +194,13 @@ export const getMetadataCorrectionAudit = async (event, context) => {
       includeDiff: requestedIncludeDiff,
       limit: requestedLimit
     })
+    let htmlTitle
+
+    if (isPublishedAuditRoute) {
+      htmlTitle = publishedVersionName
+        ? `Published metadata correction audit: ${publishedVersionName}`
+        : 'Published metadata correction audit'
+    }
 
     if (responseFormat === 'html') {
       return {
@@ -187,11 +211,15 @@ export const getMetadataCorrectionAudit = async (event, context) => {
         },
         body: renderMetadataCorrectionAuditHtml({
           collectionConceptId,
+          groupByPublishedVersion: isPublishedAuditRoute,
           items: auditPage.items,
           nextPageHref: buildNextPageHref(
             event?.queryStringParameters,
             auditPage.nextPaginationToken
-          )
+          ),
+          showCollectionFilter: !isPublishedAuditRoute,
+          showPageHeader: !isPublishedAuditRoute,
+          title: htmlTitle
         })
       }
     }
