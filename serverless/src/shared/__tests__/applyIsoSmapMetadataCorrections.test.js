@@ -406,7 +406,7 @@ describe('when applying dataformat ISO-19115 corrections', () => {
 describe('applyIsoSmapMetadataCorrections coverage', () => {
   test('should gracefully handle an unknown scheme in corrections', async () => {
     const params = {
-      metadataPayload: '<gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"></gmi:MI_Metadata>',
+      metadataPayload: '<gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi"></gmi:MI_Metadata>',
       corrections: [
         {
           scheme: 'unknownScheme', // This will trigger the !delegate check on line 38

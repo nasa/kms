@@ -36,12 +36,14 @@ const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
     UUID: uuid,
     OldKeywordObject: oldKeywordObject,
     NewKeywordObject: newKeywordObject,
-    Timestamp: timestamp
+    Timestamp: timestamp,
+    VersionName: versionName
   } = keywordEvent
 
   return {
     source: 'cmrKeywordEventsListener',
     collectionConceptId,
+    publishedVersionName: versionName,
     keywordEvent: {
       eventType,
       scheme,

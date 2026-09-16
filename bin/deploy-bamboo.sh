@@ -18,6 +18,14 @@ config="`jq '.edl.uid = $newValue' --arg newValue $bamboo_EDL_UID <<< $config`"
 # overwrite static.config.json with new values
 echo $config > tmp.$$.json && mv tmp.$$.json static.config.json
 
+# Download the current public AWS CA bundle before it is packaged with the Lambdas.
+documentDbCaBundleUrl='https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem'
+documentDbCaBundlePath='serverless/certs/us-east-1-bundle.pem'
+mkdir -p "$(dirname "$documentDbCaBundlePath")"
+curl --fail --silent --show-error --location \
+  "$documentDbCaBundleUrl" \
+  --output "$documentDbCaBundlePath"
+
 # Set up Docker image
 #####################
 
@@ -70,6 +78,8 @@ dockerRun() {
         --env "CMR_WRITEBACK_PROVIDERS=${bamboo_CMR_WRITEBACK_PROVIDERS:-}" \
         --env "CMR_WRITEBACK_VALIDATE_KEYWORDS=${bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS:-false}" \
         --env "CMR_WRITEBACK_VALIDATE_UMM_C=${bamboo_CMR_WRITEBACK_VALIDATE_UMM_C:-false}" \
+        --env "CMR_WRITEBACK_TIMEOUT_MS=${bamboo_CMR_WRITEBACK_TIMEOUT_MS:-25000}" \
+        --env "METADATA_CORRECTION_RUNS_PER_MINUTE=${bamboo_METADATA_CORRECTION_RUNS_PER_MINUTE:-}" \
         --env "METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY=${bamboo_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY:-5}" \
         --env "BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE=${bamboo_BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE:-false}" \
         --env "KEYWORD_SYNC_ALARM_EMAILS=${bamboo_KEYWORD_SYNC_ALARM_EMAILS:-}" \

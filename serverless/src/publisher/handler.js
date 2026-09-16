@@ -146,7 +146,10 @@ const publishKeywordEvents = async (keywordEvents, versionName) => keywordEvents
         }
 
         // eslint-disable-next-line no-await-in-loop
-        const publishResult = await publishKeywordEvent(keywordEvent)
+        const publishResult = await publishKeywordEvent({
+          ...keywordEvent,
+          VersionName: versionName
+        })
 
         logger.info('[publisher] Published keyword event', {
           versionName,

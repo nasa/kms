@@ -179,7 +179,7 @@ describe('metadata correction delegate stubs', () => {
 
   test('returns the expected ISO19115 payload shape when corrections are provided', async () => {
     const mockPayload = `
-      <gmi:MI_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
+      <gmi:MI_Metadata xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco">
         <gmd:descriptiveKeywords>
           <gmd:MD_Keywords>
             <gmd:keyword>

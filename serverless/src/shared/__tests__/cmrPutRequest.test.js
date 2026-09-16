@@ -63,6 +63,40 @@ describe('cmrPutRequest', () => {
         signal: expect.any(Object)
       })
     )
+
+    expect(logger.info).toHaveBeenCalledWith(
+      '[cmr-put] CMR response received',
+      {
+        method: 'PUT',
+        path,
+        status: undefined,
+        durationMs: expect.any(Number),
+        requestId: undefined
+      }
+    )
+  })
+
+  test('should log the CMR request id returned with a response', async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: {
+        get: vi.fn((name) => (name === 'cmr-request-id' ? 'request-123' : null))
+      }
+    })
+
+    await cmrPutRequest({
+      path: '/ingest/providers/KMS/collections/native-1'
+    })
+
+    expect(logger.info).toHaveBeenCalledWith(
+      '[cmr-put] CMR response received',
+      expect.objectContaining({
+        status: 200,
+        durationMs: expect.any(Number),
+        requestId: 'request-123'
+      })
+    )
   })
 
   test('should not include body in request if it is empty', async () => {
@@ -175,6 +209,8 @@ describe('cmrPutRequest', () => {
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
       bodyLength: 2,
       timeoutMs: 25000,
+      durationMs: expect.any(Number),
+      timedOut: false,
       error: {
         name: 'TypeError',
         message: 'fetch failed',
@@ -212,7 +248,9 @@ describe('cmrPutRequest', () => {
       path: '/ingest/providers/KMS/collections/native-1',
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
       bodyLength: 2,
-      timeoutMs: 25000
+      timeoutMs: 25000,
+      durationMs: expect.any(Number),
+      timedOut: false
     })
 
     expect(error.cmrCause).toBeUndefined()
@@ -245,7 +283,9 @@ describe('cmrPutRequest', () => {
       path: '/ingest/providers/KMS/collections/native-1',
       fullUrl: 'https://cmr-test.earthdata.nasa.gov/ingest/providers/KMS/collections/native-1',
       bodyLength: undefined,
-      timeoutMs: 25000
+      timeoutMs: 25000,
+      durationMs: expect.any(Number),
+      timedOut: false
     })
   })
 
@@ -268,5 +308,12 @@ describe('cmrPutRequest', () => {
     await vi.advanceTimersByTimeAsync(25)
 
     await rejectionExpectation
+
+    await expect(requestPromise).rejects.toMatchObject({
+      cmrRequest: expect.objectContaining({
+        timedOut: true,
+        durationMs: expect.any(Number)
+      })
+    })
   })
 })

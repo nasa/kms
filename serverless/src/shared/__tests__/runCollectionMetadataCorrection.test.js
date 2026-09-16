@@ -91,12 +91,112 @@ vi.mock('@/shared/writeCorrectedMetadataToCmr', () => ({
 describe('runCollectionMetadataCorrection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(persistMetadataCorrectionAuditLog).mockImplementation(async ({
+      runId = 'audit-run-1',
+      status
+    }) => ({
+      runId,
+      status,
+      created: status === 'checked'
+    }))
   })
+
+  const arrangeResolvableCorrection = () => {
+    vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+      collectionConceptId: 'C1234567890-PROV',
+      providerId: 'PROV',
+      nativeId: 'native-123',
+      revisionId: 7,
+      format: 'application/dif10+xml',
+      umm: {}
+    })
+
+    vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+      status: 200,
+      errors: ['invalid keyword'],
+      warnings: []
+    })
+
+    vi.mocked(extractKeywordValidationFailures).mockReturnValue([{
+      scheme: 'sciencekeywords',
+      path: ['ScienceKeywords', 0],
+      keywordValue: { Category: 'EARTH SCIENCE' }
+    }])
+
+    vi.mocked(resolveOldKeywordConceptUuid).mockResolvedValue({
+      action: 'replace',
+      keywordConceptUuid: 'uuid-1',
+      oldKeywordObject: { Category: 'EARTH SCIENCE' },
+      newKeywordObject: { Category: 'EARTH SCIENCE - UPDATED' }
+    })
+  }
 
   test('throws when invoked without arguments', async () => {
     await expect(runCollectionMetadataCorrection()).rejects.toThrow(
       'Incomplete metadata correction request: missing collectionConceptId'
     )
+  })
+
+  test('does not repeat CMR writeback when an audit run is already applied', async () => {
+    arrangeResolvableCorrection()
+    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValueOnce({
+      runId: 'message-1',
+      status: 'applied',
+      created: false
+    })
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      messageId: 'message-1'
+    })).resolves.toEqual(expect.objectContaining({
+      outcome: 'already-applied',
+      auditResults: {
+        checked: {
+          runId: 'message-1',
+          status: 'applied',
+          created: false
+        },
+        pending: null,
+        applied: {
+          runId: 'message-1',
+          status: 'applied',
+          created: false
+        }
+      },
+      writeResult: null
+    }))
+
+    expect(getCmrCollectionNativeMetadata).not.toHaveBeenCalled()
+    expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+    expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
+  })
+
+  test('records a failed run when native metadata cannot be retrieved', async () => {
+    arrangeResolvableCorrection()
+    const nativeMetadataError = new Error('CMR native metadata unavailable')
+    vi.mocked(getCmrCollectionNativeMetadata).mockRejectedValue(nativeMetadataError)
+
+    await expect(runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      messageId: 'message-1',
+      publishedVersionName: '20.1'
+    })).rejects.toBe(nativeMetadataError)
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        runId: 'message-1',
+        collectionConceptId: 'C1234567890-PROV',
+        error: nativeMetadataError,
+        outcome: 'correction-failed',
+        priorRevisionId: 7,
+        publishedVersionName: '20.1',
+        status: 'failed'
+      })
+    )
+
+    expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+    expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
   })
 
   test('uses the default source when a collection has no keyword issues', async () => {
@@ -136,6 +236,11 @@ describe('runCollectionMetadataCorrection', () => {
       resolvedCorrections: [],
       correctionResult: null,
       auditResults: {
+        checked: {
+          runId: 'audit-run-1',
+          status: 'checked',
+          created: true
+        },
         pending: null,
         applied: null
       },
@@ -226,6 +331,11 @@ describe('runCollectionMetadataCorrection', () => {
       resolvedCorrections: [],
       correctionResult: null,
       auditResults: {
+        checked: {
+          runId: 'audit-run-1',
+          status: 'checked',
+          created: true
+        },
         pending: null,
         applied: null
       },
@@ -234,7 +344,7 @@ describe('runCollectionMetadataCorrection', () => {
     })
   })
 
-  test('marks audit actions as MANUAL for the synchronous concept-id correction flow', async () => {
+  test('records a MANUAL trigger for the synchronous concept-id correction flow', async () => {
     vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
       collectionConceptId: 'C1234567890-PROV',
       providerId: 'PROV',
@@ -323,18 +433,6 @@ describe('runCollectionMetadataCorrection', () => {
       correctedMetadata: '<DIF>corrected</DIF>'
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'applied'
-      })
-
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {
         enabled: true,
@@ -379,12 +477,35 @@ describe('runCollectionMetadataCorrection', () => {
         keywordEvent: {
           eventType: 'MANUAL'
         },
-        status: 'pending'
+        status: 'checked'
       })
     )
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
       2,
+      expect.objectContaining({
+        keywordEvent: {
+          eventType: 'MANUAL'
+        },
+        metadataDiff: expect.objectContaining({
+          changed: true,
+          format: 'unified',
+          truncated: false,
+          originalBytes: 6,
+          correctedBytes: 20
+        }),
+        status: 'pending'
+      })
+    )
+
+    expect(persistMetadataCorrectionAuditLog.mock.calls[1][0].metadataDiff.patch)
+      .toContain('-<DIF/>')
+
+    expect(persistMetadataCorrectionAuditLog.mock.calls[1][0].metadataDiff.patch)
+      .toContain('+<DIF>corrected</DIF>')
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      3,
       expect.objectContaining({
         keywordEvent: {
           eventType: 'MANUAL'
@@ -460,15 +581,20 @@ describe('runCollectionMetadataCorrection', () => {
         correctedMetadataProduced: false
       },
       auditResults: {
+        checked: {
+          runId: 'audit-run-1',
+          status: 'checked',
+          created: true
+        },
         pending: null,
         applied: null
       }
     }))
 
-    expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
   })
 
-  test('persists a failed audit row with the writeback error message when CMR writeback fails', async () => {
+  test('updates the audit document to failed with the writeback error when CMR writeback fails', async () => {
     const writebackError = new Error('CMR writeback failed with status 400: {"errors":["boom"]}')
     writebackError.cmrResponseBody = {
       errors: ['boom']
@@ -562,18 +688,6 @@ describe('runCollectionMetadataCorrection', () => {
       correctedMetadata: '<DIF>corrected</DIF>'
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'failed'
-      })
-
     vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
 
     await expect(runCollectionMetadataCorrection({
@@ -587,7 +701,7 @@ describe('runCollectionMetadataCorrection', () => {
         keywordEvent: {
           eventType: 'MANUAL'
         },
-        status: 'pending'
+        status: 'checked'
       })
     )
 
@@ -597,8 +711,18 @@ describe('runCollectionMetadataCorrection', () => {
         keywordEvent: {
           eventType: 'MANUAL'
         },
+        status: 'pending'
+      })
+    )
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        keywordEvent: {
+          eventType: 'MANUAL'
+        },
         status: 'failed',
-        writebackErrorMessage: '{"errors":["boom"]}'
+        error: writebackError
       })
     )
 
@@ -664,18 +788,6 @@ describe('runCollectionMetadataCorrection', () => {
       correctedMetadata: '<DIF>corrected</DIF>'
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'failed'
-      })
-
     vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
 
     await expect(runCollectionMetadataCorrection({
@@ -683,10 +795,10 @@ describe('runCollectionMetadataCorrection', () => {
     })).rejects.toBe(writebackError)
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.objectContaining({
         status: 'failed',
-        writebackErrorMessage: 'raw-body'
+        error: writebackError
       })
     )
   })
@@ -751,18 +863,6 @@ describe('runCollectionMetadataCorrection', () => {
       correctedMetadata: '<DIF>corrected</DIF>'
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'failed'
-      })
-
     vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
 
     await expect(runCollectionMetadataCorrection({
@@ -770,10 +870,10 @@ describe('runCollectionMetadataCorrection', () => {
     })).rejects.toBe(writebackError)
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.objectContaining({
         status: 'failed',
-        writebackErrorMessage: 'plain-object-writeback-failure'
+        error: writebackError
       })
     )
   })
@@ -840,18 +940,6 @@ describe('runCollectionMetadataCorrection', () => {
       correctedMetadata: '<DIF>corrected</DIF>'
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'failed'
-      })
-
     vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
 
     await expect(runCollectionMetadataCorrection({
@@ -859,15 +947,15 @@ describe('runCollectionMetadataCorrection', () => {
     })).rejects.toBe(writebackError)
 
     expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(
-      2,
+      3,
       expect.objectContaining({
         status: 'failed',
-        writebackErrorMessage: '[object Object]'
+        error: writebackError
       })
     )
   })
 
-  test('does not persist failed audit rows when writeback fails before any corrections were applied', async () => {
+  test('does not update the audit document to failed when no corrections were applied', async () => {
     const writebackError = new Error('CMR writeback failed before corrections were applied')
 
     vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
@@ -922,10 +1010,13 @@ describe('runCollectionMetadataCorrection', () => {
       collectionConceptId: 'C1234567890-PROV'
     })).rejects.toBe(writebackError)
 
-    expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'checked' })
+    )
   })
 
-  test('logs and rethrows the original writeback error when failed-audit persistence also fails', async () => {
+  test('rethrows the writeback error when updating the audit document to failed also fails', async () => {
     const writebackError = new Error('CMR writeback failed with status 400: {"errors":["boom"]}')
     const auditError = new Error('failed audit persistence')
 
@@ -985,11 +1076,16 @@ describe('runCollectionMetadataCorrection', () => {
     })
 
     vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
+      .mockImplementationOnce(async ({ runId = 'audit-run-1', status }) => ({
+        runId,
+        status,
+        created: true
+      }))
+      .mockImplementationOnce(async ({ runId, status }) => ({
+        runId,
+        status,
+        created: false
+      }))
       .mockRejectedValueOnce(auditError)
 
     vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
@@ -1009,7 +1105,7 @@ describe('runCollectionMetadataCorrection', () => {
     )
   })
 
-  test('falls back to String(auditError) when failed-audit persistence rejects without a message property', async () => {
+  test('stringifies an error without a message when updating the audit document to failed', async () => {
     const writebackError = new Error('CMR writeback failed with status 400: {"errors":["boom"]}')
     const auditError = {
       toString: () => 'failed-audit-persistence-fallback'
@@ -1071,11 +1167,16 @@ describe('runCollectionMetadataCorrection', () => {
     })
 
     vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
+      .mockImplementationOnce(async ({ runId = 'audit-run-1', status }) => ({
+        runId,
+        status,
+        created: true
+      }))
+      .mockImplementationOnce(async ({ runId, status }) => ({
+        runId,
+        status,
+        created: false
+      }))
       .mockRejectedValueOnce(auditError)
 
     vi.mocked(writeCorrectedMetadataToCmr).mockRejectedValue(writebackError)
@@ -1194,32 +1295,25 @@ describe('runCollectionMetadataCorrection', () => {
       contentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     })
 
-    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
-      delegateName: 'umm',
-      nativeFormat: 'UMM',
-      correctionCount: 1,
-      correctionsApplied: [
-        {
-          scheme: 'sciencekeywords',
-          keywordConceptUuid: 'uuid-1'
-        }
-      ],
-      correctedMetadata: {
-        ShortName: 'TEST-UPDATED'
+    vi.mocked(invokeMetadataCorrectionDelegate).mockImplementation(async (input) => {
+      const { metadataPayload } = input
+
+      expect(metadataPayload.ShortName).toBe('TEST')
+      metadataPayload.ShortName = 'TEST-UPDATED'
+
+      return {
+        delegateName: 'umm',
+        nativeFormat: 'UMM',
+        correctionCount: 1,
+        correctionsApplied: [
+          {
+            scheme: 'sciencekeywords',
+            keywordConceptUuid: 'uuid-1'
+          }
+        ],
+        correctedMetadata: metadataPayload
       }
     })
-
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'applied'
-      })
 
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {
@@ -1240,16 +1334,18 @@ describe('runCollectionMetadataCorrection', () => {
     })
 
     expect(invokeMetadataCorrectionDelegate).toHaveBeenCalledWith(expect.objectContaining({
-      nativeFormat: 'UMM',
-      metadataPayload: {
-        ShortName: 'TEST'
-      }
+      nativeFormat: 'UMM'
     }))
 
     expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
       nativeFormat: 'UMM',
       nativeMetadataContentType: 'application/vnd.nasa.cmr.umm+json;version=1.16.2; charset=utf-8'
     }))
+
+    const pendingAudit = persistMetadataCorrectionAuditLog.mock.calls[1][0]
+    expect(pendingAudit.metadataDiff.changed).toBe(true)
+    expect(pendingAudit.metadataDiff.patch).toContain('-  "ShortName": "TEST"')
+    expect(pendingAudit.metadataDiff.patch).toContain('+  "ShortName": "TEST-UPDATED"')
 
     expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
       metrics: [
@@ -1335,18 +1431,6 @@ describe('runCollectionMetadataCorrection', () => {
       correctedMetadata: '<DIF>corrected</DIF>'
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'applied'
-      })
-
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {
         updated: true
@@ -1417,12 +1501,6 @@ describe('runCollectionMetadataCorrection', () => {
         }
       ],
       correctedMetadata: '<DIF>corrected</DIF>'
-    })
-
-    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValue({
-      insertedCount: 1,
-      publishedVersionName: 'published',
-      status: 'pending'
     })
 
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
@@ -1516,18 +1594,6 @@ describe('runCollectionMetadataCorrection', () => {
       ],
       correctedMetadata: '<DIF>corrected</DIF>'
     })
-
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'applied'
-      })
 
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {
@@ -1625,18 +1691,6 @@ describe('runCollectionMetadataCorrection', () => {
       ],
       correctedMetadata: '<DIF>corrected</DIF>'
     })
-
-    vi.mocked(persistMetadataCorrectionAuditLog)
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'pending'
-      })
-      .mockResolvedValueOnce({
-        insertedCount: 1,
-        publishedVersionName: 'published',
-        status: 'applied'
-      })
 
     vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
       ingestResult: {

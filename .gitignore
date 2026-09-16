@@ -49,3 +49,4 @@ notes/
 archive-processor/downloaded-rdf
 archive-processor/local-kms-csv
 extern
+serverless/certs/us-east-1-bundle.pem

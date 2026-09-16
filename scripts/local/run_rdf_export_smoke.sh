@@ -70,11 +70,19 @@ download_export() {
   local download_url
   download_url="$(jq --exit-status --raw-output '.downloadUrl' "$response_file")"
 
+  local download_curl_args=()
+  if [[ "$BASE_URL" =~ ^https?://(127\.0\.0\.1|localhost)(:|/) ]] \
+    && [[ "$download_url" == http://localstack:4566/* ]]; then
+    # Preserve the signed Host header while resolving Docker's LocalStack hostname from the host.
+    download_curl_args+=(--resolve 'localstack:4566:127.0.0.1')
+  fi
+
   curl \
     --silent \
     --show-error \
     --fail \
     --location \
+    "${download_curl_args[@]}" \
     "$download_url" \
     --output "$gzip_file"
 

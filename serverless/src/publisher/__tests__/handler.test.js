@@ -214,6 +214,7 @@ describe('publisher handler', () => {
       EventType: 'INSERTED',
       Scheme: 'sciencekeywords',
       UUID: 'uuid1',
+      VersionName: 'v1.0.0',
       NewKeywordObject: SCIENCE_PATH_KEYWORD
     }))
 

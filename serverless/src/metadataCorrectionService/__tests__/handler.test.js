@@ -124,6 +124,7 @@ describe('when the metadata correction service is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     delete process.env.METADATA_CORRECTION_REQUEST_DELAY_MS
+    delete process.env.METADATA_CORRECTION_RUNS_PER_MINUTE
     vi.mocked(delay).mockResolvedValue(undefined)
     vi.mocked(emitConsumerMetricsSafely).mockResolvedValue(undefined)
 
@@ -146,11 +147,14 @@ describe('when the metadata correction service is invoked', () => {
       correctedMetadataBytes: 21
     })
 
-    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValue({
-      insertedCount: 1,
-      publishedVersionName: 'published',
-      status: 'pending'
-    })
+    vi.mocked(persistMetadataCorrectionAuditLog).mockImplementation(async ({
+      runId = 'audit-run-1',
+      status
+    }) => ({
+      runId,
+      status,
+      created: status === 'checked'
+    }))
   })
 
   describe('when the invocation is successful', () => {
@@ -240,6 +244,7 @@ describe('when the metadata correction service is invoked', () => {
             body: JSON.stringify({
               source: 'cmrKeywordEventsListener',
               collectionConceptId: 'C123-PROV',
+              publishedVersionName: '20.1',
               keywordEvent: {
                 eventType: 'UPDATED',
                 scheme: 'sciencekeywords',
@@ -304,7 +309,7 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         keywordEvent: {
           eventType: 'UPDATED',
@@ -315,6 +320,7 @@ describe('when the metadata correction service is invoked', () => {
         },
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
+        publishedVersionName: '20.1',
         corrections: [
           {
             scheme: 'sciencekeywords',
@@ -325,8 +331,9 @@ describe('when the metadata correction service is invoked', () => {
             ummPath: ['ScienceKeywords', 0]
           }
         ],
+        runId: 'message-collection-1',
         status: 'pending'
-      })
+      }))
 
       expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith({
         collectionConceptId: 'C123-PROV',
@@ -350,7 +357,7 @@ describe('when the metadata correction service is invoked', () => {
       })
     })
 
-    test('should append an applied audit record after a successful writeback update', async () => {
+    test('should update the audit document to applied after a successful writeback', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-PROV',
         providerId: 'PROV',
@@ -457,14 +464,14 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
         status: 'pending'
       }))
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(3, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
@@ -472,7 +479,7 @@ describe('when the metadata correction service is invoked', () => {
       }))
     })
 
-    test('should fall back to the normalized native format when applied audit delegateName is absent', async () => {
+    test('should use the normalized native format as delegateName when updating the audit document to applied', async () => {
       vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
         collectionConceptId: 'C123-PROV',
         providerId: 'PROV',
@@ -578,7 +585,7 @@ describe('when the metadata correction service is invoked', () => {
         ]
       })
 
-      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenNthCalledWith(3, expect.objectContaining({
         collectionConceptId: 'C123-PROV',
         nativeFormat: 'DIF10',
         delegateName: 'dif10',
@@ -893,7 +900,14 @@ describe('when the metadata correction service is invoked', () => {
       })
 
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
-      expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcome: 'no-resolved-corrections',
+          status: 'checked'
+        })
+      )
+
       expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -952,7 +966,14 @@ describe('when the metadata correction service is invoked', () => {
 
       expect(resolveOldKeywordConceptUuid).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
-      expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
+      expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcome: 'no-keyword-issues',
+          status: 'checked'
+        })
+      )
+
       expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -1217,6 +1238,52 @@ describe('when the metadata correction service is invoked', () => {
           recordCount: 1
         })
       }))
+    })
+
+    test('should pace correction runs when a per-minute rate is configured', async () => {
+      process.env.METADATA_CORRECTION_RUNS_PER_MINUTE = '10'
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 7,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await metadataCorrectionService({
+        Records: [{
+          messageId: 'message-paced',
+          body: JSON.stringify({
+            source: 'cmrKeywordEventsListener',
+            collectionConceptId: 'C1234567890-PROV'
+          })
+        }]
+      })
+
+      expect(delay).toHaveBeenCalledOnce()
+      expect(delay).toHaveBeenCalledWith(6000)
+      expect(logger.info).toHaveBeenCalledWith(
+        '[metadata-correction] Pacing queued metadata correction request',
+        {
+          collectionConceptId: 'C1234567890-PROV',
+          messageId: 'message-paced',
+          pacingDelayMs: 6000,
+          runsPerMinute: 10
+        }
+      )
     })
 
     test('should delay queued manual api requests when configured before running correction', async () => {

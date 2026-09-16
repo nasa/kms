@@ -5,11 +5,16 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as eventsources from 'aws-cdk-lib/aws-lambda-event-sources'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import * as sns from 'aws-cdk-lib/aws-sns'
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions'
 import * as sqs from 'aws-cdk-lib/aws-sqs'
 import { Construct } from 'constructs'
 
+import {
+  getDocumentDbCertificateBundling,
+  getDocumentDbLambdaSecurityGroups
+} from './DocumentDbLambdaConfig'
 import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 
 /**
@@ -18,19 +23,21 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
   cmrSystemTokenParameterName?: string
+  cmrWritebackTimeoutMs?: string
   metadataCorrectionRequestDelayMs?: string
+  metadataCorrectionRunsPerMinute?: string
   metadataCorrectionServiceReservedConcurrency?: string
   cmrWriterToken?: string
   cmrWritebackProviders?: string
   cmrWritebackValidateKeywords?: string
   cmrWritebackValidateUmmC?: string
+  metadataCorrectionAuditClientSecurityGroup?: ec2.ISecurityGroup
+  metadataCorrectionAuditEnvironment: Record<string, string>
+  metadataCorrectionAuditSecret?: secretsmanager.ISecret
   prefix: string
   redisEnabled?: string
   redisHost?: string
   redisPort?: string
-  rdf4jPassword: string
-  rdf4jServiceUrl: string
-  rdf4jUserName: string
   securityGroup: ec2.SecurityGroup
   stage: string
   useLocalstack: boolean
@@ -42,6 +49,31 @@ interface MetadataCorrectionSetupProps {
  */
 export class MetadataCorrectionSetup extends Construct {
   private static readonly DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY = 5
+
+  /**
+   * Resolves the Lambda concurrency limit, forcing one worker when rate limiting is enabled.
+   *
+   * @example
+   * MetadataCorrectionSetup.resolveReservedConcurrency(true, '5') // 1
+   * MetadataCorrectionSetup.resolveReservedConcurrency(false, '3') // 3
+   *
+   * @param hasRateLimit Whether request rate limiting is enabled.
+   * @param configuredReservedConcurrency Configured Lambda concurrency limit.
+   * @returns The concurrency limit to apply to the metadata-correction Lambda.
+   */
+  private static resolveReservedConcurrency(
+    hasRateLimit: boolean,
+    configuredReservedConcurrency?: string
+  ): number {
+    if (hasRateLimit) return 1
+
+    const parsed = Number(configuredReservedConcurrency)
+    const isValid = Number.isInteger(parsed) && parsed > 0
+
+    return isValid
+      ? parsed
+      : MetadataCorrectionSetup.DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
+  }
 
   public readonly metadataCorrectionRequestsTopic: sns.Topic
 
@@ -72,19 +104,21 @@ export class MetadataCorrectionSetup extends Construct {
     const {
       cmrBaseUrl,
       cmrSystemTokenParameterName,
+      cmrWritebackTimeoutMs,
       metadataCorrectionRequestDelayMs,
+      metadataCorrectionRunsPerMinute,
       metadataCorrectionServiceReservedConcurrency,
       cmrWriterToken,
       cmrWritebackProviders,
       cmrWritebackValidateKeywords,
       cmrWritebackValidateUmmC,
+      metadataCorrectionAuditClientSecurityGroup,
+      metadataCorrectionAuditEnvironment,
+      metadataCorrectionAuditSecret,
       prefix,
       redisEnabled,
       redisHost,
       redisPort,
-      rdf4jPassword,
-      rdf4jServiceUrl,
-      rdf4jUserName,
       securityGroup,
       stage,
       useLocalstack,
@@ -94,12 +128,18 @@ export class MetadataCorrectionSetup extends Construct {
     const metadataCorrectionRequestsBaseName = `${prefix}-${stage}-metadata-correction-requests`
     const metadataCorrectionRequestsName = `${metadataCorrectionRequestsBaseName}.fifo`
     const projectRoot = path.join(__dirname, '../../../..')
-    const parsedReservedConcurrency = Number(metadataCorrectionServiceReservedConcurrency)
-    const hasValidReservedConcurrency = Number.isInteger(parsedReservedConcurrency)
-      && parsedReservedConcurrency > 0
-    const reservedConcurrency = hasValidReservedConcurrency
-      ? parsedReservedConcurrency
-      : MetadataCorrectionSetup.DEFAULT_METADATA_CORRECTION_SERVICE_RESERVED_CONCURRENCY
+    const configuredRate = String(metadataCorrectionRunsPerMinute || '').trim()
+    const parsedRate = Number(configuredRate)
+    const hasRateLimit = configuredRate.length > 0
+
+    if (hasRateLimit && (!Number.isInteger(parsedRate) || parsedRate <= 0)) {
+      throw new Error('METADATA_CORRECTION_RUNS_PER_MINUTE must be a positive integer')
+    }
+
+    const reservedConcurrency = MetadataCorrectionSetup.resolveReservedConcurrency(
+      hasRateLimit,
+      metadataCorrectionServiceReservedConcurrency
+    )
 
     // TODO: Create a follow-up ticket for DLQ handling. This DLQ is only the
     // redrive target today; before adding a consumer, decide whether failures
@@ -144,13 +184,14 @@ export class MetadataCorrectionSetup extends Construct {
         entry: path.join(projectRoot, 'serverless/src/metadataCorrectionService/handler.js'),
         handler: 'metadataCorrectionService',
         runtime: NODE_LAMBDA_RUNTIME,
-        timeout: cdk.Duration.seconds(30),
+        timeout: cdk.Duration.seconds(60),
         memorySize: 1024,
         // Broad keyword updates can fan out to hundreds of collections; cap concurrent
         // consumers so writebacks do not overwhelm downstream CMR ingest.
         reservedConcurrentExecutions: reservedConcurrency,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
+          ...(cmrWritebackTimeoutMs ? { CMR_WRITEBACK_TIMEOUT_MS: cmrWritebackTimeoutMs } : {}),
           ...(cmrSystemTokenParameterName
             ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
             : {}),
@@ -168,10 +209,12 @@ export class MetadataCorrectionSetup extends Construct {
           ...(metadataCorrectionRequestDelayMs
             ? { METADATA_CORRECTION_REQUEST_DELAY_MS: metadataCorrectionRequestDelayMs }
             : {}),
-          RDF4J_PASSWORD: rdf4jPassword,
-          RDF4J_SERVICE_URL: rdf4jServiceUrl,
-          RDF4J_USER_NAME: rdf4jUserName
+          ...(hasRateLimit
+            ? { METADATA_CORRECTION_RUNS_PER_MINUTE: String(parsedRate) }
+            : {}),
+          ...metadataCorrectionAuditEnvironment
         },
+        ...getDocumentDbCertificateBundling(metadataCorrectionAuditEnvironment),
         depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
         projectRoot,
         ...(useLocalstack ? {} : {
@@ -179,7 +222,11 @@ export class MetadataCorrectionSetup extends Construct {
           vpcSubnets: {
             subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
           },
-          securityGroups: [securityGroup]
+          securityGroups: getDocumentDbLambdaSecurityGroups({
+            clientSecurityGroup: metadataCorrectionAuditClientSecurityGroup,
+            environment: metadataCorrectionAuditEnvironment,
+            securityGroup
+          })
         })
       }
     )
@@ -193,6 +240,7 @@ export class MetadataCorrectionSetup extends Construct {
     ))
 
     this.metadataCorrectionRequestsQueue.grantConsumeMessages(this.metadataCorrectionServiceLambda)
+    metadataCorrectionAuditSecret?.grantRead(this.metadataCorrectionServiceLambda)
     this.metadataCorrectionServiceLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['cloudwatch:PutMetricData'],
       resources: ['*'],
