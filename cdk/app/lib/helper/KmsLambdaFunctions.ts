@@ -358,6 +358,32 @@ export class LambdaFunctions {
       'getMetadataCorrectionAudit/handler.js', // Lambda handler path
       'get-metadata-correction-audit', // Reuse the audit Lambda
       'getMetadataCorrectionAudit', // Exported handler name
+      '/metadata_correction_audit/published', // All published versions
+      'GET', // HTTP method
+      false, // Do not use the EDL authorizer
+      Duration.seconds(30), // Lambda timeout
+      1024, // Lambda memory in MB
+      this.props.metadataCorrectionEnvironment || {} // Additional Lambda environment variables
+    )
+
+    this.createApiLambda(
+      scope, // CDK construct scope
+      'getMetadataCorrectionAudit/handler.js', // Lambda handler path
+      'get-metadata-correction-audit', // Reuse the audit Lambda
+      'getMetadataCorrectionAudit', // Exported handler name
+      '/metadata_correction_audit/published/{versionName}', // One published KMS version
+      'GET', // HTTP method
+      false, // Do not use the EDL authorizer
+      Duration.seconds(30), // Lambda timeout
+      1024, // Lambda memory in MB
+      this.props.metadataCorrectionEnvironment || {} // Additional Lambda environment variables
+    )
+
+    this.createApiLambda(
+      scope, // CDK construct scope
+      'getMetadataCorrectionAudit/handler.js', // Lambda handler path
+      'get-metadata-correction-audit', // Reuse the audit Lambda
+      'getMetadataCorrectionAudit', // Exported handler name
       '/metadata_correction_audit/{runId}', // Detailed audit resource path
       'GET', // HTTP method
       false, // Do not use the EDL authorizer

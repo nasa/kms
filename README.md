@@ -452,14 +452,22 @@ Each collection-correction run is stored as one audit document. Its `statusHisto
 links to the current CMR collection record, records the prior and resulting CMR revision IDs, and
 stores a bounded unified diff between the original native metadata and the corrected writeback
 payload.
+When a publisher event finds no matching collections, the listener stores a no-op audit document
+with the published KMS version, original keyword change, `collectionCount: 0`, and a
+`no-collections-found` outcome. This keeps published-version audit queries complete without
+changing the existing per-collection audit workflow.
 The audit API is:
 
 - `GET /metadata_correction_audit` for newest-first, token-paginated audit searches. Supported
-  filters include collection, keyword UUID, action, scheme, status, native format, KMS version,
-  source, and date range. Supplied actions and schemes must be recognized KMS values, limits must
+  filters include collection, keyword UUID, action, scheme, status, native format, source, and
+  date range. Supplied actions and schemes must be recognized KMS values, limits must
   be integers from 1 through 250, and `startDate` must not be after `endDate`. List results contain
   compact collection, status, and old-to-new keyword path summaries. Add `?includeDiff=true` to
   include each available native-metadata diff in the list results.
+- `GET /metadata_correction_audit/published` for audit documents across all published KMS
+  versions, or `GET /metadata_correction_audit/published/{versionName}` for one published version.
+  These are the official published-version reporting endpoints and use the same pagination and
+  response formats as the general audit search.
 - `GET /metadata_correction_audit/{runId}` for the complete audit document. Add
   `?includeDiff=true` when the native-metadata diff is needed; it is omitted by default to keep
   routine responses small.
