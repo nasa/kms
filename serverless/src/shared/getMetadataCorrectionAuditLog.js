@@ -7,6 +7,7 @@ import { CSV_FIELDS } from '@/shared/redis-path-store/helpers/constants'
 
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 250
+const MAX_PUBLISHED_VERSION_NAME_LENGTH = 256
 const VALID_AUDIT_ACTIONS = new Set([
   'DELETED',
   'INSERTED',
@@ -22,8 +23,12 @@ const VALID_AUDIT_SCHEMES = new Map([
 const AUDIT_SUMMARY_PROJECTION = {
   _id: 1,
   runId: 1,
+  recordType: 1,
   collectionConceptId: 1,
   collectionUri: 1,
+  publishedVersionName: 1,
+  outcome: 1,
+  collectionCount: 1,
   status: 1,
   createdAt: 1,
   updatedAt: 1,
@@ -143,6 +148,36 @@ const normalizeDate = (value, fieldName) => {
 }
 
 /**
+ * Validates a published KMS version before using it as a literal DocumentDB filter value.
+ *
+ * @example
+ * normalizePublishedVersionName(' 26.2 ') // '26.2'
+ *
+ * @param {unknown} value Published version supplied by the request path.
+ * @returns {string|undefined} Trimmed version name or undefined when omitted.
+ */
+const normalizePublishedVersionName = (value) => {
+  if (value === undefined || value === null) return undefined
+
+  if (typeof value !== 'string') {
+    throw new Error(
+      'Invalid metadata correction audit published version: expected a nonempty string'
+    )
+  }
+
+  const normalizedValue = value.trim()
+
+  if (!normalizedValue || normalizedValue.length > MAX_PUBLISHED_VERSION_NAME_LENGTH) {
+    throw new Error(
+      'Invalid metadata correction audit published version: '
+      + `expected 1 to ${MAX_PUBLISHED_VERSION_NAME_LENGTH} characters`
+    )
+  }
+
+  return normalizedValue
+}
+
+/**
  * Decodes the opaque API pagination token into its keyset cursor values.
  *
  * @example
@@ -217,6 +252,7 @@ const buildAuditQuery = (filters) => {
     endDate,
     keywordConceptUuid,
     nativeFormat,
+    publishedOnly,
     publishedVersionName,
     scheme,
     source,
@@ -237,7 +273,16 @@ const buildAuditQuery = (filters) => {
   }
 
   if (nativeFormat) query.nativeFormat = nativeFormat
-  if (publishedVersionName) query.publishedVersionName = publishedVersionName
+  const normalizedPublishedVersionName = normalizePublishedVersionName(publishedVersionName)
+  if (normalizedPublishedVersionName) {
+    query.publishedVersionName = normalizedPublishedVersionName
+  } else if (publishedOnly) {
+    query.publishedVersionName = {
+      $exists: true,
+      $nin: [null, '']
+    }
+  }
+
   const normalizedSchemes = normalizeScheme(scheme)
   if (normalizedSchemes) {
     const schemeFilter = normalizedSchemes.length === 1
@@ -363,18 +408,27 @@ const normalizeAuditChange = (correction = {}) => ({
  * @param {boolean} includeDiff Whether to include the native-metadata diff.
  * @returns {Object} Audit summary suitable for list views.
  */
-const normalizeAuditSummary = (document, includeDiff = false) => ({
-  runId: document.runId,
-  collectionConceptId: document.collectionConceptId,
-  collectionUri: document.collectionUri,
-  status: document.status,
-  updatedAt: document.updatedAt,
-  changes: Array.isArray(document.corrections)
-    ? document.corrections.map(normalizeAuditChange)
-    : [],
-  ...(includeDiff && document.metadataDiff ? { metadataDiff: document.metadataDiff } : {}),
-  ...(document.error?.message ? { errorMessage: document.error.message } : {})
-})
+const normalizeAuditSummary = (document, includeDiff = false) => {
+  const summary = {
+    runId: document.runId,
+    collectionConceptId: document.collectionConceptId,
+    collectionUri: document.collectionUri,
+    status: document.status,
+    updatedAt: document.updatedAt,
+    changes: Array.isArray(document.corrections)
+      ? document.corrections.map(normalizeAuditChange)
+      : []
+  }
+
+  if (document.recordType) summary.recordType = document.recordType
+  if (document.publishedVersionName) summary.publishedVersionName = document.publishedVersionName
+  if (document.outcome) summary.outcome = document.outcome
+  if (document.collectionCount !== undefined) summary.collectionCount = document.collectionCount
+  if (includeDiff && document.metadataDiff) summary.metadataDiff = document.metadataDiff
+  if (document.error?.message) summary.errorMessage = document.error.message
+
+  return summary
+}
 
 /**
  * Parses the optional flag used to include a potentially large native-metadata diff.

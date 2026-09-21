@@ -8,6 +8,9 @@ import {
 
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { logger } from '@/shared/logger'
+import {
+  persistMetadataCorrectionNoOpAuditLog
+} from '@/shared/persistMetadataCorrectionNoOpAuditLog'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 import { cmrKeywordEventsListener } from '../handler'
@@ -58,6 +61,10 @@ vi.mock('@/shared/publishMetadataCorrectionRequest', () => ({
   publishMetadataCorrectionRequest: vi.fn()
 }))
 
+vi.mock('@/shared/persistMetadataCorrectionNoOpAuditLog', () => ({
+  persistMetadataCorrectionNoOpAuditLog: vi.fn()
+}))
+
 describe('when the CMR keyword events processor is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -70,6 +77,12 @@ describe('when the CMR keyword events processor is invoked', () => {
       messageId: 'metadata-correction-message-123',
       message: '{}',
       topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-metadata-correction-requests.fifo'
+    })
+
+    vi.mocked(persistMetadataCorrectionNoOpAuditLog).mockResolvedValue({
+      runId: 'f3351653-dfc3-47d8-9176-294ea90bc118',
+      status: 'checked',
+      created: true
     })
   })
 
@@ -225,6 +238,16 @@ describe('when the CMR keyword events processor is invoked', () => {
         )
 
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+        expect(persistMetadataCorrectionNoOpAuditLog).toHaveBeenCalledWith({
+          keywordEvent: {
+            EventType: 'UPDATED',
+            Scheme: 'sciencekeywords',
+            UUID: '1234'
+          },
+          messageId: 'message-123',
+          publisherMessageId: undefined
+        })
+
         expect(result).toEqual({
           batchItemFailures: []
         })
@@ -262,6 +285,7 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(getCmrCollectionConceptIds).not.toHaveBeenCalled()
         expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+        expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
         expect(result).toEqual({
           batchItemFailures: []
         })
@@ -636,6 +660,8 @@ describe('when the CMR keyword events processor is invoked', () => {
             }
           })
         })
+
+        expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
       })
     })
 
@@ -660,6 +686,7 @@ describe('when the CMR keyword events processor is invoked', () => {
         })).rejects.toThrow('SNS unavailable')
 
         expect(logger.error).toHaveBeenCalled()
+        expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
       })
     })
   })

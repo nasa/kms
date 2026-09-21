@@ -50,6 +50,99 @@ const PAGE_STYLES = `
     font-size: 1.05rem;
   }
 
+  .version-group {
+    margin-bottom: 2.5rem;
+  }
+
+  .version-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 0.2rem solid var(--accent);
+  }
+
+  .version-heading h2 {
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.4rem, 2.5vw, 2rem);
+  }
+
+  .version-heading p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .published-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--paper);
+    box-shadow: 0 0.7rem 2rem rgba(20, 47, 60, 0.08);
+  }
+
+  .published-table {
+    width: 100%;
+    min-width: 70rem;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+  }
+
+  .published-table th,
+  .published-table td {
+    padding: 0.8rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+
+  .published-table th:last-child,
+  .published-table td:last-child { border-right: 0; }
+
+  .published-table tbody tr:last-child td { border-bottom: 0; }
+
+  .published-table th {
+    background: #e7efed;
+    color: #36515d;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .published-table th:nth-child(1) { width: 15%; }
+  .published-table th:nth-child(2) { width: 9%; }
+  .published-table th:nth-child(3) { width: 8%; }
+  .published-table th:nth-child(4),
+  .published-table th:nth-child(5) { width: 23%; }
+  .published-table th:nth-child(6) { width: 13%; }
+  .published-table th:nth-child(7) { width: 9%; }
+
+  .published-table a {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .published-table .previous-path { background: #fff3f1; }
+  .published-table .updated-path { background: #eef9f4; }
+
+  .outcome-cell .status { display: inline-block; }
+
+  .outcome-detail {
+    display: block;
+    margin-top: 0.45rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+
   .audit-card {
     margin-bottom: 1.5rem;
     overflow: hidden;
@@ -391,6 +484,10 @@ const renderDetailGrid = (entries) => {
  * @returns {string} HTML collection heading.
  */
 const renderCollectionHeading = (audit) => {
+  if (audit.recordType === 'publisherEventNoOp') {
+    return 'Publisher event: no collections found'
+  }
+
   const conceptId = displayValue(audit.collectionConceptId, 'Unknown collection')
   const collectionUri = String(audit.collectionUri || '')
 
@@ -492,6 +589,7 @@ const renderRunDetails = (audit) => {
     ['Prior CMR revision', audit.priorRevisionId],
     ['Resulting CMR revision', audit.resultingRevisionId],
     ['Message ID', audit.messageId],
+    ['Collections found', audit.collectionCount],
     ['Created', audit.createdAt instanceof Date ? audit.createdAt.toISOString() : audit.createdAt],
     ['Updated', audit.updatedAt instanceof Date ? audit.updatedAt.toISOString() : audit.updatedAt]
   ])
@@ -589,6 +687,9 @@ const renderAuditCard = (audit, { detail }) => {
   const updatedText = updatedAt
     ? ` &middot; Updated ${displayValue(updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt)}`
     : ''
+  const publishedVersionText = audit.publishedVersionName
+    ? ` &middot; Published Version ${displayValue(audit.publishedVersionName)}`
+    : ''
   const errorMessage = audit.errorMessage || audit.error?.message
   const errorSection = errorMessage
     ? `<div class="section"><p class="error">${displayValue(errorMessage)}</p></div>`
@@ -599,7 +700,7 @@ const renderAuditCard = (audit, { detail }) => {
       <header class="audit-header">
         <div>
           <h2>${renderCollectionHeading(audit)}</h2>
-          <p class="audit-meta">Run ${renderRunId(audit, detail)}${updatedText}</p>
+          <p class="audit-meta">Run ${renderRunId(audit, detail)}${publishedVersionText}${updatedText}</p>
         </div>
         <span class="status${statusClass}">${displayValue(status)}</span>
       </header>
@@ -620,6 +721,84 @@ const renderAuditCard = (audit, { detail }) => {
 }
 
 /**
+ * Renders one table row per changed keyword for a published-version audit document.
+ *
+ * @param {Object} audit Audit summary document.
+ * @returns {string} Published report table rows.
+ */
+const renderPublishedAuditRows = (audit) => {
+  const changes = Array.isArray(audit.changes) && audit.changes.length > 0
+    ? audit.changes
+    : [{}]
+  const status = String(audit.status || 'unknown').toLowerCase()
+  const statusClass = status === 'failed' ? ' status-failed' : ''
+  const collection = audit.recordType === 'publisherEventNoOp'
+    ? 'No collections found'
+    : renderCollectionHeading(audit)
+  const outcomeDetail = audit.outcome && audit.outcome !== status
+    ? `<span class="outcome-detail">${displayValue(audit.outcome)}</span>`
+    : ''
+
+  return changes.map((change) => `
+    <tr>
+      <td>${collection}</td>
+      <td>${displayValue(change.scheme, '')}</td>
+      <td>${displayValue(change.action, '')}</td>
+      <td class="previous-path">${displayValue(change.oldKeywordPath, '')}</td>
+      <td class="updated-path">${displayValue(change.newKeywordPath, '')}</td>
+      <td>${displayDate(audit.updatedAt || audit.createdAt)}</td>
+      <td class="outcome-cell">
+        <span class="status${statusClass}">${displayValue(status)}</span>
+        ${outcomeDetail}
+      </td>
+    </tr>
+  `).join('')
+}
+
+/**
+ * Groups audit rows under their published KMS version.
+ *
+ * @param {Array<Object>} items Audit summary documents in newest-first order.
+ * @returns {string} Version-grouped audit tables.
+ */
+const renderPublishedVersionGroups = (items) => {
+  const groups = new Map()
+
+  items.forEach((audit) => {
+    const versionName = audit.publishedVersionName || 'Unknown published version'
+    const versionItems = groups.get(versionName) || []
+
+    versionItems.push(audit)
+    groups.set(versionName, versionItems)
+  })
+
+  return [...groups.entries()].map(([versionName, versionItems]) => `
+    <section class="version-group">
+      <header class="version-heading">
+        <h2>Published Version: ${displayValue(versionName)}</h2>
+        <p>${versionItems.length} audit ${versionItems.length === 1 ? 'record' : 'records'}</p>
+      </header>
+      <div class="published-table-wrap">
+        <table class="published-table">
+          <thead>
+            <tr>
+              <th scope="col">Collection ID</th>
+              <th scope="col">Scheme</th>
+              <th scope="col">Action</th>
+              <th scope="col">Previous keyword path</th>
+              <th scope="col">Updated keyword path</th>
+              <th scope="col">Updated</th>
+              <th scope="col">Outcome</th>
+            </tr>
+          </thead>
+          <tbody>${versionItems.map(renderPublishedAuditRows).join('')}</tbody>
+        </table>
+      </div>
+    </section>
+  `).join('')
+}
+
+/**
  * Builds a self-contained browser view of metadata-correction audit records.
  *
  * This HTML view is a temporary stopgap until MMT provides an audit interface backed by the JSON
@@ -634,23 +813,34 @@ const renderAuditCard = (audit, { detail }) => {
  * @param {Object} params Page data.
  * @param {string} [params.collectionConceptId] Current collection ID filter.
  * @param {boolean} [params.detail=false] Whether to render complete run information.
+ * @param {boolean} [params.groupByPublishedVersion=false] Group summaries under version headings.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
  * @param {string} [params.message] Optional empty-state or error message.
  * @param {string} [params.nextPageHref] Link to the next result page.
+ * @param {boolean} [params.showCollectionFilter=true] Whether to show the collection search form.
+ * @param {boolean} [params.showPageHeader=true] Whether to show the visible page title and count.
  * @param {string} [params.title='Metadata correction audit'] Browser page title.
  * @returns {string} Complete HTML document.
  */
 export const renderMetadataCorrectionAuditHtml = ({
   collectionConceptId,
   detail = false,
+  groupByPublishedVersion = false,
   items = [],
   message,
   nextPageHref,
+  showCollectionFilter = true,
+  showPageHeader = true,
   title = 'Metadata correction audit'
 } = {}) => {
-  const cards = items.length > 0
-    ? items.map((audit) => renderAuditCard(audit, { detail })).join('')
-    : `<p class="empty">${displayValue(message, 'No matching audit records were found.')}</p>`
+  let cards = `<p class="empty">${displayValue(message, 'No matching audit records were found.')}</p>`
+
+  if (items.length > 0) {
+    cards = groupByPublishedVersion
+      ? renderPublishedVersionGroups(items)
+      : items.map((audit) => renderAuditCard(audit, { detail })).join('')
+  }
+
   const nextPageLink = nextPageHref
     ? `<a class="next-page" href="${displayValue(nextPageHref)}">Next page</a>`
     : ''
@@ -666,9 +856,9 @@ export const renderMetadataCorrectionAuditHtml = ({
   </head>
   <body>
     <main>
-      <h1>${displayValue(title)}</h1>
-      <p class="lede">${items.length} audit ${items.length === 1 ? 'record' : 'records'} on this page</p>
-      ${detail ? '' : renderCollectionFilter(collectionConceptId)}
+      ${showPageHeader ? `<h1>${displayValue(title)}</h1>
+      <p class="lede">${items.length} audit ${items.length === 1 ? 'record' : 'records'} on this page</p>` : ''}
+      ${detail || !showCollectionFilter ? '' : renderCollectionFilter(collectionConceptId)}
       ${cards}
       ${nextPageLink}
     </main>

@@ -141,7 +141,7 @@ export const getCapabilities = async () => {
               ':@': {
                 name: 'get_metadata_correction_audit',
                 href: '/metadata_correction_audit',
-                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&nativeFormat=&publishedVersionName=&source=&startDate=&endDate=&paginationToken=&includeDiff=&format=&limit=',
+                params: 'collectionConceptId=&keywordConceptUuid=&action=&scheme=&status=&nativeFormat=&source=&startDate=&endDate=&paginationToken=&includeDiff=&format=&limit=',
                 action: 'GET'
               }
             },
@@ -150,6 +150,22 @@ export const getCapabilities = async () => {
                 name: 'get_metadata_correction_audit_run',
                 href: '/metadata_correction_audit/{runId}',
                 params: 'includeDiff=&format=',
+                action: 'GET'
+              }
+            },
+            {
+              ':@': {
+                name: 'get_metadata_correction_audit_published',
+                href: '/metadata_correction_audit/published',
+                params: 'paginationToken=&includeDiff=&format=&limit=',
+                action: 'GET'
+              }
+            },
+            {
+              ':@': {
+                name: 'get_metadata_correction_audit_published_version',
+                href: '/metadata_correction_audit/published/{versionName}',
+                params: 'paginationToken=&includeDiff=&format=&limit=',
                 action: 'GET'
               }
             },
