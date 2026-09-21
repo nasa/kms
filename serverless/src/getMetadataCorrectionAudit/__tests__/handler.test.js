@@ -240,6 +240,23 @@ describe('getMetadataCorrectionAudit', () => {
     expect(getMetadataCorrectionAuditLog).not.toHaveBeenCalled()
   })
 
+  test('rejects a published version query parameter on the published route', async () => {
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published',
+      queryStringParameters: {
+        publishedVersionName: 'published-42'
+      }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body)).toEqual({
+      error: 'Error: Invalid metadata correction audit publishedVersionName: '
+        + 'use /metadata_correction_audit/published/{versionName}'
+    })
+
+    expect(getMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+  })
+
   test('renders a compact html summary with detail links for browser requests', async () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [{

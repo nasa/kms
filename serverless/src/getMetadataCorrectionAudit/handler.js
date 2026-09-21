@@ -301,7 +301,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
   try {
     responseFormat = normalizeResponseFormat(format)
 
-    if (route.type !== AUDIT_ROUTE_TYPES.PUBLISHED && queryPublishedVersionName !== undefined) {
+    if (queryPublishedVersionName !== undefined) {
       throw new Error(
         'Invalid metadata correction audit publishedVersionName: '
         + 'use /metadata_correction_audit/published/{versionName}'
