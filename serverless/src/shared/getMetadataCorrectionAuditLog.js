@@ -408,26 +408,27 @@ const normalizeAuditChange = (correction = {}) => ({
  * @param {boolean} includeDiff Whether to include the native-metadata diff.
  * @returns {Object} Audit summary suitable for list views.
  */
-const normalizeAuditSummary = (document, includeDiff = false) => ({
-  runId: document.runId,
-  collectionConceptId: document.collectionConceptId,
-  collectionUri: document.collectionUri,
-  status: document.status,
-  updatedAt: document.updatedAt,
-  changes: Array.isArray(document.corrections)
-    ? document.corrections.map(normalizeAuditChange)
-    : [],
-  ...(document.recordType ? { recordType: document.recordType } : {}),
-  ...(document.publishedVersionName
-    ? { publishedVersionName: document.publishedVersionName }
-    : {}),
-  ...(document.outcome ? { outcome: document.outcome } : {}),
-  ...(document.collectionCount !== undefined
-    ? { collectionCount: document.collectionCount }
-    : {}),
-  ...(includeDiff && document.metadataDiff ? { metadataDiff: document.metadataDiff } : {}),
-  ...(document.error?.message ? { errorMessage: document.error.message } : {})
-})
+const normalizeAuditSummary = (document, includeDiff = false) => {
+  const summary = {
+    runId: document.runId,
+    collectionConceptId: document.collectionConceptId,
+    collectionUri: document.collectionUri,
+    status: document.status,
+    updatedAt: document.updatedAt,
+    changes: Array.isArray(document.corrections)
+      ? document.corrections.map(normalizeAuditChange)
+      : []
+  }
+
+  if (document.recordType) summary.recordType = document.recordType
+  if (document.publishedVersionName) summary.publishedVersionName = document.publishedVersionName
+  if (document.outcome) summary.outcome = document.outcome
+  if (document.collectionCount !== undefined) summary.collectionCount = document.collectionCount
+  if (includeDiff && document.metadataDiff) summary.metadataDiff = document.metadataDiff
+  if (document.error?.message) summary.errorMessage = document.error.message
+
+  return summary
+}
 
 /**
  * Parses the optional flag used to include a potentially large native-metadata diff.

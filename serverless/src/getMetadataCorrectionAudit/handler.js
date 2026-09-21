@@ -48,6 +48,195 @@ const HTML_RESPONSE_HEADERS = {
   'X-Content-Type-Options': 'nosniff'
 }
 
+const AUDIT_ROUTE_TYPES = {
+  DETAIL: 'detail',
+  PUBLISHED: 'published',
+  SEARCH: 'search'
+}
+
+/**
+ * Identifies which audit view an API Gateway request targets.
+ *
+ * @param {Object} event API Gateway event.
+ * @returns {{type: string, runId?: string, publishedVersionName?: string}} Resolved route.
+ */
+const resolveAuditRoute = (event = {}) => {
+  const {
+    runId,
+    versionName
+  } = event.pathParameters || {}
+
+  if (runId) {
+    return {
+      type: AUDIT_ROUTE_TYPES.DETAIL,
+      runId
+    }
+  }
+
+  switch (event.resource) {
+    case '/metadata_correction_audit/published':
+      return { type: AUDIT_ROUTE_TYPES.PUBLISHED }
+    case '/metadata_correction_audit/published/{versionName}':
+      return {
+        type: AUDIT_ROUTE_TYPES.PUBLISHED,
+        publishedVersionName: versionName
+      }
+    default:
+      // Direct Lambda invocations may not include API Gateway's resource value.
+      if (versionName !== undefined) {
+        return {
+          type: AUDIT_ROUTE_TYPES.PUBLISHED,
+          publishedVersionName: versionName
+        }
+      }
+
+      return { type: AUDIT_ROUTE_TYPES.SEARCH }
+  }
+}
+
+/**
+ * Returns one audit run in the requested representation.
+ *
+ * @param {Object} params Detail response parameters.
+ * @param {Object} params.defaultResponseHeaders Shared API response headers.
+ * @param {unknown} params.includeDiff Whether to include the native metadata diff.
+ * @param {'json'|'html'} params.responseFormat Requested representation.
+ * @param {string} params.runId Audit run identifier.
+ * @returns {Promise<Object>} API Gateway response.
+ */
+const getAuditDetailResponse = async ({
+  defaultResponseHeaders,
+  includeDiff,
+  responseFormat,
+  runId
+}) => {
+  const auditDocument = await getMetadataCorrectionAuditByRunId({
+    runId,
+    includeDiff
+  })
+
+  if (responseFormat === 'html') {
+    return {
+      statusCode: auditDocument ? 200 : 404,
+      headers: {
+        ...defaultResponseHeaders,
+        ...HTML_RESPONSE_HEADERS
+      },
+      body: renderMetadataCorrectionAuditHtml({
+        detail: true,
+        items: auditDocument ? [auditDocument] : [],
+        message: auditDocument
+          ? undefined
+          : `Metadata correction audit run not found: ${runId}`,
+        title: 'Metadata correction audit detail'
+      })
+    }
+  }
+
+  return {
+    statusCode: auditDocument ? 200 : 404,
+    headers: {
+      ...defaultResponseHeaders,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(
+      auditDocument || { error: `Metadata correction audit run not found: ${runId}` },
+      null,
+      2
+    )
+  }
+}
+
+/**
+ * Returns a paginated audit search or published-version report.
+ *
+ * @param {Object} params List response parameters.
+ * @param {Object} params.defaultResponseHeaders Shared API response headers.
+ * @param {Object} params.event API Gateway event.
+ * @param {unknown} params.includeDiff Whether to include native metadata diffs.
+ * @param {unknown} params.limit Requested page size.
+ * @param {'json'|'html'} params.responseFormat Requested representation.
+ * @param {{type: string, publishedVersionName?: string}} params.route Resolved route.
+ * @returns {Promise<Object>} API Gateway response.
+ */
+const getAuditListResponse = async ({
+  defaultResponseHeaders,
+  event,
+  includeDiff,
+  limit,
+  responseFormat,
+  route
+}) => {
+  const {
+    collectionConceptId,
+    keywordConceptUuid,
+    action,
+    scheme,
+    status,
+    nativeFormat,
+    source,
+    startDate,
+    endDate,
+    paginationToken
+  } = event?.queryStringParameters || {}
+  const isPublishedAuditRoute = route.type === AUDIT_ROUTE_TYPES.PUBLISHED
+  const auditPage = await getMetadataCorrectionAuditLog({
+    collectionConceptId,
+    keywordConceptUuid,
+    action,
+    scheme,
+    status,
+    nativeFormat,
+    publishedVersionName: route.publishedVersionName,
+    publishedOnly: isPublishedAuditRoute,
+    source,
+    startDate,
+    endDate,
+    paginationToken,
+    includeDiff,
+    limit
+  })
+
+  if (responseFormat === 'html') {
+    let title
+
+    if (route.publishedVersionName) {
+      title = `Published metadata correction audit: ${route.publishedVersionName}`
+    } else if (isPublishedAuditRoute) {
+      title = 'Published metadata correction audit'
+    }
+
+    return {
+      statusCode: 200,
+      headers: {
+        ...defaultResponseHeaders,
+        ...HTML_RESPONSE_HEADERS
+      },
+      body: renderMetadataCorrectionAuditHtml({
+        collectionConceptId,
+        groupByPublishedVersion: isPublishedAuditRoute,
+        items: auditPage.items,
+        nextPageHref: buildNextPageHref(
+          event?.queryStringParameters,
+          auditPage.nextPaginationToken
+        ),
+        showCollectionFilter: !isPublishedAuditRoute,
+        showPageHeader: !isPublishedAuditRoute,
+        title
+      })
+    }
+  }
+
+  return {
+    statusCode: 200,
+    headers: {
+      ...defaultResponseHeaders,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(auditPage, null, 2)
+  }
+}
+
 /**
  * Read-side audit endpoint for metadata-correction activity.
  *
@@ -99,139 +288,53 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     context
   })
 
+  const queryStringParameters = event?.queryStringParameters || {}
   const {
-    collectionConceptId,
-    keywordConceptUuid,
-    action,
-    scheme,
-    status,
-    nativeFormat,
-    publishedVersionName: queryPublishedVersionName,
-    source,
-    startDate,
-    endDate,
-    paginationToken,
-    includeDiff,
     format,
-    limit
-  } = event?.queryStringParameters || {}
-  const {
-    runId,
-    versionName: pathPublishedVersionName
-  } = event?.pathParameters || {}
-  const isPublishedAuditRoute = event?.resource === '/metadata_correction_audit/published'
-    || event?.resource === '/metadata_correction_audit/published/{versionName}'
-    || pathPublishedVersionName !== undefined
-  const publishedVersionName = isPublishedAuditRoute
-    ? pathPublishedVersionName
-    : undefined
+    includeDiff,
+    limit,
+    publishedVersionName: queryPublishedVersionName
+  } = queryStringParameters
+  const route = resolveAuditRoute(event)
   let responseFormat = 'json'
 
   try {
     responseFormat = normalizeResponseFormat(format)
 
-    if (!isPublishedAuditRoute && queryPublishedVersionName !== undefined) {
+    if (route.type !== AUDIT_ROUTE_TYPES.PUBLISHED && queryPublishedVersionName !== undefined) {
       throw new Error(
         'Invalid metadata correction audit publishedVersionName: '
         + 'use /metadata_correction_audit/published/{versionName}'
       )
     }
 
-    const requestedIncludeDiff = responseFormat === 'html' && runId ? true : includeDiff
+    const requestedIncludeDiff = responseFormat === 'html'
+      && route.type === AUDIT_ROUTE_TYPES.DETAIL
+      ? true
+      : includeDiff
     const requestedLimit = responseFormat === 'html' && !limit ? '10' : limit
 
-    if (runId) {
-      const auditDocument = await getMetadataCorrectionAuditByRunId({
-        runId,
-        includeDiff: requestedIncludeDiff
+    let response
+
+    if (route.type === AUDIT_ROUTE_TYPES.DETAIL) {
+      response = await getAuditDetailResponse({
+        defaultResponseHeaders,
+        includeDiff: requestedIncludeDiff,
+        responseFormat,
+        runId: route.runId
       })
-
-      if (responseFormat === 'html') {
-        return {
-          statusCode: auditDocument ? 200 : 404,
-          headers: {
-            ...defaultResponseHeaders,
-            ...HTML_RESPONSE_HEADERS
-          },
-          body: renderMetadataCorrectionAuditHtml({
-            detail: true,
-            items: auditDocument ? [auditDocument] : [],
-            message: auditDocument
-              ? undefined
-              : `Metadata correction audit run not found: ${runId}`,
-            title: 'Metadata correction audit detail'
-          })
-        }
-      }
-
-      return {
-        statusCode: auditDocument ? 200 : 404,
-        headers: {
-          ...defaultResponseHeaders,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(
-          auditDocument || { error: `Metadata correction audit run not found: ${runId}` },
-          null,
-          2
-        )
-      }
+    } else {
+      response = await getAuditListResponse({
+        defaultResponseHeaders,
+        event,
+        includeDiff: requestedIncludeDiff,
+        limit: requestedLimit,
+        responseFormat,
+        route
+      })
     }
 
-    const auditPage = await getMetadataCorrectionAuditLog({
-      collectionConceptId,
-      keywordConceptUuid,
-      action,
-      scheme,
-      status,
-      nativeFormat,
-      publishedVersionName,
-      publishedOnly: isPublishedAuditRoute,
-      source,
-      startDate,
-      endDate,
-      paginationToken,
-      includeDiff: requestedIncludeDiff,
-      limit: requestedLimit
-    })
-    let htmlTitle
-
-    if (isPublishedAuditRoute) {
-      htmlTitle = publishedVersionName
-        ? `Published metadata correction audit: ${publishedVersionName}`
-        : 'Published metadata correction audit'
-    }
-
-    if (responseFormat === 'html') {
-      return {
-        statusCode: 200,
-        headers: {
-          ...defaultResponseHeaders,
-          ...HTML_RESPONSE_HEADERS
-        },
-        body: renderMetadataCorrectionAuditHtml({
-          collectionConceptId,
-          groupByPublishedVersion: isPublishedAuditRoute,
-          items: auditPage.items,
-          nextPageHref: buildNextPageHref(
-            event?.queryStringParameters,
-            auditPage.nextPaginationToken
-          ),
-          showCollectionFilter: !isPublishedAuditRoute,
-          showPageHeader: !isPublishedAuditRoute,
-          title: htmlTitle
-        })
-      }
-    }
-
-    return {
-      statusCode: 200,
-      headers: {
-        ...defaultResponseHeaders,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(auditPage, null, 2)
-    }
+    return response
   } catch (error) {
     logger.error(`Error retrieving metadata correction audit log, error=${error.toString()}`)
 

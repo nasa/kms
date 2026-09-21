@@ -134,6 +134,24 @@ describe('getMetadataCorrectionAudit', () => {
     }))
   })
 
+  test('recognizes a published version path during a direct Lambda invocation', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    await getMetadataCorrectionAudit({
+      pathParameters: {
+        versionName: 'published-42'
+      }
+    })
+
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      publishedVersionName: 'published-42',
+      publishedOnly: true
+    }))
+  })
+
   test('returns all published versions when the published path omits a version name', async () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [],
