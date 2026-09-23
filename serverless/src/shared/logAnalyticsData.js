@@ -21,7 +21,7 @@ export const logAnalyticsData = ({
     const { domainName, path, httpMethod } = requestContext || {}
 
     const clientIp = headers['x-forwarded-for']
-    const clientId = headers['client-id']
+    const clientId = headers['client-id'] || queryStringParameters?.['client-id']
     const protocol = headers['x-forwarded-proto'] || 'https'
 
     if (!clientIp || !domainName || !path || !protocol || !httpMethod) {
