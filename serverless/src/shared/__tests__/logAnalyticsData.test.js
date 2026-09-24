@@ -9,7 +9,7 @@ import * as removeEmptyModule from '@/shared/removeEmpty'
 
 import { logAnalyticsData } from '../logAnalyticsData'
 
-describe('logAnalyticsData', () => {
+describe('when logging analytics data', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(removeEmptyModule, 'removeEmpty').mockImplementation((obj) => obj)
@@ -44,6 +44,23 @@ describe('logAnalyticsData', () => {
     })
 
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('"analytics":'))
+  })
+
+  test('should log the client ID from the URL query parameter', () => {
+    logAnalyticsData({
+      event: {
+        headers: { 'x-forwarded-for': '127.0.0.1' },
+        queryStringParameters: { 'client-id': 'keyword-viewer-test' },
+        requestContext: {
+          domainName: 'example.com',
+          path: '/kms/concept/123',
+          httpMethod: 'GET'
+        }
+      }
+    })
+
+    const { analytics } = JSON.parse(console.log.mock.calls[0][0])
+    expect(analytics.clientId).toBe('keyword-viewer-test')
   })
 
   test('should not log when required fields are missing', () => {
