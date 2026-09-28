@@ -47,7 +47,7 @@ describe('sparqlRequest', () => {
         method: 'POST',
         body,
         contentType: 'application/sparql-query'
-      })).rejects.toThrow('Federated SPARQL SERVICE clauses are not allowed')
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
 
       expect(global.fetch).not.toHaveBeenCalled()
     })
@@ -57,7 +57,7 @@ describe('sparqlRequest', () => {
         method: 'POST',
         body: 'DELETE { ?s ?p ?o } WHERE { SERVICE <https://example.com/sparql> { ?s ?p ?o } }',
         contentType: 'application/sparql-update'
-      })).rejects.toThrow('Federated SPARQL SERVICE clauses are not allowed')
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
 
       expect(global.fetch).not.toHaveBeenCalled()
     })
@@ -80,7 +80,21 @@ describe('sparqlRequest', () => {
         body: 'SELECT * WHERE { ?s ?p ?o }',
         contentType: 'application/sparql-query',
         version: 'published> } SERVICE <https://example.com/sparql> {'
-      })).rejects.toThrow('Federated SPARQL SERVICE clauses are not allowed')
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
+
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      ['LOAD', 'LOAD <https://example.com/data.ttl>', 'application/sparql-update'],
+      ['external FROM', 'SELECT * FROM <https://example.com/data> WHERE { ?s ?p ?o }', 'application/sparql-query'],
+      ['FROM NAMED', 'SELECT * FROM NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }', 'application/sparql-query']
+    ])('should reject %s before sending a request', async (description, body, contentType) => {
+      await expect(sparqlRequest({
+        method: 'POST',
+        body,
+        contentType
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
 
       expect(global.fetch).not.toHaveBeenCalled()
     })
@@ -137,7 +151,7 @@ describe('sparqlRequest', () => {
         }
         global.fetch.mockResolvedValue(mockResponse)
 
-        const existingQuery = 'SELECT * FROM <http://example.org/graph> WHERE { ?s ?p ?o }'
+        const existingQuery = 'SELECT * FROM <https://gcmd.earthdata.nasa.gov/kms/version/2.0> WHERE { ?s ?p ?o }'
         await sparqlRequest({
           method: 'POST',
           body: existingQuery,

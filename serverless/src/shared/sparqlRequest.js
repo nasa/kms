@@ -5,8 +5,8 @@
  * @module sparqlRequest
  */
 
-import { containsSparqlServiceClause } from '@/shared/containsSparqlServiceClause'
 import { delay } from '@/shared/delay'
+import { isDisallowedSparqlRequest } from '@/shared/isDisallowedSparqlRequest'
 import { logger } from '@/shared/logger'
 
 /**
@@ -207,8 +207,8 @@ export const sparqlRequest = async (props) => {
     'application/sparql-update'
   ].includes(contentType)
 
-  if (isSparqlRequest && containsSparqlServiceClause(body)) {
-    throw new Error('Federated SPARQL SERVICE clauses are not allowed')
+  if (isSparqlRequest && isDisallowedSparqlRequest(body)) {
+    throw new Error('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
   }
 
   if (transactionUrl && action) {
