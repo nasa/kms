@@ -144,13 +144,8 @@ export class EcsStack extends Stack {
       'Allow traffic from Load Balancer'
     )
 
-    // Permit HTTPS to private addresses, including VPC interface endpoints,
-    // without allowing HTTPS through the NAT gateway to the internet.
-    this.ecsTasksSecurityGroup.addEgressRule(
-      ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
-      ec2.Port.tcp(443),
-      'Allow HTTPS to private VPC endpoints'
-    )
+    // Intentionally add no task egress rules. Stateful responses to allowed
+    // inbound traffic still work without permitting task-initiated connections.
   }
 
   private getVpc(vpcId: string): ec2.IVpc {
