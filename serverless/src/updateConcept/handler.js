@@ -6,6 +6,7 @@ import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
 import { getConceptId } from '@/shared/getConceptId'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getReadOnlyVersionResponse } from '@/shared/getReadOnlyVersionResponse'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 import {
@@ -82,6 +83,10 @@ export const updateConcept = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: newRdfXml, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  if (version !== 'draft') {
+    return getReadOnlyVersionResponse(defaultResponseHeaders)
+  }
 
   logAnalyticsData({
     event,

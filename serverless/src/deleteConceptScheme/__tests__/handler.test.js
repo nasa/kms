@@ -10,6 +10,7 @@ import * as deleteTripleModule from '@/shared/deleteTriples'
 import * as getConceptSchemeDetailsModule from '@/shared/getConceptSchemeDetails'
 import * as getConfigModule from '@/shared/getConfig'
 import * as getSkosRootConceptModule from '@/shared/getSkosRootConcept'
+import { startTransaction } from '@/shared/transactionHelpers'
 import * as transactionHelpersModule from '@/shared/transactionHelpers'
 
 import { deleteConceptScheme } from '../handler'
@@ -138,7 +139,7 @@ describe('deleteConceptScheme', () => {
 
     const event = {
       pathParameters: { schemeId: 'scheme-with-root' },
-      queryStringParameters: { version: 'published' }
+      queryStringParameters: { version: 'draft' }
     }
 
     await deleteConceptScheme(event)
@@ -146,13 +147,13 @@ describe('deleteConceptScheme', () => {
     expect(deleteTriplesSpy).toHaveBeenCalledTimes(2)
     expect(deleteTriplesSpy).toHaveBeenCalledWith(
       'https://gcmd.earthdata.nasa.gov/kms/concept/root-concept-id',
-      'published',
+      'draft',
       'transaction-url'
     )
 
     expect(deleteTriplesSpy).toHaveBeenCalledWith(
       'https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/scheme-with-root',
-      'published',
+      'draft',
       'transaction-url'
     )
   })
@@ -252,5 +253,27 @@ describe('deleteConceptScheme', () => {
 
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body)).toEqual({ error: 'Error: Commit failed' })
+  })
+})
+
+describe('when modifying a non-draft keyword version', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getConfigModule.getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'Content-Type': 'application/json' } })
+  })
+
+  test('should reject mutations when the version is not draft', async () => {
+    const response = await deleteConceptScheme({
+      body: '<rdf:RDF />',
+      pathParameters: {
+        conceptId: '123',
+        schemeId: 'scheme'
+      },
+      queryStringParameters: { version: 'published' }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(JSON.parse(response.body).message).toContain('draft version')
+    expect(startTransaction).not.toHaveBeenCalled()
   })
 })

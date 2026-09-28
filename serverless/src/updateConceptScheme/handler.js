@@ -1,5 +1,6 @@
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getReadOnlyVersionResponse } from '@/shared/getReadOnlyVersionResponse'
 import { getSchemeInfo } from '@/shared/getSchemeInfo'
 import { getSkosRootConcept } from '@/shared/getSkosRootConcept'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
@@ -63,6 +64,10 @@ export const updateConceptScheme = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: schemeRdf, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  if (version !== 'draft') {
+    return getReadOnlyVersionResponse(defaultResponseHeaders)
+  }
 
   logAnalyticsData({
     event,

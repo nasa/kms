@@ -11,6 +11,7 @@ import * as getConceptSchemeDetails from '@/shared/getConceptSchemeDetails'
 import * as getSchemeInfo from '@/shared/getSchemeInfo'
 import * as getSkosRootConcept from '@/shared/getSkosRootConcept'
 import * as sparqlRequest from '@/shared/sparqlRequest'
+import { startTransaction } from '@/shared/transactionHelpers'
 import * as transactionHelpers from '@/shared/transactionHelpers'
 import * as updateModifiedDate from '@/shared/updateModifiedDate'
 import * as validateSchemeNotationModule from '@/shared/validateSchemeNotation'
@@ -467,5 +468,23 @@ describe('updateConceptScheme', () => {
     expect(result.statusCode).toBe(400)
     expect(JSON.parse(result.body).message).toBe('Error updating scheme')
     expect(JSON.parse(result.body).error).toBe('Missing RDF/XML data in request body')
+  })
+})
+
+describe('when modifying a non-draft keyword version', () => {
+  beforeEach(() => vi.clearAllMocks())
+  test('should reject mutations when the version is not draft', async () => {
+    const response = await updateConceptScheme({
+      body: '<rdf:RDF />',
+      pathParameters: {
+        conceptId: '123',
+        schemeId: 'scheme'
+      },
+      queryStringParameters: { version: 'published' }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(JSON.parse(response.body).message).toContain('draft version')
+    expect(startTransaction).not.toHaveBeenCalled()
   })
 })

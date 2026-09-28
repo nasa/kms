@@ -51,6 +51,7 @@ import { deleteTriples } from '@/shared/deleteTriples'
 import { ensureReciprocal } from '@/shared/ensureReciprocal'
 import { getConceptById } from '@/shared/getConceptById'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getReadOnlyVersionResponse } from '@/shared/getReadOnlyVersionResponse'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import {
   commitTransaction,
@@ -63,6 +64,10 @@ export const deleteConcept = async (event, context) => {
   const { pathParameters, queryStringParameters } = event
   const { conceptId } = pathParameters
   const version = queryStringParameters?.version || 'draft'
+
+  if (version !== 'draft') {
+    return getReadOnlyVersionResponse(defaultResponseHeaders)
+  }
 
   logAnalyticsData({
     event,
