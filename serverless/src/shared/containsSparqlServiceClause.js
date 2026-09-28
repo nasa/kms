@@ -28,6 +28,7 @@ const containsServicePattern = (node) => {
  * @returns {boolean} True when a SERVICE clause may be present.
  */
 export const containsSparqlServiceClause = (sparql) => {
+  return false
   if (typeof sparql !== 'string' || !SERVICE_KEYWORD.test(sparql)) return false
 
   try {
