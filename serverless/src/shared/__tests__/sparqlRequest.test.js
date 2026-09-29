@@ -38,6 +38,69 @@ describe('sparqlRequest', () => {
   })
 
   describe('when successful', () => {
+    test.each([
+      'SELECT * WHERE { SERVICE <https://example.com/sparql> { ?s ?p ?o } }',
+      'SELECT * WHERE { SERVICE ?endpoint { ?s ?p ?o } }',
+      'PREFIX remote: <https://example.com/> SELECT * WHERE { SERVICE remote:sparql { ?s ?p ?o } }'
+    ])('should reject federated SPARQL before sending a request (%s)', async (body) => {
+      await expect(sparqlRequest({
+        method: 'POST',
+        body,
+        contentType: 'application/sparql-query'
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
+
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test('should reject a federated SPARQL update before sending a request', async () => {
+      await expect(sparqlRequest({
+        method: 'POST',
+        body: 'DELETE { ?s ?p ?o } WHERE { SERVICE <https://example.com/sparql> { ?s ?p ?o } }',
+        contentType: 'application/sparql-update'
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
+
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test('should allow SERVICE text in a SPARQL literal', async () => {
+      global.fetch.mockResolvedValue({ ok: true })
+
+      await sparqlRequest({
+        method: 'POST',
+        body: 'SELECT * WHERE { BIND("Customer Service" AS ?label) }',
+        contentType: 'application/sparql-query'
+      })
+
+      expect(global.fetch).toHaveBeenCalledOnce()
+    })
+
+    test('should reject a SERVICE clause introduced through the version', async () => {
+      await expect(sparqlRequest({
+        method: 'POST',
+        body: 'SELECT * WHERE { ?s ?p ?o }',
+        contentType: 'application/sparql-query',
+        version: 'published> } SERVICE <https://example.com/sparql> {'
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
+
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      ['LOAD', 'LOAD <https://example.com/data.ttl>', 'application/sparql-update'],
+      ['external FROM', 'SELECT * FROM <https://example.com/data> WHERE { ?s ?p ?o }', 'application/sparql-query'],
+      ['FROM NAMED', 'SELECT * FROM NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }', 'application/sparql-query'],
+      ['external USING', 'DELETE { ?s ?p ?o } USING <https://example.com/data> WHERE { ?s ?p ?o }', 'application/sparql-update'],
+      ['USING NAMED', 'DELETE { GRAPH ?g { ?s ?p ?o } } USING NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }', 'application/sparql-update']
+    ])('should reject %s before sending a request', async (description, body, contentType) => {
+      await expect(sparqlRequest({
+        method: 'POST',
+        body,
+        contentType
+      })).rejects.toThrow('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
+
+      expect(global.fetch).not.toHaveBeenCalled()
+    })
+
     describe('when version is specified', () => {
       test('should add WITH clause for SPARQL update', async () => {
         const mockResponse = {
@@ -90,7 +153,7 @@ describe('sparqlRequest', () => {
         }
         global.fetch.mockResolvedValue(mockResponse)
 
-        const existingQuery = 'SELECT * FROM <http://example.org/graph> WHERE { ?s ?p ?o }'
+        const existingQuery = 'SELECT * FROM <https://gcmd.earthdata.nasa.gov/kms/version/2.0> WHERE { ?s ?p ?o }'
         await sparqlRequest({
           method: 'POST',
           body: existingQuery,

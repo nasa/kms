@@ -120,10 +120,12 @@ export class EcsStack extends Stack {
   }
 
   private createSecurityGroups(): void {
+    // Restrict only the RDF4J task ENI. The ECS container instance retains its
+    // own security group and outbound access for ECS, ECR, and logging.
     this.ecsTasksSecurityGroup = new ec2.SecurityGroup(this, 'EcsTasksSecurityGroup', {
       vpc: this.vpc,
       description: 'Security group for ECS tasks',
-      allowAllOutbound: true
+      allowAllOutbound: false
     })
   }
 
@@ -141,6 +143,9 @@ export class EcsStack extends Stack {
       ec2.Port.tcp(8080),
       'Allow traffic from Load Balancer'
     )
+
+    // Intentionally add no task egress rules. Stateful responses to allowed
+    // inbound traffic still work without permitting task-initiated connections.
   }
 
   private getVpc(vpcId: string): ec2.IVpc {
@@ -196,13 +201,10 @@ export class EcsStack extends Stack {
       role: this.role
     })
 
-    // Add the security groups of the VPC endpoints to the Auto Scaling Group
     const cluster = new ecs.Cluster(this, 'rdf4jEcsCluster', {
       vpc: this.vpc,
       clusterName: 'rdf4jEcs'
     })
-    // Add the security group to the cluster's default capacity provider
-    cluster.connections.addSecurityGroup(this.ecsTasksSecurityGroup)
 
     this.capacityProvider = new ecs.AsgCapacityProvider(this, 'rdf4jAsgCapacityProvider', {
       autoScalingGroup,
