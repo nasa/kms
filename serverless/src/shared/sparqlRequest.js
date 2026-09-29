@@ -6,6 +6,7 @@
  */
 
 import { delay } from '@/shared/delay'
+import { isDisallowedSparqlRequest } from '@/shared/isDisallowedSparqlRequest'
 import { logger } from '@/shared/logger'
 
 /**
@@ -199,6 +200,15 @@ export const sparqlRequest = async (props) => {
       // For statements (insertions/deletions), use the context parameter
       endpointUrl.searchParams.append('context', `<${graphUri}>`)
     }
+  }
+
+  const isSparqlRequest = [
+    'application/sparql-query',
+    'application/sparql-update'
+  ].includes(contentType)
+
+  if (isSparqlRequest && isDisallowedSparqlRequest(body)) {
+    throw new Error('SPARQL SERVICE, LOAD, and external dataset clauses are not allowed')
   }
 
   if (transactionUrl && action) {
