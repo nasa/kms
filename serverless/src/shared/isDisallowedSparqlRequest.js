@@ -1,7 +1,7 @@
 import { Parser } from '@traqula/parser-sparql-1-1'
 
 const KMS_VERSION_GRAPH_IRI_PREFIX = 'https://gcmd.earthdata.nasa.gov/kms/version/'
-const REMOTE_OPERATION_KEYWORD = /\b(?:FROM|LOAD|SERVICE)\b/i
+const REMOTE_OPERATION_KEYWORD = /\b(?:FROM|LOAD|SERVICE|USING)\b/i
 const UNICODE_ESCAPE = /\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})/g
 
 /**

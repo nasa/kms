@@ -88,7 +88,9 @@ describe('sparqlRequest', () => {
     test.each([
       ['LOAD', 'LOAD <https://example.com/data.ttl>', 'application/sparql-update'],
       ['external FROM', 'SELECT * FROM <https://example.com/data> WHERE { ?s ?p ?o }', 'application/sparql-query'],
-      ['FROM NAMED', 'SELECT * FROM NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }', 'application/sparql-query']
+      ['FROM NAMED', 'SELECT * FROM NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }', 'application/sparql-query'],
+      ['external USING', 'DELETE { ?s ?p ?o } USING <https://example.com/data> WHERE { ?s ?p ?o }', 'application/sparql-update'],
+      ['USING NAMED', 'DELETE { GRAPH ?g { ?s ?p ?o } } USING NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }', 'application/sparql-update']
     ])('should reject %s before sending a request', async (description, body, contentType) => {
       await expect(sparqlRequest({
         method: 'POST',

@@ -22,7 +22,10 @@ describe('isDisallowedSparqlRequest', () => {
     'SELECT * FROM <https://example.com/data> WHERE { ?s ?p ?o }',
     String.raw`SELECT * \u0046ROM <https://example.com/data> WHERE { ?s ?p ?o }`,
     'SELECT * FROM NAMED <https://example.com/data> WHERE { GRAPH ?g { ?s ?p ?o } }',
-    'SELECT * FROM NAMED <https://gcmd.earthdata.nasa.gov/kms/version/published> WHERE { GRAPH ?g { ?s ?p ?o } }'
+    'SELECT * FROM NAMED <https://gcmd.earthdata.nasa.gov/kms/version/published> WHERE { GRAPH ?g { ?s ?p ?o } }',
+    'DELETE { ?s ?p ?o } USING <https://example.com/data> WHERE { ?s ?p ?o }',
+    String.raw`DELETE { ?s ?p ?o } \u0055SING <https://example.com/data> WHERE { ?s ?p ?o }`,
+    'DELETE { GRAPH ?g { ?s ?p ?o } } USING NAMED <https://gcmd.earthdata.nasa.gov/kms/version/published> WHERE { GRAPH ?g { ?s ?p ?o } }'
   ])('identifies a disallowed SPARQL request in %s', (sparql) => {
     expect(isDisallowedSparqlRequest(sparql)).toBe(true)
   })
@@ -36,8 +39,10 @@ describe('isDisallowedSparqlRequest', () => {
     'PREFIX SERVICE: <https://example.com/> SELECT * WHERE { SERVICE:item ?p ?o }',
     'SELECT * WHERE { ?s ?p ?o } # SERVICE <https://example.com>',
     'SELECT * WHERE { ?s ?p ?o } # LOAD <https://example.com/data>',
+    'SELECT * WHERE { BIND("USING <https://example.com/data>" AS ?label) }',
     'SELECT * WHERE { FILTER(?count < 10) ?s ?p ?o }',
-    'SELECT * FROM <https://gcmd.earthdata.nasa.gov/kms/version/published> WHERE { ?s ?p ?o }'
+    'SELECT * FROM <https://gcmd.earthdata.nasa.gov/kms/version/published> WHERE { ?s ?p ?o }',
+    'DELETE { ?s ?p ?o } USING <https://gcmd.earthdata.nasa.gov/kms/version/published> WHERE { ?s ?p ?o }'
   ])('allows a valid SPARQL request without remote-data operations in %s', (sparql) => {
     expect(isDisallowedSparqlRequest(sparql)).toBe(false)
   })
@@ -46,6 +51,7 @@ describe('isDisallowedSparqlRequest', () => {
     String.raw`\UFFFFFFFF LOAD <https://example.com/data.ttl>`,
     'LOAD <unfinished',
     'SELECT * FROM <unfinished WHERE { ?s ?p ?o }',
+    'DELETE { ?s ?p ?o } USING <unfinished WHERE { ?s ?p ?o }',
     'SELECT * WHERE { SERVICE <unfinished'
   ])('rejects malformed SPARQL containing a remote-operation keyword (%s)', (sparql) => {
     expect(isDisallowedSparqlRequest(sparql)).toBe(true)
