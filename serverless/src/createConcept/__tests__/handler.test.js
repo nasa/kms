@@ -130,7 +130,7 @@ describe('createConcept', () => {
 
   describe('when provding a version', () => {
     test('should use provided version for queries', async () => {
-      const customVersion = 'custom-version'
+      const customVersion = 'draft'
       const mockEventWithVersion = {
         body: mockRdfXml,
         queryStringParameters: { version: customVersion }
@@ -570,5 +570,27 @@ describe('createConcept', () => {
       'draft',
       mockTransactionUrl
     )
+  })
+})
+
+describe('when modifying a non-draft keyword version', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'Content-Type': 'application/json' } })
+  })
+
+  test('should reject mutations when the version is not draft', async () => {
+    const response = await createConcept({
+      body: '<rdf:RDF />',
+      pathParameters: {
+        conceptId: '123',
+        schemeId: 'scheme'
+      },
+      queryStringParameters: { version: 'published' }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(JSON.parse(response.body).message).toContain('draft version')
+    expect(startTransaction).not.toHaveBeenCalled()
   })
 })

@@ -105,7 +105,7 @@ describe('deleteConcept', () => {
     })
 
     test('should use provided version', async () => {
-      const customVersion = 'published'
+      const customVersion = 'draft'
       const eventWithCustomVersion = {
         ...mockEvent,
         queryStringParameters: { version: customVersion }
@@ -292,5 +292,27 @@ describe('deleteConcept', () => {
       expect(result.statusCode).toBe(500)
       expect(JSON.parse(result.body).error).toBe('Failed to ensure reciprocal relations')
     })
+  })
+})
+
+describe('when modifying a non-draft keyword version', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'Content-Type': 'application/json' } })
+  })
+
+  test('should reject mutations when the version is not draft', async () => {
+    const response = await deleteConcept({
+      body: '<rdf:RDF />',
+      pathParameters: {
+        conceptId: '123',
+        schemeId: 'scheme'
+      },
+      queryStringParameters: { version: 'published' }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(JSON.parse(response.body).message).toContain('draft version')
+    expect(startTransaction).not.toHaveBeenCalled()
   })
 })

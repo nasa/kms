@@ -1,6 +1,7 @@
 import { createRootConceptRdf } from '@/shared/createRootConceptRdf'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getReadOnlyVersionResponse } from '@/shared/getReadOnlyVersionResponse'
 import { getSchemeInfo } from '@/shared/getSchemeInfo'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { sparqlRequest } from '@/shared/sparqlRequest'
@@ -77,6 +78,10 @@ export const createConceptScheme = async (event, context) => {
   const { defaultResponseHeaders } = getApplicationConfig()
   const { body: schemeRdf, queryStringParameters } = event || {}
   const version = queryStringParameters?.version || 'draft'
+
+  if (version !== 'draft') {
+    return getReadOnlyVersionResponse(defaultResponseHeaders)
+  }
 
   let transactionUrl
 

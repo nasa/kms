@@ -171,7 +171,7 @@ describe('updateConcept', () => {
     })
 
     test('should use correct version for reciprocal relationships', async () => {
-      const customVersion = 'published'
+      const customVersion = 'draft'
       const eventWithCustomVersion = {
         ...mockEvent,
         queryStringParameters: { version: customVersion }
@@ -279,7 +279,7 @@ describe('updateConcept', () => {
 
   describe('when handling different versions', () => {
     test('should use provided version when updating concept', async () => {
-      const customVersion = 'published'
+      const customVersion = 'draft'
       const eventWithCustomVersion = {
         ...mockEvent,
         queryStringParameters: { version: customVersion }
@@ -885,5 +885,27 @@ describe('updateConcept', () => {
         body: expect.stringContaining('skos:changeNote')
       }))
     })
+  })
+})
+
+describe('when modifying a non-draft keyword version', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'Content-Type': 'application/json' } })
+  })
+
+  test('should reject mutations when the version is not draft', async () => {
+    const response = await updateConcept({
+      body: '<rdf:RDF />',
+      pathParameters: {
+        conceptId: '123',
+        schemeId: 'scheme'
+      },
+      queryStringParameters: { version: 'published' }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(JSON.parse(response.body).message).toContain('draft version')
+    expect(startTransaction).not.toHaveBeenCalled()
   })
 })

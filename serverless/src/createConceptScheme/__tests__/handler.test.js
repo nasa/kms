@@ -10,6 +10,7 @@ import * as getConceptSchemeDetailsModule from '@/shared/getConceptSchemeDetails
 import * as getConfigModule from '@/shared/getConfig'
 import * as getSchemeInfoModule from '@/shared/getSchemeInfo'
 import * as sparqlRequestModule from '@/shared/sparqlRequest'
+import { startTransaction } from '@/shared/transactionHelpers'
 import * as transactionHelpersModule from '@/shared/transactionHelpers'
 import * as validateSchemeNotationModule from '@/shared/validateSchemeNotation'
 
@@ -306,5 +307,27 @@ describe('createConceptScheme', () => {
         version: 'draft'
       })
     })
+  })
+})
+
+describe('when modifying a non-draft keyword version', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getConfigModule.getApplicationConfig.mockReturnValue({ defaultResponseHeaders: { 'Content-Type': 'application/json' } })
+  })
+
+  test('should reject mutations when the version is not draft', async () => {
+    const response = await createConceptScheme({
+      body: '<rdf:RDF />',
+      pathParameters: {
+        conceptId: '123',
+        schemeId: 'scheme'
+      },
+      queryStringParameters: { version: 'published' }
+    })
+
+    expect(response.statusCode).toBe(403)
+    expect(JSON.parse(response.body).message).toContain('draft version')
+    expect(startTransaction).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,7 @@
 import { deleteTriples } from '@/shared/deleteTriples'
 import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { getApplicationConfig } from '@/shared/getConfig'
+import { getReadOnlyVersionResponse } from '@/shared/getReadOnlyVersionResponse'
 import { getSkosRootConcept } from '@/shared/getSkosRootConcept'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import {
@@ -45,6 +46,10 @@ export const deleteConceptScheme = async (event, context) => {
   const { pathParameters, queryStringParameters } = event
   const { schemeId } = pathParameters
   const version = queryStringParameters?.version || 'draft'
+
+  if (version !== 'draft') {
+    return getReadOnlyVersionResponse(defaultResponseHeaders)
+  }
 
   logAnalyticsData({
     event,
