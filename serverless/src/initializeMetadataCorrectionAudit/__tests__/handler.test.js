@@ -106,6 +106,37 @@ describe('initializeMetadataCorrectionAudit', () => {
     )
   })
 
+  test('retries while the MongoDB driver cannot select the new DocumentDB server', async () => {
+    vi.useFakeTimers()
+
+    const serverSelectionError = new Error('Server selection timed out after 5000 ms')
+    serverSelectionError.name = 'MongoServerSelectionError'
+    vi.mocked(getMetadataCorrectionAuditCollection)
+      .mockRejectedValueOnce(serverSelectionError)
+      .mockResolvedValue({ createIndexes })
+
+    const resultPromise = initializeMetadataCorrectionAudit({
+      RequestType: 'Create',
+      ResourceProperties: { IndexDefinitions: indexDefinitions }
+    })
+
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    await expect(resultPromise).resolves.toEqual({
+      PhysicalResourceId: 'metadata-correction-audit-indexes',
+      Data: { IndexCount: 1 }
+    })
+
+    expect(getMetadataCorrectionAuditCollection).toHaveBeenCalledTimes(2)
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'DocumentDB endpoint is not ready; retrying audit index creation',
+      {
+        attempt: 1,
+        error: 'MongoServerSelectionError: Server selection timed out after 5000 ms'
+      }
+    )
+  })
+
   test('does not retry non-connection failures', async () => {
     vi.mocked(getMetadataCorrectionAuditCollection)
       .mockRejectedValue(new Error('DocumentDB secret is missing username'))

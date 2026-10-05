@@ -9,6 +9,14 @@ const RETRYABLE_CONNECTION_ERROR_CODES = [
   'ENOTFOUND',
   'ETIMEDOUT'
 ]
+const RETRYABLE_CONNECTION_ERROR_NAMES = new Set([
+  'MongoNetworkError',
+  'MongoNetworkTimeoutError',
+  'MongoServerSelectionError'
+])
+const RETRYABLE_CONNECTION_ERROR_MESSAGES = [
+  'Server selection timed out'
+]
 
 /**
  * Returns whether DocumentDB is still becoming reachable after cluster creation.
@@ -22,7 +30,11 @@ const RETRYABLE_CONNECTION_ERROR_CODES = [
 const isRetryableConnectionError = (error) => {
   const errorMessage = String(error)
 
-  return RETRYABLE_CONNECTION_ERROR_CODES.some((code) => errorMessage.includes(code))
+  return RETRYABLE_CONNECTION_ERROR_NAMES.has(error?.name)
+    || RETRYABLE_CONNECTION_ERROR_CODES.some((code) => errorMessage.includes(code))
+    || RETRYABLE_CONNECTION_ERROR_MESSAGES.some(
+      (message) => errorMessage.includes(message)
+    )
 }
 
 /**
