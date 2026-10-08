@@ -18,6 +18,13 @@
 import { extractKeywordValue } from './extractKeywordValue'
 import { logger } from './logger'
 import { getPublishedConceptByKeyword } from './redis-path-store/getPublishedConceptByKeyword'
+import { buildFullPathLookupValue } from './redis-path-store/helpers/buildFullPathLookupValue'
+import {
+  getShortNameLookupValueFromKeywordObject
+} from './redis-path-store/helpers/getShortNameLookupValueFromKeywordObject'
+import { isLookupFullPathScheme } from './redis-path-store/helpers/isLookupFullPathScheme'
+import { isLookupShortNameScheme } from './redis-path-store/helpers/isLookupShortNameScheme'
+import { buildShortNameLookupValue } from './redis-path-store/helpers/resolveLookupKeywordObject'
 import { getRedisClient } from './redisCacheStore'
 
 const VALIDATION_MESSAGES = {
@@ -241,6 +248,43 @@ const extractKeywordCandidatesFromUmm = (umm) => {
   return candidates
 }
 
+// Cache keys remain case-insensitive for concept discovery. Once a concept is found, compare the
+// collection value to the cache payload's canonical value so case-only publishes are corrected.
+const isCanonicalPublishedKeyword = ({
+  keywordValue,
+  normalizedScheme,
+  publishedConcept
+}) => {
+  // No case-insensitive cache match means the keyword is not currently published.
+  if (!publishedConcept) {
+    return false
+  }
+
+  // Hierarchical schemes such as ISO Topic Category are validated by their complete keyword path.
+  if (isLookupFullPathScheme(normalizedScheme)) {
+    const candidateFullPath = buildFullPathLookupValue({
+      scheme: normalizedScheme,
+      keywordValue
+    })
+
+    // Use an exact comparison so a stale path that differs only by case is not treated as current.
+    return candidateFullPath === publishedConcept.fullPath
+  }
+
+  if (isLookupShortNameScheme(normalizedScheme)) {
+    // Short-name cache payloads expose the canonical value directly in their keyword object.
+    const publishedShortName = getShortNameLookupValueFromKeywordObject(
+      publishedConcept.keywordObject
+    )
+
+    // The lookup is case-insensitive, but the final canonical-value check intentionally is not.
+    return buildShortNameLookupValue(keywordValue) === publishedShortName
+  }
+
+  // Candidate extraction currently supplies only full-path and short-name lookup schemes.
+  return true
+}
+
 // Validates one extracted keyword candidate against the published Redis cache.
 const validatePublishedKeywordCandidate = async ({
   scheme,
@@ -254,12 +298,18 @@ const validatePublishedKeywordCandidate = async ({
     umm
   })
 
+  // Cache keys are normalized for discovery, allowing stale casing to locate the current concept.
   const publishedConcept = await getPublishedConceptByKeyword({
     scheme: normalizedScheme,
     keywordValue
   })
 
-  return publishedConcept
+  // Finding a concept is not sufficient: the collection must contain its exact published value.
+  return isCanonicalPublishedKeyword({
+    keywordValue,
+    normalizedScheme,
+    publishedConcept
+  })
     ? undefined
     : createValidationError({
       scheme: normalizedScheme,
@@ -275,7 +325,8 @@ const validatePublishedKeywordCandidate = async ({
  * 1. extract the supported keyword candidates from the UMM-C payload
  * 2. convert each candidate into the lookup form expected by the published Redis cache
  * 3. check that lookup against the appropriate published cache namespace
- * 4. emit a CMR-like validation error whenever the published lookup is missing
+ * 4. compare the collection value to the canonical value returned by the cache
+ * 5. emit a CMR-like validation error when the lookup is missing or not an exact match
  *
  * We intentionally keep the return shape close to the older validation helper so the
  * metadata-correction flow can continue to consume `{ status, errors, warnings, responseBody }`
