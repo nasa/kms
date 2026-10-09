@@ -67,21 +67,27 @@ describe('validateCmrCollectionUmm', () => {
       if (cacheKey === platformKey) {
         return createCachedResponse({
           uuid: 'platform-uuid',
-          fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+          keywordObject: {
+            ShortName: 'Aqua'
+          }
         })
       }
 
       if (cacheKey === instrumentKey) {
         return createCachedResponse({
           uuid: 'instrument-uuid',
-          fullPath: 'Instruments > Spectrometers/Radiometers > MODIS'
+          keywordObject: {
+            ShortName: 'MODIS'
+          }
         })
       }
 
       if (cacheKey === granuleDataFormatKey) {
         return createCachedResponse({
           uuid: 'data-format-uuid',
-          fullPath: 'Data Format > netCDF-4'
+          keywordObject: {
+            ShortName: 'netCDF-4'
+          }
         })
       }
 
@@ -181,6 +187,87 @@ describe('validateCmrCollectionUmm', () => {
     })
   })
 
+  test('should reject an ISO Topic Category when only its casing differs from the published value', async () => {
+    // The lowercase key allows the stale collection value to find the published concept.
+    const isoTopicCategoryKey = createPublishedConceptResponseCacheKeyByFullPath({
+      fullPath: 'climatology/meteorology/atmosphere',
+      scheme: 'isotopiccategory'
+    })
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === isoTopicCategoryKey) {
+        return createCachedResponse({
+          uuid: 'iso-topic-category-uuid',
+          // The actual published value uses different casing than the collection value.
+          fullPath: 'Climatology/Meteorology/Atmosphere'
+        })
+      }
+
+      return null
+    })
+
+    // Validate a stale differently-cased value alongside the exact published value.
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        ISOTopicCategories: [
+          'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE', // Invalid: casing differs.
+          'Climatology/Meteorology/Atmosphere' // Valid: exact published value.
+        ]
+      }
+    })
+
+    // Only the differently-cased value at index 0 is invalid; index 1 matches the published value.
+    expect(result.errors).toEqual([
+      {
+        path: ['IsoTopicCategories', 0],
+        errors: ['ISO Topic Category was not a valid keyword.']
+      }
+    ])
+  })
+
+  test('should reject a short name when only its casing differs from the published value', async () => {
+    // Short-name cache discovery is case-insensitive, so AQUA still resolves through this key.
+    const platformKey = createPublishedConceptResponseCacheKeyByShortName({
+      shortName: 'aqua',
+      scheme: 'platforms'
+    })
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === platformKey) {
+        return createCachedResponse({
+          uuid: 'platform-uuid',
+          keywordObject: {
+            // The actual published value uses different casing than the collection value.
+            ShortName: 'Aqua'
+          }
+        })
+      }
+
+      return null
+    })
+
+    // Validate a collection short name that differs only by case from the published value.
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        Platforms: [
+          {
+            ShortName: 'AQUA' // Invalid: casing differs.
+          }
+        ]
+      }
+    })
+
+    // The differently-cased short name at index 0 must be rejected.
+    expect(result.errors).toEqual([
+      {
+        path: ['Platforms', 0],
+        errors: ['Platform short name was not a valid keyword combination.']
+      }
+    ])
+  })
+
   test('should return CMR-like validation errors when published keyword lookups are missing', async () => {
     vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
 
@@ -276,7 +363,9 @@ describe('validateCmrCollectionUmm', () => {
       if (cacheKey === granuleDataFormatKey) {
         return createCachedResponse({
           uuid: 'data-format-uuid',
-          fullPath: 'Data Format > HDF5'
+          keywordObject: {
+            ShortName: 'HDF5'
+          }
         })
       }
 
@@ -372,7 +461,9 @@ describe('validateCmrCollectionUmm', () => {
       if (cacheKey === platformKey) {
         return createCachedResponse({
           uuid: 'platform-uuid',
-          fullPath: 'Platforms > Space-based Platforms > Earth Observation Satellites > Aqua'
+          keywordObject: {
+            ShortName: 'Aqua'
+          }
         })
       }
 
