@@ -60,9 +60,12 @@ const getValueAtPath = (source, path) => path.reduce(
  * that value when a scheme needs a more KMS-friendly representation.
  *
  * Examples:
+ * - `locations` remaps UMM-C fields like `Category` -> `LocationCategory`
  * - `chronounits` remaps UMM-C fields like `Stage` -> `Age`
  * - `rucontenttype` extracts only `URLContentType`, `Type`, and `Subtype`
+ * - `ProductLevelId` extracts `ProcessingLevel.Id`
  * - `DataFormat` and `GranuleDataFormat` collapse to the format string
+ * - `isotopiccategory` maps the validation path to UMM-C's `ISOTopicCategories`
  *
  * This helper deliberately stops at extraction. Later steps decide whether the extracted value
  * should be interpreted as a full-path lookup, a short-name lookup, or a placeholder used during
@@ -80,8 +83,18 @@ export const extractKeywordValue = ({
   umm
 }) => {
   const rawValue = getValueAtPath(umm, normalizeValidationPath(path))
+  const normalizedScheme = String(scheme).toLowerCase()
 
-  switch (scheme) {
+  switch (normalizedScheme) {
+    case 'locations':
+      return {
+        LocationCategory: rawValue?.Category,
+        LocationType: rawValue?.Type,
+        LocationSubregion1: rawValue?.Subregion1,
+        LocationSubregion2: rawValue?.Subregion2,
+        LocationSubregion3: rawValue?.Subregion3,
+        LocationSubregion4: rawValue?.DetailedLocation
+      }
     case 'chronounits':
       return {
         Eon: rawValue?.Eon,
@@ -97,10 +110,10 @@ export const extractKeywordValue = ({
         Type: rawValue?.Type,
         Subtype: rawValue?.Subtype
       }
-    case 'ProductLevelId':
+    case 'productlevelid':
       return rawValue?.Id || rawValue
-    case 'DataFormat':
-    case 'GranuleDataFormat':
+    case 'dataformat':
+    case 'granuledataformat':
       return rawValue?.Format || rawValue
     default:
       return rawValue

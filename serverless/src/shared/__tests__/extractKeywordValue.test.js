@@ -7,6 +7,32 @@ import {
 import { extractKeywordValue } from '../extractKeywordValue'
 
 describe('extractKeywordValue', () => {
+  test('should normalize locations from UMM-C field names to KMS field names', () => {
+    expect(extractKeywordValue({
+      scheme: 'locations',
+      path: ['LocationKeywords', 0],
+      umm: {
+        LocationKeywords: [
+          {
+            Category: 'CONTINENT',
+            Type: 'NORTH AMERICA',
+            Subregion1: 'CANADA',
+            Subregion2: 'ALBERTA',
+            Subregion3: 'CALGARY',
+            DetailedLocation: 'DOWNTOWN'
+          }
+        ]
+      }
+    })).toEqual({
+      LocationCategory: 'CONTINENT',
+      LocationType: 'NORTH AMERICA',
+      LocationSubregion1: 'CANADA',
+      LocationSubregion2: 'ALBERTA',
+      LocationSubregion3: 'CALGARY',
+      LocationSubregion4: 'DOWNTOWN'
+    })
+  })
+
   test('should normalize chronounits from UMM-C field names to KMS field names', () => {
     expect(extractKeywordValue({
       scheme: 'chronounits',
@@ -67,10 +93,10 @@ describe('extractKeywordValue', () => {
     })).toBe('BOUNDARIES')
   })
 
-  test('should unwrap ProductLevelId from the nested ProcessingLevel object', () => {
+  test('should unwrap ProductLevelId when the scheme is normalized to lowercase', () => {
     expect(extractKeywordValue({
-      scheme: 'ProductLevelId',
-      path: ['ProcessingLevel', 'Id'],
+      scheme: 'productlevelid',
+      path: ['ProcessingLevel'],
       umm: {
         ProcessingLevel: {
           Id: '2'
@@ -96,7 +122,7 @@ describe('extractKeywordValue', () => {
 
     expect(extractKeywordValue({
       scheme: 'GranuleDataFormat',
-      path: ['RelatedUrls', 0, 'GetData', 'Format'],
+      path: ['RelatedUrls', 0, 'GetData'],
       umm: {
         RelatedUrls: [
           {
@@ -107,6 +133,22 @@ describe('extractKeywordValue', () => {
         ]
       }
     })).toBe('xml')
+  })
+
+  test('should unwrap a data format when the validator supplies a normalized scheme name', () => {
+    expect(extractKeywordValue({
+      scheme: 'dataformat',
+      path: ['ArchiveAndDistributionInformation', 'FileArchiveInformation', 0],
+      umm: {
+        ArchiveAndDistributionInformation: {
+          FileArchiveInformation: [
+            {
+              Format: 'Binary'
+            }
+          ]
+        }
+      }
+    })).toBe('Binary')
   })
 
   test('should return the raw value for schemes without special normalization', () => {
