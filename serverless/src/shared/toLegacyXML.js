@@ -203,7 +203,7 @@ export const toLegacyXML = (
 
           related.forEach((obj) => {
             const resourceUUID = obj['@rdf:resource'].split('/').pop()
-            const scheme = conceptToConceptSchemeShortNameMap[obj[resourceUUID]]
+            const scheme = conceptToConceptSchemeShortNameMap.get(resourceUUID)
             relations.push({
               '@generatedBy': 'server',
               '@conceptScheme': scheme,
