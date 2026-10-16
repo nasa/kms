@@ -224,6 +224,22 @@
       "newKeywordObject": {
         "ShortName": "COG_CHANGED"
       }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "COG"
+      },
+      "newKeywordObject": {
+        "ShortName": "COG_CHANGED"
+      },
+      "ummPath": [
+        "RelatedUrls",
+        1,
+        "GetData",
+        "Format"
+      ]
     }
   ]
 }

@@ -362,7 +362,6 @@ describe('when running the metadata correction workflow end to end', () => {
       expect([...new Set(keywordEvents.map(({ Scheme }) => Scheme))]).toEqual([
         'chronounits',
         'dataformat',
-        'granuledataformat',
         'horizontalresolutionrange',
         'idnnode',
         'instruments',

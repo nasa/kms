@@ -42,7 +42,6 @@ const VALIDATION_MESSAGES = {
   verticalresolutionrange: 'Vertical resolution was not a valid keyword range.',
   productlevelid: 'ProcessingLevel Id was not a valid keyword.',
   dataformat: 'Format was not a valid keyword.',
-  granuledataformat: 'Format was not a valid keyword.',
   rucontenttype: 'Related URL Content Type was not a valid set together.'
 }
 
@@ -239,7 +238,7 @@ const extractKeywordCandidatesFromUmm = (umm) => {
     if (relatedUrl.GetData?.Format) {
       pushKeywordCandidate({
         candidates,
-        scheme: 'granuledataformat',
+        scheme: 'dataformat',
         path: ['RelatedUrls', index, 'GetData', 'Format']
       })
     }

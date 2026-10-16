@@ -51,9 +51,9 @@ describe('validateCmrCollectionUmm', () => {
       shortName: 'modis',
       scheme: 'instruments'
     })
-    const granuleDataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
+    const dataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
       shortName: 'netcdf-4',
-      scheme: 'granuledataformat'
+      scheme: 'dataformat'
     })
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
@@ -82,7 +82,7 @@ describe('validateCmrCollectionUmm', () => {
         })
       }
 
-      if (cacheKey === granuleDataFormatKey) {
+      if (cacheKey === dataFormatKey) {
         return createCachedResponse({
           uuid: 'data-format-uuid',
           keywordObject: {
@@ -353,14 +353,14 @@ describe('validateCmrCollectionUmm', () => {
     )
   })
 
-  test('should normalize granule data format lookups to the shared dataformat cache namespace', async () => {
-    const granuleDataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
+  test('should produce the dataformat Redis cache key for Related URL formats', async () => {
+    const dataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
       shortName: 'hdf5',
-      scheme: 'granuledataformat'
+      scheme: 'dataformat'
     })
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
-      if (cacheKey === granuleDataFormatKey) {
+      if (cacheKey === dataFormatKey) {
         return createCachedResponse({
           uuid: 'data-format-uuid',
           keywordObject: {

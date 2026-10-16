@@ -3158,6 +3158,96 @@ describe('when applying DataFormat UMM-C corrections', () => {
     // Verify the path that did not match the oldKeywordObject remains unchanged
     expect(parsed.ArchiveAndDistributionInformation.FileDistributionInformation[0].Format).toBe('ZARR')
   })
+
+  test('should replace only the Related URL format identified by the UMM path', async () => {
+    const metadataPayload = {
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Format: 'COG',
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    }
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'dataformat',
+        action: 'replace',
+        oldKeywordObject: {
+          ShortName: 'COG'
+        },
+        newKeywordObject: {
+          ShortName: 'COG_CHANGED'
+        },
+        ummPath: ['RelatedUrls', 0, 'GetData', 'Format']
+      }]
+    })
+
+    expect(JSON.parse(result.correctedMetadata)).toEqual({
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Format: 'COG_CHANGED',
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    })
+  })
+
+  test('should delete only the Related URL format identified by the UMM path', async () => {
+    const metadataPayload = {
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Format: 'COG',
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    }
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'dataformat',
+        action: 'delete',
+        oldKeywordObject: {
+          ShortName: 'COG'
+        },
+        ummPath: ['RelatedUrls', 0, 'GetData', 'Format']
+      }]
+    })
+
+    expect(JSON.parse(result.correctedMetadata)).toEqual({
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    })
+  })
 })
 
 describe('when verifying edge cases', () => {

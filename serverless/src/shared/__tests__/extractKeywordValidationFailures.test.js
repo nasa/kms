@@ -357,7 +357,7 @@ describe('extractKeywordValidationFailures', () => {
         keywordValue: 'netCDF-4'
       },
       {
-        scheme: 'GranuleDataFormat',
+        scheme: 'DataFormat',
         path: ['RelatedUrls', 0, 'GetData', 'Format'],
         errors: ['Format [xml] was not a valid keyword.'],
         oldKeyword: 'xml',

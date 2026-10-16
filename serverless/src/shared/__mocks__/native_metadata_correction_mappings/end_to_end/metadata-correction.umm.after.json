@@ -58,7 +58,10 @@
       "URLContentType": "DistributionURL",
       "Type": "GET DATA",
       "Subtype": "VIRTUAL COLLECTION_CHANGED",
-      "URL": "https://example.earthdata.nasa.gov/data"
+      "URL": "https://example.earthdata.nasa.gov/data",
+      "GetData": {
+        "Format": "COG_CHANGED"
+      }
     }
   ],
   "DirectoryNames": [
