@@ -1,4 +1,5 @@
 import { cmrPutRequest } from './cmrPutRequest'
+import { isWritebackEnabledForProvider } from './cmrWritebackProviders'
 import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
@@ -51,44 +52,6 @@ const serializeCorrectedMetadata = (correctedMetadata) => (
     ? correctedMetadata
     : JSON.stringify(correctedMetadata ?? '')
 )
-
-/**
- * Normalizes provider identifiers for rollout gating and comparisons.
- *
- * @param {string} [providerId=''] Provider identifier from CMR metadata.
- * @returns {string} Trimmed upper-cased provider id.
- */
-const normalizeProviderId = (providerId) => String(providerId ?? '').trim().toUpperCase()
-
-/**
- * Parses the rollout allowlist that controls which providers can write back to CMR.
- *
- * @returns {string[]} Normalized provider ids from `CMR_WRITEBACK_PROVIDERS`.
- */
-const parseEnabledWritebackProviders = () => String(process.env.CMR_WRITEBACK_PROVIDERS || '')
-  .split(',')
-  .map((providerId) => normalizeProviderId(providerId))
-  .filter(Boolean)
-
-/**
- * True when CMR writeback is enabled for the supplied provider id.
- *
- * @param {string} providerId Provider identifier from collection metadata.
- * @returns {boolean} `true` when writeback is enabled for the provider.
- */
-const isWritebackEnabledForProvider = (providerId) => {
-  const enabledProviders = parseEnabledWritebackProviders()
-
-  if (enabledProviders.length === 0) {
-    return false
-  }
-
-  if (enabledProviders.includes('ALL')) {
-    return true
-  }
-
-  return enabledProviders.includes(normalizeProviderId(providerId))
-}
 
 const UMM_JSON_MEDIA_TYPE = 'application/vnd.nasa.cmr.umm+json'
 
