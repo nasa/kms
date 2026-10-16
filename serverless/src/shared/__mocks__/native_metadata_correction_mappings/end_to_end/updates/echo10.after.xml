@@ -259,8 +259,8 @@
     </ScienceKeywords>
     <Platforms>
         <Platform>
-            <ShortName>Terra_CHANGED</ShortName>
-            <LongName>Earth Observing System, Terra (AM-1)_CHANGED</LongName>
+            <ShortName>Terra</ShortName>
+            <LongName>Earth Observing System, Terra (AM-1)</LongName>
             <Type>Earth Observation Satellites</Type>
             <Characteristics>
                 <Characteristic>
@@ -330,8 +330,8 @@
             <LongName>International Space Station</LongName>
             <Type>Space Stations/Crewed Spacecraft</Type>
         </Platform><Platform>
-            <ShortName>Terra_SHOULD_DELETE</ShortName>
-            <LongName>Earth Observing System, Terra (AM-1)_SHOULD_DELETE</LongName>
+            <ShortName>Terra_SHOULD_PRESERVE</ShortName>
+            <LongName>Earth Observing System, Terra (AM-1)_SHOULD_PRESERVE</LongName>
             <Type>Earth Observation Satellites</Type>
             <Characteristics>
                 <Characteristic>

@@ -26,23 +26,6 @@
       }
     },
     {
-      "scheme": "platforms",
-      "action": "replace",
-      "newLongName": "Earth Observing System, Terra (AM-1)_CHANGED",
-      "oldKeywordObject": {
-        "Basis": "Space-based Platforms",
-        "Category": "Earth Observation Satellites",
-        "SubCategory": "",
-        "ShortName": "Terra"
-      },
-      "newKeywordObject": {
-        "Basis": "Space-based Platforms",
-        "Category": "Earth Observation Satellites",
-        "SubCategory": "",
-        "ShortName": "Terra_CHANGED"
-      }
-    },
-    {
       "scheme": "instruments",
       "action": "replace",
       "oldKeywordObject": {

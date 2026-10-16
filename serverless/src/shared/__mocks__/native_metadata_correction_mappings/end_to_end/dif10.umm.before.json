@@ -1,0 +1,85 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "OCEANS",
+      "Term": "MARINE SEDIMENTS"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "POLAR"
+    }
+  ],
+  "PaleoTemporalCoverages": [
+    {
+      "ChronostratigraphicUnits": [
+        {
+          "Eon": "PHANEROZOIC",
+          "Era": "CENOZOIC",
+          "Period": "QUATERNARY",
+          "Epoch": "HOLOCENE"
+        }
+      ]
+    }
+  ],
+  "Platforms": [
+    {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "SPOT-4",
+      "LongName": "Systeme Observation de la Terre-4",
+      "Instruments": [
+        {
+          "ShortName": "SEISMIC REFLECTION PROFILERS"
+        }
+      ]
+    },
+    {
+      "Type": "Aircraft",
+      "ShortName": "NASA S-3B VIKING",
+      "Instruments": [
+        {
+          "ShortName": "TSX-1",
+          "LongName": "Synthetic Aperture Radar"
+        }
+      ]
+    }
+  ],
+  "Projects": [
+    {
+      "ShortName": "ALIENS",
+      "LongName": "Aliens in Antarctica"
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "NZ/NZAI/ANZ",
+      "LongName": "Antarctica New Zealand, New Zealand Antarctic Institute, New Zealand",
+      "Roles": [
+        "ARCHIVER"
+      ]
+    }
+  ],
+  "RelatedUrls": [
+    {
+      "URLContentType": "DistributionURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "OpenSearch",
+      "URL": "http://www.victoria.ac.nz/antarctic/"
+    }
+  ],
+  "DirectoryNames": [
+    {
+      "ShortName": "AMD/NZ"
+    }
+  ],
+  "ISOTopicCategories": [
+    "GEOSCIENTIFIC INFORMATION"
+  ],
+  "ProcessingLevel": {
+    "Id": "NA"
+  },
+  "ShortName": "PRESERVATION_TEST",
+  "Version": "001"
+}

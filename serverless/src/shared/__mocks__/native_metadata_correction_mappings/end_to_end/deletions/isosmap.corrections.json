@@ -17,16 +17,6 @@
       }
     },
     {
-      "scheme": "platforms",
-      "action": "delete",
-      "oldKeywordObject": {
-        "Basis": "",
-        "Category": "",
-        "SubCategory": "",
-        "ShortName": "TERRA_SHOULD_DELETE"
-      }
-    },
-    {
       "scheme": "instruments",
       "action": "delete",
       "oldKeywordObject": {
@@ -70,14 +60,6 @@
         "LocationSubregion2": "ALBERTA_SHOULD_DELETE",
         "LocationSubregion3": "",
         "LocationSubregion4": ""
-      }
-    },
-    {
-      "scheme": "projects",
-      "action": "delete",
-      "oldKeywordObject": {
-        "Bucket": "",
-        "ShortName": "MEASURES_SHOULD_DELETE"
       }
     },
     {

@@ -1,0 +1,50 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "AEROSOLS"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA"
+    }
+  ],
+  "Platforms": [
+    {
+      "ShortName": "AQUA",
+      "Instruments": [
+        {
+          "ShortName": "MODIS"
+        }
+      ]
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "SMAP_PROVIDER"
+    },
+    {
+      "ShortName": "SMAP_PROVIDER"
+    }
+  ],
+  "ISOTopicCategories": [
+    "climatology"
+  ],
+  "ProcessingLevel": {
+    "Id": "3"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "HDF5"
+      }
+    ]
+  },
+  "ShortName": "ISO_SMAP_CORRECTION_TEST",
+  "Version": "001"
+}

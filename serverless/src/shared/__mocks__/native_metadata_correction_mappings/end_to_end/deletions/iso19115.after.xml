@@ -142,7 +142,9 @@
           <gmd:keyword>
             <gco:CharacterString>AQUA &gt; Earth Observing System</gco:CharacterString>
           </gmd:keyword>
-          <gmd:type>
+          <gmd:keyword>
+            <gco:CharacterString>TERRA_SHOULD_PRESERVE &gt; Earth Observing System, TERRA (AM-1)_SHOULD_PRESERVE</gco:CharacterString>
+          </gmd:keyword><gmd:type>
             <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="platform">platform</gmd:MD_KeywordTypeCode>
           </gmd:type>
           <gmd:thesaurusName>
@@ -202,7 +204,9 @@
           <gmd:keyword>
             <gco:CharacterString>MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula</gco:CharacterString>
           </gmd:keyword>
-          <gmd:type>
+          <gmd:keyword>
+            <gco:CharacterString>MEASURES_SHOULD_PRESERVE &gt; Making Earth System Data Records for Use in Research Environments_SHOULD_PRESERVE</gco:CharacterString>
+          </gmd:keyword><gmd:type>
             <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="project">project</gmd:MD_KeywordTypeCode>
           </gmd:type>
           <gmd:thesaurusName>
@@ -337,6 +341,33 @@
           </gmi:instrument>
           
         </gmi:MI_Platform>
+      </gmi:platform><gmi:platform>
+        <gmi:MI_Platform>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>TERRA_SHOULD_PRESERVE</gco:CharacterString>
+              </gmd:code>
+              <gmd:description>
+                <gco:CharacterString>Earth Observing System, TERRA (AM-1)_SHOULD_PRESERVE</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+          <gmi:instrument>
+            <gmi:MI_Instrument>
+              <gmi:identifier>
+                <gmd:MD_Identifier>
+                  <gmd:code>
+                    <gco:CharacterString>ATLAS</gco:CharacterString>
+                  </gmd:code>
+                  <gmd:description>
+                    <gco:CharacterString>Advanced Topographic Laser Altimeter System</gco:CharacterString>
+                  </gmd:description>
+                </gmd:MD_Identifier>
+              </gmi:identifier>
+            </gmi:MI_Instrument>
+          </gmi:instrument>
+        </gmi:MI_Platform>
       </gmi:platform>
       <gmi:operation>
         <gmi:MI_Operation>
@@ -350,6 +381,22 @@
               </gmd:codeSpace>
               <gmd:description>
                 <gco:CharacterString>Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+              </gmd:description>
+            </gmd:MD_Identifier>
+          </gmi:identifier>
+        </gmi:MI_Operation>
+      </gmi:operation><gmi:operation>
+        <gmi:MI_Operation>
+          <gmi:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>MEASURES_SHOULD_PRESERVE &gt; Making Earth System Data Records for Use in Research Environments_SHOULD_PRESERVE</gco:CharacterString>
+              </gmd:code>
+              <gmd:codeSpace>
+                <gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString>
+              </gmd:codeSpace>
+              <gmd:description>
+                <gco:CharacterString>Making Earth System Data Records for Use in Research Environments_SHOULD_PRESERVE</gco:CharacterString>
               </gmd:description>
             </gmd:MD_Identifier>
           </gmi:identifier>

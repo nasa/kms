@@ -1,0 +1,53 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "AEROSOLS"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA"
+    }
+  ],
+  "Platforms": [
+    {
+      "ShortName": "AQUA",
+      "Instruments": [
+        {
+          "ShortName": "MODIS"
+        },
+        {
+          "ShortName": "ATLAS"
+        }
+      ]
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "DOC/NOAA/NESDIS/NCEI",
+      "Roles": [
+        "ARCHIVER"
+      ]
+    }
+  ],
+  "ISOTopicCategories": [
+    "FARMING"
+  ],
+  "ProcessingLevel": {
+    "Id": "3"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "HDF5"
+      }
+    ]
+  },
+  "ShortName": "ISO19115_CORRECTION_TEST",
+  "Version": "001"
+}

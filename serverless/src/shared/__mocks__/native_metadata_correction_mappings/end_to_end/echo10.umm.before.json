@@ -1,0 +1,66 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "TERRESTRIAL HYDROSPHERE",
+      "Term": "SNOW/ICE",
+      "VariableLevel1": "SNOW WATER EQUIVALENT",
+      "VariableLevel2": "SNOW ICE TEST",
+      "VariableLevel3": "WATER ICE TEST",
+      "DetailedVariable": "RAIN"
+    }
+  ],
+  "Platforms": [
+    {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "Terra_SHOULD_PRESERVE",
+      "LongName": "Earth Observing System, Terra (AM-1)_SHOULD_PRESERVE",
+      "Instruments": [
+        {
+          "ShortName": "AMSR-E",
+          "LongName": "Advanced Microwave Scanning Radiometer-EOS"
+        }
+      ]
+    }
+  ],
+  "Projects": [
+    {
+      "ShortName": "AMSRICE06",
+      "LongName": "Advanced Microwave Scanning Radiometer Sea Ice Product Validation"
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "NASA/MSFC/AMSR-E SIPS",
+      "Roles": [
+        "PROCESSOR"
+      ]
+    },
+    {
+      "ShortName": "NSIDC",
+      "Roles": [
+        "ARCHIVER"
+      ]
+    }
+  ],
+  "RelatedUrls": [
+    {
+      "URLContentType": "PublicationURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "",
+      "URL": "https://example.earthdata.nasa.gov/documentation"
+    }
+  ],
+  "ProcessingLevel": {
+    "Id": "3"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "netCDF-4"
+      }
+    ]
+  },
+  "ShortName": "ECHO10_CORRECTION_TEST",
+  "Version": "001"
+}
