@@ -65,7 +65,6 @@ const getValueAtPath = (source, path) => path.reduce(
  * - `rucontenttype` extracts only `URLContentType`, `Type`, and `Subtype`
  * - `ProductLevelId` extracts `ProcessingLevel.Id`
  * - `DataFormat` and `GranuleDataFormat` collapse to the format string
- * - `isotopiccategory` maps the validation path to UMM-C's `ISOTopicCategories`
  *
  * This helper deliberately stops at extraction. Later steps decide whether the extracted value
  * should be interpreted as a full-path lookup, a short-name lookup, or a placeholder used during
@@ -88,12 +87,13 @@ export const extractKeywordValue = ({
   switch (normalizedScheme) {
     case 'locations':
       return {
-        LocationCategory: rawValue?.Category,
-        LocationType: rawValue?.Type,
-        LocationSubregion1: rawValue?.Subregion1,
-        LocationSubregion2: rawValue?.Subregion2,
-        LocationSubregion3: rawValue?.Subregion3,
-        LocationSubregion4: rawValue?.DetailedLocation
+        LocationCategory: rawValue?.Category ?? '',
+        LocationType: rawValue?.Type ?? '',
+        LocationSubregion1: rawValue?.Subregion1 ?? '',
+        LocationSubregion2: rawValue?.Subregion2 ?? '',
+        LocationSubregion3: rawValue?.Subregion3 ?? '',
+        // DetailedLocation is uncontrolled UMM-C text, not the sixth KMS hierarchy level.
+        LocationSubregion4: ''
       }
     case 'chronounits':
       return {

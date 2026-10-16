@@ -442,17 +442,18 @@ describe('when correcting UMM-C metadata', () => {
       LocationKeywords: [
         {
           Category: 'GEOGRAPHIC REGION',
-          Type: 'WESTERN HEMISPHERE'
+          Type: 'WESTERN HEMISPHERE',
+          DetailedLocation: 'Uncontrolled location description'
         }
       ]
     }
     const oldKeywordObject = {
       LocationCategory: 'GEOGRAPHIC REGION',
       LocationType: 'WESTERN HEMISPHERE',
-      LocationSubregion1: undefined,
-      LocationSubregion2: undefined,
-      LocationSubregion3: undefined,
-      LocationSubregion4: undefined
+      LocationSubregion1: '',
+      LocationSubregion2: '',
+      LocationSubregion3: '',
+      LocationSubregion4: ''
     }
     const newKeywordObject = {
       LocationCategory: 'GEOGRAPHIC REGION',
@@ -517,7 +518,8 @@ describe('when correcting UMM-C metadata', () => {
     expect(correctedMetadata.LocationKeywords).toEqual([
       {
         Category: 'GEOGRAPHIC REGION',
-        Type: 'TEST WESTERN HEMISPHERE'
+        Type: 'TEST WESTERN HEMISPHERE',
+        DetailedLocation: 'Uncontrolled location description'
       }
     ])
   })

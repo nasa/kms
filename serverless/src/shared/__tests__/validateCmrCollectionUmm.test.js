@@ -26,6 +26,10 @@ const createCachedResponse = (body) => ({
   body: JSON.stringify(body)
 })
 
+const createExpectedPublishedFullPathKey = ({ scheme, fullPath }) => (
+  `kms:${scheme}:published_concept:full_path:${encodeURIComponent(fullPath.toLowerCase())}`
+)
+
 describe('when validating collection UMM-C against the published Redis cache', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -370,7 +374,10 @@ describe('when validating collection UMM-C against the published Redis cache', (
   })
 
   test('should produce the correct Redis cache key for locations', async () => {
-    const locationKey = 'kms:locations:published_concept:full_path:geographic%20region%20%3E%20western%20hemisphere%20%3E%20%20%3E%20%20%3E%20%20%3E%20'
+    const locationKey = createExpectedPublishedFullPathKey({
+      scheme: 'locations',
+      fullPath: ['GEOGRAPHIC REGION', 'WESTERN HEMISPHERE', '', '', '', ''].join(' > ')
+    })
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
       if (cacheKey === locationKey) {
@@ -388,7 +395,8 @@ describe('when validating collection UMM-C against the published Redis cache', (
         LocationKeywords: [
           {
             Category: 'GEOGRAPHIC REGION',
-            Type: 'WESTERN HEMISPHERE'
+            Type: 'WESTERN HEMISPHERE',
+            DetailedLocation: 'Uncontrolled location description'
           }
         ]
       }
@@ -445,7 +453,10 @@ describe('when validating collection UMM-C against the published Redis cache', (
   })
 
   test('should reject an ISO Topic Category when only its casing differs from the published value', async () => {
-    const isoTopicCategoryKey = 'kms:isotopiccategory:published_concept:full_path:climatology%2Fmeteorology%2Fatmosphere'
+    const isoTopicCategoryKey = createExpectedPublishedFullPathKey({
+      scheme: 'isotopiccategory',
+      fullPath: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
+    })
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
       if (cacheKey === isoTopicCategoryKey) {

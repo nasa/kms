@@ -7,7 +7,7 @@ import {
 import { extractKeywordValue } from '../extractKeywordValue'
 
 describe('extractKeywordValue', () => {
-  test('should normalize locations from UMM-C field names to KMS field names', () => {
+  test('should normalize controlled UMM-C location fields without mapping DetailedLocation', () => {
     expect(extractKeywordValue({
       scheme: 'locations',
       path: ['LocationKeywords', 0],
@@ -29,7 +29,7 @@ describe('extractKeywordValue', () => {
       LocationSubregion1: 'CANADA',
       LocationSubregion2: 'ALBERTA',
       LocationSubregion3: 'CALGARY',
-      LocationSubregion4: 'DOWNTOWN'
+      LocationSubregion4: ''
     })
   })
 
