@@ -522,7 +522,7 @@ describe('when running the metadata correction workflow end to end', () => {
               nativeId: dif10NativeId,
               revisionId: 1,
               format: 'application/dif10+xml',
-              umm: readJsonFixture('dif10.umm.before.json')
+              umm: readJsonFixture('dif10.validation.umm.json')
             })
 
             vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue(
@@ -563,7 +563,7 @@ describe('when running the metadata correction workflow end to end', () => {
               nativeId: echo10NativeId,
               revisionId: 1,
               format: 'application/echo10+xml',
-              umm: readJsonFixture('echo10.umm.before.json')
+              umm: readJsonFixture('echo10.validation.umm.json')
             })
 
             vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue(
@@ -614,7 +614,7 @@ describe('when running the metadata correction workflow end to end', () => {
               nativeId: iso19115NativeId,
               revisionId: 1,
               format: 'application/iso19115+xml',
-              umm: readJsonFixture('iso19115.umm.before.json')
+              umm: readJsonFixture('iso19115.validation.umm.json')
             })
 
             vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue(
@@ -658,7 +658,7 @@ describe('when running the metadata correction workflow end to end', () => {
               nativeId: isoSmapNativeId,
               revisionId: 1,
               format: 'application/iso:smap+xml',
-              umm: readJsonFixture('isosmap.umm.before.json')
+              umm: readJsonFixture('isosmap.validation.umm.json')
             })
 
             vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue(
