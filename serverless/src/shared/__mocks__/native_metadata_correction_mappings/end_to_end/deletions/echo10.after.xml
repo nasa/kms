@@ -298,13 +298,8 @@
             </Instruments>
         </Platform>
         <Platform>
-            <ShortName>LANDSAT-9</ShortName>
-            <LongName>LANDSAT-9</LongName>
-            <Type>Earth Observation Satellites</Type>
-        </Platform>
-        <Platform>
-            <ShortName>LANDSAT-8</ShortName>
-            <LongName>LANDSAT-8</LongName>
+            <ShortName>SPOT-4</ShortName>
+            <LongName>Systeme Probatoire d'Observation de la Terre-4</LongName>
             <Type>Earth Observation Satellites</Type>
         </Platform>
         <Platform>

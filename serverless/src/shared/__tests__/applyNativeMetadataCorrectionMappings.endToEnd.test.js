@@ -710,6 +710,7 @@ describe('when running the metadata correction workflow end to end', () => {
             metadataPayload: readJsonFixture('ummc.before.json')
           })
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(result.correctedMetadata).toBe(
             JSON.stringify(readJsonFixture('updates/ummc.after.json'), null, 2)
           )
@@ -728,6 +729,7 @@ describe('when running the metadata correction workflow end to end', () => {
             metadataPayload: readJsonFixture('deletions/ummc.before.json')
           })
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(result.correctedMetadata).toBe(
             JSON.stringify(readJsonFixture('deletions/ummc.after.json'), null, 2)
           )
@@ -752,6 +754,7 @@ describe('when running the metadata correction workflow end to end', () => {
           const expectedMetadata = readFixture('updates/dif10.after.xml')
             .trimEnd()
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -772,6 +775,7 @@ describe('when running the metadata correction workflow end to end', () => {
           const expectedMetadata = readFixture('deletions/dif10.after.xml')
             .trimEnd()
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -794,6 +798,7 @@ describe('when running the metadata correction workflow end to end', () => {
           const expectedMetadata = readFixture('updates/echo10.after.xml')
             .trimEnd()
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -809,14 +814,15 @@ describe('when running the metadata correction workflow end to end', () => {
             corrections: correctionRequest.corrections,
             metadataPayload: readFixture('echo10.before.xml')
           })
-          // ECHO10 deletion changes indentation on whitespace-only XML lines.
+          // Deleting XML nodes can leave indentation-only lines behind.
           const correctedMetadata = result.correctedMetadata
             .trimEnd()
-            .replace(/^[\t ]+$/gm, '')
+            .replace(/^[\t ]*$(?:\r?\n)?/gm, '')
           const expectedMetadata = readFixture('deletions/echo10.after.xml')
             .trimEnd()
-            .replace(/^[\t ]+$/gm, '')
+            .replace(/^[\t ]*$(?:\r?\n)?/gm, '')
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -839,6 +845,7 @@ describe('when running the metadata correction workflow end to end', () => {
           const expectedMetadata = readFixture('updates/iso19115.after.xml')
             .trimEnd()
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -856,9 +863,12 @@ describe('when running the metadata correction workflow end to end', () => {
           })
           const correctedMetadata = result.correctedMetadata
             .trimEnd()
+            .replace(/^[\t ]*$(?:\r?\n)?/gm, '')
           const expectedMetadata = readFixture('deletions/iso19115.after.xml')
             .trimEnd()
+            .replace(/^[\t ]*$(?:\r?\n)?/gm, '')
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -881,6 +891,7 @@ describe('when running the metadata correction workflow end to end', () => {
           const expectedMetadata = readFixture('updates/isosmap.after.xml')
             .trimEnd()
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })
@@ -898,9 +909,12 @@ describe('when running the metadata correction workflow end to end', () => {
           })
           const correctedMetadata = result.correctedMetadata
             .trimEnd()
+            .replace(/^[\t ]*$(?:\r?\n)?/gm, '')
           const expectedMetadata = readFixture('deletions/isosmap.after.xml')
             .trimEnd()
+            .replace(/^[\t ]*$(?:\r?\n)?/gm, '')
 
+          expect(result.correctionCount).toBe(correctionRequest.corrections.length)
           expect(correctedMetadata).toBe(expectedMetadata)
         })
       })

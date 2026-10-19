@@ -26,6 +26,23 @@
       }
     },
     {
+      "scheme": "platforms",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
+        "ShortName": "SPOT-4"
+      },
+      "newKeywordObject": {
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
+        "ShortName": "SPOT-4_CHANGED"
+      },
+      "newLongName": "Systeme Probatoire d'Observation de la Terre-4_CHANGED"
+    },
+    {
       "scheme": "instruments",
       "action": "replace",
       "oldKeywordObject": {

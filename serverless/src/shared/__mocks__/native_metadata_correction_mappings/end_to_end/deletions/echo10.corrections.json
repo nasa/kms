@@ -28,6 +28,16 @@
       }
     },
     {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
+        "ShortName": "SPOT-4_SHOULD_DELETE"
+      }
+    },
+    {
       "scheme": "projects",
       "action": "delete",
       "oldKeywordObject": {

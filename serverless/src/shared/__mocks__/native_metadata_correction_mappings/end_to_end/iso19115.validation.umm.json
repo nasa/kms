@@ -27,6 +27,12 @@
       ]
     }
   ],
+  "Projects": [
+    {
+      "ShortName": "CASERTZ",
+      "LongName": "Corridor Aerogeophysics of the SouthEastern Ross Transect Zone"
+    }
+  ],
   "DataCenters": [
     {
       "ShortName": "DOC/NOAA/NESDIS/NCEI",

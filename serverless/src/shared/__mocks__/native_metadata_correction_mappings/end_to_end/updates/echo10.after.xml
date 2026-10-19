@@ -316,13 +316,13 @@
             </Instruments>
         </Platform>
         <Platform>
-            <ShortName>LANDSAT-9</ShortName>
-            <LongName>LANDSAT-9</LongName>
+            <ShortName>SPOT-4_CHANGED</ShortName>
+            <LongName>Systeme Probatoire d'Observation de la Terre-4_CHANGED</LongName>
             <Type>Earth Observation Satellites</Type>
         </Platform>
         <Platform>
-            <ShortName>LANDSAT-8</ShortName>
-            <LongName>LANDSAT-8</LongName>
+            <ShortName>SPOT-4_SHOULD_DELETE</ShortName>
+            <LongName>Systeme Probatoire d'Observation de la Terre-4_SHOULD_DELETE</LongName>
             <Type>Earth Observation Satellites</Type>
         </Platform>
         <Platform>

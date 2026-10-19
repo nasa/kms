@@ -63,6 +63,19 @@
       "newLongName": "Earth Observing System_CHANGED"
     },
     {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED",
+      "oldKeywordObject": {
+        "Bucket": "A - C",
+        "ShortName": "CASERTZ"
+      },
+      "newKeywordObject": {
+        "Bucket": "A - C",
+        "ShortName": "CASERTZ_CHANGED"
+      }
+    },
+    {
       "scheme": "instruments",
       "action": "replace",
       "oldKeywordObject": {

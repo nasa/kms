@@ -38,6 +38,14 @@
       }
     },
     {
+      "scheme": "projects",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Bucket": "A - C",
+        "ShortName": "CASERTZ"
+      }
+    },
+    {
       "scheme": "sciencekeywords",
       "action": "delete",
       "oldKeywordObject": {
