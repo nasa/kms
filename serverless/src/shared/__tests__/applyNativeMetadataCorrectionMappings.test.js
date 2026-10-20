@@ -16,6 +16,7 @@ import { applyIsoSmapMetadataCorrections } from '../applyIsoSmapMetadataCorrecti
 import { applyUmmcMetadataCorrections } from '../applyUmmcMetadataCorrections'
 import { DIF10_SCHEME_EDITORS } from '../dif10DomEditor'
 import { ECHO10_SCHEME_EDITORS } from '../echo10DomEditor'
+import { extractKeywordValue } from '../extractKeywordValue'
 import { ISO_19115_SCHEME_EDITORS } from '../Iso19115DomEditor'
 import { getHistoricalConceptByKeyword } from '../redis-path-store/getHistoricalConceptByKeyword'
 import { getPublishedConceptByUuid } from '../redis-path-store/getPublishedConceptByUuid'
@@ -432,6 +433,97 @@ describe('when publishing short-name keyword changes', () => {
 })
 
 describe('when correcting UMM-C metadata', () => {
+  // KMS-722: Normalize UMM-C Location fields before metadata-correction lookup.
+  test('resolves a historical Location path and applies its published replacement', async () => {
+    const locationUuid = 'a29a6a2b-e0e5-4ba9-9768-df67db4f34a6'
+    const metadataPayload = {
+      ShortName: 'LOCATION_TEST',
+      Version: '001',
+      LocationKeywords: [
+        {
+          Category: 'GEOGRAPHIC REGION',
+          Type: 'WESTERN HEMISPHERE',
+          DetailedLocation: 'Uncontrolled location description'
+        }
+      ]
+    }
+    const oldKeywordObject = {
+      LocationCategory: 'GEOGRAPHIC REGION',
+      LocationType: 'WESTERN HEMISPHERE',
+      LocationSubregion1: '',
+      LocationSubregion2: '',
+      LocationSubregion3: '',
+      LocationSubregion4: ''
+    }
+    const newKeywordObject = {
+      LocationCategory: 'GEOGRAPHIC REGION',
+      LocationType: 'TEST WESTERN HEMISPHERE',
+      LocationSubregion1: '',
+      LocationSubregion2: '',
+      LocationSubregion3: '',
+      LocationSubregion4: ''
+    }
+    const keywordValue = extractKeywordValue({
+      scheme: 'locations',
+      path: ['LocationKeywords', 0],
+      umm: metadataPayload
+    })
+
+    expect(keywordValue).toEqual(oldKeywordObject)
+
+    vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
+      uuid: locationUuid,
+      keywordObject: oldKeywordObject
+    })
+
+    vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
+      uuid: locationUuid,
+      keywordObject: newKeywordObject
+    })
+
+    const correction = await resolveOldKeywordConceptUuid({
+      scheme: 'locations',
+      keywordValue
+    })
+
+    expect(getHistoricalConceptByKeyword).toHaveBeenCalledWith({
+      scheme: 'locations',
+      keywordValue: oldKeywordObject
+    })
+
+    expect(getPublishedConceptByUuid).toHaveBeenCalledWith({
+      scheme: 'locations',
+      uuid: locationUuid
+    })
+
+    expect(correction).toEqual({
+      action: 'replace',
+      keywordConceptUuid: locationUuid,
+      oldKeywordObject,
+      newKeywordObject,
+      oldKeywordPath: 'GEOGRAPHIC REGION > WESTERN HEMISPHERE >  >  >  > ',
+      newKeywordPath: 'GEOGRAPHIC REGION > TEST WESTERN HEMISPHERE >  >  >  > '
+    })
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'locations',
+        ...correction
+      }]
+    })
+    const correctedMetadata = JSON.parse(result.correctedMetadata)
+
+    expect(result.correctionCount).toBe(1)
+    expect(correctedMetadata.LocationKeywords).toEqual([
+      {
+        Category: 'GEOGRAPHIC REGION',
+        Type: 'TEST WESTERN HEMISPHERE',
+        DetailedLocation: 'Uncontrolled location description'
+      }
+    ])
+  })
+
   test('matches corrections generated from published and draft CSV', async () => {
     await verifyGeneratedCorrections({
       name: 'ummc',
