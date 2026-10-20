@@ -48,6 +48,7 @@ const SHORT_NAME_FALLBACK_KEYWORD_OBJECT_LOG = JSON.stringify(SHORT_NAME_FALLBAC
 
 vi.mock('@/shared/logger', () => ({
   logger: {
+    debug: vi.fn(),
     info: vi.fn(),
     error: vi.fn()
   }
@@ -68,6 +69,7 @@ vi.mock('@/shared/persistMetadataCorrectionNoOpAuditLog', () => ({
 describe('when the CMR keyword events processor is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
     vi.mocked(getCmrCollectionConceptIds).mockResolvedValue([
       'C1000000000-PROV',
       'C2000000000-PROV'
@@ -687,6 +689,74 @@ describe('when the CMR keyword events processor is invoked', () => {
 
         expect(logger.error).toHaveBeenCalled()
         expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
+      })
+    })
+  })
+
+  describe('when a discovered collection concept id belongs to a provider that is not enabled', () => {
+    test('skips publishing it and logs a debug message, while still publishing for enabled providers', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'PROV'
+      vi.mocked(getCmrCollectionConceptIds).mockResolvedValue([
+        'C1000000000-PROV',
+        'C2000000000-OTHER'
+      ])
+
+      const result = await cmrKeywordEventsListener({
+        Records: [
+          {
+            messageId: 'message-123',
+            body: JSON.stringify({
+              Type: 'Notification',
+              Message: JSON.stringify({
+                EventType: 'UPDATED',
+                Scheme: 'sciencekeywords',
+                UUID: '1234',
+                VersionName: '20.1'
+              })
+            })
+          }
+        ]
+      })
+
+      expect(publishMetadataCorrectionRequest).toHaveBeenCalledTimes(1)
+      expect(publishMetadataCorrectionRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ collectionConceptId: 'C1000000000-PROV' })
+      )
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('collectionConceptId=C2000000000-OTHER providerId=OTHER')
+      )
+
+      expect(result).toEqual({
+        batchItemFailures: []
+      })
+    })
+
+    test('drops the event entirely when no discovered collection belongs to an enabled provider', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'OTHER'
+
+      const result = await cmrKeywordEventsListener({
+        Records: [
+          {
+            messageId: 'message-123',
+            body: JSON.stringify({
+              Type: 'Notification',
+              Message: JSON.stringify({
+                EventType: 'UPDATED',
+                Scheme: 'sciencekeywords',
+                UUID: '1234'
+              })
+            })
+          }
+        ]
+      })
+
+      expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+      // Collections were found for the keyword, so this is not the "no collections found"
+      // no-op case -- it's dropped purely because neither provider is enabled.
+      expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        batchItemFailures: []
       })
     })
   })

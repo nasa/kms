@@ -37,6 +37,7 @@ vi.mock('@/shared/logger', () => ({
 describe('getMetadataCorrectionAudit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    delete process.env.CMR_WRITEBACK_PROVIDERS
   })
 
   test('returns audit documents as json', async () => {
@@ -96,7 +97,8 @@ describe('getMetadataCorrectionAudit', () => {
           }]
         }
       ],
-      nextPaginationToken: null
+      nextPaginationToken: null,
+      enabledProviders: []
     })
   })
 
@@ -438,5 +440,52 @@ describe('getMetadataCorrectionAudit', () => {
     })
 
     expect(result.statusCode).toBe(400)
+  })
+
+  describe('when reporting which providers the fixer service is enabled for', () => {
+    test('includes the enabled providers in the json list response', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'ARCTEST,KMS'
+      vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+        items: [],
+        nextPaginationToken: null
+      })
+
+      const result = await getMetadataCorrectionAudit({ queryStringParameters: {} })
+
+      expect(JSON.parse(result.body)).toMatchObject({
+        enabledProviders: ['ARCTEST', 'KMS']
+      })
+    })
+
+    test('renders the disclaimer naming the enabled providers on the html list page', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'ARCTEST,KMS'
+      vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+        items: [],
+        nextPaginationToken: null
+      })
+
+      const result = await getMetadataCorrectionAudit({
+        queryStringParameters: { format: 'html' }
+      })
+
+      expect(result.body).toContain(
+        'KMS fixer service enabled only for the following providers: ARCTEST, KMS'
+      )
+    })
+
+    test('renders the disclaimer as disabled when no providers are configured', async () => {
+      vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+        items: [],
+        nextPaginationToken: null
+      })
+
+      const result = await getMetadataCorrectionAudit({
+        queryStringParameters: { format: 'html' }
+      })
+
+      expect(result.body).toContain(
+        'KMS fixer service enabled only for the following providers: none'
+      )
+    })
   })
 })

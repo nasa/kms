@@ -1,3 +1,4 @@
+import { parseEnabledWritebackProviders } from '@/shared/cmrWritebackProviders'
 import { getApplicationConfig } from '@/shared/getConfig'
 import {
   getMetadataCorrectionAuditByRunId,
@@ -99,6 +100,7 @@ const resolveAuditRoute = (event = {}) => {
  *
  * @param {Object} params Detail response parameters.
  * @param {Object} params.defaultResponseHeaders Shared API response headers.
+ * @param {string[]} params.enabledProviders Providers the fixer service is enabled for.
  * @param {unknown} params.includeDiff Whether to include the native metadata diff.
  * @param {'json'|'html'} params.responseFormat Requested representation.
  * @param {string} params.runId Audit run identifier.
@@ -106,6 +108,7 @@ const resolveAuditRoute = (event = {}) => {
  */
 const getAuditDetailResponse = async ({
   defaultResponseHeaders,
+  enabledProviders,
   includeDiff,
   responseFormat,
   runId
@@ -124,6 +127,7 @@ const getAuditDetailResponse = async ({
       },
       body: renderMetadataCorrectionAuditHtml({
         detail: true,
+        enabledProviders,
         items: auditDocument ? [auditDocument] : [],
         message: auditDocument
           ? undefined
@@ -152,6 +156,7 @@ const getAuditDetailResponse = async ({
  *
  * @param {Object} params List response parameters.
  * @param {Object} params.defaultResponseHeaders Shared API response headers.
+ * @param {string[]} params.enabledProviders Providers the fixer service is enabled for.
  * @param {Object} params.event API Gateway event.
  * @param {unknown} params.includeDiff Whether to include native metadata diffs.
  * @param {unknown} params.limit Requested page size.
@@ -161,6 +166,7 @@ const getAuditDetailResponse = async ({
  */
 const getAuditListResponse = async ({
   defaultResponseHeaders,
+  enabledProviders,
   event,
   includeDiff,
   limit,
@@ -214,6 +220,7 @@ const getAuditListResponse = async ({
       },
       body: renderMetadataCorrectionAuditHtml({
         collectionConceptId,
+        enabledProviders,
         groupByPublishedVersion: isPublishedAuditRoute,
         items: auditPage.items,
         nextPageHref: buildNextPageHref(
@@ -233,7 +240,10 @@ const getAuditListResponse = async ({
       ...defaultResponseHeaders,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(auditPage, null, 2)
+    body: JSON.stringify({
+      ...auditPage,
+      enabledProviders
+    }, null, 2)
   }
 }
 
@@ -296,6 +306,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     publishedVersionName: queryPublishedVersionName
   } = queryStringParameters
   const route = resolveAuditRoute(event)
+  const enabledProviders = parseEnabledWritebackProviders()
   let responseFormat = 'json'
 
   try {
@@ -319,6 +330,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     if (route.type === AUDIT_ROUTE_TYPES.DETAIL) {
       response = await getAuditDetailResponse({
         defaultResponseHeaders,
+        enabledProviders,
         includeDiff: requestedIncludeDiff,
         responseFormat,
         runId: route.runId
@@ -326,6 +338,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
     } else {
       response = await getAuditListResponse({
         defaultResponseHeaders,
+        enabledProviders,
         event,
         includeDiff: requestedIncludeDiff,
         limit: requestedLimit,
@@ -351,6 +364,7 @@ export const getMetadataCorrectionAudit = async (event, context) => {
         },
         statusCode,
         body: renderMetadataCorrectionAuditHtml({
+          enabledProviders,
           message: error.toString(),
           title: 'Metadata correction audit error'
         })

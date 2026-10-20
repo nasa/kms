@@ -1,3 +1,4 @@
+import { filterEnabledProviderCollectionConceptIds } from '@/shared/cmrWritebackProviders'
 import { formatKeywordObjectForLog } from '@/shared/formatKeywordObjectForLog'
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { hasMeaningfulKeywordObject } from '@/shared/hasMeaningfulKeywordObject'
@@ -88,6 +89,18 @@ const LOOKUP_ELIGIBLE_EVENT_TYPES = new Set([
   'UPDATED',
   'DELETED'
 ])
+
+/**
+ * Logs a debug line for a collection concept id dropped because its provider is not enabled.
+ *
+ * @param {{ collectionConceptId: string, providerId: string }} skippedEntry Skipped concept id.
+ */
+const logSkippedProvider = ({ collectionConceptId, providerId }) => {
+  logger.debug(
+    '[consumer] Skipping metadata correction request for provider not enabled '
+    + `collectionConceptId=${collectionConceptId} providerId=${providerId || 'n/a'}`
+  )
+}
 
 /**
  * Chooses the keyword object used for listener logging and lookup tracing.
@@ -209,8 +222,15 @@ export const cmrKeywordEventsListener = async (event) => {
           )
         }
 
-        // Publish a collection-scoped correction request for each affected concept id.
-        await publishCollectionCorrectionRequests(collectionConceptIds, keywordEvent)
+        // Drop collections whose provider isn't enabled for the fixer service before queuing
+        // so that extra processing is not done for those records
+        const { eligibleCollectionConceptIds } = filterEnabledProviderCollectionConceptIds(
+          collectionConceptIds,
+          logSkippedProvider
+        )
+
+        // Publish a collection-scoped correction request for each eligible concept id.
+        await publishCollectionCorrectionRequests(eligibleCollectionConceptIds, keywordEvent)
       } else if (keywordEvent) {
         // Only UPDATED and DELETED keyword events trigger collection lookup fanout.
         logger.info(

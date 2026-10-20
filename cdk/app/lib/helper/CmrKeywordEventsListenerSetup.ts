@@ -23,6 +23,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
 interface CmrKeywordEventsListenerSetupProps {
   cmrBaseUrl: string
   cmrSystemTokenParameterName?: string
+  cmrWritebackProviders?: string
   prefix: string
   securityGroup: ec2.SecurityGroup
   stage: string
@@ -56,6 +57,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
     const {
       cmrBaseUrl,
       cmrSystemTokenParameterName,
+      cmrWritebackProviders,
       keywordEventsTopic,
       metadataCorrectionAuditClientSecurityGroup,
       metadataCorrectionAuditEnvironment,
@@ -89,6 +91,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
         ...(cmrSystemTokenParameterName
           ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
           : {}),
+        ...(cmrWritebackProviders ? { CMR_WRITEBACK_PROVIDERS: cmrWritebackProviders } : {}),
         ...metadataCorrectionAuditEnvironment,
         METADATA_CORRECTION_REQUESTS_TOPIC_ARN: metadataCorrectionRequestsTopic.topicArn
       },

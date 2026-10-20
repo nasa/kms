@@ -1,0 +1,61 @@
+{
+  "keywordEvent": {
+    "EventType": "UPDATED",
+    "Scheme": "sciencekeywords",
+    "UUID": "9f6a9a6e-0000-4a00-8000-000000000001",
+    "VersionName": "local-published",
+    "Timestamp": "2026-05-06T00:00:00.000Z",
+    "OldKeywordObject": {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "AEROSOLS",
+      "VariableLevel1": "LEGACY AEROSOLS",
+      "VariableLevel2": "",
+      "VariableLevel3": "",
+      "DetailedVariable": ""
+    },
+    "NewKeywordObject": {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "AEROSOLS",
+      "VariableLevel1": "",
+      "VariableLevel2": "",
+      "VariableLevel3": "",
+      "DetailedVariable": ""
+    }
+  },
+  "cmr": {
+    "collectionConceptIdsByKeyword": [
+      {
+        "scheme": "sciencekeywords",
+        "uuid": "9f6a9a6e-0000-4a00-8000-000000000001",
+        "conceptIds": [
+          "C1111111111-ARCTEST",
+          "C2222222222-OTHERPROV"
+        ]
+      }
+    ],
+    "collections": [
+      {
+        "conceptId": "C1111111111-ARCTEST",
+        "nativeId": "provider-gating-smoke-enabled",
+        "providerId": "ARCTEST",
+        "format": "application/vnd.nasa.cmr.umm+json",
+        "revisionId": 1,
+        "umm": {
+          "ShortName": "PROVIDER-GATING-SMOKE-ENABLED"
+        }
+      },
+      {
+        "conceptId": "C2222222222-OTHERPROV",
+        "nativeId": "provider-gating-smoke-disabled",
+        "providerId": "OTHERPROV",
+        "format": "application/vnd.nasa.cmr.umm+json",
+        "revisionId": 1,
+        "umm": {
+          "ShortName": "PROVIDER-GATING-SMOKE-DISABLED"
+        }
+      }
+    ]
+  }
+}
