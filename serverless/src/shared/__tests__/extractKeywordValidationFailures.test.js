@@ -251,14 +251,14 @@ describe('extractKeywordValidationFailures', () => {
         scheme: 'locations',
         path: ['LocationKeywords', 0],
         errors: ['Location keyword was not a valid keyword combination.'],
-        oldKeyword: 'CONTINENT|NORTH AMERICA',
+        oldKeyword: 'CONTINENT|NORTH AMERICA||||',
         keywordValue: {
           LocationCategory: 'CONTINENT',
           LocationType: 'NORTH AMERICA',
-          LocationSubregion1: undefined,
-          LocationSubregion2: undefined,
-          LocationSubregion3: undefined,
-          LocationSubregion4: undefined
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
         }
       },
       {
