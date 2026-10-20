@@ -89,7 +89,7 @@
     </Location>
     <Location>
         <Location_Category>GEOGRAPHIC REGION</Location_Category>
-        <Location_Type>POLAR</Location_Type>
+        <Location_Type>POLAR_CHANGED</Location_Type>
     </Location>
     <Project>
         <Short_Name>ALIENS_CHANGED</Short_Name>

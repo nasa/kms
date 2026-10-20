@@ -26,6 +26,19 @@
       "ShortName": "Amazonia-1-Chris-Test_CHANGED"
     }
   ],
+  "LocationKeywords": [
+    {
+      "Category": "OCEAN",
+      "Type": "ATLANTIC OCEAN",
+      "Subregion1": "NORTH ATLANTIC OCEAN",
+      "Subregion2": "CARIBBEAN SEA",
+      "Subregion3": "BARBADOS_CHANGED"
+    },
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "GLOBAL LAND_CHANGED"
+    }
+  ],
   "PaleoTemporalCoverages": [
     {
       "ChronostratigraphicUnits": [

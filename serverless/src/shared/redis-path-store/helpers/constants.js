@@ -119,13 +119,13 @@ export const UMMC_FIELDS = Object.freeze({
     'VariableLevel3',
     'DetailedVariable'
   ],
+  // DetailedLocation is uncontrolled UMM-C text and is not KMS LocationSubregion4.
   locations: [
     'Category',
     'Type',
     'Subregion1',
     'Subregion2',
-    'Subregion3',
-    'DetailedLocation'
+    'Subregion3'
   ],
   chronounits: [
     'Eon',

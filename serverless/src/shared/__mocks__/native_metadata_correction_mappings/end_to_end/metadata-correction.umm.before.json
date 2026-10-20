@@ -26,6 +26,19 @@
       "ShortName": "Amazonia-1"
     }
   ],
+  "LocationKeywords": [
+    {
+      "Category": "OCEAN",
+      "Type": "ATLANTIC OCEAN",
+      "Subregion1": "NORTH ATLANTIC OCEAN",
+      "Subregion2": "CARIBBEAN SEA",
+      "Subregion3": "BARBADOS"
+    },
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "GLOBAL LAND"
+    }
+  ],
   "PaleoTemporalCoverages": [
     {
       "ChronostratigraphicUnits": [

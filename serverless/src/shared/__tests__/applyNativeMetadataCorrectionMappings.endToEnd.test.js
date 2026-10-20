@@ -481,7 +481,6 @@ describe('when running the metadata correction workflow end to end', () => {
           test('should send the expected corrections to the native metadata delegate', () => {
             const expectedCorrections = readJsonFixture('updates/ummc.corrections.json')
               .corrections
-              .filter(({ scheme }) => scheme !== 'locations')
               .map(normalizeFixtureCorrection)
             const actualCorrections = metadataCorrectionDelegateRequest.corrections
               .map(normalizeFixtureCorrection)
@@ -494,8 +493,8 @@ describe('when running the metadata correction workflow end to end', () => {
               metadataPayload: translatedUmmRecord
             })
 
-            expect(actualCorrections).toHaveLength(expectedCorrections.length)
             expect(actualCorrections).toEqual(expect.arrayContaining(expectedCorrections))
+            expect(actualCorrections).toHaveLength(expectedCorrections.length)
           })
 
           test('should send the expected corrected metadata to CMR', () => {
@@ -635,10 +634,7 @@ describe('when running the metadata correction workflow end to end', () => {
             })
           })
 
-          // KMS-722 maps UMM-C Location fields such as `Category` and `Subregion1` to
-          // their KMS CSV field names. Without that mapping, no Location correction is
-          // generated and `Alberta` remains unchanged; remove `.skip` after it is merged.
-          test.skip('should send the expected corrected metadata to CMR', () => {
+          test('should send the expected corrected metadata to CMR', () => {
             expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
               collectionConceptId: iso19115CollectionConceptId,
               providerId,
@@ -679,10 +675,7 @@ describe('when running the metadata correction workflow end to end', () => {
             })
           })
 
-          // KMS-722 maps UMM-C Location fields such as `Category` and `Subregion1` to
-          // their KMS CSV field names. Without that mapping, no Location correction is
-          // generated and `Alberta` remains unchanged; remove `.skip` after it is merged.
-          test.skip('should send the expected corrected metadata to CMR', () => {
+          test('should send the expected corrected metadata to CMR', () => {
             expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
               collectionConceptId: isoSmapCollectionConceptId,
               providerId,

@@ -37,9 +37,6 @@ const VALIDATION_MESSAGES = {
   providers: 'Data center short name was not a valid keyword.',
   idnnode: 'Directory name short name was not a valid keyword.',
   isotopiccategory: 'ISO Topic Category was not a valid keyword.',
-  temporalresolutionrange: 'Temporal resolution was not a valid keyword.',
-  horizontalresolutionrange: 'Horizontal resolution was not a valid keyword range.',
-  verticalresolutionrange: 'Vertical resolution was not a valid keyword range.',
   productlevelid: 'ProcessingLevel Id was not a valid keyword.',
   dataformat: 'Format was not a valid keyword.',
   rucontenttype: 'Related URL Content Type was not a valid set together.'
@@ -161,36 +158,12 @@ const extractKeywordCandidatesFromUmm = (umm) => {
         path: ['IsoTopicCategories', index]
       })
     }
-  });
-
-  (umm.TemporalExtents || []).forEach((temporalExtent, index) => {
-    if (temporalExtent?.TemporalResolution) {
-      pushKeywordCandidate({
-        candidates,
-        scheme: 'temporalresolutionrange',
-        path: ['TemporalExtents', index, 'TemporalResolution']
-      })
-    }
   })
 
-  if (umm.SpatialInformation?.ResolutionAndCoordinateSystem?.HorizontalDataResolution) {
-    pushKeywordCandidate({
-      candidates,
-      scheme: 'horizontalresolutionrange',
-      path: ['SpatialInformation', 'ResolutionAndCoordinateSystem', 'HorizontalDataResolution']
-    })
-  }
-
-  (umm.SpatialExtent?.VerticalSpatialDomains || []).forEach((domain, index) => {
-    if (domain) {
-      pushKeywordCandidate({
-        candidates,
-        scheme: 'verticalresolutionrange',
-        path: ['SpatialExtent', 'VerticalSpatialDomains', index]
-      })
-    }
-  })
-
+  // Resolution-range schemes are intentionally excluded. UMM-C stores measurements rather than
+  // KMS range labels, so they require dynamic range derivation before they can be validated safely.
+  // For example, UMM-C `{ Value: 1, Unit: 'Day' }` needs to map to the KMS range
+  // `{ TemporalResolutionRange: 'Daily - < Weekly' }` in order for the cache lookup to be successful.
   if (umm.ProcessingLevel?.Id) {
     pushKeywordCandidate({
       candidates,
