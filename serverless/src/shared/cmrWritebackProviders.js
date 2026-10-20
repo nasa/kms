@@ -4,8 +4,8 @@
  * `CMR_WRITEBACK_PROVIDERS` controls both which providers KMS will write corrected metadata
  * back to CMR for, and (earlier in the pipeline) which providers are even worth building a fix
  * for. Keeping the parsing/matching rules here means every call site agrees on the same
- * semantics: unset/empty disables everything, `ALL` enables every provider, otherwise only the
- * listed provider ids are enabled.
+ * semantics: unset/empty disables everything, a lone `ALL` entry enables every provider,
+ * otherwise only the listed provider ids are enabled.
  */
 
 /**
@@ -27,6 +27,20 @@ export const parseEnabledWritebackProviders = () => String(process.env.CMR_WRITE
   .filter(Boolean)
 
 /**
+ * True when the allowlist unambiguously means "every provider is enabled."
+ *
+ * `ALL` only counts when it's the sole entry. Listing it alongside specific provider ids (e.g.
+ * `ARCTEST,ALL`) is never an intentional configuration, and treating it as a wildcard in that
+ * case risks silently re-opening the rollout to every provider from a stray leftover value.
+ *
+ * @param {string[]} enabledProviders Normalized provider ids from `CMR_WRITEBACK_PROVIDERS`.
+ * @returns {boolean} `true` when the allowlist is exactly `['ALL']`.
+ */
+export const isAllProvidersEnabled = (enabledProviders) => (
+  enabledProviders.length === 1 && enabledProviders[0] === 'ALL'
+)
+
+/**
  * True when the fixer service is enabled for the supplied provider id.
  *
  * @param {string} providerId Provider identifier to check against the rollout allowlist.
@@ -39,7 +53,7 @@ export const isWritebackEnabledForProvider = (providerId) => {
     return false
   }
 
-  if (enabledProviders.includes('ALL')) {
+  if (isAllProvidersEnabled(enabledProviders)) {
     return true
   }
 
@@ -50,13 +64,13 @@ export const isWritebackEnabledForProvider = (providerId) => {
  * Extracts the provider id from a CMR collection concept id (`C1200370045-ARCTEST`).
  *
  * @param {string} collectionConceptId CMR collection concept id.
- * @returns {string} Provider id, or an empty string when it cannot be determined.
+ * @returns {string|undefined} Provider id, or `undefined` when it cannot be determined.
  */
 export const getProviderIdFromCollectionConceptId = (collectionConceptId) => {
   const value = String(collectionConceptId ?? '')
-  const separatorIndex = value.indexOf('-')
+  const [, provider] = value.split('-')
 
-  return separatorIndex === -1 ? '' : value.slice(separatorIndex + 1)
+  return provider
 }
 
 /**

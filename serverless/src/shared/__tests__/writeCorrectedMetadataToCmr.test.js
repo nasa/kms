@@ -196,6 +196,27 @@ describe('when writing corrected metadata to cmr', () => {
     expect(cmrPutRequest).not.toHaveBeenCalled()
   })
 
+  test('should not treat ALL as a wildcard when listed alongside specific providers', async () => {
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ARCTEST,ALL'
+
+    const result = await writeCorrectedMetadataToCmr({
+      collectionConceptId: 'C0000000000-OTHER',
+      providerId: 'OTHER',
+      nativeId: 'native-1',
+      nativeFormat: 'DIF10',
+      correctionCount: 1,
+      correctedMetadata: '<DIF><Entry_ID/></DIF>'
+    })
+
+    expect(result.ingestResult).toEqual({
+      enabled: false,
+      ingested: false,
+      updated: false
+    })
+
+    expect(cmrPutRequest).not.toHaveBeenCalled()
+  })
+
   test('should return a disabled summary when writeback providers are not configured at all', async () => {
     delete process.env.CMR_WRITEBACK_PROVIDERS
     delete process.env.CMR_WRITER_TOKEN

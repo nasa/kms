@@ -1,3 +1,7 @@
+import {
+  getProviderIdFromCollectionConceptId,
+  isWritebackEnabledForProvider
+} from '@/shared/cmrWritebackProviders'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
@@ -43,6 +47,10 @@ const getErrorStatusCode = (error) => {
  * - what the delegate applied
  * - what was written to audit / CMR
  *
+ * CMR itself also calls this endpoint (via `Cmr-Send-Kms-Metadata-Fixer`), so a collection whose
+ * provider isn't in `CMR_WRITEBACK_PROVIDERS` is skipped before the published version is even
+ * looked up, instead of running the full correction workflow only to discard the writeback.
+ *
  * @param {object} event API Gateway event.
  * @param {object} [event.pathParameters] API Gateway path parameters.
  * @param {string} [event.pathParameters.collectionConceptId] Collection concept id to run.
@@ -63,6 +71,31 @@ export const runMetadataCorrection = async (event, context) => {
     logger.info('[metadata-correction] Received synchronous metadata correction request', {
       collectionConceptId
     })
+
+    if (collectionConceptId) {
+      const providerId = getProviderIdFromCollectionConceptId(collectionConceptId)
+
+      if (!isWritebackEnabledForProvider(providerId)) {
+        logger.debug(
+          '[metadata-correction] Skipping synchronous metadata correction request for provider not enabled '
+          + `collectionConceptId=${collectionConceptId} providerId=${providerId || 'n/a'}`
+        )
+
+        return {
+          statusCode: 200,
+          headers: {
+            ...defaultResponseHeaders,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            outcome: 'provider-not-enabled',
+            collectionConceptId,
+            providerId,
+            source: 'metadataCorrectionApi'
+          }, null, 2)
+        }
+      }
+    }
 
     const { versionName: publishedVersionName } = await getVersionMetadata('published')
 

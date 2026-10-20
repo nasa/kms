@@ -4,6 +4,8 @@ import { html as renderDiffHtml } from 'diff2html'
 import diff2HtmlStyles from 'diff2html/bundles/css/diff2html.min.css?inline'
 import { escape } from 'html-escaper'
 
+import { isAllProvidersEnabled } from './cmrWritebackProviders'
+
 const PAGE_STYLES = `
   :root {
     color-scheme: light;
@@ -433,14 +435,14 @@ const displayValue = (value, fallback = 'Not available') => escape(
  * means every provider, an empty list means the service is disabled for every provider.
  *
  * @param {string[]} [enabledProviders] Normalized provider ids the fixer service is enabled for.
- * @returns {string} HTML disclaimer, or an empty string when the list was not provided.
+ * @returns {string} HTML disclaimer, or the bare string `'None'` when the list was not provided.
  */
 const renderEnabledProvidersNotice = (enabledProviders) => {
-  if (!Array.isArray(enabledProviders)) return ''
+  if (!Array.isArray(enabledProviders)) return 'None'
 
   let description = 'none'
 
-  if (enabledProviders.includes('ALL')) {
+  if (isAllProvidersEnabled(enabledProviders)) {
     description = 'all providers'
   } else if (enabledProviders.length > 0) {
     description = enabledProviders.join(', ')

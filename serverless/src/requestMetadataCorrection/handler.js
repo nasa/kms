@@ -127,7 +127,6 @@ export const requestMetadataCorrection = async (event, context) => {
       acceptedCollectionConceptIds
     } = normalizeCollectionConceptIds(requestBody.collectionConceptIds)
     const requestedAt = new Date().toISOString()
-    const { versionName: publishedVersionName } = await getVersionMetadata('published')
 
     const {
       eligibleCollectionConceptIds,
@@ -140,6 +139,12 @@ export const requestMetadataCorrection = async (event, context) => {
       skippedCount: skipped.length,
       collectionConceptIds: acceptedCollectionConceptIds
     })
+
+    // Skip the SPARQL lookup entirely when every collection was filtered out -- nothing below
+    // will use the published version name.
+    const publishedVersionName = eligibleCollectionConceptIds.length > 0
+      ? (await getVersionMetadata('published')).versionName
+      : undefined
 
     const publishResults = await Promise.allSettled(
       eligibleCollectionConceptIds.map(async (collectionConceptId) => {

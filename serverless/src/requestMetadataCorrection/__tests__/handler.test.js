@@ -384,6 +384,7 @@ describe('requestMetadataCorrection', () => {
         })
       })
 
+      expect(getVersionMetadata).not.toHaveBeenCalled()
       expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
       expect(result.statusCode).toBe(202)
       expect(JSON.parse(result.body)).toEqual({

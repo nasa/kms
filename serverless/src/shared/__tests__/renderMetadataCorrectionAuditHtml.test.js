@@ -286,10 +286,11 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('0 audit records')
   })
 
-  test('renders no enabled-providers disclaimer when the list is not provided', () => {
+  test('renders the bare string None instead of the disclaimer when the list is not provided', () => {
     const view = renderMetadataCorrectionAuditHtml({})
 
     expect(view).not.toContain('enabled-providers-notice')
+    expect(view).toContain('None')
   })
 
   test('renders a disclaimer naming the enabled providers', () => {
@@ -310,6 +311,18 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain(
       'KMS fixer service enabled only for the following providers: all providers'
     )
+  })
+
+  test('does not treat ALL as a wildcard when listed alongside specific providers', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      enabledProviders: ['ARCTEST', 'ALL']
+    })
+
+    expect(view).toContain(
+      'KMS fixer service enabled only for the following providers: ARCTEST, ALL'
+    )
+
+    expect(view).not.toContain('all providers')
   })
 
   test('renders a disclaimer describing a fully disabled rollout', () => {

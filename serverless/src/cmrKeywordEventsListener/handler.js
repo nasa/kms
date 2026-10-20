@@ -223,8 +223,7 @@ export const cmrKeywordEventsListener = async (event) => {
         }
 
         // Drop collections whose provider isn't enabled for the fixer service before queuing
-        // any correction work for them. UAT in particular can find many collections per keyword
-        // change, and most belong to providers we were always going to discard the fix for.
+        // so that extra processing is not done for those records
         const { eligibleCollectionConceptIds } = filterEnabledProviderCollectionConceptIds(
           collectionConceptIds,
           logSkippedProvider
