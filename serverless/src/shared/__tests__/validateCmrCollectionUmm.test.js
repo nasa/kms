@@ -7,10 +7,6 @@ import {
 } from 'vitest'
 
 import { logger } from '../logger'
-import {
-  createPublishedConceptResponseCacheKeyByFullPath,
-  createPublishedConceptResponseCacheKeyByShortName
-} from '../redisCacheKeys'
 import { getCachedJsonResponse, getRedisClient } from '../redisCacheStore'
 import { validateCmrCollectionUmm } from '../validateCmrCollectionUmm'
 
@@ -30,7 +26,11 @@ const createCachedResponse = (body) => ({
   body: JSON.stringify(body)
 })
 
-describe('validateCmrCollectionUmm', () => {
+const createExpectedPublishedFullPathKey = ({ scheme, fullPath }) => (
+  `kms:${scheme}:published_concept:full_path:${encodeURIComponent(fullPath.toLowerCase())}`
+)
+
+describe('when validating collection UMM-C against the published Redis cache', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getRedisClient).mockResolvedValue({
@@ -38,33 +38,63 @@ describe('validateCmrCollectionUmm', () => {
     })
   })
 
-  test('should validate a collection and return an empty error list when all published lookups exist', async () => {
-    const scienceKeywordKey = createPublishedConceptResponseCacheKeyByFullPath({
-      fullPath: 'earth science > atmosphere > aerosols >  >  >  > ',
-      scheme: 'sciencekeywords'
-    })
-    const platformKey = createPublishedConceptResponseCacheKeyByShortName({
-      shortName: 'aqua',
-      scheme: 'platforms'
-    })
-    const instrumentKey = createPublishedConceptResponseCacheKeyByShortName({
-      shortName: 'modis',
-      scheme: 'instruments'
-    })
-    const granuleDataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
-      shortName: 'netcdf-4',
-      scheme: 'granuledataformat'
-    })
+  test('should produce the correct Redis cache key for science keywords', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'science-keyword-uuid',
+      fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
+    }))
 
-    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
-      if (cacheKey === scienceKeywordKey) {
-        return createCachedResponse({
-          uuid: 'science-keyword-uuid',
-          fullPath: 'EARTH SCIENCE > ATMOSPHERE > AEROSOLS >  >  >  > '
-        })
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ScienceKeywords: [
+          {
+            Category: 'EARTH SCIENCE',
+            Topic: 'ATMOSPHERE',
+            Term: 'AEROSOLS'
+          }
+        ]
       }
+    })
 
-      if (cacheKey === platformKey) {
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:sciencekeywords:published_concept:full_path:earth%20science%20%3E%20atmosphere%20%3E%20aerosols%20%3E%20%20%3E%20%20%3E%20%20%3E%20',
+      entityLabel: 'Published Concept by fullPath'
+    })
+  })
+
+  test('should produce the correct Redis cache key for platforms', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'platform-uuid',
+      keywordObject: {
+        ShortName: 'Aqua'
+      }
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        Platforms: [
+          {
+            ShortName: 'Aqua'
+          }
+        ]
+      }
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:platforms:published_concept:short_name:aqua',
+      entityLabel: 'Published Concept by shortName'
+    })
+  })
+
+  test('should produce the correct Redis cache keys for a platform and its nested instrument', async () => {
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === 'kms:platforms:published_concept:short_name:aqua') {
         return createCachedResponse({
           uuid: 'platform-uuid',
           keywordObject: {
@@ -73,20 +103,11 @@ describe('validateCmrCollectionUmm', () => {
         })
       }
 
-      if (cacheKey === instrumentKey) {
+      if (cacheKey === 'kms:instruments:published_concept:short_name:modis') {
         return createCachedResponse({
           uuid: 'instrument-uuid',
           keywordObject: {
             ShortName: 'MODIS'
-          }
-        })
-      }
-
-      if (cacheKey === granuleDataFormatKey) {
-        return createCachedResponse({
-          uuid: 'data-format-uuid',
-          keywordObject: {
-            ShortName: 'netCDF-4'
           }
         })
       }
@@ -96,14 +117,6 @@ describe('validateCmrCollectionUmm', () => {
 
     const result = await validateCmrCollectionUmm({
       umm: {
-        ShortName: 'TEST',
-        ScienceKeywords: [
-          {
-            Category: 'EARTH SCIENCE',
-            Topic: 'ATMOSPHERE',
-            Term: 'AEROSOLS'
-          }
-        ],
         Platforms: [
           {
             ShortName: 'Aqua',
@@ -113,41 +126,214 @@ describe('validateCmrCollectionUmm', () => {
               }
             ]
           }
-        ],
-        RelatedUrls: [
+        ]
+      }
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(2)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:platforms:published_concept:short_name:aqua',
+      entityLabel: 'Published Concept by shortName'
+    })
+
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:instruments:published_concept:short_name:modis',
+      entityLabel: 'Published Concept by shortName'
+    })
+  })
+
+  test('should produce the correct Redis cache key for chronostratigraphic units', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'chronounit-uuid',
+      fullPath: 'PHANEROZOIC > CENOZOIC > QUATERNARY > HOLOCENE > MEGHALAYAN > LATE'
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        PaleoTemporalCoverages: [
           {
-            GetData: {
-              Format: 'netCDF-4'
-            }
+            ChronostratigraphicUnits: [
+              {
+                Eon: 'PHANEROZOIC',
+                Era: 'CENOZOIC',
+                Period: 'QUATERNARY',
+                Epoch: 'HOLOCENE',
+                Stage: 'MEGHALAYAN',
+                DetailedClassification: 'LATE'
+              }
+            ]
           }
         ]
       }
     })
 
-    expect(result).toEqual({
-      status: 200,
-      errors: [],
-      warnings: [],
-      responseBody: {
-        warnings: []
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:chronounits:published_concept:full_path:phanerozoic%20%3E%20cenozoic%20%3E%20quaternary%20%3E%20holocene%20%3E%20meghalayan%20%3E%20late',
+      entityLabel: 'Published Concept by fullPath'
+    })
+  })
+
+  test('should produce the correct Redis cache key for projects', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'project-uuid',
+      keywordObject: {
+        ShortName: 'EOSDIS'
+      }
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        Projects: [
+          {
+            ShortName: 'EOSDIS'
+          }
+        ]
       }
     })
 
-    expect(getCachedJsonResponse).toHaveBeenCalledTimes(4)
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('[metadata-correction] Validated collection UMM through published keyword cache ')
-    )
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('status=200')
-    )
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:projects:published_concept:short_name:eosdis',
+      entityLabel: 'Published Concept by shortName'
+    })
   })
 
-  test('should use the slotted full path when validating rucontenttype against the published cache', async () => {
-    const ruContentTypeKey = createPublishedConceptResponseCacheKeyByFullPath({
-      fullPath: 'collectionurl > project home page > ',
-      scheme: 'rucontenttype'
+  test('should produce the correct Redis cache key for providers', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'provider-uuid',
+      keywordObject: {
+        ShortName: 'GHRC_DAAC'
+      }
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        DataCenters: [
+          {
+            ShortName: 'GHRC_DAAC'
+          }
+        ]
+      }
     })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:providers:published_concept:short_name:ghrc_daac',
+      entityLabel: 'Published Concept by shortName'
+    })
+  })
+
+  test('should produce the correct Redis cache key for IDN nodes', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'idn-node-uuid',
+      keywordObject: {
+        ShortName: 'ACADIS'
+      }
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        DirectoryNames: [
+          {
+            ShortName: 'ACADIS'
+          }
+        ]
+      }
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:idnnode:published_concept:short_name:acadis',
+      entityLabel: 'Published Concept by shortName'
+    })
+  })
+
+  test('should produce the correct Redis cache key for ISO topic categories', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'iso-topic-category-uuid',
+      fullPath: 'OCEANS'
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ISOTopicCategories: ['OCEANS']
+      }
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:isotopiccategory:published_concept:full_path:oceans',
+      entityLabel: 'Published Concept by fullPath'
+    })
+  })
+
+  test('should produce the correct Redis cache key for processing-level IDs', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'product-level-uuid',
+      fullPath: '2'
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ProcessingLevel: {
+          Id: '2'
+        }
+      }
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:productlevelid:published_concept:full_path:2',
+      entityLabel: 'Published Concept by fullPath'
+    })
+  })
+
+  test('should produce the correct Redis cache key for archive data formats', async () => {
+    vi.mocked(getCachedJsonResponse).mockResolvedValue(createCachedResponse({
+      uuid: 'data-format-uuid',
+      keywordObject: {
+        ShortName: 'NetCDF'
+      }
+    }))
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        ArchiveAndDistributionInformation: {
+          FileArchiveInformation: [
+            {
+              Format: 'NetCDF'
+            }
+          ]
+        }
+      }
+    })
+
+    expect(result.status).toBe(200)
+    expect(result.errors).toEqual([])
+    expect(getCachedJsonResponse).toHaveBeenCalledTimes(1)
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:dataformat:published_concept:short_name:netcdf',
+      entityLabel: 'Published Concept by shortName'
+    })
+  })
+
+  test('should produce the correct Redis cache key for Related URL content types', async () => {
+    const ruContentTypeKey = 'kms:rucontenttype:published_concept:full_path:collectionurl%20%3E%20project%20home%20page%20%3E%20'
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
       if (cacheKey === ruContentTypeKey) {
@@ -187,11 +373,89 @@ describe('validateCmrCollectionUmm', () => {
     })
   })
 
+  test('should produce the correct Redis cache key for locations', async () => {
+    const locationKey = createExpectedPublishedFullPathKey({
+      scheme: 'locations',
+      fullPath: ['GEOGRAPHIC REGION', 'WESTERN HEMISPHERE', '', '', '', ''].join(' > ')
+    })
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === locationKey) {
+        return createCachedResponse({
+          uuid: 'a29a6a2b-e0e5-4ba9-9768-df67db4f34a6',
+          fullPath: 'GEOGRAPHIC REGION > WESTERN HEMISPHERE >  >  >  > '
+        })
+      }
+
+      return null
+    })
+
+    const result = await validateCmrCollectionUmm({
+      umm: {
+        LocationKeywords: [
+          {
+            Category: 'GEOGRAPHIC REGION',
+            Type: 'WESTERN HEMISPHERE',
+            DetailedLocation: 'Uncontrolled location description'
+          }
+        ]
+      }
+    })
+
+    expect(result).toEqual({
+      status: 200,
+      errors: [],
+      warnings: [],
+      responseBody: {
+        warnings: []
+      }
+    })
+
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: locationKey,
+      entityLabel: 'Published Concept by fullPath'
+    })
+  })
+
+  test('should produce the correct Redis cache key for granule data formats', async () => {
+    const granuleDataFormatKey = 'kms:dataformat:published_concept:short_name:hdf5'
+
+    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+      if (cacheKey === granuleDataFormatKey) {
+        return createCachedResponse({
+          uuid: 'data-format-uuid',
+          keywordObject: {
+            ShortName: 'HDF5'
+          }
+        })
+      }
+
+      return null
+    })
+
+    await validateCmrCollectionUmm({
+      umm: {
+        ShortName: 'TEST',
+        RelatedUrls: [
+          {
+            GetData: {
+              Format: 'HDF5'
+            }
+          }
+        ]
+      }
+    })
+
+    expect(getCachedJsonResponse).toHaveBeenCalledWith({
+      cacheKey: 'kms:dataformat:published_concept:short_name:hdf5',
+      entityLabel: 'Published Concept by shortName'
+    })
+  })
+
   test('should reject an ISO Topic Category when only its casing differs from the published value', async () => {
-    // The lowercase key allows the stale collection value to find the published concept.
-    const isoTopicCategoryKey = createPublishedConceptResponseCacheKeyByFullPath({
-      fullPath: 'climatology/meteorology/atmosphere',
-      scheme: 'isotopiccategory'
+    const isoTopicCategoryKey = createExpectedPublishedFullPathKey({
+      scheme: 'isotopiccategory',
+      fullPath: 'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE'
     })
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
@@ -206,18 +470,17 @@ describe('validateCmrCollectionUmm', () => {
       return null
     })
 
-    // Validate a stale differently-cased value alongside the exact published value.
+    // Index 0 differs by case; index 1 exactly matches the canonical published value.
     const result = await validateCmrCollectionUmm({
       umm: {
         ShortName: 'TEST',
         ISOTopicCategories: [
-          'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE', // Invalid: casing differs.
-          'Climatology/Meteorology/Atmosphere' // Valid: exact published value.
+          'CLIMATOLOGY/METEOROLOGY/ATMOSPHERE',
+          'Climatology/Meteorology/Atmosphere'
         ]
       }
     })
 
-    // Only the differently-cased value at index 0 is invalid; index 1 matches the published value.
     expect(result.errors).toEqual([
       {
         path: ['IsoTopicCategories', 0],
@@ -227,11 +490,7 @@ describe('validateCmrCollectionUmm', () => {
   })
 
   test('should reject a short name when only its casing differs from the published value', async () => {
-    // Short-name cache discovery is case-insensitive, so AQUA still resolves through this key.
-    const platformKey = createPublishedConceptResponseCacheKeyByShortName({
-      shortName: 'aqua',
-      scheme: 'platforms'
-    })
+    const platformKey = 'kms:platforms:published_concept:short_name:aqua'
 
     vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
       if (cacheKey === platformKey) {
@@ -247,19 +506,17 @@ describe('validateCmrCollectionUmm', () => {
       return null
     })
 
-    // Validate a collection short name that differs only by case from the published value.
     const result = await validateCmrCollectionUmm({
       umm: {
         ShortName: 'TEST',
         Platforms: [
           {
-            ShortName: 'AQUA' // Invalid: casing differs.
+            ShortName: 'AQUA'
           }
         ]
       }
     })
 
-    // The differently-cased short name at index 0 must be rejected.
     expect(result.errors).toEqual([
       {
         path: ['Platforms', 0],
@@ -353,44 +610,6 @@ describe('validateCmrCollectionUmm', () => {
     )
   })
 
-  test('should normalize granule data format lookups to the shared dataformat cache namespace', async () => {
-    const granuleDataFormatKey = createPublishedConceptResponseCacheKeyByShortName({
-      shortName: 'hdf5',
-      scheme: 'granuledataformat'
-    })
-
-    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
-      if (cacheKey === granuleDataFormatKey) {
-        return createCachedResponse({
-          uuid: 'data-format-uuid',
-          keywordObject: {
-            ShortName: 'HDF5'
-          }
-        })
-      }
-
-      return null
-    })
-
-    await validateCmrCollectionUmm({
-      umm: {
-        ShortName: 'TEST',
-        RelatedUrls: [
-          {
-            GetData: {
-              Format: 'HDF5'
-            }
-          }
-        ]
-      }
-    })
-
-    expect(getCachedJsonResponse).toHaveBeenCalledWith({
-      cacheKey: 'kms:dataformat:published_concept:short_name:hdf5',
-      entityLabel: 'Published Concept by shortName'
-    })
-  })
-
   test('should throw when the published keyword cache is unavailable', async () => {
     vi.mocked(getRedisClient).mockResolvedValue(null)
 
@@ -406,92 +625,91 @@ describe('validateCmrCollectionUmm', () => {
     })).rejects.toThrow('Missing UMM-C payload for published keyword cache validation')
   })
 
-  test('should ignore null keyword candidates across supported families', async () => {
-    vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
+  describe('when UMM-C contains null keyword entries', () => {
+    test('should ignore null keyword candidates across supported families', async () => {
+      vi.mocked(getCachedJsonResponse).mockResolvedValue(null)
 
-    const result = await validateCmrCollectionUmm({
-      umm: {
-        ShortName: 'TEST',
-        ScienceKeywords: [null],
-        Platforms: [null],
-        LocationKeywords: [null],
-        PaleoTemporalCoverages: [
-          {
-            ChronostratigraphicUnits: [null]
-          }
-        ],
-        Projects: [null],
-        DataCenters: [null],
-        DirectoryNames: [null],
-        ISOTopicCategories: [null],
-        TemporalExtents: [
-          {}
-        ],
-        SpatialExtent: {
-          VerticalSpatialDomains: [null]
-        },
-        ArchiveAndDistributionInformation: {
-          FileArchiveInformation: [null],
-          FileDistributionInformation: [null]
-        },
-        RelatedUrls: [
-          {},
-          null
-        ]
-      }
+      const result = await validateCmrCollectionUmm({
+        umm: {
+          ShortName: 'TEST',
+          ScienceKeywords: [null],
+          Platforms: [null],
+          LocationKeywords: [null],
+          PaleoTemporalCoverages: [
+            {
+              ChronostratigraphicUnits: [null]
+            }
+          ],
+          Projects: [null],
+          DataCenters: [null],
+          DirectoryNames: [null],
+          ISOTopicCategories: [null],
+          TemporalExtents: [
+            {}
+          ],
+          SpatialExtent: {
+            VerticalSpatialDomains: [null]
+          },
+          ArchiveAndDistributionInformation: {
+            FileArchiveInformation: [null],
+            FileDistributionInformation: [null]
+          },
+          RelatedUrls: [
+            {},
+            null
+          ]
+        }
+      })
+
+      expect(result).toEqual({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          warnings: []
+        }
+      })
     })
 
-    expect(result).toEqual({
-      status: 200,
-      errors: [],
-      warnings: [],
-      responseBody: {
-        warnings: []
-      }
-    })
-  })
+    test('should ignore null instrument entries and null paleo coverage entries', async () => {
+      const platformKey = 'kms:platforms:published_concept:short_name:aqua'
 
-  test('should ignore null instrument entries and null paleo coverage entries', async () => {
-    const platformKey = createPublishedConceptResponseCacheKeyByShortName({
-      shortName: 'aqua',
-      scheme: 'platforms'
-    })
+      vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
+        if (cacheKey === platformKey) {
+          return createCachedResponse({
+            uuid: 'platform-uuid',
+            keywordObject: {
+              ShortName: 'Aqua'
+            }
+          })
+        }
 
-    vi.mocked(getCachedJsonResponse).mockImplementation(async ({ cacheKey }) => {
-      if (cacheKey === platformKey) {
-        return createCachedResponse({
-          uuid: 'platform-uuid',
-          keywordObject: {
-            ShortName: 'Aqua'
-          }
-        })
-      }
+        return null
+      })
 
-      return null
-    })
+      const result = await validateCmrCollectionUmm({
+        umm: {
+          ShortName: 'TEST',
+          Platforms: [
+            {
+              ShortName: 'Aqua',
+              Instruments: [null]
+            }
+          ],
+          PaleoTemporalCoverages: [
+            null
+          ]
+        }
+      })
 
-    const result = await validateCmrCollectionUmm({
-      umm: {
-        ShortName: 'TEST',
-        Platforms: [
-          {
-            ShortName: 'Aqua',
-            Instruments: [null]
-          }
-        ],
-        PaleoTemporalCoverages: [
-          null
-        ]
-      }
-    })
-
-    expect(result).toEqual({
-      status: 200,
-      errors: [],
-      warnings: [],
-      responseBody: {
-        warnings: []
-      }
+      expect(result).toEqual({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          warnings: []
+        }
+      })
     })
   })
 
@@ -597,18 +815,6 @@ describe('validateCmrCollectionUmm', () => {
         errors: ['ISO Topic Category was not a valid keyword.']
       },
       {
-        path: ['TemporalExtents', 0, 'TemporalResolution'],
-        errors: ['Temporal resolution was not a valid keyword.']
-      },
-      {
-        path: ['SpatialInformation', 'ResolutionAndCoordinateSystem', 'HorizontalDataResolution'],
-        errors: ['Horizontal resolution was not a valid keyword range.']
-      },
-      {
-        path: ['SpatialExtent', 'VerticalSpatialDomains', 0],
-        errors: ['Vertical resolution was not a valid keyword range.']
-      },
-      {
         path: ['ProcessingLevel', 'Id'],
         errors: ['ProcessingLevel Id was not a valid keyword.']
       },
@@ -621,6 +827,55 @@ describe('validateCmrCollectionUmm', () => {
         errors: ['Format was not a valid keyword.']
       }
     ]))
+  })
+
+  describe('when UMM-C resolution fields cannot map directly to KMS range labels', () => {
+    test('should ignore those fields', async () => {
+      const result = await validateCmrCollectionUmm({
+        umm: {
+          TemporalExtents: [
+            {
+              TemporalResolution: {
+                Value: 1,
+                Unit: 'Day'
+              }
+            }
+          ],
+          SpatialInformation: {
+            ResolutionAndCoordinateSystem: {
+              HorizontalDataResolution: {
+                NonGriddedResolutions: [
+                  {
+                    XDimension: 250,
+                    YDimension: 250,
+                    Unit: 'Meters'
+                  }
+                ]
+              }
+            }
+          },
+          SpatialExtent: {
+            VerticalSpatialDomains: [
+              {
+                Type: 'Atmosphere Layer',
+                Value: 'Troposphere'
+              }
+            ]
+          }
+        }
+      })
+
+      expect(result).toEqual({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          warnings: []
+        }
+      })
+
+      expect(getCachedJsonResponse).not.toHaveBeenCalled()
+    })
   })
 
   test('should treat malformed keyword shapes as validation failures without crashing', async () => {
