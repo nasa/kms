@@ -1,3 +1,4 @@
+import { filterEnabledProviderCollectionConceptIds } from '@/shared/cmrWritebackProviders'
 import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
@@ -73,6 +74,18 @@ const normalizeCollectionConceptIds = (collectionConceptIds) => {
 }
 
 /**
+ * Logs a debug line for a collection concept id dropped because its provider is not enabled.
+ *
+ * @param {{ collectionConceptId: string, providerId: string }} skippedEntry Skipped concept id.
+ */
+const logSkippedProvider = ({ collectionConceptId, providerId }) => {
+  logger.debug(
+    '[metadata-correction] Skipping metadata correction request for provider not enabled '
+    + `collectionConceptId=${collectionConceptId} providerId=${providerId || 'n/a'}`
+  )
+}
+
+/**
  * Maps handler validation failures to a client error and publish/runtime failures to server errors.
  *
  * @param {Error} error Thrown handler error.
@@ -115,16 +128,27 @@ export const requestMetadataCorrection = async (event, context) => {
       acceptedCollectionConceptIds
     } = normalizeCollectionConceptIds(requestBody.collectionConceptIds)
     const requestedAt = new Date().toISOString()
-    const { versionName: publishedVersionName } = await getVersionMetadata('published')
+
+    const {
+      eligibleCollectionConceptIds,
+      skipped
+    } = filterEnabledProviderCollectionConceptIds(acceptedCollectionConceptIds, logSkippedProvider)
 
     logger.info('[metadata-correction] Received asynchronous metadata correction request', {
       requestedCount,
       acceptedCount: acceptedCollectionConceptIds.length,
+      skippedCount: skipped.length,
       collectionConceptIds: acceptedCollectionConceptIds
     })
 
+    // Skip the SPARQL lookup entirely when every collection was filtered out -- nothing below
+    // will use the published version name.
+    const publishedVersionName = eligibleCollectionConceptIds.length > 0
+      ? (await getVersionMetadata('published')).versionName
+      : undefined
+
     const publishResults = await Promise.allSettled(
-      acceptedCollectionConceptIds.map(async (collectionConceptId) => {
+      eligibleCollectionConceptIds.map(async (collectionConceptId) => {
         try {
           const publishResult = await publishMetadataCorrectionRequest({
             source: 'metadataCorrectionApi',
@@ -175,7 +199,7 @@ export const requestMetadataCorrection = async (event, context) => {
       }
 
       failed.push({
-        collectionConceptId: acceptedCollectionConceptIds[index],
+        collectionConceptId: eligibleCollectionConceptIds[index],
         error: result.reason instanceof Error
           ? result.reason.toString()
           : String(result.reason)
@@ -208,8 +232,10 @@ export const requestMetadataCorrection = async (event, context) => {
         requestedCount,
         acceptedCount: accepted.length,
         failedCount: failed.length,
+        skippedCount: skipped.length,
         accepted,
-        failed
+        failed,
+        skipped
       }, null, 2)
     }
   } catch (error) {

@@ -29,6 +29,7 @@ vi.mock('@/shared/getVersionMetadata', () => ({
 
 vi.mock('@/shared/logger', () => ({
   logger: {
+    debug: vi.fn(),
     info: vi.fn(),
     error: vi.fn()
   }
@@ -51,6 +52,8 @@ describe('requestMetadataCorrection', () => {
       status: 'failed',
       created: true
     })
+
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
   })
 
   test('returns 202 and publishes one deduplicated message per collection concept id', async () => {
@@ -96,6 +99,7 @@ describe('requestMetadataCorrection', () => {
       requestedCount: 3,
       acceptedCount: 2,
       failedCount: 0,
+      skippedCount: 0,
       accepted: [
         {
           collectionConceptId: 'C123-PROV',
@@ -108,7 +112,8 @@ describe('requestMetadataCorrection', () => {
           messageGroupId: 'C456-PROV'
         }
       ],
-      failed: []
+      failed: [],
+      skipped: []
     })
   })
 
@@ -136,6 +141,7 @@ describe('requestMetadataCorrection', () => {
       requestedCount: 2,
       acceptedCount: 1,
       failedCount: 1,
+      skippedCount: 0,
       accepted: [
         {
           collectionConceptId: 'C123-PROV',
@@ -148,7 +154,8 @@ describe('requestMetadataCorrection', () => {
           collectionConceptId: 'C456-PROV',
           error: 'Error: SNS unavailable'
         }
-      ]
+      ],
+      skipped: []
     })
 
     expect(logger.error).toHaveBeenCalledWith(
@@ -193,6 +200,7 @@ describe('requestMetadataCorrection', () => {
       requestedCount: 2,
       acceptedCount: 1,
       failedCount: 1,
+      skippedCount: 0,
       accepted: [
         {
           collectionConceptId: 'C123-PROV',
@@ -205,7 +213,8 @@ describe('requestMetadataCorrection', () => {
           collectionConceptId: 'C456-PROV',
           error: 'SNS unavailable'
         }
-      ]
+      ],
+      skipped: []
     })
   })
 
@@ -355,6 +364,87 @@ describe('requestMetadataCorrection', () => {
     expect(result.statusCode).toBe(500)
     expect(JSON.parse(result.body)).toEqual({
       error: 'Error'
+    })
+  })
+
+  describe('when a collection concept id belongs to a provider that is not enabled', () => {
+    test('skips publishing it, logs a debug message, and reports it as skipped', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'PROV'
+      vi.mocked(publishMetadataCorrectionRequest).mockResolvedValueOnce({
+        messageId: 'message-1',
+        messageGroupId: 'C123-PROV'
+      })
+
+      const result = await requestMetadataCorrection({
+        body: JSON.stringify({
+          collectionConceptIds: [
+            'C123-PROV',
+            'C456-OTHER'
+          ]
+        })
+      })
+
+      expect(publishMetadataCorrectionRequest).toHaveBeenCalledTimes(1)
+      expect(publishMetadataCorrectionRequest).toHaveBeenCalledWith({
+        source: 'metadataCorrectionApi',
+        collectionConceptId: 'C123-PROV',
+        publishedVersionName: '20.1',
+        requestedAt: expect.any(String)
+      })
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('collectionConceptId=C456-OTHER providerId=OTHER')
+      )
+
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body)).toEqual({
+        requestedCount: 2,
+        acceptedCount: 1,
+        failedCount: 0,
+        skippedCount: 1,
+        accepted: [
+          {
+            collectionConceptId: 'C123-PROV',
+            messageId: 'message-1',
+            messageGroupId: 'C123-PROV'
+          }
+        ],
+        failed: [],
+        skipped: [
+          {
+            collectionConceptId: 'C456-OTHER',
+            providerId: 'OTHER'
+          }
+        ]
+      })
+    })
+
+    test('returns 202 with every collection skipped when no provider is enabled', async () => {
+      delete process.env.CMR_WRITEBACK_PROVIDERS
+
+      const result = await requestMetadataCorrection({
+        body: JSON.stringify({
+          collectionConceptIds: ['C123-PROV']
+        })
+      })
+
+      expect(getVersionMetadata).not.toHaveBeenCalled()
+      expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+      expect(result.statusCode).toBe(202)
+      expect(JSON.parse(result.body)).toEqual({
+        requestedCount: 1,
+        acceptedCount: 0,
+        failedCount: 0,
+        skippedCount: 1,
+        accepted: [],
+        failed: [],
+        skipped: [
+          {
+            collectionConceptId: 'C123-PROV',
+            providerId: 'PROV'
+          }
+        ]
+      })
     })
   })
 })

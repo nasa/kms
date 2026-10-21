@@ -132,6 +132,7 @@ describe('when the metadata correction service is invoked', () => {
     vi.clearAllMocks()
     delete process.env.METADATA_CORRECTION_REQUEST_DELAY_MS
     delete process.env.METADATA_CORRECTION_RUNS_PER_MINUTE
+    process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
     vi.mocked(delay).mockResolvedValue(undefined)
     vi.mocked(emitConsumerMetricsSafely).mockResolvedValue(undefined)
 
@@ -1811,6 +1812,85 @@ describe('when the metadata correction service is invoked', () => {
           recordCount: 1
         })
       }))
+    })
+  })
+
+  describe('when a queued message belongs to a provider that is not enabled', () => {
+    test('skips the correction workflow entirely and logs a debug message', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'PROV'
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-disabled-provider',
+            body: JSON.stringify({
+              collectionConceptId: 'C1234567890-OTHER'
+            })
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: []
+      })
+
+      expect(getCmrCollectionUmmDetails).not.toHaveBeenCalled()
+      expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
+      expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
+      expect(writeCorrectedMetadataToCmr).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionAuditLog).not.toHaveBeenCalled()
+      expect(delay).not.toHaveBeenCalled()
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('collectionConceptId=C1234567890-OTHER providerId=OTHER')
+      )
+    })
+
+    test('does not skip a message for an enabled provider in the same batch', async () => {
+      process.env.CMR_WRITEBACK_PROVIDERS = 'PROV'
+
+      vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+        collectionConceptId: 'C1234567890-PROV',
+        providerId: 'PROV',
+        nativeId: 'native-123',
+        revisionId: 1,
+        format: 'application/dif10+xml',
+        umm: {}
+      })
+
+      vi.mocked(validateCmrCollectionUmm).mockResolvedValue({
+        status: 200,
+        errors: [],
+        warnings: [],
+        responseBody: {
+          errors: [],
+          warnings: []
+        }
+      })
+
+      vi.mocked(extractKeywordValidationFailures).mockReturnValue([])
+
+      await expect(metadataCorrectionService({
+        Records: [
+          {
+            messageId: 'message-disabled-provider',
+            body: JSON.stringify({
+              collectionConceptId: 'C1234567890-OTHER'
+            })
+          },
+          {
+            messageId: 'message-enabled-provider',
+            body: JSON.stringify({
+              collectionConceptId: 'C1234567890-PROV'
+            })
+          }
+        ]
+      })).resolves.toEqual({
+        batchItemFailures: []
+      })
+
+      expect(getCmrCollectionUmmDetails).toHaveBeenCalledTimes(1)
+      expect(getCmrCollectionUmmDetails).toHaveBeenCalledWith({
+        collectionConceptId: 'C1234567890-PROV'
+      })
     })
   })
 })

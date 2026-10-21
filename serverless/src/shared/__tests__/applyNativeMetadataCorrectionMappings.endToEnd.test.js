@@ -272,12 +272,15 @@ describe('when running the metadata correction workflow end to end', () => {
   let metadataCorrectionRequests
 
   beforeAll(() => {
+    // Enable the fixture provider so the merged rollout guards exercise the full workflow.
+    vi.stubEnv('CMR_WRITEBACK_PROVIDERS', 'LOCAL')
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-10-15T12:00:00.000Z'))
   })
 
   afterAll(() => {
     vi.useRealTimers()
+    vi.unstubAllEnvs()
   })
 
   describe('when the publisher creates a new keyword version', () => {

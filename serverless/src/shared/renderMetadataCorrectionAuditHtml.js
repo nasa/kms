@@ -4,6 +4,8 @@ import { html as renderDiffHtml } from 'diff2html'
 import diff2HtmlStyles from 'diff2html/bundles/css/diff2html.min.css?inline'
 import { escape } from 'html-escaper'
 
+import { isAllProvidersEnabled } from './cmrWritebackProviders'
+
 const PAGE_STYLES = `
   :root {
     color-scheme: light;
@@ -427,6 +429,29 @@ const displayValue = (value, fallback = 'Not available') => escape(
 )
 
 /**
+ * Renders a disclaimer noting which CMR providers the fixer service is currently rolled out to.
+ *
+ * `enabledProviders` mirrors the `CMR_WRITEBACK_PROVIDERS` rollout allowlist: an `ALL` entry
+ * means every provider, an empty list means the service is disabled for every provider.
+ *
+ * @param {string[]} [enabledProviders] Normalized provider ids the fixer service is enabled for.
+ * @returns {string} HTML disclaimer, or the bare string `'None'` when the list was not provided.
+ */
+const renderEnabledProvidersNotice = (enabledProviders) => {
+  if (!Array.isArray(enabledProviders)) return 'None'
+
+  let description = 'none'
+
+  if (isAllProvidersEnabled(enabledProviders)) {
+    description = 'all providers'
+  } else if (enabledProviders.length > 0) {
+    description = enabledProviders.join(', ')
+  }
+
+  return `<p class="notice enabled-providers-notice">KMS fixer service enabled only for the following providers: ${displayValue(description)}</p>`
+}
+
+/**
  * Formats a stored date consistently for detail fields and lifecycle history.
  *
  * @param {unknown} value Stored date value.
@@ -819,6 +844,8 @@ const renderPublishedVersionGroups = (items) => {
  * @param {Object} params Page data.
  * @param {string} [params.collectionConceptId] Current collection ID filter.
  * @param {boolean} [params.detail=false] Whether to render complete run information.
+ * @param {string[]} [params.enabledProviders] Providers the fixer service is currently enabled
+ * for. When provided, a disclaimer naming them is rendered at the top of the page.
  * @param {boolean} [params.groupByPublishedVersion=false] Group summaries under version headings.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
  * @param {string} [params.message] Optional empty-state or error message.
@@ -831,6 +858,7 @@ const renderPublishedVersionGroups = (items) => {
 export const renderMetadataCorrectionAuditHtml = ({
   collectionConceptId,
   detail = false,
+  enabledProviders,
   groupByPublishedVersion = false,
   items = [],
   message,
@@ -862,6 +890,7 @@ export const renderMetadataCorrectionAuditHtml = ({
   </head>
   <body>
     <main>
+      ${renderEnabledProvidersNotice(enabledProviders)}
       ${showPageHeader ? `<h1>${displayValue(title)}</h1>
       <p class="lede">${items.length} audit ${items.length === 1 ? 'record' : 'records'} on this page</p>` : ''}
       ${detail || !showCollectionFilter ? '' : renderCollectionFilter(collectionConceptId)}

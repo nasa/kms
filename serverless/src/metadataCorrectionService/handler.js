@@ -1,3 +1,7 @@
+import {
+  getProviderIdFromCollectionConceptId,
+  isWritebackEnabledForProvider
+} from '@/shared/cmrWritebackProviders'
 import { delay } from '@/shared/delay'
 import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
@@ -161,6 +165,11 @@ const delayQueuedManualRequestIfNeeded = async ({
  * "fix one collection" business logic now lives in `runCollectionMetadataCorrection` so the same
  * flow can also be reused by synchronous API endpoints.
  *
+ * Every message is also checked against `CMR_WRITEBACK_PROVIDERS` here, regardless of how it
+ * reached the queue -- this is the last line of defense for a provider that isn't enabled, since
+ * it's this worker that would otherwise fetch collection metadata from CMR and build the fix,
+ * only to discard it at the final writeback step.
+ *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
  * @returns {Promise<{batchItemFailures: Array}>} Empty failures because each request is attempted
  * once and failures are recorded in the metadata-correction audit log.
@@ -174,26 +183,45 @@ export const metadataCorrectionService = async (event) => {
 
     try {
       metadataCorrectionRequest = JSON.parse(record?.body || '{}')
+      const { collectionConceptId } = metadataCorrectionRequest
 
       logger.info('[metadata-correction] Received metadata correction request', {
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         messageId,
         metadataCorrectionRequest
       })
 
+      if (collectionConceptId) {
+        const providerId = getProviderIdFromCollectionConceptId(collectionConceptId)
+
+        if (!isWritebackEnabledForProvider(providerId)) {
+          // This is the last line of defense, independent of whether the message was queued by
+          // a gated producer, left over from before this check existed, or published directly:
+          // the worker itself is the one that would otherwise fetch collection metadata from CMR
+          // and build the fix, only to discard it at the final writeback step.
+          logger.debug(
+            '[metadata-correction] Skipping metadata correction request for provider not enabled '
+            + `collectionConceptId=${collectionConceptId} providerId=${providerId || 'n/a'}`
+          )
+
+          // A skipped request is acknowledged successfully and must not count as a batch failure.
+          return { failed: false }
+        }
+      }
+
       await paceQueuedCorrectionRunIfNeeded({
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         messageId
       })
 
       await delayQueuedManualRequestIfNeeded({
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         messageId,
         metadataCorrectionRequest
       })
 
       await runCollectionMetadataCorrection({
-        collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+        collectionConceptId,
         keywordEvent: metadataCorrectionRequest.keywordEvent,
         messageId,
         publishedVersionName: metadataCorrectionRequest.publishedVersionName,
