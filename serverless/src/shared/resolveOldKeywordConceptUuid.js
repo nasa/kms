@@ -1,6 +1,7 @@
 import { getHistoricalConceptByKeyword } from './redis-path-store/getHistoricalConceptByKeyword'
 import { getKeywordPathFromKeywordObject } from './redis-path-store/getKeywordPathFromKeywordObject'
 import { getPublishedConceptByUuid } from './redis-path-store/getPublishedConceptByUuid'
+import { buildKeywordLookupObject } from './redis-path-store/helpers/resolveLookupKeywordObject'
 
 /**
  * Historical-to-published keyword resolution helper for metadata correction.
@@ -82,7 +83,7 @@ const normalizeKeywordObject = (keywordObject) => (
  * @param {object} params - Correction descriptor fields.
  * @param {string} params.scheme - Normalized keyword scheme.
  * @param {string|undefined} params.keywordConceptUuid - Resolved concept UUID.
- * @param {Record<string, string>|undefined} [params.oldKeywordObject] - Historical keyword object.
+ * @param {Record<string, string>|undefined} [params.oldKeywordObject] - Keyword object from the collection.
  * @param {Record<string, string>|undefined} [params.newKeywordObject] - Current published keyword object.
  * @param {string|undefined} [params.oldLongName] - Historical long name when available.
  * @param {string|undefined} [params.newLongName] - Current published long name when available.
@@ -221,6 +222,21 @@ export const resolveOldKeywordConceptUuid = async ({
     return undefined
   }
 
+  const historicalKeywordObject = getConceptKeywordObject({
+    concept: historicalConcept
+  })
+  const extractedKeywordObject = buildKeywordLookupObject({
+    scheme: normalizedScheme,
+    keywordValue
+  })
+  // Retain cached hierarchy fields, but use collection values so editors can match native metadata.
+  const oldKeywordObject = Object.fromEntries(
+    Object.entries(historicalKeywordObject).map(([key, value]) => [
+      key,
+      extractedKeywordObject[key] ?? value
+    ])
+  )
+
   const isDeleteMatch = isDeleteMatchForKeyword({
     keywordEvent,
     normalizedScheme,
@@ -233,9 +249,7 @@ export const resolveOldKeywordConceptUuid = async ({
     return buildKeywordReference({
       scheme: normalizedScheme,
       keywordConceptUuid,
-      oldKeywordObject: getConceptKeywordObject({
-        concept: historicalConcept
-      }),
+      oldKeywordObject,
       newKeywordObject: {},
       oldLongName: historicalConcept?.longName,
       action: 'delete'
@@ -251,9 +265,7 @@ export const resolveOldKeywordConceptUuid = async ({
   return buildKeywordReference({
     scheme: normalizedScheme,
     keywordConceptUuid,
-    oldKeywordObject: getConceptKeywordObject({
-      concept: historicalConcept
-    }),
+    oldKeywordObject,
     newKeywordObject: getConceptKeywordObject({
       concept: currentPublishedConcept
     }),

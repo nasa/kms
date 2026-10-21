@@ -84,7 +84,8 @@
     }
   ],
   "ISOTopicCategories": [
-    "GEOSCIENTIFIC INFORMATION_CHANGED"
+    "GEOSCIENTIFIC INFORMATION_CHANGED",
+    "Health"
   ],
   "ProcessingLevel": {
     "Id": "2_CHANGED"

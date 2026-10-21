@@ -3,9 +3,10 @@
  * 1. Publishing diffs the published and draft CSVs into keyword events and Redis entries.
  * 2. The keyword-event consumer turns those events into collection-scoped correction requests.
  * 3. The metadata-correction service resolves four CMR-translated UMM-C records into corrections.
- * 4. Ambiguous keyword values remain unchanged in the corrected native metadata.
- * 5. Complete update fixtures produce the expected metadata for every native format.
- * 6. Complete deletion fixtures produce the expected metadata for every native format.
+ * 4. Case-only differences are corrected to the canonical published keyword spelling.
+ * 5. Ambiguous keyword values remain unchanged in the corrected native metadata.
+ * 6. Complete update fixtures produce the expected metadata for every native format.
+ * 7. Complete deletion fixtures produce the expected metadata for every native format.
  */
 import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'

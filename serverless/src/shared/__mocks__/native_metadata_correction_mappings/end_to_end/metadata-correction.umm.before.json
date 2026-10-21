@@ -84,7 +84,8 @@
     }
   ],
   "ISOTopicCategories": [
-    "GEOSCIENTIFIC INFORMATION"
+    "GEOSCIENTIFIC INFORMATION",
+    "HEALTH"
   ],
   "ProcessingLevel": {
     "Id": "2"
