@@ -488,6 +488,12 @@ const renderCollectionHeading = (audit) => {
     return 'Publisher event: no collections found'
   }
 
+  if (audit.recordType === 'metadataCorrectionWorkflowFailure') {
+    // These failures can happen before a collection id is known, so avoid a misleading
+    // "Unknown collection" heading in the operator view.
+    return 'Metadata correction workflow failure'
+  }
+
   const conceptId = displayValue(audit.collectionConceptId, 'Unknown collection')
   const collectionUri = String(audit.collectionUri || '')
 

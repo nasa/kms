@@ -5,6 +5,9 @@ import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPubli
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import {
+  persistMetadataCorrectionWorkflowFailureAuditLog
+} from '@/shared/persistMetadataCorrectionWorkflowFailureAuditLog'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
 import { getPublishKeywordEvents } from '@/shared/redis-path-store/getPublishKeywordEvents'
 import {
@@ -41,7 +44,6 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  */
 const PUBLISHER_EVENT_SOURCE = 'kms.publisher'
 const PUBLISHER_EVENT_DETAIL_TYPE = 'kms.publisher.analysis.completed'
-const KEYWORD_EVENT_PUBLISH_RETRIES = 3
 
 const publisherEventClient = getEventBridgeClient()
 
@@ -116,7 +118,7 @@ const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => 
 }
 
 /**
- * Publishes keyword events to SNS with bounded per-event retries.
+ * Publishes each keyword event to SNS once while isolating failures to the current event.
  *
  * @async
  * @param {Array<Object>} keywordEvents - Keyword event payloads to publish.
@@ -124,64 +126,60 @@ const emitCachingEvent = async ({ versionName, publishDate, keywordEvents }) => 
  * @returns {Promise<{
  *   attemptedCount: number,
  *   publishedCount: number,
- *   failedEvents: Array<{ keywordEvent: Object, error: string, attempts: number }>
+ *   failedEvents: Array<{ keywordEvent: Object, error: string }>
  * }>} SNS publish summary for the completed batch.
  */
 const publishKeywordEvents = async (keywordEvents, versionName) => keywordEvents.reduce(
   async (summaryPromise, keywordEvent) => {
     const summary = await summaryPromise
-    let lastError
-    let attempts = 0
 
-    for (let retry = 0; retry <= KEYWORD_EVENT_PUBLISH_RETRIES; retry += 1) {
-      attempts += 1
+    try {
+      const publishResult = await publishKeywordEvent({
+        ...keywordEvent,
+        VersionName: versionName
+      })
 
-      try {
-        if (retry > 0) {
-          logger.info(
-            '[publisher] Retrying keyword event publish '
-              + `(attempt ${retry + 1}/${KEYWORD_EVENT_PUBLISH_RETRIES + 1}) `
-              + `uuid=${keywordEvent.UUID} type=${keywordEvent.EventType}`
-          )
-        }
+      logger.info('[publisher] Published keyword event', {
+        versionName,
+        messageId: publishResult.messageId || 'n/a',
+        eventType: keywordEvent.EventType,
+        scheme: keywordEvent.Scheme,
+        uuid: keywordEvent.UUID,
+        timestamp: keywordEvent.Timestamp,
+        oldKeywordObject: keywordEvent.OldKeywordObject,
+        newKeywordObject: keywordEvent.NewKeywordObject
+      })
 
-        // eslint-disable-next-line no-await-in-loop
-        const publishResult = await publishKeywordEvent({
-          ...keywordEvent,
-          VersionName: versionName
-        })
+      summary.publishedCount += 1
+    } catch (error) {
+      // Do not replay successful events when one SNS publish fails; audit this event and move on.
+      logger.warn(
+        '[publisher] Keyword event publish failed '
+          + `uuid=${keywordEvent.UUID} type=${keywordEvent.EventType} `
+          + `scheme=${keywordEvent.Scheme} error=${error?.message || String(error)}`
+      )
 
-        logger.info('[publisher] Published keyword event', {
-          versionName,
-          messageId: publishResult.messageId || 'n/a',
-          eventType: keywordEvent.EventType,
-          scheme: keywordEvent.Scheme,
-          uuid: keywordEvent.UUID,
-          timestamp: keywordEvent.Timestamp,
-          oldKeywordObject: keywordEvent.OldKeywordObject,
-          newKeywordObject: keywordEvent.NewKeywordObject
-        })
-
-        summary.publishedCount += 1
-        lastError = undefined
-        break
-      } catch (error) {
-        lastError = error
-        logger.warn(
-          '[publisher] Keyword event publish failed '
-            + `attempt=${retry + 1}/${KEYWORD_EVENT_PUBLISH_RETRIES + 1} `
-            + `uuid=${keywordEvent.UUID} type=${keywordEvent.EventType} `
-            + `scheme=${keywordEvent.Scheme} error=${error.message}`
-        )
-      }
-    }
-
-    if (lastError) {
       summary.failedEvents.push({
         keywordEvent,
-        error: lastError.message,
-        attempts
+        error: error?.message || String(error)
       })
+
+      try {
+        await persistMetadataCorrectionWorkflowFailureAuditLog({
+          source: 'publisher',
+          outcome: 'keyword-event-publish-failed',
+          error,
+          keywordEvent,
+          publishedVersionName: versionName
+        })
+      } catch (auditError) {
+        logger.error('[publisher] Failed to persist keyword event publish failure', {
+          uuid: keywordEvent.UUID,
+          scheme: keywordEvent.Scheme,
+          eventType: keywordEvent.EventType,
+          error: auditError?.message || String(auditError)
+        })
+      }
     }
 
     return summary
@@ -349,19 +347,18 @@ export const publisher = async (event) => {
         if (publishSummary.failedEvents.length > 0) {
           postPublishFailures.push(
             `Publish completed, but ${publishSummary.failedEvents.length} `
-            + 'keyword event publishes failed after retries'
+            + 'keyword event publishes failed'
           )
 
-          publishSummary.failedEvents.forEach(({ keywordEvent, error, attempts }) => {
+          publishSummary.failedEvents.forEach(({ keywordEvent, error }) => {
             logger.error(
-              '[publisher] Keyword event publish exhausted retries',
+              '[publisher] Keyword event publish failed',
               {
                 uuid: keywordEvent.UUID,
                 scheme: keywordEvent.Scheme,
                 eventType: keywordEvent.EventType,
                 oldKeywordObject: keywordEvent.OldKeywordObject,
                 newKeywordObject: keywordEvent.NewKeywordObject,
-                attempts,
                 error
               }
             )
@@ -505,6 +502,22 @@ export const publisher = async (event) => {
     const durationInMs = Date.now() - startTime
     const durationInSeconds = (durationInMs / 1000).toFixed(2)
     logger.error(`[publisher] Error in publisher handler after ${durationInSeconds} seconds:`, error.message)
+
+    // Infrastructure retries are disabled, so preserve the terminal publisher failure in audit.
+    try {
+      await persistMetadataCorrectionWorkflowFailureAuditLog({
+        source: 'publisher',
+        outcome: 'publisher-failed',
+        error,
+        messageId: event?.id,
+        publishedVersionName: event?.detail?.versionName
+      })
+    } catch (auditError) {
+      logger.error('[publisher] Failed to persist publisher failure', {
+        error: auditError?.message || String(auditError)
+      })
+    }
+
     throw error
   }
 }

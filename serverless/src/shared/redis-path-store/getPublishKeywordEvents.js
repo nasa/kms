@@ -3,7 +3,6 @@ import { getConceptSchemeDetails } from '@/shared/getConceptSchemeDetails'
 import { logger } from '@/shared/logger'
 
 import { KEYWORD_DIFF_SKIP_HEADER_ROWS, KEYWORD_PATH_SEPARATOR } from './helpers/constants'
-import { delay } from './helpers/delay'
 import { parseKeywordCsvContent as parseCsvContent } from './helpers/keywordCsv'
 
 export { parseCsvContent }
@@ -302,44 +301,6 @@ const getKeywordChangesForScheme = async ({
   })
 }
 
-const getKeywordChangesForSchemeWithRetry = async ({
-  notation,
-  inPublished,
-  inDraft,
-  attempt = 0,
-  maxRetries = 3
-}) => {
-  try {
-    const comparison = await getKeywordChangesForScheme({
-      notation,
-      inPublished,
-      inDraft
-    })
-
-    return {
-      comparison,
-      attempts: attempt + 1
-    }
-  } catch (error) {
-    logger.warn(`Error processing ${notation} on attempt ${attempt + 1}: ${error.message}`)
-
-    if (attempt >= maxRetries) {
-      throw error
-    }
-
-    const delayMs = 2 ** attempt * 1000
-    await delay(delayMs)
-
-    return getKeywordChangesForSchemeWithRetry({
-      notation,
-      inPublished,
-      inDraft,
-      attempt: attempt + 1,
-      maxRetries
-    })
-  }
-}
-
 /**
  * Detects keyword changes between the published and draft scheme exports and builds event payloads
  * for downstream publish-time processing.
@@ -460,7 +421,9 @@ export const getPublishKeywordEvents = async ({
       let lastError
 
       try {
-        const { comparison } = await getKeywordChangesForSchemeWithRetry({
+        // Each scheme gets one attempt. A failed scheme is reported while independent schemes
+        // continue, avoiding delayed re-reads of the same publish inputs.
+        const comparison = await getKeywordChangesForScheme({
           notation,
           inPublished,
           inDraft
@@ -479,7 +442,7 @@ export const getPublishKeywordEvents = async ({
         lastError = error
       }
 
-      logger.error(`Failed ${notation}: exhausted all 4 attempts - ${lastError?.message}`)
+      logger.error(`Failed ${notation}: ${lastError?.message}`)
 
       failedSchemes.push({
         notation,

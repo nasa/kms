@@ -2,6 +2,10 @@ import { delay } from '@/shared/delay'
 import { CONSUMER_METRIC_NAMES } from '@/shared/emitConsumerMetrics'
 import { emitConsumerMetricsSafely } from '@/shared/emitConsumerMetricsSafely'
 import { logger } from '@/shared/logger'
+import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
+import {
+  persistMetadataCorrectionWorkflowFailureAuditLog
+} from '@/shared/persistMetadataCorrectionWorkflowFailureAuditLog'
 import { runCollectionMetadataCorrection } from '@/shared/runCollectionMetadataCorrection'
 
 /**
@@ -158,49 +162,91 @@ const delayQueuedManualRequestIfNeeded = async ({
  * flow can also be reused by synchronous API endpoints.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
- * @returns {Promise<{batchItemFailures: Array<{itemIdentifier: string}>}>}
- *   Failed message identifiers to retry through SQS partial batch response handling.
+ * @returns {Promise<{batchItemFailures: Array}>} Empty failures because each request is attempted
+ * once and failures are recorded in the metadata-correction audit log.
  */
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
 
-  const settledResults = await Promise.allSettled(records.map(async (record) => {
+  const processingResults = await Promise.all(records.map(async (record) => {
+    let metadataCorrectionRequest = {}
+    const messageId = record?.messageId
+
     try {
-      const metadataCorrectionRequest = JSON.parse(record.body || '{}')
+      metadataCorrectionRequest = JSON.parse(record?.body || '{}')
 
       logger.info('[metadata-correction] Received metadata correction request', {
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
-        messageId: record.messageId,
+        messageId,
         metadataCorrectionRequest
       })
 
       await paceQueuedCorrectionRunIfNeeded({
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
-        messageId: record.messageId
+        messageId
       })
 
       await delayQueuedManualRequestIfNeeded({
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
-        messageId: record.messageId,
+        messageId,
         metadataCorrectionRequest
       })
 
       await runCollectionMetadataCorrection({
         collectionConceptId: metadataCorrectionRequest.collectionConceptId,
         keywordEvent: metadataCorrectionRequest.keywordEvent,
-        messageId: record.messageId,
+        messageId,
         publishedVersionName: metadataCorrectionRequest.publishedVersionName,
         source: metadataCorrectionRequest.source
       })
+
+      return { failed: false }
     } catch (error) {
       logger.error('[metadata-correction] Failed to process metadata correction request', error)
-      throw error
+
+      // Previously, rethrowing added this request to batchItemFailures so SQS would retry it,
+      // repeating the correction flow even for permanent failures such as CMR 400 responses.
+      // Audit the failure and acknowledge the message by returning no batch failures; remaining
+      // requests can continue, and failed work requires manual follow-up instead of a retry.
+      // Preserve any detailed failure already written by the correction flow, otherwise add
+      // a fallback audit record here.
+      try {
+        if (metadataCorrectionRequest.collectionConceptId) {
+          await persistMetadataCorrectionAuditLog({
+            runId: messageId,
+            status: 'failed',
+            preserveFailedDetails: true,
+            collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+            publishedVersionName: metadataCorrectionRequest.publishedVersionName,
+            source: metadataCorrectionRequest.source || 'metadataCorrectionService',
+            messageId,
+            keywordEvent: metadataCorrectionRequest.keywordEvent,
+            outcome: 'request-processing-failed',
+            error
+          })
+        } else {
+          await persistMetadataCorrectionWorkflowFailureAuditLog({
+            source: 'metadataCorrectionService',
+            outcome: 'invalid-correction-request',
+            error,
+            messageId
+          })
+        }
+      } catch (auditError) {
+        logger.error('[metadata-correction] Failed to persist request processing failure', {
+          collectionConceptId: metadataCorrectionRequest.collectionConceptId,
+          messageId,
+          error: auditError?.message || String(auditError)
+        })
+      }
+
+      return { failed: true }
     }
   }))
 
   if (records.length > 0) {
-    const processedCount = settledResults.filter(({ status }) => status === 'fulfilled').length
-    const failureCount = settledResults.length - processedCount
+    const failureCount = processingResults.filter(({ failed }) => failed).length
+    const processedCount = processingResults.length - failureCount
 
     await emitConsumerMetricsSafely({
       metrics: buildBatchProcessingMetrics({
@@ -219,15 +265,7 @@ export const metadataCorrectionService = async (event) => {
   }
 
   return {
-    batchItemFailures: settledResults.reduce((failures, result, index) => {
-      const itemIdentifier = records[index]?.messageId
-
-      if (result.status === 'rejected' && itemIdentifier) {
-        failures.push({ itemIdentifier })
-      }
-
-      return failures
-    }, [])
+    batchItemFailures: []
   }
 }
 

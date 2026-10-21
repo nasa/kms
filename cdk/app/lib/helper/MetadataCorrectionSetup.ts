@@ -155,9 +155,11 @@ export class MetadataCorrectionSetup extends Construct {
       queueName: metadataCorrectionRequestsName,
       fifo: true,
       contentBasedDeduplication: true,
+      // Collection failures are audited and acknowledged by the worker. A hard runtime failure
+      // is retained in the DLQ after one receive rather than automatically replayed.
       deadLetterQueue: {
         queue: this.metadataCorrectionRequestsDlq,
-        maxReceiveCount: 3
+        maxReceiveCount: 1
       },
       retentionPeriod: cdk.Duration.days(14),
       visibilityTimeout: cdk.Duration.minutes(5)
@@ -234,8 +236,8 @@ export class MetadataCorrectionSetup extends Construct {
     this.metadataCorrectionServiceLambda.addEventSource(new eventsources.SqsEventSource(
       this.metadataCorrectionRequestsQueue,
       {
-        batchSize: 1,
-        reportBatchItemFailures: true
+        // Each collection is its own failure boundary and is always acknowledged after auditing.
+        batchSize: 1
       }
     ))
 

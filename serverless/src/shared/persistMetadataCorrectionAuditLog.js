@@ -204,6 +204,7 @@ const buildAuditPatch = ({
  * @param {'checked'|'pending'|'applied'|'failed'} [params.status='checked'] Lifecycle status.
  * @param {string} params.collectionConceptId CMR collection concept id.
  * @param {string} [params.timestamp] ISO timestamp override for tests.
+ * @param {boolean} [params.preserveFailedDetails=false] Keep an existing detailed failure intact.
  * @returns {Promise<{runId: string, status: string, created: boolean}>} Persistence summary.
  *
  * @example
@@ -219,6 +220,7 @@ export const persistMetadataCorrectionAuditLog = async ({
   runId = uuidv4(),
   status = 'checked',
   timestamp,
+  preserveFailedDetails = false,
   ...auditFields
 }) => {
   if (!auditFields.collectionConceptId) {
@@ -235,6 +237,16 @@ export const persistMetadataCorrectionAuditLog = async ({
     { _id: runId },
     { projection: { status: 1 } }
   )
+
+  // The worker adds a generic fallback only when the collection flow did not already record the
+  // more useful correction- or writeback-specific failure.
+  if (preserveFailedDetails && existingDocument?.status === 'failed') {
+    return {
+      runId,
+      status: existingDocument.status,
+      created: false
+    }
+  }
 
   if (existingDocument?.status === TERMINAL_STATUS && status !== TERMINAL_STATUS) {
     return {

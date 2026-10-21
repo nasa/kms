@@ -197,6 +197,23 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).not.toContain('metadata_correction_audit/run-detail?format=html')
   })
 
+  test('identifies a workflow failure that occurred before a collection was known', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{
+        runId: 'workflow-failure',
+        recordType: 'metadataCorrectionWorkflowFailure',
+        status: 'failed',
+        outcome: 'keyword-event-processing-failed',
+        error: { message: 'CMR lookup unavailable' }
+      }]
+    })
+
+    expect(view).toContain('Metadata correction workflow failure')
+    expect(view).toContain('CMR lookup unavailable')
+    expect(view).not.toContain('Unknown collection')
+  })
+
   test('renders a no-collections-found publisher event clearly', () => {
     const view = renderMetadataCorrectionAuditHtml({
       detail: true,

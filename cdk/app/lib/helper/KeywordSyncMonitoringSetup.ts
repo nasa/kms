@@ -39,7 +39,7 @@ export class KeywordSyncMonitoringSetup {
 
     this.publishFailuresAlarm = new cloudwatch.Alarm(scope, 'KeywordSyncPublishFailuresAlarm', {
       alarmName: `${prefix}-${stage}-keyword-event-publish-failures`,
-      alarmDescription: 'Alerts when publisher keyword event publishes fail after retries.',
+      alarmDescription: 'Alerts when a publisher keyword event fails to publish.',
       metric: keywordEventPublishFailuresMetric,
       threshold: 1,
       evaluationPeriods: 1,

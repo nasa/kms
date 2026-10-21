@@ -227,6 +227,24 @@ describe('persistMetadataCorrectionAuditLog', () => {
     }))
   })
 
+  test('preserves an existing detailed failure when recording a worker fallback', async () => {
+    collection.findOne.mockResolvedValue({ status: 'failed' })
+
+    await expect(persistMetadataCorrectionAuditLog({
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      preserveFailedDetails: true,
+      outcome: 'request-processing-failed',
+      status: 'failed'
+    })).resolves.toEqual({
+      runId: 'run-1',
+      status: 'failed',
+      created: false
+    })
+
+    expect(collection.updateOne).not.toHaveBeenCalled()
+  })
+
   test('validates required fields and lifecycle status', async () => {
     await expect(persistMetadataCorrectionAuditLog({
       status: 'checked'

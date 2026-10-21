@@ -10,9 +10,10 @@ import { SNSClient } from '@aws-sdk/client-sns'
  * configuration. In local SAM/LocalStack flows it applies the endpoint override plus the dummy
  * credentials and path-style behavior LocalStack expects.
  *
+ * @param {object} [overrides] Service-specific client configuration.
  * @returns {object} AWS SDK client configuration.
  */
-const getClientConfig = () => {
+const getClientConfig = (overrides = {}) => {
   const endpoint = process.env.AWS_ENDPOINT_URL
   const config = endpoint
     ? {
@@ -29,7 +30,10 @@ const getClientConfig = () => {
     config.forcePathStyle = true
   }
 
-  return config
+  return {
+    ...config,
+    ...overrides
+  }
 }
 
 let s3Client
@@ -56,7 +60,8 @@ let eventBridgeClient
  */
 export const getEventBridgeClient = () => {
   if (!eventBridgeClient) {
-    eventBridgeClient = new EventBridgeClient(getClientConfig())
+    // Retrying a publish event can rerun the entire publisher after partial success.
+    eventBridgeClient = new EventBridgeClient(getClientConfig({ maxAttempts: 1 }))
   }
 
   return eventBridgeClient
@@ -71,7 +76,8 @@ let snsClient
  */
 export const getSnsClient = () => {
   if (!snsClient) {
-    snsClient = new SNSClient(getClientConfig())
+    // Per-event failures are audited by the caller instead of retried inside the SDK.
+    snsClient = new SNSClient(getClientConfig({ maxAttempts: 1 }))
   }
 
   return snsClient

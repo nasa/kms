@@ -12,6 +12,9 @@ import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPubli
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { logger } from '@/shared/logger'
 import { getPublishUpdateQuery } from '@/shared/operations/updates/getPublishUpdateQuery'
+import {
+  persistMetadataCorrectionWorkflowFailureAuditLog
+} from '@/shared/persistMetadataCorrectionWorkflowFailureAuditLog'
 import { publishKeywordEvent } from '@/shared/publishKeywordEvent'
 import { getPublishKeywordEvents } from '@/shared/redis-path-store/getPublishKeywordEvents'
 import {
@@ -127,6 +130,9 @@ vi.mock('@/shared/emitPublisherMetrics')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
+vi.mock('@/shared/persistMetadataCorrectionWorkflowFailureAuditLog', () => ({
+  persistMetadataCorrectionWorkflowFailureAuditLog: vi.fn()
+}))
 
 vi.mock('@/shared/redis-path-store/getPublishKeywordEvents', () => ({
   getPublishKeywordEvents: vi.fn()
@@ -175,6 +181,12 @@ describe('publisher handler', () => {
       messageId: 'message-1',
       message: '{}',
       topicArn: 'arn:aws:sns:us-east-1:123456789012:keyword-events'
+    })
+
+    vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockResolvedValue({
+      runId: 'workflow-failure-run',
+      status: 'failed',
+      created: true
     })
 
     eventBridgeMock.on(PutEventsCommand).resolves({ FailedEntryCount: 0 })
@@ -393,7 +405,7 @@ describe('publisher handler', () => {
     })
   })
 
-  test('publishes remaining keyword events after retries are exhausted for one event', async () => {
+  test('audits one failed keyword event and continues with the remaining events', async () => {
     mockPublishKeywordEvents([
       createInsertedScienceKeywordEvent({
         uuid: 'uuid1',
@@ -407,9 +419,6 @@ describe('publisher handler', () => {
 
     publishKeywordEvent
       .mockRejectedValueOnce(new Error('SNS unavailable'))
-      .mockRejectedValueOnce(new Error('SNS unavailable'))
-      .mockRejectedValueOnce(new Error('SNS unavailable'))
-      .mockRejectedValueOnce(new Error('SNS unavailable'))
       .mockResolvedValueOnce({
         messageId: 'message-2',
         message: '{}',
@@ -418,9 +427,17 @@ describe('publisher handler', () => {
 
     const result = await publisher(mockEvent)
 
-    expect(publishKeywordEvent).toHaveBeenCalledTimes(5)
+    expect(publishKeywordEvent).toHaveBeenCalledTimes(2)
     expect(publishKeywordEvent).toHaveBeenNthCalledWith(1, expect.objectContaining({ UUID: 'uuid1' }))
-    expect(publishKeywordEvent).toHaveBeenNthCalledWith(5, expect.objectContaining({ UUID: 'uuid2' }))
+    expect(publishKeywordEvent).toHaveBeenNthCalledWith(2, expect.objectContaining({ UUID: 'uuid2' }))
+    expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
+      source: 'publisher',
+      outcome: 'keyword-event-publish-failed',
+      error: expect.any(Error),
+      keywordEvent: expect.objectContaining({ UUID: 'uuid1' }),
+      publishedVersionName: 'v1.0.0'
+    })
+
     expect(result).toEqual({
       status: 'partial_success',
       versionName: 'v1.0.0',
@@ -432,8 +449,67 @@ describe('publisher handler', () => {
       keywordEventPublishFailures: 1,
       cachePrimeEventEmitted: true,
       keywordEventsCount: 2,
-      postPublishFailures: ['Publish completed, but 1 keyword event publishes failed after retries']
+      postPublishFailures: ['Publish completed, but 1 keyword event publishes failed']
     })
+  })
+
+  test('continues publishing remaining events when both an SNS publish and its failure audit fail', async () => {
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid1',
+        keywordObject: SCIENCE_PATH_ONE_KEYWORD
+      }),
+      createInsertedScienceKeywordEvent({
+        uuid: 'uuid2',
+        keywordObject: SCIENCE_PATH_TWO_KEYWORD
+      })
+    ])
+
+    publishKeywordEvent.mockRejectedValueOnce(new Error('SNS unavailable'))
+    vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockRejectedValueOnce(
+      new Error('Audit unavailable')
+    )
+
+    const result = await publisher(mockEvent)
+
+    expect(publishKeywordEvent).toHaveBeenCalledTimes(2)
+    expect(result).toEqual(expect.objectContaining({
+      status: 'partial_success',
+      keywordEventsPublished: 1,
+      keywordEventPublishFailures: 1
+    }))
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[publisher] Failed to persist keyword event publish failure',
+      expect.objectContaining({
+        uuid: 'uuid1',
+        error: 'Audit unavailable'
+      })
+    )
+  })
+
+  test('preserves the original publisher error when its failure audit cannot be saved', async () => {
+    const error = new Error('RDF database unavailable')
+    sparqlRequest.mockRejectedValueOnce(error)
+    vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockRejectedValueOnce(
+      new Error('Audit unavailable')
+    )
+
+    await expect(publisher(mockEvent)).rejects.toBe(error)
+
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
+      source: 'publisher',
+      outcome: 'publisher-failed',
+      error,
+      messageId: undefined,
+      publishedVersionName: 'v1.0.0'
+    })
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[publisher] Failed to persist publisher failure',
+      { error: 'Audit unavailable' }
+    )
   })
 
   test('throws when versionName is missing', async () => {

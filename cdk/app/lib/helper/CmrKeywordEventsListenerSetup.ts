@@ -41,6 +41,8 @@ interface CmrKeywordEventsListenerSetupProps {
 export class CmrKeywordEventsListenerSetup extends Construct {
   public readonly queue: sqs.Queue
 
+  public readonly deadLetterQueue: sqs.Queue
+
   public readonly listenerLambda: NodejsFunction
 
   public readonly queueUrlOutput: cdk.CfnOutput
@@ -71,8 +73,22 @@ export class CmrKeywordEventsListenerSetup extends Construct {
     const queueName = `${prefix}-${stage}-cmr-keyword-events`
     const projectRoot = path.join(__dirname, '../../../..')
 
+    // SQS has no "disable retries" switch: unacknowledged messages become available again.
+    // A timeout or crash cannot run our catch block to audit and acknowledge the failure.
+    // This DLQ with maxReceiveCount: 1 prevents those failures from replaying the entire fanout.
+    this.deadLetterQueue = new sqs.Queue(this, 'CmrKeywordEventsDlq', {
+      queueName: `${queueName}-dlq`,
+      retentionPeriod: cdk.Duration.days(14)
+    })
+
     this.queue = new sqs.Queue(this, 'CmrKeywordEventsQueue', {
-      queueName
+      queueName,
+      deadLetterQueue: {
+        queue: this.deadLetterQueue,
+        maxReceiveCount: 1
+      },
+      retentionPeriod: cdk.Duration.days(14),
+      visibilityTimeout: cdk.Duration.minutes(90)
     })
 
     keywordEventsTopic.addSubscription(new subscriptions.SqsSubscription(this.queue))
@@ -82,7 +98,8 @@ export class CmrKeywordEventsListenerSetup extends Construct {
       entry: path.join(projectRoot, 'serverless/src/cmrKeywordEventsListener/handler.js'),
       handler: 'cmrKeywordEventsListener',
       runtime: NODE_LAMBDA_RUNTIME,
-      timeout: cdk.Duration.seconds(30),
+      // Large keyword changes can legitimately fan out to thousands of collections.
+      timeout: cdk.Duration.minutes(15),
       memorySize: 1024,
       environment: {
         CMR_BASE_URL: cmrBaseUrl,
