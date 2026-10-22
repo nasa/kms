@@ -7,6 +7,7 @@
  * 5. Ambiguous keyword values remain unchanged in the corrected native metadata.
  * 6. Complete update fixtures produce the expected metadata for every native format.
  * 7. Complete deletion fixtures produce the expected metadata for every native format.
+ * 8. Resolved corrections without a matching native field must not create new fields.
  */
 import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
@@ -558,6 +559,8 @@ describe('when running the metadata correction workflow end to end', () => {
         })
 
         describe('when the metadata-correction service processes the ECHO10 collection', () => {
+          let metadataCorrectionDelegateRequest
+
           beforeAll(async () => {
             vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
               collectionConceptId: dif10CollectionConceptId,
@@ -572,6 +575,7 @@ describe('when running the metadata correction workflow end to end', () => {
               readFixture('echo10.before.xml')
             )
 
+            vi.mocked(invokeMetadataCorrectionDelegate).mockClear()
             vi.mocked(writeCorrectedMetadataToCmr).mockClear()
 
             const metadataCorrectionRequest = metadataCorrectionRequests.find((request) => (
@@ -585,6 +589,33 @@ describe('when running the metadata correction workflow end to end', () => {
                 body: JSON.stringify(metadataCorrectionRequest)
               }]
             })
+
+            metadataCorrectionDelegateRequest = vi.mocked(invokeMetadataCorrectionDelegate)
+              .mock.calls.at(0).at(0)
+          })
+
+          test('should resolve a translated Related URL format even when the native field is absent', () => {
+            // Reproduce SIT: translation includes Not provided, but native ECHO10 has no such format.
+            // Assert resolution really happened so an unresolved keyword cannot make this pass.
+            expect(metadataCorrectionDelegateRequest.corrections).toEqual(expect.arrayContaining([
+              expect.objectContaining({
+                scheme: 'DataFormat',
+                action: 'replace',
+                keywordConceptUuid: 'b5ca4195-60bb-41f7-93bc-13f6f7e6af71',
+                ummPath: ['RelatedUrls', 1, 'GetData', 'Format'],
+                oldKeywordObject: {
+                  ShortName: 'Not provided',
+                  LongName: ''
+                },
+                newKeywordObject: {
+                  ShortName: 'Not Provided',
+                  LongName: ''
+                }
+              })
+            ]))
+
+            expect(metadataCorrectionDelegateRequest.metadataPayload)
+              .not.toContain('<DataFormat>Not provided</DataFormat>')
           })
 
           test('should send the expected corrected metadata to CMR', () => {

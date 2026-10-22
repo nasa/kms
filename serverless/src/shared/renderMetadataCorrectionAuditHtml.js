@@ -506,9 +506,10 @@ const renderDetailGrid = (entries) => {
  * Returns either a safe CMR collection link or a plain collection identifier.
  *
  * @param {Object} audit Audit summary or detail document.
+ * @param {boolean} [linkToCmr=true] Whether to link the heading to the CMR collection.
  * @returns {string} HTML collection heading.
  */
-const renderCollectionHeading = (audit) => {
+const renderCollectionHeading = (audit, linkToCmr = true) => {
   if (audit.recordType === 'publisherEventNoOp') {
     return 'Publisher event: no collections found'
   }
@@ -522,7 +523,7 @@ const renderCollectionHeading = (audit) => {
   const conceptId = displayValue(audit.collectionConceptId, 'Unknown collection')
   const collectionUri = String(audit.collectionUri || '')
 
-  if (!/^https:\/\//i.test(collectionUri)) return conceptId
+  if (!linkToCmr || !/^https:\/\//i.test(collectionUri)) return conceptId
 
   return `<a href="${displayValue(collectionUri)}" rel="noopener noreferrer">${conceptId}</a>`
 }
@@ -768,15 +769,18 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
   const statusClass = status === 'failed' ? ' status-failed' : ''
   const collection = audit.recordType === 'publisherEventNoOp'
     ? 'No collections found'
-    : renderCollectionHeading(audit)
+    : renderCollectionHeading(audit, false)
+  // Open audit diagnostics from the collection label without adding a separate run-id line.
+  const collectionLink = audit.runId
+    ? `<a href="${displayValue(runDetailHrefPrefix)}${encodeURIComponent(String(audit.runId))}?format=html">${collection}</a>`
+    : collection
   const outcomeDetail = audit.outcome && audit.outcome !== status
     ? `<span class="outcome-detail">${displayValue(audit.outcome)}</span>`
     : ''
 
-  // Published summaries omit error diagnostics; every row needs a link to its full audit.
   return changes.map((change) => `
     <tr>
-      <td>${collection}<p class="audit-meta">Run ${renderRunId(audit, false, runDetailHrefPrefix)}</p></td>
+      <td>${collectionLink}</td>
       <td>${displayValue(change.scheme, '')}</td>
       <td>${displayValue(change.action, '')}</td>
       <td class="previous-path">${displayValue(change.oldKeywordPath, '')}</td>

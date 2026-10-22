@@ -311,11 +311,8 @@ export const DIF10_SCHEME_EDITORS = {
     //   }
     // }
     //
-    // Scalar schemes ignore block/path matching and update the one target field
-    // selected by nodeXPath. `tagName` is only used when that field is missing
-    // and the editor needs to create the scalar element under the DIF root.
-    nodeXPath: '//DIF/Product_Level_Id',
-    tagName: 'Product_Level_Id'
+    // Scalar schemes only update an existing node matching oldKeywordObject when supplied.
+    nodeXPath: '//DIF/Product_Level_Id'
   })
 }
 

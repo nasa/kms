@@ -54,6 +54,14 @@
       "Type": "VIEW RELATED INFORMATION",
       "Subtype": "",
       "URL": "https://example.earthdata.nasa.gov/documentation"
+    },
+    {
+      "URLContentType": "DistributionURL",
+      "Type": "GET DATA",
+      "URL": "http://www.foo.com",
+      "GetData": {
+        "Format": "Not provided"
+      }
     }
   ],
   "ProcessingLevel": {

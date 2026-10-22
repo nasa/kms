@@ -85,6 +85,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
       items: [{
         runId: 'run-v42-a',
         collectionConceptId: 'C42-A',
+        collectionUri: 'https://cmr.example.com/search/concepts/C42-A',
         publishedVersionName: 'published-42',
         status: 'applied',
         changes: [{
@@ -119,8 +120,10 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('Platforms &gt; New')
     expect(view).toContain('No collections found')
     expect(view).toContain('no-collections-found')
-    expect(view).toContain('<a href="run-v42-a?format=html">run-v42-a</a>')
-    expect(view).toContain('<a href="run-v42-b?format=html">run-v42-b</a>')
+    expect(view).toContain('<td><a href="run-v42-a?format=html">C42-A</a></td>')
+    expect(view).toContain('<a href="run-v42-b?format=html">No collections found</a>')
+    expect(view).not.toContain('https://cmr.example.com/search/concepts/C42-A')
+    expect(view).not.toContain('<p class="audit-meta">Run ')
     expect(view.indexOf('Published Version: published-42'))
       .toBeLessThan(view.indexOf('Published Version: published-41'))
   })
@@ -143,7 +146,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('Published Version: Unknown published version')
     expect(view).toContain('<span class="status status-failed">failed</span>')
     expect(view).toContain('<span class="status">unknown</span>')
-    expect(view).toContain('<a href="run-failed?format=html">run-failed</a>')
+    expect(view).toContain('<a href="run-failed?format=html">C-FAILED</a>')
   })
 
   test('links every changed keyword row to its failed run, including workflow failures', () => {
@@ -156,15 +159,17 @@ describe('renderMetadataCorrectionAuditHtml', () => {
         status: 'failed',
         changes: [{ scheme: 'platforms' }, { scheme: 'productlevelid' }]
       }, {
+        collectionConceptId: 'C-MISSING-RUN',
         status: 'failed'
       }]
     })
 
     expect(view).toContain('Metadata correction workflow failure')
-    expect(view.match(/<a href="\.\.\/failed%2Frun\?format=html">failed\/run<\/a>/g))
+    expect(view.match(/<a href="\.\.\/failed%2Frun\?format=html">Metadata correction workflow failure<\/a>/g))
       .toHaveLength(2)
 
     expect(view).not.toContain('href="../undefined')
+    expect(view).toContain('<td>C-MISSING-RUN</td>')
   })
 
   test('renders complete run context and lifecycle history in detail mode', () => {

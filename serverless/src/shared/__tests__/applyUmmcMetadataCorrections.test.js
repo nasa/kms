@@ -2028,6 +2028,26 @@ describe('when applying ProcessingLevel UMM-C corrections', () => {
     expect(parsed.ProcessingLevel.ProcessingLevelDescription).toBe('Level 1B data products')
   })
 
+  test('should not add an Id when translation supplied a value missing from the native record', async () => {
+    const metadataPayload = {
+      ShortName: 'PROC_TEST',
+      ProcessingLevel: { ProcessingLevelDescription: 'Description without an ID' }
+    }
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'productlevelid',
+        action: 'replace',
+        oldKeywordObject: { ProductLevelId: 'Not provided' },
+        newKeywordObject: { ProductLevelId: 'Not Provided' }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toEqual([])
+    expect(JSON.parse(result.correctedMetadata)).toEqual(metadataPayload)
+  })
+
   test('should delete ProcessingLevel when action is delete', async () => {
     const result = await applyUmmcMetadataCorrections({
       metadataPayload: mockUmmcWithProcessingLevel,

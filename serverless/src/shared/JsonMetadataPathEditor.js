@@ -615,6 +615,7 @@ export class JsonMetadataPathEditor {
 
   /**
    * Applies a replace/delete correction to a single scalar JSON field.
+   * Missing fields and fields that do not match the supplied old value are skipped.
    *
    * @param {Object} correction Correction descriptor being applied.
    * @param {Object} config Scheme-specific mutation configuration.
@@ -628,12 +629,16 @@ export class JsonMetadataPathEditor {
     }
 
     const targetEntry = this.resolveNodeEntryByPath(config.nodePath)
+    const oldValue = getScalarKeywordText(correction?.oldKeywordObject)
+
+    // Match the native value before changing it: translated defaults must not cause
+    // new fields to be created or an unrelated existing value to be overwritten.
+    if (!targetEntry || (
+      oldValue.length > 0
+      && this.getElementText(targetEntry.node).toLowerCase() !== oldValue.toLowerCase()
+    )) return false
 
     if (action === 'delete') {
-      if (!targetEntry) {
-        return false
-      }
-
       this.removeEntry(targetEntry)
 
       if (typeof config.afterDelete === 'function') {
@@ -649,25 +654,7 @@ export class JsonMetadataPathEditor {
         return false
       }
 
-      if (targetEntry) {
-        this.setEntryValue(targetEntry, value)
-      } else {
-        if (!isContainer(this.document)) {
-          return false
-        }
-
-        const createdEntry = this.isAbsoluteFieldPath(config.nodePath)
-          ? this.resolveAbsoluteFieldEntry(config.nodePath, { createIfMissing: true })
-          : this.ensureEntryForSegments(
-            this.document,
-            this.getPathSegments(config.nodePath)
-          )
-        if (!createdEntry) {
-          return false
-        }
-
-        this.setEntryValue(createdEntry, value)
-      }
+      this.setEntryValue(targetEntry, value)
 
       return true
     }

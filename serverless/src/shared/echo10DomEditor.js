@@ -281,8 +281,7 @@ export const ECHO10_SCHEME_EDITORS = {
     ]
   }),
   dataformat: scalarScheme({
-    nodeXPath: '//Collection/DataFormat',
-    tagName: 'DataFormat'
+    nodeXPath: '//Collection/DataFormat'
   }),
   productlevelid: scalarScheme({
     // Example correction input:
@@ -297,10 +296,8 @@ export const ECHO10_SCHEME_EDITORS = {
     //   }
     // }
     //
-    // Scalar schemes select the nodeXPath field matching oldKeywordObject when supplied.
-    // `tagName` is only used when the field is missing and a replacement must be created.
-    nodeXPath: '//Collection/ProcessingLevelId',
-    tagName: 'ProcessingLevelId'
+    // Scalar schemes only update an existing node matching oldKeywordObject when supplied.
+    nodeXPath: '//Collection/ProcessingLevelId'
   })
 }
 
