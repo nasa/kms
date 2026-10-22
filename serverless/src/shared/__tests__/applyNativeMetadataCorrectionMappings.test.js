@@ -1,5 +1,5 @@
 /**
- * Verifies the metadata-correction fixture contracts:
+ * Verifies the end-to-end metadata-correction fixture contracts:
  * 1. Publishing diffs the published and draft CSVs into keyword events and Redis entries.
  * 2. The keyword-event consumer turns those events into collection-scoped correction requests.
  * 3. The metadata-correction service resolves four CMR-translated UMM-C records into corrections.
@@ -665,6 +665,130 @@ describe('when running the metadata correction workflow end to end', () => {
               nativeId: iso19115NativeId,
               nativeFormat: 'ISO19115',
               correctedMetadata: readFixture('updates/iso19115.after.xml').trimEnd()
+            }))
+          })
+        })
+
+        describe('when ISO19115 has resolved corrections but no applicable native changes', () => {
+          let delegateRequest
+          let delegateResult
+          const nativeMetadata = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            readFixture('iso19115.before.xml').trimEnd()
+          ].join('\n')
+          const expectedCorrections = [
+            {
+              scheme: 'DataFormat',
+              action: 'replace',
+              oldKeywordObject: {
+                ShortName: 'Not provided',
+                LongName: ''
+              },
+              newKeywordObject: {
+                ShortName: 'Not Provided',
+                LongName: ''
+              }
+            },
+            {
+              scheme: 'DataFormat',
+              action: 'replace',
+              oldKeywordObject: {
+                ShortName: 'Not provided',
+                LongName: ''
+              },
+              newKeywordObject: {
+                ShortName: 'Not Provided',
+                LongName: ''
+              }
+            },
+            {
+              scheme: 'rucontenttype',
+              action: 'replace',
+              oldKeywordObject: {
+                URLContentType: 'PublicationURL',
+                Type: 'VIEW RELATED INFORMATION',
+                Subtype: ''
+              },
+              newKeywordObject: {
+                URLContentType: 'PublicationURL_CHANGED',
+                Type: 'VIEW RELATED INFORMATION_CHANGED',
+                Subtype: 'Subtype_CHANGED'
+              }
+            }
+          ]
+
+          beforeAll(async () => {
+            // Translation can supply default formats that have no corresponding native field.
+            // ISO19115 also has no rucontenttype editor, so all three proposals must remain unapplied.
+            vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+              collectionConceptId: iso19115CollectionConceptId,
+              providerId,
+              nativeId: iso19115NativeId,
+              revisionId: 1,
+              format: 'application/iso19115+xml',
+              umm: {
+                RelatedUrls: [
+                  { GetData: { Format: 'Not provided' } },
+                  { GetData: { Format: 'Not provided' } },
+                  {
+                    URLContentType: 'PublicationURL',
+                    Type: 'VIEW RELATED INFORMATION',
+                    Subtype: ''
+                  }
+                ]
+              }
+            })
+
+            vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue(nativeMetadata)
+            vi.mocked(invokeMetadataCorrectionDelegate).mockClear()
+            vi.mocked(persistMetadataCorrectionAuditLog).mockClear()
+            vi.mocked(writeCorrectedMetadataToCmr).mockClear()
+
+            const request = metadataCorrectionRequests.find(({
+              collectionConceptId, keywordEvent
+            }) => (
+              collectionConceptId === iso19115CollectionConceptId
+              && keywordEvent.scheme === 'rucontenttype'
+              && keywordEvent.eventType === 'UPDATED'
+            ))
+            await metadataCorrectionService({
+              Records: [{
+                messageId: 'end-to-end-native-no-op',
+                body: JSON.stringify(request)
+              }]
+            })
+
+            delegateRequest = vi.mocked(invokeMetadataCorrectionDelegate).mock.calls.at(0).at(0)
+            delegateResult = await vi.mocked(invokeMetadataCorrectionDelegate).mock.results[0].value
+          })
+
+          test('should generate the correction proposals without changing native metadata', () => {
+            expect(delegateRequest.corrections).toEqual(
+              expectedCorrections.map((correction) => expect.objectContaining(correction))
+            )
+
+            expect(delegateResult.correctionsApplied).toEqual([])
+            expect(delegateResult.correctionCount).toBe(0)
+            expect(delegateResult.correctedMetadata).toBe(nativeMetadata)
+          })
+
+          test('should finish the audit as checked with no native corrections applied', () => {
+            expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledTimes(2)
+            const finalAudit = vi.mocked(persistMetadataCorrectionAuditLog).mock.calls.at(-1)[0]
+
+            expect(finalAudit).toMatchObject({
+              runId: 'end-to-end-native-no-op',
+              collectionConceptId: iso19115CollectionConceptId,
+              status: 'checked',
+              outcome: 'no-native-corrections-applied',
+              resolvedCorrectionCount: expectedCorrections.length,
+              correctionsAppliedCount: 0,
+              corrections: delegateRequest.corrections
+            })
+
+            expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
+              correctionCount: 0,
+              correctionsApplied: []
             }))
           })
         })

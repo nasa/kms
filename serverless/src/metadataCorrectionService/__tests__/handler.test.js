@@ -1529,6 +1529,32 @@ describe('when the metadata correction service is invoked', () => {
   })
 
   describe('when the invocation is unsuccessful', () => {
+    test('should audit and acknowledge a JSON null request without stopping the batch', async () => {
+      const result = await metadataCorrectionService({
+        Records: [{
+          messageId: 'null-request',
+          body: 'null'
+        }, {
+          messageId: 'empty-request',
+          body: '{}'
+        }]
+      })
+
+      expect(result).toEqual({ batchItemFailures: [] })
+      expect(getCmrCollectionUmmDetails).not.toHaveBeenCalled()
+      expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledTimes(2)
+      expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
+        source: 'metadataCorrectionService',
+        outcome: 'invalid-correction-request',
+        error: expect.any(Error),
+        messageId: 'null-request'
+      })
+
+      expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({ messageId: 'empty-request' })
+      )
+    })
+
     test('should acknowledge a malformed request even when its failure audit cannot be saved', async () => {
       vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockRejectedValueOnce(
         new Error('Audit unavailable')

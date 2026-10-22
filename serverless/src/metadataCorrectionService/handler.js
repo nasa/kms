@@ -182,7 +182,8 @@ export const metadataCorrectionService = async (event) => {
     const messageId = record?.messageId
 
     try {
-      metadataCorrectionRequest = JSON.parse(record?.body || '{}')
+      // Treat JSON null as an empty request so the catch block can audit and acknowledge it.
+      metadataCorrectionRequest = JSON.parse(record?.body || '{}') ?? {}
       const { collectionConceptId } = metadataCorrectionRequest
 
       logger.info('[metadata-correction] Received metadata correction request', {

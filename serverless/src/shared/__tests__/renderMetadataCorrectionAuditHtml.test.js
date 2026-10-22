@@ -226,6 +226,41 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).not.toContain('metadata_correction_audit/run-detail?format=html')
   })
 
+  test('explains a completed native no-op in audit cards and published reports', () => {
+    const audit = {
+      runId: 'native-no-op',
+      collectionConceptId: 'C123-PROV',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 3,
+      correctionsAppliedCount: 0
+    }
+    let view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [audit]
+    })
+
+    expect(view).toContain('no-native-corrections-applied')
+    expect(view).toContain('3 corrections resolved; 0 applied to native metadata.')
+    expect(view).toContain('No native metadata diff was recorded for this run.')
+    view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [audit]
+    })
+
+    expect(view).toContain('no-native-corrections-applied')
+    expect(view).toContain('3 corrections resolved; 0 applied to native metadata.')
+
+    view = renderMetadataCorrectionAuditHtml({
+      items: [{
+        ...audit,
+        resolvedCorrectionCount: 1
+      }]
+    })
+
+    expect(view).toContain('1 correction resolved; 0 applied to native metadata.')
+  })
+
   test('identifies a workflow failure that occurred before a collection was known', () => {
     const view = renderMetadataCorrectionAuditHtml({
       detail: true,

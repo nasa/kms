@@ -28,6 +28,8 @@ const AUDIT_SUMMARY_PROJECTION = {
   collectionUri: 1,
   publishedVersionName: 1,
   outcome: 1,
+  resolvedCorrectionCount: 1,
+  correctionsAppliedCount: 1,
   collectionCount: 1,
   status: 1,
   createdAt: 1,
@@ -423,6 +425,14 @@ const normalizeAuditSummary = (document, includeDiff = false) => {
   if (document.recordType) summary.recordType = document.recordType
   if (document.publishedVersionName) summary.publishedVersionName = document.publishedVersionName
   if (document.outcome) summary.outcome = document.outcome
+  if (document.resolvedCorrectionCount !== undefined) {
+    summary.resolvedCorrectionCount = document.resolvedCorrectionCount
+  }
+
+  if (document.correctionsAppliedCount !== undefined) {
+    summary.correctionsAppliedCount = document.correctionsAppliedCount
+  }
+
   if (document.collectionCount !== undefined) summary.collectionCount = document.collectionCount
   if (includeDiff && document.metadataDiff) summary.metadataDiff = document.metadataDiff
   if (document.error?.message) summary.errorMessage = document.error.message

@@ -706,6 +706,23 @@ const renderRunId = (audit, detail, runDetailHrefPrefix) => {
 }
 
 /**
+ * Distinguishes resolved proposals from native changes when a completed run applied nothing.
+ *
+ * @param {Object} audit Audit summary or detail document.
+ * @returns {string} Escaped correction summary, or an empty string for other outcomes.
+ */
+const renderCorrectionSummary = (audit) => {
+  if (audit.outcome !== 'no-native-corrections-applied') return ''
+
+  const { resolvedCorrectionCount, correctionsAppliedCount } = audit
+  const noun = resolvedCorrectionCount === 1 ? 'correction' : 'corrections'
+
+  return displayValue(
+    `${resolvedCorrectionCount} ${noun} resolved; ${correctionsAppliedCount} applied to native metadata.`
+  )
+}
+
+/**
  * Renders one audit run with its status, path changes, and native metadata diff.
  *
  * @param {Object} audit Audit summary or detail document.
@@ -728,6 +745,7 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
   const errorSection = errorMessage
     ? `<div class="section"><p class="error">${displayValue(errorMessage)}</p></div>`
     : ''
+  const correctionSummary = renderCorrectionSummary(audit)
 
   return `
     <article class="audit-card">
@@ -742,6 +760,7 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
       ${errorSection}
       <section class="section">
         <h3>Keyword changes</h3>
+        ${correctionSummary ? `<p class="notice">${correctionSummary}</p>` : ''}
         ${renderChangesTable(audit)}
       </section>
       ${detail ? renderValidationFailures(audit) : ''}
@@ -777,6 +796,7 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
   const outcomeDetail = audit.outcome && audit.outcome !== status
     ? `<span class="outcome-detail">${displayValue(audit.outcome)}</span>`
     : ''
+  const correctionSummary = renderCorrectionSummary(audit)
 
   return changes.map((change) => `
     <tr>
@@ -789,6 +809,7 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
       <td class="outcome-cell">
         <span class="status${statusClass}">${displayValue(status)}</span>
         ${outcomeDetail}
+        ${correctionSummary ? `<span class="outcome-detail">${correctionSummary}</span>` : ''}
       </td>
     </tr>
   `).join('')

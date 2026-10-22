@@ -140,6 +140,7 @@ const buildStatusTimestampField = (status) => `timestamps.${status}At`
 const buildAuditPatch = ({
   collectionConceptId,
   corrections,
+  correctionsAppliedCount,
   delegateName,
   error,
   keywordEvent,
@@ -151,6 +152,7 @@ const buildAuditPatch = ({
   priorRevisionId,
   providerId,
   publishedVersionName,
+  resolvedCorrectionCount,
   resultingRevisionId,
   source
 }) => compactObject({
@@ -173,6 +175,8 @@ const buildAuditPatch = ({
   corrections: Array.isArray(corrections)
     ? normalizeCorrections(corrections)
     : undefined,
+  resolvedCorrectionCount,
+  correctionsAppliedCount,
   keywordValidationFailures: Array.isArray(keywordValidationFailures)
     ? keywordValidationFailures
     : undefined,
@@ -197,7 +201,8 @@ const buildAuditPatch = ({
  * Creates or updates the single DocumentDB audit document for a correction run.
  *
  * Repeated lifecycle calls use the same `runId`, update the current status, and append a status
- * history entry only when the status changes. An applied run cannot be regressed by an SQS retry.
+ * history entry when the status or its outcome changes. An applied run cannot be regressed by
+ * an SQS retry.
  *
  * @param {Object} params Audit run fields.
  * @param {string} [params.runId] Stable run identifier. Generated when omitted.
@@ -235,7 +240,12 @@ export const persistMetadataCorrectionAuditLog = async ({
   const auditTimestamp = new Date(timestamp || Date.now())
   const existingDocument = await collection.findOne(
     { _id: runId },
-    { projection: { status: 1 } }
+    {
+      projection: {
+        status: 1,
+        outcome: 1
+      }
+    }
   )
 
   // The worker adds a generic fallback only when the collection flow did not already record the
@@ -262,6 +272,10 @@ export const persistMetadataCorrectionAuditLog = async ({
     : status
   const auditPatch = buildAuditPatch(auditFields)
   const statusChanged = existingDocument?.status !== effectiveStatus
+  // A completed native no-op stays checked, but its final outcome must still appear in history.
+  const outcomeChanged = effectiveStatus === status
+    && auditFields.outcome !== undefined
+    && existingDocument?.outcome !== auditFields.outcome
   const setFields = {
     ...auditPatch,
     status: effectiveStatus,
@@ -281,7 +295,7 @@ export const persistMetadataCorrectionAuditLog = async ({
     }
   }
 
-  if (statusChanged) {
+  if (statusChanged || outcomeChanged) {
     update.$push = {
       statusHistory: {
         status: effectiveStatus,

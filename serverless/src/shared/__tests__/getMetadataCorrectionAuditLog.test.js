@@ -25,6 +25,8 @@ const SUMMARY_PROJECTION = {
   collectionUri: 1,
   publishedVersionName: 1,
   outcome: 1,
+  resolvedCorrectionCount: 1,
+  correctionsAppliedCount: 1,
   collectionCount: 1,
   status: 1,
   createdAt: 1,
@@ -254,6 +256,28 @@ describe('metadata correction audit queries', () => {
       },
       { projection: SUMMARY_PROJECTION }
     )
+  })
+
+  test('includes resolved and applied counts in a checked native no-op summary', async () => {
+    mongoCursor.toArray.mockResolvedValue([{
+      runId: 'native-no-op',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 3,
+      correctionsAppliedCount: 0
+    }])
+
+    const result = await getMetadataCorrectionAuditLog()
+
+    expect(result.items[0]).toMatchObject({
+      runId: 'native-no-op',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 3,
+      correctionsAppliedCount: 0
+    })
+
+    expect(collection.find).toHaveBeenCalledWith({}, { projection: SUMMARY_PROJECTION })
   })
 
   test('includes native metadata diffs in list results when requested', async () => {
