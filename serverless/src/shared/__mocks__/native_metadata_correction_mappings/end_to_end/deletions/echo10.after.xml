@@ -298,30 +298,19 @@
             </Instruments>
         </Platform>
         <Platform>
-            <ShortName>SPOT-4</ShortName>
-            <LongName>Systeme Probatoire d'Observation de la Terre-4</LongName>
+            <ShortName>LANDSAT-9</ShortName>
+            <LongName>LANDSAT-9</LongName>
+            <Type>Earth Observation Satellites</Type>
+        </Platform>
+        <Platform>
+            <ShortName>LANDSAT-8</ShortName>
+            <LongName>LANDSAT-8</LongName>
             <Type>Earth Observation Satellites</Type>
         </Platform>
         <Platform>
             <ShortName>ISS</ShortName>
             <LongName>International Space Station</LongName>
             <Type>Space Stations/Crewed Spacecraft</Type>
-        </Platform><Platform>
-            <ShortName>Terra_SHOULD_PRESERVE</ShortName>
-            <LongName>Earth Observing System, Terra (AM-1)_SHOULD_PRESERVE</LongName>
-            <Type>Earth Observation Satellites</Type>
-            <Characteristics>
-                <Characteristic>
-                    <Name>PlatformCaracteristicName</Name>
-                    <Description>Platform Characteristics Description</Description>
-                    <DataType>INT</DataType>
-                    <Unit>Degrees</Unit>
-                    <Value>50</Value>
-                </Characteristic>
-            </Characteristics>
-            <Instruments>
-
-            </Instruments>
         </Platform>
     </Platforms>
     <AdditionalAttributes>

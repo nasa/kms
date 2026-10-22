@@ -315,13 +315,13 @@
             </Instruments>
         </Platform>
         <Platform>
-            <ShortName>SPOT-4</ShortName>
-            <LongName>Systeme Probatoire d'Observation de la Terre-4</LongName>
+            <ShortName>LANDSAT-9</ShortName>
+            <LongName>LANDSAT-9</LongName>
             <Type>Earth Observation Satellites</Type>
         </Platform>
         <Platform>
-            <ShortName>SPOT-4_SHOULD_DELETE</ShortName>
-            <LongName>Systeme Probatoire d'Observation de la Terre-4_SHOULD_DELETE</LongName>
+            <ShortName>LANDSAT-8</ShortName>
+            <LongName>LANDSAT-8</LongName>
             <Type>Earth Observation Satellites</Type>
         </Platform>
         <Platform>
@@ -329,8 +329,8 @@
             <LongName>International Space Station</LongName>
             <Type>Space Stations/Crewed Spacecraft</Type>
         </Platform><Platform>
-            <ShortName>Terra_SHOULD_PRESERVE</ShortName>
-            <LongName>Earth Observing System, Terra (AM-1)_SHOULD_PRESERVE</LongName>
+            <ShortName>Terra_SHOULD_DELETE</ShortName>
+            <LongName>Earth Observing System, Terra (AM-1)_SHOULD_DELETE</LongName>
             <Type>Earth Observation Satellites</Type>
             <Characteristics>
                 <Characteristic>

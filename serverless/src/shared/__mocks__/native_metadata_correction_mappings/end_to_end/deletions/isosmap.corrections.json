@@ -17,6 +17,16 @@
       }
     },
     {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Basis": "",
+        "Category": "",
+        "SubCategory": "",
+        "ShortName": "TERRA_SHOULD_DELETE"
+      }
+    },
+    {
       "scheme": "instruments",
       "action": "delete",
       "oldKeywordObject": {
@@ -35,14 +45,6 @@
         "Category": "",
         "SubCategory": "",
         "ShortName": "AQUA_SHOULD_DELETE"
-      }
-    },
-    {
-      "scheme": "projects",
-      "action": "delete",
-      "oldKeywordObject": {
-        "Bucket": "A - C",
-        "ShortName": "CASERTZ"
       }
     },
     {
@@ -68,6 +70,14 @@
         "LocationSubregion2": "ALBERTA_SHOULD_DELETE",
         "LocationSubregion3": "",
         "LocationSubregion4": ""
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Bucket": "",
+        "ShortName": "MEASURES_SHOULD_DELETE"
       }
     },
     {

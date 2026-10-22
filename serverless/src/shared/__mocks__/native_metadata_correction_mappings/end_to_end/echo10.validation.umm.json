@@ -13,13 +13,13 @@
   "Platforms": [
     {
       "Type": "Earth Observation Satellites",
-      "ShortName": "SPOT-4",
-      "LongName": "Systeme Probatoire d'Observation de la Terre-4"
+      "ShortName": "Terra",
+      "LongName": "Earth Observing System, Terra (AM-1)"
     },
     {
       "Type": "Earth Observation Satellites",
-      "ShortName": "Terra_SHOULD_PRESERVE",
-      "LongName": "Earth Observing System, Terra (AM-1)_SHOULD_PRESERVE",
+      "ShortName": "Terra_SHOULD_DELETE",
+      "LongName": "Earth Observing System, Terra (AM-1)_SHOULD_DELETE",
       "Instruments": [
         {
           "ShortName": "AMSR-E",

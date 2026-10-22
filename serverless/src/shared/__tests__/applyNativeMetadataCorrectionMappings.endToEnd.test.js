@@ -4,10 +4,9 @@
  * 2. The keyword-event consumer turns those events into collection-scoped correction requests.
  * 3. The metadata-correction service resolves four CMR-translated UMM-C records into corrections.
  * 4. Case-only differences are corrected to the canonical published keyword spelling.
- * 5. Ambiguous keyword values remain unchanged in the corrected native metadata.
- * 6. Complete update fixtures produce the expected metadata for every native format.
- * 7. Complete deletion fixtures produce the expected metadata for every native format.
- * 8. Resolved corrections without a matching native field must not create new fields.
+ * 5. Complete update fixtures produce the expected metadata for every native format.
+ * 6. Complete deletion fixtures produce the expected metadata for every native format.
+ * 7. Resolved corrections without a matching native field must not create new fields.
  */
 import { readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
@@ -157,7 +156,7 @@ const normalizeFixtureCorrection = (correction) => {
  *
  * The published CSVs become historical lookup entries. The draft CSVs represent the next
  * published version and become current path, short-name, and UUID entries. This uses the same
- * parsers, ambiguity filtering, response bodies, and key builders as production cache creation.
+ * parsers, response bodies, and key builders as production cache creation.
  *
  * @returns {Map<string, Object>} Redis keys mapped to parsed cached HTTP responses.
  */
@@ -624,18 +623,8 @@ describe('when running the metadata correction workflow end to end', () => {
               providerId,
               nativeId: echo10NativeId,
               nativeFormat: 'ECHO10',
-              correctedMetadata: readFixture('updates/echo10.after.xml').trimEnd()
+              correctedMetadata: readFixture('metadata-correction.echo10.after.xml').trimEnd()
             }))
-          })
-
-          describe('when a keyword value maps to multiple concept UUIDs', () => {
-            test('should preserve the existing keyword in the corrected metadata', () => {
-              expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
-                correctedMetadata: expect.stringContaining(
-                  '<ShortName>Terra_SHOULD_PRESERVE</ShortName>'
-                )
-              }))
-            })
           })
         })
 

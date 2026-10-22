@@ -63,19 +63,6 @@
       "newLongName": "Earth Observing System_CHANGED"
     },
     {
-      "scheme": "projects",
-      "action": "replace",
-      "newLongName": "Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED",
-      "oldKeywordObject": {
-        "Bucket": "A - C",
-        "ShortName": "CASERTZ"
-      },
-      "newKeywordObject": {
-        "Bucket": "A - C",
-        "ShortName": "CASERTZ_CHANGED"
-      }
-    },
-    {
       "scheme": "instruments",
       "action": "replace",
       "oldKeywordObject": {
@@ -93,6 +80,19 @@
         "ShortName": "MODIS_CHANGED"
       },
       "newLongName": "Moderate-Resolution Imaging Spectroradiometer_CHANGED"
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "oldKeywordObject": {
+        "Bucket": "",
+        "ShortName": "MEASURES"
+      },
+      "newKeywordObject": {
+        "Bucket": "",
+        "ShortName": "MEASURES_CHANGED"
+      },
+      "newLongName": "Making Earth System Data Records for Use in Research Environments_CHANGED"
     },
     {
       "scheme": "isotopiccategory",

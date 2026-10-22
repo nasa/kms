@@ -360,9 +360,7 @@ export const parseFullPathCsvRecords = ({
  * @param {Object} params The short-name CSV parse input.
  * @param {string} params.csvContent CSV export text for a short-name scheme.
  * @param {string} params.scheme Keyword scheme name.
- * Short names that map to multiple UUIDs are omitted because they cannot be resolved safely.
- *
- * @returns {Map<string, Object>} Map of unambiguous short name to cached lookup metadata.
+ * @returns {Map<string, Object>} Map of short name to cached lookup metadata.
  *
  * @example
  * parseShortNameCsvRecords({
@@ -394,23 +392,7 @@ export const parseShortNameCsvRecords = ({
     scheme: normalizedScheme
   }).filter(({ shortName }) => shortName)
 
-  const uniqueRecordsByShortName = new Map()
-
-  records.forEach((record) => {
-    const normalizedShortName = trimKeywordPathSegment(record.shortName).toLowerCase()
-    const existingRecord = uniqueRecordsByShortName.get(normalizedShortName)
-
-    // Keep the first record as the candidate for this case-insensitive short name.
-    if (!uniqueRecordsByShortName.has(normalizedShortName)) {
-      uniqueRecordsByShortName.set(normalizedShortName, record)
-    } else if (!existingRecord || existingRecord.uuid !== record.uuid) {
-      // A conflicting UUID makes the name ambiguous; null prevents later rows from restoring it.
-      uniqueRecordsByShortName.set(normalizedShortName, null)
-    }
-  })
-
-  return new Map([...uniqueRecordsByShortName.values()]
-    .filter(Boolean)
+  return new Map(records
     .map(({
       keywordPath,
       longName,

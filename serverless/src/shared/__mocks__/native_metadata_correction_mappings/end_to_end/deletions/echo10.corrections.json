@@ -15,6 +15,16 @@
       }
     },
     {
+      "scheme": "platforms",
+      "action": "delete",
+      "oldKeywordObject": {
+        "Basis": "Space-based Platforms",
+        "Category": "Earth Observation Satellites",
+        "SubCategory": "",
+        "ShortName": "Terra_SHOULD_DELETE"
+      }
+    },
+    {
       "scheme": "sciencekeywords",
       "action": "delete",
       "oldKeywordObject": {
@@ -25,16 +35,6 @@
         "VariableLevel2": "SNOW ICE TEST_SHOULD_DELETE",
         "VariableLevel3": "WATER ICE TEST_SHOULD_DELETE",
         "DetailedVariable": "RAIN_SHOULD_DELETE"
-      }
-    },
-    {
-      "scheme": "platforms",
-      "action": "delete",
-      "oldKeywordObject": {
-        "Basis": "Space-based Platforms",
-        "Category": "Earth Observation Satellites",
-        "SubCategory": "",
-        "ShortName": "SPOT-4_SHOULD_DELETE"
       }
     },
     {

@@ -152,13 +152,13 @@
       <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>
           <gmd:keyword>
-            <gco:CharacterString>TERRA &gt; Earth Observing System, TERRA (AM-1)</gco:CharacterString>
+            <gco:CharacterString>TERRA_CHANGED &gt; Earth Observing System, TERRA (AM-1)_CHANGED</gco:CharacterString>
           </gmd:keyword>
           <gmd:keyword>
             <gco:CharacterString>AQUA_CHANGED &gt; Earth Observing System_CHANGED</gco:CharacterString>
           </gmd:keyword>
           <gmd:keyword>
-            <gco:CharacterString>TERRA_SHOULD_PRESERVE &gt; Earth Observing System, TERRA (AM-1)_SHOULD_PRESERVE</gco:CharacterString>
+            <gco:CharacterString>TERRA_SHOULD_DELETE &gt; Earth Observing System, TERRA (AM-1)_SHOULD_DELETE</gco:CharacterString>
           </gmd:keyword><gmd:keyword>
             <gco:CharacterString>AQUA_SHOULD_DELETE &gt; Earth Observing System_SHOULD_DELETE</gco:CharacterString>
           </gmd:keyword><gmd:type>
@@ -220,13 +220,13 @@
       <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>
           <gmd:keyword>
-            <gco:CharacterString>MEASURES &gt; Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+            <gco:CharacterString>MEASURES_CHANGED &gt; Making Earth System Data Records for Use in Research Environments_CHANGED</gco:CharacterString>
           </gmd:keyword>
           <gmd:keyword>
-            <gco:CharacterString>CASERTZ_CHANGED &gt; Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED</gco:CharacterString>
+            <gco:CharacterString>MAGIA &gt; Structure, Stratigraphy, and Sedimentology North of the Antarctic Peninsula</gco:CharacterString>
           </gmd:keyword>
           <gmd:keyword>
-            <gco:CharacterString>MEASURES_SHOULD_PRESERVE &gt; Making Earth System Data Records for Use in Research Environments_SHOULD_PRESERVE</gco:CharacterString>
+            <gco:CharacterString>MEASURES_SHOULD_DELETE &gt; Making Earth System Data Records for Use in Research Environments_SHOULD_DELETE</gco:CharacterString>
           </gmd:keyword><gmd:type>
             <gmd:MD_KeywordTypeCode codeList="http://www.isotc211.org/2005/resources/Codelist/gmxCodelists.xml#MD_KeywordTypeCode" codeListValue="project">project</gmd:MD_KeywordTypeCode>
           </gmd:type>
@@ -366,10 +366,10 @@
           <gmi:identifier>
             <gmd:MD_Identifier>
               <gmd:code>
-                <gco:CharacterString>TERRA</gco:CharacterString>
+                <gco:CharacterString>TERRA_CHANGED</gco:CharacterString>
               </gmd:code>
               <gmd:description>
-                <gco:CharacterString>Earth Observing System, TERRA (AM-1)</gco:CharacterString>
+                <gco:CharacterString>Earth Observing System, TERRA (AM-1)_CHANGED</gco:CharacterString>
               </gmd:description>
             </gmd:MD_Identifier>
           </gmi:identifier>
@@ -428,10 +428,10 @@
           <gmi:identifier>
             <gmd:MD_Identifier>
               <gmd:code>
-                <gco:CharacterString>TERRA_SHOULD_PRESERVE</gco:CharacterString>
+                <gco:CharacterString>TERRA_SHOULD_DELETE</gco:CharacterString>
               </gmd:code>
               <gmd:description>
-                <gco:CharacterString>Earth Observing System, TERRA (AM-1)_SHOULD_PRESERVE</gco:CharacterString>
+                <gco:CharacterString>Earth Observing System, TERRA (AM-1)_SHOULD_DELETE</gco:CharacterString>
               </gmd:description>
             </gmd:MD_Identifier>
           </gmi:identifier>
@@ -456,13 +456,13 @@
           <gmi:identifier>
             <gmd:MD_Identifier>
               <gmd:code>
-                <gco:CharacterString>MEASURES &gt; Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+                <gco:CharacterString>MEASURES_CHANGED &gt; Making Earth System Data Records for Use in Research Environments_CHANGED</gco:CharacterString>
               </gmd:code>
               <gmd:codeSpace>
                 <gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString>
               </gmd:codeSpace>
               <gmd:description>
-                <gco:CharacterString>Making Earth System Data Records for Use in Research Environments</gco:CharacterString>
+                <gco:CharacterString>Making Earth System Data Records for Use in Research Environments_CHANGED</gco:CharacterString>
               </gmd:description>
             </gmd:MD_Identifier>
           </gmi:identifier>
@@ -472,29 +472,13 @@
           <gmi:identifier>
             <gmd:MD_Identifier>
               <gmd:code>
-                <gco:CharacterString>CASERTZ_CHANGED &gt; Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED</gco:CharacterString>
+                <gco:CharacterString>MEASURES_SHOULD_DELETE &gt; Making Earth System Data Records for Use in Research Environments_SHOULD_DELETE</gco:CharacterString>
               </gmd:code>
               <gmd:codeSpace>
                 <gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString>
               </gmd:codeSpace>
               <gmd:description>
-                <gco:CharacterString>Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED</gco:CharacterString>
-              </gmd:description>
-            </gmd:MD_Identifier>
-          </gmi:identifier>
-        </gmi:MI_Operation>
-      </gmi:operation><gmi:operation>
-        <gmi:MI_Operation>
-          <gmi:identifier>
-            <gmd:MD_Identifier>
-              <gmd:code>
-                <gco:CharacterString>MEASURES_SHOULD_PRESERVE &gt; Making Earth System Data Records for Use in Research Environments_SHOULD_PRESERVE</gco:CharacterString>
-              </gmd:code>
-              <gmd:codeSpace>
-                <gco:CharacterString>gov.nasa.esdis.umm.projectshortname</gco:CharacterString>
-              </gmd:codeSpace>
-              <gmd:description>
-                <gco:CharacterString>Making Earth System Data Records for Use in Research Environments_SHOULD_PRESERVE</gco:CharacterString>
+                <gco:CharacterString>Making Earth System Data Records for Use in Research Environments_SHOULD_DELETE</gco:CharacterString>
               </gmd:description>
             </gmd:MD_Identifier>
           </gmi:identifier>

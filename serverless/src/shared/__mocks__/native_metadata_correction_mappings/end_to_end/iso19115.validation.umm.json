@@ -16,6 +16,10 @@
   ],
   "Platforms": [
     {
+      "ShortName": "TERRA",
+      "LongName": "Earth Observing System, TERRA (AM-1)"
+    },
+    {
       "ShortName": "AQUA",
       "Instruments": [
         {
@@ -29,8 +33,8 @@
   ],
   "Projects": [
     {
-      "ShortName": "CASERTZ",
-      "LongName": "Corridor Aerogeophysics of the SouthEastern Ross Transect Zone"
+      "ShortName": "MEASURES",
+      "LongName": "Making Earth System Data Records for Use in Research Environments"
     }
   ],
   "DataCenters": [

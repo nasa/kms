@@ -272,25 +272,6 @@ describe('when parsing short-name keyword CSV content', () => {
     ]))
   })
 
-  test('omits case-insensitive short names that map to multiple UUIDs', () => {
-    const csvContent = [
-      '"Keyword Version: test"',
-      '"Basis","Category","Sub_Category","Short_Name","Long_Name","UUID"',
-      '"Space-based Platforms","Earth Observation Satellites","","GOES-16","Earth GOES-16","uuid-earth"',
-      '"Space-based Platforms","Solar/Space Observation Satellites","","goes-16","Space GOES-16","uuid-space"',
-      '"Space-based Platforms","Earth Observation Satellites","","AQUA","Aqua","uuid-aqua"',
-      '"Space-based Platforms","Earth Observation Satellites","","aqua","Aqua","uuid-aqua"'
-    ].join('\n')
-
-    const records = parseShortNameCsvRecords({
-      csvContent,
-      scheme: 'platforms'
-    })
-
-    // AQUA remains because both case variants identify the same UUID; GOES-16 is ambiguous.
-    expect([...records.keys()]).toEqual(['AQUA'])
-  })
-
   test('parses other short-name types with blank slots without shifting hierarchy', () => {
     expect(parseShortNameCsvRecords({
       csvContent: [

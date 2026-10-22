@@ -63,16 +63,20 @@
       }
     },
     {
-      "scheme": "projects",
+      "scheme": "platforms",
       "action": "replace",
-      "newLongName": "Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED",
+      "newLongName": "Earth Observing System, TERRA (AM-1)_CHANGED",
       "oldKeywordObject": {
-        "Bucket": "A - C",
-        "ShortName": "CASERTZ"
+        "Basis": "",
+        "Category": "",
+        "SubCategory": "",
+        "ShortName": "TERRA"
       },
       "newKeywordObject": {
-        "Bucket": "A - C",
-        "ShortName": "CASERTZ_CHANGED"
+        "Basis": "",
+        "Category": "",
+        "SubCategory": "",
+        "ShortName": "TERRA_CHANGED"
       }
     },
     {
@@ -111,6 +115,19 @@
         "Type": "",
         "Subtype": "",
         "ShortName": "ATLAS_CHANGED"
+      }
+    },
+    {
+      "scheme": "projects",
+      "action": "replace",
+      "newLongName": "Making Earth System Data Records for Use in Research Environments_CHANGED",
+      "oldKeywordObject": {
+        "Bucket": "M - N",
+        "ShortName": "MEASURES"
+      },
+      "newKeywordObject": {
+        "Bucket": "M - N",
+        "ShortName": "MEASURES_CHANGED"
       }
     },
     {
