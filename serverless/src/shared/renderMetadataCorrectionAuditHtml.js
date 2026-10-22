@@ -691,16 +691,17 @@ const renderValidationFailures = (audit) => {
  *
  * @param {Object} audit Audit summary document.
  * @param {boolean} detail Whether this is already the complete run view.
+ * @param {string} runDetailHrefPrefix Relative path to the audit detail routes.
  * @returns {string} Linked or plain-text run id.
  */
-const renderRunId = (audit, detail) => {
+const renderRunId = (audit, detail, runDetailHrefPrefix) => {
   const displayRunId = displayValue(audit.runId)
 
   if (detail || !audit.runId) return displayRunId
 
   const runId = encodeURIComponent(String(audit.runId))
 
-  return `<a href="metadata_correction_audit/${runId}?format=html">${displayRunId}</a>`
+  return `<a href="${displayValue(runDetailHrefPrefix)}${runId}?format=html">${displayRunId}</a>`
 }
 
 /**
@@ -709,9 +710,10 @@ const renderRunId = (audit, detail) => {
  * @param {Object} audit Audit summary or detail document.
  * @param {Object} options Rendering options.
  * @param {boolean} options.detail Whether this is the complete run view.
+ * @param {string} options.runDetailHrefPrefix Relative path to audit details.
  * @returns {string} HTML audit card.
  */
-const renderAuditCard = (audit, { detail }) => {
+const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
   const status = String(audit.status || 'unknown').toLowerCase()
   const statusClass = status === 'failed' ? ' status-failed' : ''
   const updatedAt = audit.updatedAt || audit.createdAt
@@ -731,7 +733,7 @@ const renderAuditCard = (audit, { detail }) => {
       <header class="audit-header">
         <div>
           <h2>${renderCollectionHeading(audit)}</h2>
-          <p class="audit-meta">Run ${renderRunId(audit, detail)}${publishedVersionText}${updatedText}</p>
+          <p class="audit-meta">Run ${renderRunId(audit, detail, runDetailHrefPrefix)}${publishedVersionText}${updatedText}</p>
         </div>
         <span class="status${statusClass}">${displayValue(status)}</span>
       </header>
@@ -755,9 +757,10 @@ const renderAuditCard = (audit, { detail }) => {
  * Renders one table row per changed keyword for a published-version audit document.
  *
  * @param {Object} audit Audit summary document.
+ * @param {string} runDetailHrefPrefix Relative path to audit details.
  * @returns {string} Published report table rows.
  */
-const renderPublishedAuditRows = (audit) => {
+const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
   const changes = Array.isArray(audit.changes) && audit.changes.length > 0
     ? audit.changes
     : [{}]
@@ -770,9 +773,10 @@ const renderPublishedAuditRows = (audit) => {
     ? `<span class="outcome-detail">${displayValue(audit.outcome)}</span>`
     : ''
 
+  // Published summaries omit error diagnostics; every row needs a link to its full audit.
   return changes.map((change) => `
     <tr>
-      <td>${collection}</td>
+      <td>${collection}<p class="audit-meta">Run ${renderRunId(audit, false, runDetailHrefPrefix)}</p></td>
       <td>${displayValue(change.scheme, '')}</td>
       <td>${displayValue(change.action, '')}</td>
       <td class="previous-path">${displayValue(change.oldKeywordPath, '')}</td>
@@ -790,9 +794,10 @@ const renderPublishedAuditRows = (audit) => {
  * Groups audit rows under their published KMS version.
  *
  * @param {Array<Object>} items Audit summary documents in newest-first order.
+ * @param {string} runDetailHrefPrefix Relative path to audit details.
  * @returns {string} Version-grouped audit tables.
  */
-const renderPublishedVersionGroups = (items) => {
+const renderPublishedVersionGroups = (items, runDetailHrefPrefix) => {
   const groups = new Map()
 
   items.forEach((audit) => {
@@ -822,7 +827,7 @@ const renderPublishedVersionGroups = (items) => {
               <th scope="col">Outcome</th>
             </tr>
           </thead>
-          <tbody>${versionItems.map(renderPublishedAuditRows).join('')}</tbody>
+          <tbody>${versionItems.map((audit) => renderPublishedAuditRows(audit, runDetailHrefPrefix)).join('')}</tbody>
         </table>
       </div>
     </section>
@@ -848,6 +853,8 @@ const renderPublishedVersionGroups = (items) => {
  * for. When provided, a disclaimer naming them is rendered at the top of the page.
  * @param {boolean} [params.groupByPublishedVersion=false] Group summaries under version headings.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
+ * @param {string} [params.runDetailHrefPrefix] Relative path to audit details; defaults to
+ * the sibling run routes for published reports and metadata_correction_audit/ for searches.
  * @param {string} [params.message] Optional empty-state or error message.
  * @param {string} [params.nextPageHref] Link to the next result page.
  * @param {boolean} [params.showCollectionFilter=true] Whether to show the collection search form.
@@ -860,6 +867,7 @@ export const renderMetadataCorrectionAuditHtml = ({
   detail = false,
   enabledProviders,
   groupByPublishedVersion = false,
+  runDetailHrefPrefix = groupByPublishedVersion ? '' : 'metadata_correction_audit/',
   items = [],
   message,
   nextPageHref,
@@ -871,8 +879,11 @@ export const renderMetadataCorrectionAuditHtml = ({
 
   if (items.length > 0) {
     cards = groupByPublishedVersion
-      ? renderPublishedVersionGroups(items)
-      : items.map((audit) => renderAuditCard(audit, { detail })).join('')
+      ? renderPublishedVersionGroups(items, runDetailHrefPrefix)
+      : items.map((audit) => renderAuditCard(audit, {
+        detail,
+        runDetailHrefPrefix
+      })).join('')
   }
 
   const nextPageLink = nextPageHref

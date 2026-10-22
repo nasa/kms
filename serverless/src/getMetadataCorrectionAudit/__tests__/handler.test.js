@@ -196,6 +196,11 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).not.toContain('<h1>Published metadata correction audit</h1>')
     expect(result.body).not.toContain('<form class="audit-filter"')
+    expect(result.body).toContain('<a href="run-published?format=html">run-published</a>')
+
+    const [, href] = result.body.match(/href="([^"]+)">run-published<\/a>/)
+    expect(new URL(href, 'https://cmr.example.com/kms/metadata_correction_audit/published').pathname)
+      .toBe('/kms/metadata_correction_audit/run-published')
   })
 
   test('renders a selected published version as a table', async () => {
@@ -204,7 +209,7 @@ describe('getMetadataCorrectionAudit', () => {
         runId: 'run-published',
         collectionConceptId: 'C123-PROV',
         publishedVersionName: 'published-42',
-        status: 'applied'
+        status: 'failed'
       }],
       nextPaginationToken: null
     })
@@ -224,6 +229,51 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).toContain('<th scope="col">Collection ID</th>')
     expect(result.body).toContain('<th scope="col">Outcome</th>')
+    expect(result.body).toContain('<a href="../run-published?format=html">run-published</a>')
+  })
+
+  test('opens failure details from the run link in a single-version published report', async () => {
+    const runId = 'f3351653-dfc3-47d8-9176-294ea90bc118'
+    const failedAudit = {
+      runId,
+      collectionConceptId: 'C123-PROV',
+      publishedVersionName: 'published-42',
+      status: 'failed',
+      outcome: 'writeback-failed',
+      error: { message: 'CMR rejected the collection: invalid contact type' }
+    }
+
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [failedAudit],
+      nextPaginationToken: null
+    })
+
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue(failedAudit)
+
+    const report = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: { versionName: 'published-42' },
+      queryStringParameters: { format: 'html' }
+    })
+    const [, href] = report.body.match(/href="([^"]+)">f3351653-dfc3-47d8-9176-294ea90bc118<\/a>/)
+    const detailUrl = new URL(
+      href,
+      'https://cmr.example.com/kms/metadata_correction_audit/published/published-42'
+    )
+
+    expect(detailUrl.pathname).toBe(`/kms/metadata_correction_audit/${runId}`)
+
+    const detail = await getMetadataCorrectionAudit({
+      pathParameters: { runId: detailUrl.pathname.split('/').pop() },
+      queryStringParameters: Object.fromEntries(detailUrl.searchParams)
+    })
+
+    expect(detail.statusCode).toBe(200)
+    expect(detail.body).toContain('CMR rejected the collection: invalid contact type')
+    expect(getMetadataCorrectionAuditByRunId).toHaveBeenCalledWith({
+      runId,
+      includeDiff: true
+    })
   })
 
   test('directs published version searches to the official published route', async () => {

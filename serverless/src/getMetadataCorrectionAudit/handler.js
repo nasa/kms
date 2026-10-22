@@ -205,6 +205,13 @@ const getAuditListResponse = async ({
 
   if (responseFormat === 'html') {
     let title
+    let runDetailHrefPrefix = 'metadata_correction_audit/'
+
+    if (isPublishedAuditRoute) {
+      // A single-version report is one URL level deeper than the all-versions report.
+      // Relative links keep the /kms (or API stage) prefix when opening full failure details.
+      runDetailHrefPrefix = route.publishedVersionName ? '../' : ''
+    }
 
     if (route.publishedVersionName) {
       title = `Published metadata correction audit: ${route.publishedVersionName}`
@@ -222,6 +229,7 @@ const getAuditListResponse = async ({
         collectionConceptId,
         enabledProviders,
         groupByPublishedVersion: isPublishedAuditRoute,
+        runDetailHrefPrefix,
         items: auditPage.items,
         nextPageHref: buildNextPageHref(
           event?.queryStringParameters,

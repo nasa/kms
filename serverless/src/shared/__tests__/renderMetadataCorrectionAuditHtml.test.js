@@ -119,6 +119,8 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('Platforms &gt; New')
     expect(view).toContain('No collections found')
     expect(view).toContain('no-collections-found')
+    expect(view).toContain('<a href="run-v42-a?format=html">run-v42-a</a>')
+    expect(view).toContain('<a href="run-v42-b?format=html">run-v42-b</a>')
     expect(view.indexOf('Published Version: published-42'))
       .toBeLessThan(view.indexOf('Published Version: published-41'))
   })
@@ -141,6 +143,28 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('Published Version: Unknown published version')
     expect(view).toContain('<span class="status status-failed">failed</span>')
     expect(view).toContain('<span class="status">unknown</span>')
+    expect(view).toContain('<a href="run-failed?format=html">run-failed</a>')
+  })
+
+  test('links every changed keyword row to its failed run, including workflow failures', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      runDetailHrefPrefix: '../',
+      items: [{
+        runId: 'failed/run',
+        recordType: 'metadataCorrectionWorkflowFailure',
+        status: 'failed',
+        changes: [{ scheme: 'platforms' }, { scheme: 'productlevelid' }]
+      }, {
+        status: 'failed'
+      }]
+    })
+
+    expect(view).toContain('Metadata correction workflow failure')
+    expect(view.match(/<a href="\.\.\/failed%2Frun\?format=html">failed\/run<\/a>/g))
+      .toHaveLength(2)
+
+    expect(view).not.toContain('href="../undefined')
   })
 
   test('renders complete run context and lifecycle history in detail mode', () => {
