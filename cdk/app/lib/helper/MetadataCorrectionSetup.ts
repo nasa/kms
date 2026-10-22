@@ -22,6 +22,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
+  cmrGetTimeoutMs?: string
   cmrSystemTokenParameterName?: string
   cmrWritebackTimeoutMs?: string
   metadataCorrectionRequestDelayMs?: string
@@ -103,6 +104,7 @@ export class MetadataCorrectionSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrGetTimeoutMs,
       cmrSystemTokenParameterName,
       cmrWritebackTimeoutMs,
       metadataCorrectionRequestDelayMs,
@@ -197,6 +199,7 @@ export class MetadataCorrectionSetup extends Construct {
         reservedConcurrentExecutions: reservedConcurrency,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
+          CMR_GET_TIMEOUT_MS: cmrGetTimeoutMs || '25000',
           ...(cmrWritebackTimeoutMs ? { CMR_WRITEBACK_TIMEOUT_MS: cmrWritebackTimeoutMs } : {}),
           ...(cmrSystemTokenParameterName
             ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }

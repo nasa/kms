@@ -230,6 +230,7 @@ async function main() {
       RDF_MIRROR_SOURCE_ENV: process.env.RDF_MIRROR_SOURCE_ENV || '',
       RDF_BUCKET_NAME: process.env.RDF_BUCKET_NAME || 'kms-rdf-backup',
       CMR_BASE_URL: cmrBaseUrl,
+      CMR_GET_TIMEOUT_MS: process.env.CMR_GET_TIMEOUT_MS || '25000',
       EDL_PASSWORD: process.env.EDL_PASSWORD || '',
       EDL_CLIENT_ID: process.env.EDL_CLIENT_ID || '',
       BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE: process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE,
@@ -258,6 +259,7 @@ async function main() {
 
   const cmrEventProcessingStack = new CmrEventProcessingStack(app, 'CmrEventProcessingStack', {
     cmrBaseUrl,
+    cmrGetTimeoutMs: process.env.CMR_GET_TIMEOUT_MS || '25000',
     cmrSystemTokenParameterName: process.env.CMR_SYSTEM_TOKEN_PARAMETER_NAME || '',
     cmrWritebackTimeoutMs: process.env.CMR_WRITEBACK_TIMEOUT_MS || '',
     metadataCorrectionRequestDelayMs: process.env.METADATA_CORRECTION_REQUEST_DELAY_MS || '',

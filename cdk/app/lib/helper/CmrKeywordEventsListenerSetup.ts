@@ -22,6 +22,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface CmrKeywordEventsListenerSetupProps {
   cmrBaseUrl: string
+  cmrGetTimeoutMs?: string
   cmrSystemTokenParameterName?: string
   cmrWritebackProviders?: string
   prefix: string
@@ -58,6 +59,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrGetTimeoutMs,
       cmrSystemTokenParameterName,
       cmrWritebackProviders,
       keywordEventsTopic,
@@ -105,6 +107,7 @@ export class CmrKeywordEventsListenerSetup extends Construct {
       memorySize: 1024,
       environment: {
         CMR_BASE_URL: cmrBaseUrl,
+        CMR_GET_TIMEOUT_MS: cmrGetTimeoutMs || '25000',
         ...(cmrSystemTokenParameterName
           ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
           : {}),
