@@ -162,7 +162,9 @@ export class MetadataCorrectionSetup extends Construct {
         maxReceiveCount: 1
       },
       retentionPeriod: cdk.Duration.days(14),
-      visibilityTimeout: cdk.Duration.minutes(5)
+      // Keep the visibility window at six times the worker timeout so messages stay hidden
+      // while a long-running correction is still processing.
+      visibilityTimeout: cdk.Duration.minutes(90)
     })
 
     this.metadataCorrectionRequestsTopic = new sns.Topic(this, 'MetadataCorrectionRequestsTopic', {
@@ -186,7 +188,9 @@ export class MetadataCorrectionSetup extends Construct {
         entry: path.join(projectRoot, 'serverless/src/metadataCorrectionService/handler.js'),
         handler: 'metadataCorrectionService',
         runtime: NODE_LAMBDA_RUNTIME,
-        timeout: cdk.Duration.seconds(60),
+        // Allow pacing, CMR reads, native correction, writeback, and failure auditing to finish.
+        // A short timeout can interrupt that work before the request can be acknowledged.
+        timeout: cdk.Duration.minutes(15),
         memorySize: 1024,
         // Broad keyword updates can fan out to hundreds of collections; cap concurrent
         // consumers so writebacks do not overwhelm downstream CMR ingest.
