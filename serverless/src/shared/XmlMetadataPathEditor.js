@@ -206,7 +206,8 @@ export class XmlMetadataPathEditor {
    */
   getDirectChildElement(node, tagName) {
     return this.getElementChildren(node)
-      .find((child) => child.nodeName === tagName) || null
+      .find((child) => child.nodeName === tagName
+        || (child.localName === tagName && child.namespaceURI === node.namespaceURI)) || null
   }
 
   /**
@@ -411,7 +412,13 @@ export class XmlMetadataPathEditor {
       return existingChild
     }
 
-    const child = node.ownerDocument.createElement(tagName)
+    // Unprefixed field paths name children in the same vocabulary as their parent.
+    const qualifiedName = node.prefix && !tagName.includes(':')
+      ? `${node.prefix}:${tagName}`
+      : tagName
+    const child = node.namespaceURI && !tagName.includes(':')
+      ? node.ownerDocument.createElementNS(node.namespaceURI, qualifiedName)
+      : node.ownerDocument.createElement(tagName)
     node.appendChild(child)
 
     return child
