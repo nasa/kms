@@ -188,7 +188,12 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('Keyword changes')
-    expect(view).toContain('Published Version published-42')
+    expect(view).toContain('Published Version <a href="metadata_correction_audit/published/published-42?format=html">published-42</a>')
+    const [, href] = view.match(/href="([^"]+)">published-42<\/a>/)
+
+    expect(new URL(href, 'https://cmr.example.com/kms/metadata_correction_audit?collectionConceptId=C123-PROV').pathname)
+      .toBe('/kms/metadata_correction_audit/published/published-42')
+
     expect(view).toContain('<a href="metadata_correction_audit/run%2Fsummary?format=html">run/summary</a>')
     expect(view).not.toContain('Native metadata diff')
     expect(view).not.toContain('Run details')

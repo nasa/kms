@@ -323,6 +323,7 @@ describe('getMetadataCorrectionAudit', () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [{
         runId: 'run-html',
+        publishedVersionName: 'published-42',
         collectionConceptId: 'C1234567890-LOCAL',
         status: 'applied',
         changes: [{
@@ -356,6 +357,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('name="collectionConceptId" value="C1234567890-LOCAL"')
     expect(result.body).toContain('<table class="changes-table">')
     expect(result.body).toContain('<a href="metadata_correction_audit/run-html?format=html">run-html</a>')
+    expect(result.body).toContain('<a href="metadata_correction_audit/published/published-42?format=html">published-42</a>')
     expect(result.body).not.toContain('Native metadata diff')
     expect(result.body).toContain('paginationToken=next-token')
   })

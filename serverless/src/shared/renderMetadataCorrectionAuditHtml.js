@@ -808,9 +808,9 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
   const updatedText = updatedAt
     ? ` &middot; Updated ${displayValue(updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt)}`
     : ''
-  // Detail routes and published reports share a parent, preserving /kms or API stage prefixes.
-  const publishedVersionHref = detail && audit.publishedVersionName
-    ? `published/${encodeURIComponent(String(audit.publishedVersionName))}?format=html`
+  // Link both collection-filtered cards and run details without losing /kms or API stage prefixes.
+  const publishedVersionHref = audit.publishedVersionName
+    ? `${detail ? '' : runDetailHrefPrefix}published/${encodeURIComponent(String(audit.publishedVersionName))}?format=html`
     : undefined
   const publishedVersionValue = publishedVersionHref
     ? `<a href="${displayValue(publishedVersionHref)}">${displayValue(audit.publishedVersionName)}</a>`
