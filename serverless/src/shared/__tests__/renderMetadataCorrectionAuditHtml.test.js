@@ -329,6 +329,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
 
     expect(view).toContain('Run details')
     expect(view).toContain('Published KMS version')
+    expect(view.match(/<a href="published\/version-1\?format=html">version-1<\/a>/g)).toHaveLength(2)
     expect(view).toContain('version-1')
     expect(view).toContain('Prior CMR revision')
     expect(view).toContain('Trigger')
@@ -341,6 +342,33 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('No native metadata diff was recorded for this run.')
     expect(view).toContain('<p class="audit-meta">Run run-detail')
     expect(view).not.toContain('metadata_correction_audit/run-detail?format=html')
+  })
+
+  test('encodes and escapes published-version links without losing the deployment prefix', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{
+        runId: 'run-detail',
+        publishedVersionName: 'release / <test>&"'
+      }]
+    })
+    const [, href] = view.match(/href="(published\/[^"]+)"/)
+    const url = new URL(href, 'https://cmr.example.com/kms/metadata_correction_audit/run-detail')
+
+    expect(url.pathname).toBe('/kms/metadata_correction_audit/published/release%20%2F%20%3Ctest%3E%26%22')
+    expect(url.searchParams.get('format')).toBe('html')
+    expect(view).toContain('release / &lt;test&gt;&amp;&quot;</a>')
+    expect(view).not.toContain('<test>')
+  })
+
+  test('does not create a published-report link for runs without a version', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{ runId: 'manual-run' }]
+    })
+
+    expect(view).not.toContain('href="published/')
+    expect(view).not.toContain('<dt>Published KMS version</dt>')
   })
 
   test('explains a completed native no-op in audit cards and published reports', () => {

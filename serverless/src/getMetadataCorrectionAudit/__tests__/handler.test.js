@@ -365,6 +365,7 @@ describe('getMetadataCorrectionAudit', () => {
       runId: 'run-1',
       collectionConceptId: 'C123-PROV',
       providerId: 'PROV',
+      publishedVersionName: 'published-42',
       priorRevisionId: 3,
       resultingRevisionId: 4,
       status: 'applied',
@@ -389,6 +390,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
     expect(result.body).toContain('Metadata correction audit detail')
     expect(result.body).toContain('Run details')
+    expect(result.body).toContain('<a href="published/published-42?format=html">published-42</a>')
     expect(result.body).toContain('Prior CMR revision')
     expect(result.body).toContain('Lifecycle history')
     expect(result.body).toContain('Native metadata diff')

@@ -555,7 +555,7 @@ const renderCollectionFilter = (collectionConceptId) => {
 /**
  * Renders labeled audit values in a responsive detail grid.
  *
- * @param {Array<[string, unknown]>} entries Label/value pairs, including optional values.
+ * @param {Array<[string, unknown, string?]>} entries Label/value pairs with optional link URLs.
  * @returns {string} Detail grid containing only available values.
  */
 const renderDetailGrid = (entries) => {
@@ -563,10 +563,10 @@ const renderDetailGrid = (entries) => {
 
   if (availableEntries.length === 0) return ''
 
-  return `<dl class="detail-grid">${availableEntries.map(([label, value]) => `
+  return `<dl class="detail-grid">${availableEntries.map(([label, value, href]) => `
     <div>
       <dt>${displayValue(label)}</dt>
-      <dd>${displayValue(value)}</dd>
+      <dd>${href ? `<a href="${displayValue(href)}">${displayValue(value)}</a>` : displayValue(value)}</dd>
     </div>
   `).join('')}</dl>`
 }
@@ -677,12 +677,13 @@ const renderNativeMetadataDiff = (audit) => {
  * Renders the fields available only on a complete audit document.
  *
  * @param {Object} audit Detailed audit document.
+ * @param {string} publishedVersionHref Relative path to the published version report.
  * @returns {string} Run overview and optional trigger detail sections.
  */
-const renderRunDetails = (audit) => {
+const renderRunDetails = (audit, publishedVersionHref) => {
   const overview = renderDetailGrid([
     ['Provider', audit.providerId],
-    ['Published KMS version', audit.publishedVersionName],
+    ['Published KMS version', audit.publishedVersionName, publishedVersionHref],
     ['Native format', audit.nativeFormat],
     ['Delegate', audit.delegateName],
     ['Source', audit.source],
@@ -807,8 +808,15 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
   const updatedText = updatedAt
     ? ` &middot; Updated ${displayValue(updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt)}`
     : ''
+  // Detail routes and published reports share a parent, preserving /kms or API stage prefixes.
+  const publishedVersionHref = detail && audit.publishedVersionName
+    ? `published/${encodeURIComponent(String(audit.publishedVersionName))}?format=html`
+    : undefined
+  const publishedVersionValue = publishedVersionHref
+    ? `<a href="${displayValue(publishedVersionHref)}">${displayValue(audit.publishedVersionName)}</a>`
+    : displayValue(audit.publishedVersionName)
   const publishedVersionText = audit.publishedVersionName
-    ? ` &middot; Published Version ${displayValue(audit.publishedVersionName)}`
+    ? ` &middot; Published Version ${publishedVersionValue}`
     : ''
   const errorMessage = audit.errorMessage || audit.error?.message
   const errorSection = errorMessage
@@ -825,7 +833,7 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
         </div>
         <span class="status${statusClass}">${displayValue(status)}</span>
       </header>
-      ${detail ? renderRunDetails(audit) : ''}
+      ${detail ? renderRunDetails(audit, publishedVersionHref) : ''}
       ${errorSection}
       <section class="section">
         <h3>Keyword changes</h3>
