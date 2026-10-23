@@ -7,6 +7,8 @@ import { PublishCommand, SNSClient } from '@aws-sdk/client-sns'
  */
 const createSnsClient = () => {
   const endpoint = process.env.AWS_ENDPOINT_URL
+  // The fanout caller audits a failed collection and continues; an SDK retry could duplicate a
+  // request whose first response was lost after SNS accepted it.
   const config = endpoint
     ? {
       endpoint,
@@ -14,9 +16,10 @@ const createSnsClient = () => {
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test'
-      }
+      },
+      maxAttempts: 1
     }
-    : {}
+    : { maxAttempts: 1 }
 
   return new SNSClient(config)
 }

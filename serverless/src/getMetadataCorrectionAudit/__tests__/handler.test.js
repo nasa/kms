@@ -176,6 +176,7 @@ describe('getMetadataCorrectionAudit', () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [{
         runId: 'run-published',
+        collectionConceptId: 'C123-PROV',
         publishedVersionName: 'published-42',
         status: 'applied'
       }],
@@ -193,9 +194,16 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.statusCode).toBe(200)
     expect(result.body).toContain('<title>Published metadata correction audit</title>')
     expect(result.body).toContain('Published Version: published-42')
+    expect(result.body).not.toContain('<strong>First activity:</strong>')
+    expect(result.body).not.toContain('<strong>Latest activity:</strong>')
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).not.toContain('<h1>Published metadata correction audit</h1>')
     expect(result.body).not.toContain('<form class="audit-filter"')
+    expect(result.body).toContain('<a href="run-published?format=html">C123-PROV</a>')
+
+    const [, href] = result.body.match(/href="([^"]+)">C123-PROV<\/a>/)
+    expect(new URL(href, 'https://cmr.example.com/kms/metadata_correction_audit/published').pathname)
+      .toBe('/kms/metadata_correction_audit/run-published')
   })
 
   test('renders a selected published version as a table', async () => {
@@ -204,7 +212,12 @@ describe('getMetadataCorrectionAudit', () => {
         runId: 'run-published',
         collectionConceptId: 'C123-PROV',
         publishedVersionName: 'published-42',
-        status: 'applied'
+        status: 'failed'
+      }],
+      publishedVersionActivity: [{
+        publishedVersionName: 'published-42',
+        firstActivityAt: '2026-10-21T09:00:00.000Z',
+        latestActivityAt: '2026-10-23T12:00:00.000Z'
       }],
       nextPaginationToken: null
     })
@@ -221,9 +234,56 @@ describe('getMetadataCorrectionAudit', () => {
 
     expect(result.statusCode).toBe(200)
     expect(result.body).toContain('Published Version: published-42')
+    expect(result.body).toContain('<strong>First activity:</strong> <time datetime="2026-10-21T09:00:00.000Z">')
+    expect(result.body).toContain('<strong>Latest activity:</strong> <time datetime="2026-10-23T12:00:00.000Z">')
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).toContain('<th scope="col">Collection ID</th>')
     expect(result.body).toContain('<th scope="col">Outcome</th>')
+    expect(result.body).toContain('<a href="../run-published?format=html">C123-PROV</a>')
+  })
+
+  test('opens failure details from the collection link in a single-version published report', async () => {
+    const runId = 'f3351653-dfc3-47d8-9176-294ea90bc118'
+    const failedAudit = {
+      runId,
+      collectionConceptId: 'C123-PROV',
+      publishedVersionName: 'published-42',
+      status: 'failed',
+      outcome: 'writeback-failed',
+      error: { message: 'CMR rejected the collection: invalid contact type' }
+    }
+
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [failedAudit],
+      nextPaginationToken: null
+    })
+
+    vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue(failedAudit)
+
+    const report = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: { versionName: 'published-42' },
+      queryStringParameters: { format: 'html' }
+    })
+    const [, href] = report.body.match(/href="([^"]+)">C123-PROV<\/a>/)
+    const detailUrl = new URL(
+      href,
+      'https://cmr.example.com/kms/metadata_correction_audit/published/published-42'
+    )
+
+    expect(detailUrl.pathname).toBe(`/kms/metadata_correction_audit/${runId}`)
+
+    const detail = await getMetadataCorrectionAudit({
+      pathParameters: { runId: detailUrl.pathname.split('/').pop() },
+      queryStringParameters: Object.fromEntries(detailUrl.searchParams)
+    })
+
+    expect(detail.statusCode).toBe(200)
+    expect(detail.body).toContain('CMR rejected the collection: invalid contact type')
+    expect(getMetadataCorrectionAuditByRunId).toHaveBeenCalledWith({
+      runId,
+      includeDiff: true
+    })
   })
 
   test('directs published version searches to the official published route', async () => {
@@ -263,6 +323,7 @@ describe('getMetadataCorrectionAudit', () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [{
         runId: 'run-html',
+        publishedVersionName: 'published-42',
         collectionConceptId: 'C1234567890-LOCAL',
         status: 'applied',
         changes: [{
@@ -296,6 +357,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('name="collectionConceptId" value="C1234567890-LOCAL"')
     expect(result.body).toContain('<table class="changes-table">')
     expect(result.body).toContain('<a href="metadata_correction_audit/run-html?format=html">run-html</a>')
+    expect(result.body).toContain('<a href="metadata_correction_audit/published/published-42?format=html">published-42</a>')
     expect(result.body).not.toContain('Native metadata diff')
     expect(result.body).toContain('paginationToken=next-token')
   })
@@ -305,6 +367,7 @@ describe('getMetadataCorrectionAudit', () => {
       runId: 'run-1',
       collectionConceptId: 'C123-PROV',
       providerId: 'PROV',
+      publishedVersionName: 'published-42',
       priorRevisionId: 3,
       resultingRevisionId: 4,
       status: 'applied',
@@ -329,6 +392,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
     expect(result.body).toContain('Metadata correction audit detail')
     expect(result.body).toContain('Run details')
+    expect(result.body).toContain('<a href="published/published-42?format=html">published-42</a>')
     expect(result.body).toContain('Prior CMR revision')
     expect(result.body).toContain('Lifecycle history')
     expect(result.body).toContain('Native metadata diff')

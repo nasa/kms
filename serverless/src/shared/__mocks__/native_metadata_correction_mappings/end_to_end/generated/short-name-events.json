@@ -14,19 +14,6 @@
   },
   {
     "EventType": "UPDATED",
-    "Scheme": "granuledataformat",
-    "UUID": "3139eabd-24d2-4d4a-99aa-8e955938ac38",
-    "OldKeywordObject": {
-      "ShortName": "GeoTIFF",
-      "LongName": "Georeferenced Tagged Image File Format"
-    },
-    "NewKeywordObject": {
-      "ShortName": "GeoTIFF - Test1",
-      "LongName": "Georeferenced Tagged Image File Format"
-    }
-  },
-  {
-    "EventType": "UPDATED",
     "Scheme": "idnnode",
     "UUID": "47f0cffe-4e1a-4716-a82c-7f026ef4fb63",
     "OldKeywordObject": {

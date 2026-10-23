@@ -1,0 +1,102 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "ATMOSPHERIC TEMPERATURE",
+      "VariableLevel1": "UPPER AIR TEMPERATURE",
+      "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+      "VariableLevel3": "BOUNDARY LAYER TEMPERATURE PROFILES"
+    }
+  ],
+  "Platforms": [
+    {
+      "Type": "Rotorcraft/Helicopter",
+      "ShortName": "AS350-B3",
+      "LongName": "Helicopter AS350-B3",
+      "Instruments": [
+        {
+          "ShortName": "MABEL",
+          "LongName": "Multiple Altimeter Beam Experimental Lidar"
+        }
+      ]
+    },
+    {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "Amazonia-1"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "OCEAN",
+      "Type": "ATLANTIC OCEAN",
+      "Subregion1": "NORTH ATLANTIC OCEAN",
+      "Subregion2": "CARIBBEAN SEA",
+      "Subregion3": "BARBADOS"
+    },
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "GLOBAL LAND"
+    }
+  ],
+  "PaleoTemporalCoverages": [
+    {
+      "ChronostratigraphicUnits": [
+        {
+          "Eon": "PHANEROZOIC",
+          "Era": "CENOZOIC",
+          "Period": "QUATERNARY",
+          "Epoch": "HOLOCENE"
+        }
+      ]
+    }
+  ],
+  "Projects": [
+    {
+      "ShortName": "CASERTZ",
+      "LongName": "Corridor Aerogeophysics of the SouthEastern Ross Transect Zone"
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "DRSC",
+      "LongName": "Dekker Remote Sensing Corporation",
+      "Roles": [
+        "PROCESSOR"
+      ]
+    }
+  ],
+  "RelatedUrls": [
+    {
+      "URLContentType": "DistributionURL",
+      "Type": "GET DATA",
+      "Subtype": "VIRTUAL COLLECTION",
+      "URL": "https://example.earthdata.nasa.gov/data",
+      "GetData": {
+        "Format": "COG"
+      }
+    }
+  ],
+  "DirectoryNames": [
+    {
+      "ShortName": "AMD/NZ",
+      "LongName": "Antarctic Master Directory/New Zealand"
+    }
+  ],
+  "ISOTopicCategories": [
+    "GEOSCIENTIFIC INFORMATION",
+    "HEALTH"
+  ],
+  "ProcessingLevel": {
+    "Id": "2"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "COG"
+      }
+    ]
+  },
+  "ShortName": "METADATA_CORRECTION_TEST",
+  "Version": "001"
+}

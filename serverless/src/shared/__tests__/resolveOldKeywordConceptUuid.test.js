@@ -159,33 +159,34 @@ describe('resolveOldKeywordConceptUuid', () => {
     })
   })
 
-  test('omits oldKeywordPath when the historical keyword object has no meaningful path value', async () => {
+  test('preserves the extracted collection value in the old keyword object', async () => {
     vi.mocked(getHistoricalConceptByKeyword).mockResolvedValue({
       uuid: 'resolved-scalar',
       keywordObject: {
-        ISOTopicCategory: ''
+        ISOTopicCategory: 'Health'
       }
     })
 
     vi.mocked(getPublishedConceptByUuid).mockResolvedValue({
       uuid: 'resolved-scalar',
       keywordObject: {
-        ISOTopicCategory: 'BOUNDARIES'
+        ISOTopicCategory: 'Health'
       }
     })
 
     await expect(resolveOldKeywordConceptUuid({
       scheme: 'isotopiccategory',
-      keywordValue: 'BOUNDARIES'
+      keywordValue: 'HEALTH'
     })).resolves.toEqual({
       keywordConceptUuid: 'resolved-scalar',
       oldKeywordObject: {
-        ISOTopicCategory: ''
+        ISOTopicCategory: 'HEALTH'
       },
       newKeywordObject: {
-        ISOTopicCategory: 'BOUNDARIES'
+        ISOTopicCategory: 'Health'
       },
-      newKeywordPath: 'BOUNDARIES',
+      oldKeywordPath: 'HEALTH',
+      newKeywordPath: 'Health',
       action: 'replace'
     })
   })

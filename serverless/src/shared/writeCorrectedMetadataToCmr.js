@@ -3,8 +3,8 @@ import { isWritebackEnabledForProvider } from './cmrWritebackProviders'
 import { getCmrWriterToken } from './getCmrWriterToken'
 import { logger } from './logger'
 
-// Keep the writeback timeout inside the metadataCorrectionService Lambda's 60s timeout so a
-// stalled ingest request can still be recorded as a failed audit status.
+// Bound the ingest request separately so a stalled writeback can be audited without consuming
+// the correction worker's full processing budget.
 const DEFAULT_CMR_WRITEBACK_TIMEOUT_MS = 25_000
 const MAX_CMR_WRITEBACK_TIMEOUT_MS = 45_000
 const CMR_WRITEBACK_CLIENT_ID = 'kms-metadata-correction-service'

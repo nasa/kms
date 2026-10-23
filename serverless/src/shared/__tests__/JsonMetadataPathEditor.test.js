@@ -1143,7 +1143,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
       expect(editor.serialize()).toContain('"ShortName": "TWO"')
     })
 
-    test('should use absolute scalar paths to create a missing UMM-C field when the root exists', () => {
+    test('should not create a missing scalar UMM-C field when the root exists', () => {
       const editor = new JsonMetadataPathEditor({
         ProcessingLevel: {}
       })
@@ -1158,8 +1158,36 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         tagName: 'Id'
       })
 
-      expect(isUpdated).toBe(true)
-      expect(editor.serialize()).toContain('"Id": "1A"')
+      expect(isUpdated).toBe(false)
+      expect(editor.document).toEqual({ ProcessingLevel: {} })
+    })
+
+    test('should skip a scalar replacement when its old value does not match', () => {
+      const editor = new JsonMetadataPathEditor({ ProcessingLevel: { Id: '2' } })
+
+      expect(editor.updateScalarNode({
+        action: 'replace',
+        oldKeywordObject: { ProductLevelId: '1' },
+        newKeywordObject: { ProductLevelId: '1TEST' }
+      }, {
+        nodePath: '//ProcessingLevel/Id'
+      })).toBe(false)
+
+      expect(editor.document).toEqual({ ProcessingLevel: { Id: '2' } })
+    })
+
+    test('should match existing scalar values case-insensitively without creating fields', () => {
+      const editor = new JsonMetadataPathEditor({ ProcessingLevel: { Id: 'level 1a' } })
+
+      expect(editor.updateScalarNode({
+        action: 'replace',
+        oldKeywordObject: { ProductLevelId: 'Level 1A' },
+        newKeywordObject: { ProductLevelId: 'Level 1B' }
+      }, {
+        nodePath: '//ProcessingLevel/Id'
+      })).toBe(true)
+
+      expect(editor.document).toEqual({ ProcessingLevel: { Id: 'Level 1B' } })
     })
 
     test('should default block updates to replace and allow deletes without callbacks', () => {
@@ -1424,7 +1452,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
       expect(unresolvedParentEditor.document.ProcessingLevel).toEqual({})
     })
 
-    test('should support scalar delete paths and return false when scalar updates are unsupported or cannot create a root field', () => {
+    test('should support scalar deletes and skip unsupported updates or missing fields', () => {
       const deleteEditor = new JsonMetadataPathEditor({
         ProcessingLevel: {
           Id: '1A'
@@ -1487,7 +1515,7 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         tagName: 'Id'
       })).toBe(false)
 
-      expect(deleteEditor.updateScalarNode({
+      expect(defaultReplaceEditor.updateScalarNode({
         action: 'noop',
         newKeywordObject: {
           Value: '1B'
@@ -1519,9 +1547,9 @@ describe('when updating JSON nodes through JsonMetadataPathEditor', () => {
         }
       }, {
         nodePath: 'ProcessingLevel/Id'
-      })).toBe(true)
+      })).toBe(false)
 
-      expect(relativeCreateEditor.document.ProcessingLevel.Id).toBe('1A')
+      expect(relativeCreateEditor.document).toEqual({})
       expect(undefinedRootEditor.updateScalarNode({
         action: 'replace',
         newKeywordObject: {

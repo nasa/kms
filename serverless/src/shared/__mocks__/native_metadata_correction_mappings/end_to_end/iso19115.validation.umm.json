@@ -1,0 +1,63 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "AEROSOLS"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA"
+    }
+  ],
+  "Platforms": [
+    {
+      "ShortName": "TERRA",
+      "LongName": "Earth Observing System, TERRA (AM-1)"
+    },
+    {
+      "ShortName": "AQUA",
+      "Instruments": [
+        {
+          "ShortName": "MODIS"
+        },
+        {
+          "ShortName": "ATLAS"
+        }
+      ]
+    }
+  ],
+  "Projects": [
+    {
+      "ShortName": "MEASURES",
+      "LongName": "Making Earth System Data Records for Use in Research Environments"
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "DOC/NOAA/NESDIS/NCEI",
+      "Roles": [
+        "ARCHIVER"
+      ]
+    }
+  ],
+  "ISOTopicCategories": [
+    "FARMING"
+  ],
+  "ProcessingLevel": {
+    "Id": "3"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "HDF5"
+      }
+    ]
+  },
+  "ShortName": "ISO19115_CORRECTION_TEST",
+  "Version": "001"
+}

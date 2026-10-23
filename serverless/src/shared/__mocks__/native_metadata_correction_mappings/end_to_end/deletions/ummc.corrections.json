@@ -111,6 +111,19 @@
       }
     },
     {
+      "scheme": "dataformat",
+      "action": "delete",
+      "oldKeywordObject": {
+        "ShortName": "COG_SHOULD_DELETE"
+      },
+      "ummPath": [
+        "RelatedUrls",
+        1,
+        "GetData",
+        "Format"
+      ]
+    },
+    {
       "scheme": "productlevelid",
       "action": "delete",
       "oldKeywordObject": {

@@ -2028,6 +2028,26 @@ describe('when applying ProcessingLevel UMM-C corrections', () => {
     expect(parsed.ProcessingLevel.ProcessingLevelDescription).toBe('Level 1B data products')
   })
 
+  test('should not add an Id when translation supplied a value missing from the native record', async () => {
+    const metadataPayload = {
+      ShortName: 'PROC_TEST',
+      ProcessingLevel: { ProcessingLevelDescription: 'Description without an ID' }
+    }
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'productlevelid',
+        action: 'replace',
+        oldKeywordObject: { ProductLevelId: 'Not provided' },
+        newKeywordObject: { ProductLevelId: 'Not Provided' }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctionsApplied).toEqual([])
+    expect(JSON.parse(result.correctedMetadata)).toEqual(metadataPayload)
+  })
+
   test('should delete ProcessingLevel when action is delete', async () => {
     const result = await applyUmmcMetadataCorrections({
       metadataPayload: mockUmmcWithProcessingLevel,
@@ -3157,6 +3177,96 @@ describe('when applying DataFormat UMM-C corrections', () => {
     expect(parsed.ArchiveAndDistributionInformation.FileArchiveInformation[0].Format).toBe('ZARR')
     // Verify the path that did not match the oldKeywordObject remains unchanged
     expect(parsed.ArchiveAndDistributionInformation.FileDistributionInformation[0].Format).toBe('ZARR')
+  })
+
+  test('should replace only the Related URL format identified by the UMM path', async () => {
+    const metadataPayload = {
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Format: 'COG',
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    }
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'dataformat',
+        action: 'replace',
+        oldKeywordObject: {
+          ShortName: 'COG'
+        },
+        newKeywordObject: {
+          ShortName: 'COG_CHANGED'
+        },
+        ummPath: ['RelatedUrls', 0, 'GetData', 'Format']
+      }]
+    })
+
+    expect(JSON.parse(result.correctedMetadata)).toEqual({
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Format: 'COG_CHANGED',
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    })
+  })
+
+  test('should delete only the Related URL format identified by the UMM path', async () => {
+    const metadataPayload = {
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Format: 'COG',
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    }
+
+    const result = await applyUmmcMetadataCorrections({
+      metadataPayload,
+      corrections: [{
+        scheme: 'dataformat',
+        action: 'delete',
+        oldKeywordObject: {
+          ShortName: 'COG'
+        },
+        ummPath: ['RelatedUrls', 0, 'GetData', 'Format']
+      }]
+    })
+
+    expect(JSON.parse(result.correctedMetadata)).toEqual({
+      RelatedUrls: [{
+        URL: 'https://example.com/data',
+        GetData: {
+          Size: 42
+        }
+      }],
+      ArchiveAndDistributionInformation: {
+        FileArchiveInformation: [{
+          Format: 'COG'
+        }]
+      }
+    })
   })
 })
 

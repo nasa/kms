@@ -840,27 +840,24 @@ export class XmlMetadataPathEditor {
    *
    * Scalar fields normally operate on the field selected by `nodeXPath`. When an old value is
    * supplied, the matching field is selected so duplicate scalar nodes cannot cause the wrong
-   * occurrence to be replaced or deleted. A missing field can be created for `replace` actions.
-   *
-   * `tagName` is only needed for that create-on-miss case. XPath tells us how to find the node
-   * when it already exists, but it does not give us the literal element name to pass to
-   * `document.createElement(...)` when we have to create the missing scalar field.
+   * occurrence to be replaced or deleted. Missing or unmatched fields are never created.
    *
    * @param {Object} correction Correction descriptor being applied.
    * @param {Object} config Scheme-specific mutation configuration.
    * @param {string} config.nodeXPath XPath for the scalar field when it already exists.
-   * @param {string} config.tagName Literal element name to create when the scalar node is missing.
    * @returns {boolean} `true` when the scalar field was changed.
    *
    * @example
    * editor.updateScalarNode({
    *   action: 'replace',
+   *   oldKeywordObject: {
+   *     Value: '1'
+   *   },
    *   newKeywordObject: {
    *     Value: '1A'
    *   }
    * }, {
-   *   nodeXPath: '//DIF/Product_Level_Id',
-   *   tagName: 'Product_Level_Id'
+   *   nodeXPath: '//DIF/Product_Level_Id'
    * })
    * // true
    */
@@ -874,11 +871,11 @@ export class XmlMetadataPathEditor {
       )) || null
       : nodes[0] || null
 
-    if (action === 'delete') {
-      if (!targetNode) {
-        return false
-      }
+    // CMR translation may supply a value that is absent from the native metadata.
+    // Replacements must not invent a field (or duplicate an existing unmatched scalar).
+    if (!targetNode) return false
 
+    if (action === 'delete') {
       this.removeNode(targetNode)
 
       return true
@@ -890,27 +887,11 @@ export class XmlMetadataPathEditor {
         return false
       }
 
-      if (targetNode) {
-        if (trimString(this.getElementText(targetNode)) === value) {
-          return false
-        }
-
-        this.setElementText(targetNode, value)
-      } else {
-        const root = this.document?.documentElement
-        const targetNodeRootName = config.nodeXPath.match(/\/\/(.*?)\//)[1]
-
-        // Check if the root node name and the target node's root name are different
-        if (!root || (root.nodeName !== targetNodeRootName)) {
-          return false
-        }
-
-        // XPath is enough to find an existing scalar node, but when the field is missing we need
-        // the literal element name so we can create `<Product_Level_Id>` (or similar) explicitly.
-        const newNode = this.document.createElement(config.tagName)
-        this.setElementText(newNode, value)
-        root.appendChild(newNode)
+      if (trimString(this.getElementText(targetNode)) === value) {
+        return false
       }
+
+      this.setElementText(targetNode, value)
 
       return true
     }

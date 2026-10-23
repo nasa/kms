@@ -3,6 +3,7 @@ import { getApplicationConfig } from '@/shared/getConfig'
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logAnalyticsData } from '@/shared/logAnalyticsData'
 import { logger } from '@/shared/logger'
+import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 /**
@@ -148,17 +149,41 @@ export const requestMetadataCorrection = async (event, context) => {
 
     const publishResults = await Promise.allSettled(
       eligibleCollectionConceptIds.map(async (collectionConceptId) => {
-        const publishResult = await publishMetadataCorrectionRequest({
-          source: 'metadataCorrectionApi',
-          collectionConceptId,
-          publishedVersionName,
-          requestedAt
-        })
+        try {
+          const publishResult = await publishMetadataCorrectionRequest({
+            source: 'metadataCorrectionApi',
+            collectionConceptId,
+            publishedVersionName,
+            requestedAt
+          })
 
-        return {
-          collectionConceptId,
-          messageId: publishResult.messageId,
-          messageGroupId: publishResult.messageGroupId
+          return {
+            collectionConceptId,
+            messageId: publishResult.messageId,
+            messageGroupId: publishResult.messageGroupId
+          }
+        } catch (error) {
+          // One failed collection must not prevent the remaining manual requests from publishing.
+          // Record the failed collection in audit because this API does not retry it.
+          try {
+            await persistMetadataCorrectionAuditLog({
+              status: 'failed',
+              collectionConceptId,
+              publishedVersionName,
+              source: 'metadataCorrectionApi',
+              messageId: context?.awsRequestId,
+              outcome: 'correction-request-publish-failed',
+              error
+            })
+          } catch (auditError) {
+            logger.error('[metadata-correction] Failed to persist manual request publish failure', {
+              collectionConceptId,
+              messageId: context?.awsRequestId,
+              error: auditError?.message || String(auditError)
+            })
+          }
+
+          throw error
         }
       })
     )

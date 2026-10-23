@@ -1514,6 +1514,32 @@ describe('when applying Dataformat ECHO10 corrections', () => {
 </Collection>`
 
   describe('when replacing DataFormat', () => {
+    test('should apply the matching format replacement without adding an unmatched Related URL format', async () => {
+      const formatCorrection = {
+        scheme: 'dataformat',
+        action: 'replace',
+        ummPath: ['ArchiveAndDistributionInformation', 'FileDistributionInformation', 0],
+        oldKeywordObject: { ShortName: 'NetCDF' },
+        newKeywordObject: { ShortName: 'NetCDF-Test' }
+      }
+      const result = await applyEcho10MetadataCorrections({
+        metadataPayload: '<Collection><DataFormat>NetCDF</DataFormat><Spatial/></Collection>',
+        corrections: [formatCorrection, {
+          scheme: 'dataformat',
+          action: 'replace',
+          ummPath: ['RelatedUrls', 0, 'GetData', 'Format'],
+          oldKeywordObject: { ShortName: 'Not provided' },
+          newKeywordObject: { ShortName: 'Not Provided' }
+        }]
+      })
+
+      expect(result.correctedMetadata)
+        .toBe('<?xml version="1.0" encoding="UTF-8"?>\n<Collection><DataFormat>NetCDF-Test</DataFormat><Spatial/></Collection>')
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctionsApplied).toEqual([formatCorrection])
+    })
+
     test('should successfully update the DataFormat with a new string', async () => {
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: mockEcho10WithDataFormat,
@@ -1644,7 +1670,7 @@ describe('when applying Dataformat ECHO10 corrections', () => {
       expect(result.correctionCount).toBe(0)
     })
 
-    test('should return true and add a new node if the DataFormat is not present', async () => {
+    test('should skip replacement without adding a missing DataFormat', async () => {
       const noProcessingLevelXml = '<Collection></Collection>'
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: noProcessingLevelXml,
@@ -1657,9 +1683,10 @@ describe('when applying Dataformat ECHO10 corrections', () => {
         }]
       })
 
-      expect(result.correctionCount).toBe(1)
+      expect(result.correctionCount).toBe(0)
 
-      expect(result.correctedMetadata).toContain('<DataFormat>HDF5</DataFormat>')
+      expect(result.correctionsApplied).toEqual([])
+      expect(result.correctedMetadata).not.toContain('<DataFormat>')
     })
 
     test('should return false if an unknown action type is provided', async () => {
@@ -1794,7 +1821,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
       expect(result.correctionCount).toBe(0)
     })
 
-    test('should return true and add a new node if the ProcessingLevelId is not present', async () => {
+    test('should skip replacement without adding a missing ProcessingLevelId', async () => {
       const noProcessingLevelXml = '<Collection></Collection>'
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: noProcessingLevelXml,
@@ -1807,9 +1834,10 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
         }]
       })
 
-      expect(result.correctionCount).toBe(1)
+      expect(result.correctionCount).toBe(0)
 
-      expect(result.correctedMetadata).toContain('<ProcessingLevelId>Level 4</ProcessingLevelId>')
+      expect(result.correctionsApplied).toEqual([])
+      expect(result.correctedMetadata).not.toContain('<ProcessingLevelId>')
     })
 
     test('should return false if an unknown action type is provided', async () => {

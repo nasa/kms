@@ -8,6 +8,7 @@ import {
 
 import { getVersionMetadata } from '@/shared/getVersionMetadata'
 import { logger } from '@/shared/logger'
+import { persistMetadataCorrectionAuditLog } from '@/shared/persistMetadataCorrectionAuditLog'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 import { requestMetadataCorrection } from '../handler'
@@ -38,10 +39,20 @@ vi.mock('@/shared/publishMetadataCorrectionRequest', () => ({
   publishMetadataCorrectionRequest: vi.fn()
 }))
 
+vi.mock('@/shared/persistMetadataCorrectionAuditLog', () => ({
+  persistMetadataCorrectionAuditLog: vi.fn()
+}))
+
 describe('requestMetadataCorrection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getVersionMetadata).mockResolvedValue({ versionName: '20.1' })
+    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValue({
+      runId: 'audit-run',
+      status: 'failed',
+      created: true
+    })
+
     process.env.CMR_WRITEBACK_PROVIDERS = 'ALL'
   })
 
@@ -121,6 +132,8 @@ describe('requestMetadataCorrection', () => {
           'C456-PROV'
         ]
       })
+    }, {
+      awsRequestId: 'api-request-1'
     })
 
     expect(result.statusCode).toBe(202)
@@ -153,6 +166,16 @@ describe('requestMetadataCorrection', () => {
         failedCount: 1
       })
     )
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith({
+      status: 'failed',
+      collectionConceptId: 'C456-PROV',
+      publishedVersionName: '20.1',
+      source: 'metadataCorrectionApi',
+      messageId: 'api-request-1',
+      outcome: 'correction-request-publish-failed',
+      error: expect.any(Error)
+    })
   })
 
   test('returns 202 and stringifies non-Error publish failures in partial batch results', async () => {
@@ -286,6 +309,27 @@ describe('requestMetadataCorrection', () => {
     })
 
     expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+  })
+
+  test('returns the original publish failure when its audit cannot be saved', async () => {
+    vi.mocked(publishMetadataCorrectionRequest).mockRejectedValueOnce(new Error('SNS unavailable'))
+    vi.mocked(persistMetadataCorrectionAuditLog).mockRejectedValueOnce(new Error('Audit unavailable'))
+
+    const result = await requestMetadataCorrection({
+      body: JSON.stringify({ collectionConceptIds: ['C123-PROV'] })
+    }, { awsRequestId: 'api-request-1' })
+
+    expect(result.statusCode).toBe(500)
+    expect(JSON.parse(result.body)).toEqual({ error: 'Error: SNS unavailable' })
+    expect(publishMetadataCorrectionRequest).toHaveBeenCalledTimes(1)
+    expect(logger.error).toHaveBeenCalledWith(
+      '[metadata-correction] Failed to persist manual request publish failure',
+      {
+        collectionConceptId: 'C123-PROV',
+        messageId: 'api-request-1',
+        error: 'Audit unavailable'
+      }
+    )
   })
 
   test('returns 500 when publish fails and logs the error', async () => {

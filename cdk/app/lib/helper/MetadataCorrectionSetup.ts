@@ -22,6 +22,7 @@ import { NODE_LAMBDA_RUNTIME } from './NodeLambdaRuntime'
  */
 interface MetadataCorrectionSetupProps {
   cmrBaseUrl: string
+  cmrGetTimeoutMs?: string
   cmrSystemTokenParameterName?: string
   cmrWritebackTimeoutMs?: string
   metadataCorrectionRequestDelayMs?: string
@@ -103,6 +104,7 @@ export class MetadataCorrectionSetup extends Construct {
 
     const {
       cmrBaseUrl,
+      cmrGetTimeoutMs,
       cmrSystemTokenParameterName,
       cmrWritebackTimeoutMs,
       metadataCorrectionRequestDelayMs,
@@ -155,12 +157,16 @@ export class MetadataCorrectionSetup extends Construct {
       queueName: metadataCorrectionRequestsName,
       fifo: true,
       contentBasedDeduplication: true,
+      // Collection failures are audited and acknowledged by the worker. A hard runtime failure
+      // is retained in the DLQ after one receive rather than automatically replayed.
       deadLetterQueue: {
         queue: this.metadataCorrectionRequestsDlq,
-        maxReceiveCount: 3
+        maxReceiveCount: 1
       },
       retentionPeriod: cdk.Duration.days(14),
-      visibilityTimeout: cdk.Duration.minutes(5)
+      // Keep the visibility window at six times the worker timeout so messages stay hidden
+      // while a long-running correction is still processing.
+      visibilityTimeout: cdk.Duration.minutes(90)
     })
 
     this.metadataCorrectionRequestsTopic = new sns.Topic(this, 'MetadataCorrectionRequestsTopic', {
@@ -184,13 +190,16 @@ export class MetadataCorrectionSetup extends Construct {
         entry: path.join(projectRoot, 'serverless/src/metadataCorrectionService/handler.js'),
         handler: 'metadataCorrectionService',
         runtime: NODE_LAMBDA_RUNTIME,
-        timeout: cdk.Duration.seconds(60),
+        // Allow pacing, CMR reads, native correction, writeback, and failure auditing to finish.
+        // A short timeout can interrupt that work before the request can be acknowledged.
+        timeout: cdk.Duration.minutes(15),
         memorySize: 1024,
         // Broad keyword updates can fan out to hundreds of collections; cap concurrent
         // consumers so writebacks do not overwhelm downstream CMR ingest.
         reservedConcurrentExecutions: reservedConcurrency,
         environment: {
           CMR_BASE_URL: cmrBaseUrl,
+          CMR_GET_TIMEOUT_MS: cmrGetTimeoutMs || '25000',
           ...(cmrWritebackTimeoutMs ? { CMR_WRITEBACK_TIMEOUT_MS: cmrWritebackTimeoutMs } : {}),
           ...(cmrSystemTokenParameterName
             ? { CMR_SYSTEM_TOKEN_PARAMETER_NAME: cmrSystemTokenParameterName }
@@ -234,8 +243,8 @@ export class MetadataCorrectionSetup extends Construct {
     this.metadataCorrectionServiceLambda.addEventSource(new eventsources.SqsEventSource(
       this.metadataCorrectionRequestsQueue,
       {
-        batchSize: 1,
-        reportBatchItemFailures: true
+        // Each collection is its own failure boundary and is always acknowledged after auditing.
+        batchSize: 1
       }
     ))
 
