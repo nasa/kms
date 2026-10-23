@@ -461,8 +461,10 @@ const normalizeIncludeDiff = (includeDiff) => {
 /**
  * Returns metadata-correction audit runs using newest-first token pagination.
  *
+ * Single-version published reports also return activity independent of pagination.
+ *
  * @param {Object} [filters={}] Supported field, date, and pagination filters.
- * @returns {Promise<{items: Array<Object>, nextPaginationToken: string|null}>} Audit page.
+ * @returns {Promise<Object>} Audit page, including activity for single-version published reports.
  *
  * @example
  * await getMetadataCorrectionAuditLog({ status: 'applied', limit: 25 })
@@ -484,9 +486,34 @@ export const getMetadataCorrectionAuditLog = async (filters = {}) => {
     .toArray()
   const hasNextPage = documents.length > limit
   const pageDocuments = hasNextPage ? documents.slice(0, limit) : documents
+  let publishedVersionActivity
+
+  if (filters.publishedOnly && filters.publishedVersionName) {
+    // Activity covers every record for this version, not just this page or its search filters.
+    const activity = await collection.aggregate([
+      {
+        $match: {
+          publishedVersionName: normalizePublishedVersionName(filters.publishedVersionName)
+        }
+      },
+      {
+        $group: {
+          _id: '$publishedVersionName',
+          firstActivityAt: { $min: { $ifNull: ['$createdAt', '$updatedAt'] } },
+          latestActivityAt: { $max: { $ifNull: ['$updatedAt', '$createdAt'] } }
+        }
+      }
+    ]).toArray()
+
+    publishedVersionActivity = activity.map(({ _id, ...timestamps }) => ({
+      publishedVersionName: _id,
+      ...timestamps
+    }))
+  }
 
   return {
     items: pageDocuments.map((document) => normalizeAuditSummary(document, shouldIncludeDiff)),
+    ...(publishedVersionActivity ? { publishedVersionActivity } : {}),
     nextPaginationToken: hasNextPage
       ? encodePaginationToken(pageDocuments[pageDocuments.length - 1])
       : null

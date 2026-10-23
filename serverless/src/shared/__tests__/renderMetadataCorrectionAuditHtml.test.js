@@ -1,7 +1,9 @@
 import {
+  afterEach,
   describe,
   expect,
-  test
+  test,
+  vi
 } from 'vitest'
 
 import { renderMetadataCorrectionAuditHtml } from '../renderMetadataCorrectionAuditHtml'
@@ -15,6 +17,119 @@ const PATCH = `=================================================================
 `
 
 describe('renderMetadataCorrectionAuditHtml', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  test('shows whole-version activity timestamps with relative ages at page load', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-23T17:00:00.000Z').getTime())
+
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        publishedVersionName: '25.0',
+        updatedAt: '2026-10-23T16:55:00.000Z'
+      }],
+      publishedVersionActivity: [{
+        publishedVersionName: '25.0',
+        firstActivityAt: new Date('2026-10-21T09:00:00.000Z'),
+        latestActivityAt: '2026-10-23T12:00:00.000Z'
+      }]
+    })
+
+    expect(view).toContain('<strong>First activity:</strong> <time datetime="2026-10-21T09:00:00.000Z">2026-10-21T09:00:00.000Z</time> (2 days ago)')
+    expect(view).toContain('<strong>Latest activity:</strong> <time datetime="2026-10-23T12:00:00.000Z">2026-10-23T12:00:00.000Z</time> (5 hours ago)')
+    expect(view).toContain('<strong>Activity duration:</strong> 2d 3h')
+    expect(view).toContain('Duration is from first to latest recorded activity.')
+    expect(view).toContain('Ages are as of page load; refresh to update.')
+    expect(view).toContain('Latest activity does not confirm all queued work is complete.')
+  })
+
+  test('formats activity duration for short, zero, missing, invalid, and reversed intervals', () => {
+    const firstActivityAt = '2026-10-23T12:00:00.000Z'
+    const scenarios = [
+      {
+        latestActivityAt: '2026-10-23T13:02:03.000Z',
+        expected: '1h 2m 3s'
+      },
+      {
+        latestActivityAt: '2026-10-23T12:00:45.000Z',
+        expected: '45s'
+      },
+      {
+        latestActivityAt: firstActivityAt,
+        expected: '0s'
+      },
+      {
+        latestActivityAt: undefined,
+        expected: 'Not available'
+      },
+      {
+        latestActivityAt: 'invalid',
+        expected: 'Not available'
+      },
+      {
+        latestActivityAt: '2026-10-23T11:59:59.000Z',
+        expected: 'Not available'
+      }
+    ]
+
+    scenarios.forEach(({ latestActivityAt, expected }) => {
+      const view = renderMetadataCorrectionAuditHtml({
+        groupByPublishedVersion: true,
+        items: [{ publishedVersionName: '25.0' }],
+        publishedVersionActivity: [{
+          publishedVersionName: '25.0',
+          firstActivityAt,
+          latestActivityAt
+        }]
+      })
+
+      expect(view).toContain(`<strong>Activity duration:</strong> ${expected}</span>`)
+    })
+  })
+
+  test('keeps version activity separate and handles singular, recent, future, and absent dates', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-23T17:00:00.000Z').getTime())
+
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [
+        { publishedVersionName: 'hour' },
+        { publishedVersionName: 'minute' },
+        { publishedVersionName: 'missing' },
+        { publishedVersionName: 'invalid' }
+      ],
+      publishedVersionActivity: [{
+        publishedVersionName: 'hour',
+        firstActivityAt: '2026-10-22T17:00:00.000Z',
+        latestActivityAt: '2026-10-23T16:00:00.000Z'
+      }, {
+        publishedVersionName: 'minute',
+        firstActivityAt: '2026-10-23T16:59:00.000Z',
+        latestActivityAt: '2026-10-23T16:59:45.000Z'
+      }, {
+        publishedVersionName: 'invalid',
+        firstActivityAt: '<script>invalid</script>',
+        latestActivityAt: '2026-10-23T18:00:00.000Z'
+      }, {
+        publishedVersionName: 'missing',
+        firstActivityAt: null
+      }]
+    })
+
+    expect(view).toContain('(1 day ago)')
+    expect(view).toContain('(1 hour ago)')
+    expect(view).toContain('(1 minute ago)')
+    expect(view).toContain('(just now)')
+    expect(view).toContain('(in 1 hour)')
+    expect(view).toContain('<strong>First activity:</strong> Not available')
+    expect(view).toContain('<strong>Latest activity:</strong> Not available')
+    expect(view).not.toContain('<script>invalid</script>')
+    expect(view.indexOf('(1 hour ago)')).toBeLessThan(view.indexOf('Published Version: minute'))
+    expect(view.indexOf('(1 minute ago)')).toBeGreaterThan(view.indexOf('Published Version: minute'))
+  })
+
   test('renders a safe change table and colored side-by-side native metadata diff', () => {
     const view = renderMetadataCorrectionAuditHtml({
       collectionConceptId: 'C123-PROV',
@@ -109,6 +224,8 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('Published Version: published-42')
+    expect(view).not.toContain('<strong>First activity:</strong>')
+    expect(view).not.toContain('<strong>Latest activity:</strong>')
     expect(view).toContain('2 audit records')
     expect(view).toContain('Published Version: published-41')
     expect(view).toContain('1 audit record')

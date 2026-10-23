@@ -89,6 +89,19 @@ const PAGE_STYLES = `
     box-shadow: 0 0.7rem 2rem rgba(20, 47, 60, 0.08);
   }
 
+  .version-activity {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 2rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .activity-note {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
   .published-table {
     width: 100%;
     min-width: 70rem;
@@ -460,6 +473,62 @@ const renderEnabledProvidersNotice = (enabledProviders) => {
 const displayDate = (value) => displayValue(value instanceof Date ? value.toISOString() : value)
 
 /**
+ * Shows an absolute activity time and its age when the report was rendered.
+ * Missing or invalid historical timestamps must not appear as activity at the Unix epoch.
+ *
+ * @param {unknown} value Stored activity timestamp.
+ * @param {number} now Report rendering time in milliseconds.
+ * @returns {string} HTML-safe timestamp with a relative age.
+ */
+const renderActivityTime = (value, now) => {
+  const date = value ? new Date(value) : undefined
+
+  if (!date || Number.isNaN(date.getTime())) return 'Not available'
+
+  const seconds = (date.getTime() - now) / 1000
+  let relative = 'just now'
+
+  if (Math.abs(seconds) >= 60) {
+    const [unit, size] = [
+      ['day', 86400],
+      ['hour', 3600],
+      ['minute', 60]
+    ].find(([, secondsPerUnit]) => Math.abs(seconds) >= secondsPerUnit)
+
+    relative = new Intl.RelativeTimeFormat('en', { numeric: 'always' })
+      .format(Math.trunc(seconds / size), unit)
+  }
+
+  return `<time datetime="${date.toISOString()}">${date.toISOString()}</time> (${displayValue(relative)})`
+}
+
+/**
+ * Measures recorded activity only, not time since publication or confirmed completion.
+ *
+ * @param {Object} activity First and latest timestamps for the published version.
+ * @returns {string} Compact duration or fallback text for incomplete/invalid timestamps.
+ */
+const formatActivityDuration = ({ firstActivityAt, latestActivityAt }) => {
+  if (!firstActivityAt || !latestActivityAt) return 'Not available'
+
+  let seconds = Math.floor((new Date(latestActivityAt) - new Date(firstActivityAt)) / 1000)
+
+  if (!Number.isFinite(seconds) || seconds < 0) return 'Not available'
+
+  const parts = []
+  const units = [['d', 86400], ['h', 3600], ['m', 60], ['s', 1]]
+
+  units.forEach(([unit, size]) => {
+    const count = Math.floor(seconds / size)
+
+    if (count > 0) parts.push(`${count}${unit}`)
+    seconds %= size
+  })
+
+  return parts.join(' ') || '0s'
+}
+
+/**
  * Renders an HTML-only collection concept ID filter for the audit summary.
  *
  * @param {unknown} collectionConceptId Current exact-match filter value.
@@ -820,10 +889,16 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
  *
  * @param {Array<Object>} items Audit summary documents in newest-first order.
  * @param {string} runDetailHrefPrefix Relative path to audit details.
+ * @param {Array<Object>} publishedVersionActivity Whole-version activity timestamps.
  * @returns {string} Version-grouped audit tables.
  */
-const renderPublishedVersionGroups = (items, runDetailHrefPrefix) => {
+const renderPublishedVersionGroups = (items, runDetailHrefPrefix, publishedVersionActivity) => {
   const groups = new Map()
+  const activityByVersion = new Map(publishedVersionActivity.map((activity) => [
+    activity.publishedVersionName,
+    activity
+  ]))
+  const now = Date.now()
 
   items.forEach((audit) => {
     const versionName = audit.publishedVersionName || 'Unknown published version'
@@ -839,6 +914,12 @@ const renderPublishedVersionGroups = (items, runDetailHrefPrefix) => {
         <h2>Published Version: ${displayValue(versionName)}</h2>
         <p>${versionItems.length} audit ${versionItems.length === 1 ? 'record' : 'records'}</p>
       </header>
+      ${activityByVersion.has(versionName) ? `<div class="version-activity">
+        <span><strong>First activity:</strong> ${renderActivityTime(activityByVersion.get(versionName)?.firstActivityAt, now)}</span>
+        <span><strong>Latest activity:</strong> ${renderActivityTime(activityByVersion.get(versionName)?.latestActivityAt, now)}</span>
+        <span><strong>Activity duration:</strong> ${formatActivityDuration(activityByVersion.get(versionName))}</span>
+      </div>
+      <p class="activity-note">Across all audit records for this version. Duration is from first to latest recorded activity. Ages are as of page load; refresh to update. Latest activity does not confirm all queued work is complete.</p>` : ''}
       <div class="published-table-wrap">
         <table class="published-table">
           <thead>
@@ -878,6 +959,7 @@ const renderPublishedVersionGroups = (items, runDetailHrefPrefix) => {
  * for. When provided, a disclaimer naming them is rendered at the top of the page.
  * @param {boolean} [params.groupByPublishedVersion=false] Group summaries under version headings.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
+ * @param {Array<Object>} [params.publishedVersionActivity=[]] Whole-version activity timestamps.
  * @param {string} [params.runDetailHrefPrefix] Relative path to audit details; defaults to
  * the sibling run routes for published reports and metadata_correction_audit/ for searches.
  * @param {string} [params.message] Optional empty-state or error message.
@@ -894,6 +976,7 @@ export const renderMetadataCorrectionAuditHtml = ({
   groupByPublishedVersion = false,
   runDetailHrefPrefix = groupByPublishedVersion ? '' : 'metadata_correction_audit/',
   items = [],
+  publishedVersionActivity = [],
   message,
   nextPageHref,
   showCollectionFilter = true,
@@ -904,7 +987,7 @@ export const renderMetadataCorrectionAuditHtml = ({
 
   if (items.length > 0) {
     cards = groupByPublishedVersion
-      ? renderPublishedVersionGroups(items, runDetailHrefPrefix)
+      ? renderPublishedVersionGroups(items, runDetailHrefPrefix, publishedVersionActivity)
       : items.map((audit) => renderAuditCard(audit, {
         detail,
         runDetailHrefPrefix

@@ -194,6 +194,8 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.statusCode).toBe(200)
     expect(result.body).toContain('<title>Published metadata correction audit</title>')
     expect(result.body).toContain('Published Version: published-42')
+    expect(result.body).not.toContain('<strong>First activity:</strong>')
+    expect(result.body).not.toContain('<strong>Latest activity:</strong>')
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).not.toContain('<h1>Published metadata correction audit</h1>')
     expect(result.body).not.toContain('<form class="audit-filter"')
@@ -212,6 +214,11 @@ describe('getMetadataCorrectionAudit', () => {
         publishedVersionName: 'published-42',
         status: 'failed'
       }],
+      publishedVersionActivity: [{
+        publishedVersionName: 'published-42',
+        firstActivityAt: '2026-10-21T09:00:00.000Z',
+        latestActivityAt: '2026-10-23T12:00:00.000Z'
+      }],
       nextPaginationToken: null
     })
 
@@ -227,6 +234,8 @@ describe('getMetadataCorrectionAudit', () => {
 
     expect(result.statusCode).toBe(200)
     expect(result.body).toContain('Published Version: published-42')
+    expect(result.body).toContain('<strong>First activity:</strong> <time datetime="2026-10-21T09:00:00.000Z">')
+    expect(result.body).toContain('<strong>Latest activity:</strong> <time datetime="2026-10-23T12:00:00.000Z">')
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).toContain('<th scope="col">Collection ID</th>')
     expect(result.body).toContain('<th scope="col">Outcome</th>')

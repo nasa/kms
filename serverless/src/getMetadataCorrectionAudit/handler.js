@@ -231,6 +231,7 @@ const getAuditListResponse = async ({
         groupByPublishedVersion: isPublishedAuditRoute,
         runDetailHrefPrefix,
         items: auditPage.items,
+        publishedVersionActivity: auditPage.publishedVersionActivity,
         nextPageHref: buildNextPageHref(
           event?.queryStringParameters,
           auditPage.nextPaginationToken
