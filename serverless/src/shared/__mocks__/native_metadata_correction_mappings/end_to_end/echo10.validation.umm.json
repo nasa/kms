@@ -62,6 +62,12 @@
       "GetData": {
         "Format": "Not provided"
       }
+    },
+    {
+      "URLContentType": "PublicationURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "USER'S GUIDE",
+      "URL": "https://example.earthdata.nasa.gov/users-guide"
     }
   ],
   "ProcessingLevel": {

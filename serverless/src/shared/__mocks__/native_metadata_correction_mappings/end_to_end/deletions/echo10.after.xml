@@ -430,6 +430,11 @@
             <Type>USE SERVICE API : WEB COVERAGE SERVICE (WCS)</Type>
             <MimeType>application/geo+json</MimeType>
         </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/users-guide</URL>
+            <Description>User documentation</Description>
+            <Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>
+        </OnlineResource>
     </OnlineResources>
     <FileNamingConvention>
         <Convention>YYYY-DD-MMT00:00:00.000Z-shortname</Convention>

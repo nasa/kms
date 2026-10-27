@@ -1,5 +1,27 @@
 import { CSV_FIELDS, ECHO10_FIELDS } from './redis-path-store/helpers/constants'
 import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
+import { trimString } from './XmlUtils'
+
+const RELATED_URL_SUBTYPE_ABBREVIATIONS = new Map([
+  ['ALGORITHM THEORETICAL BASIS DOCUMENT', 'ALGORITHM THEO BASIS'],
+  ['CALIBRATION DATA DOCUMENTATION', 'CALIBRATION DATA'],
+  ['PRODUCT QUALITY ASSESSMENT', 'PRODUCT QUALITY']
+])
+
+/**
+ * Mirrors CMR's ECHO10 formatter: Type : Subtype when a subtype exists, otherwise
+ * URLContentType : Type. Writing all three makes CMR's parser discard the subtype.
+ * CMR abbreviates these long subtype names when translating to ECHO10 as well.
+ */
+const formatRelatedUrlType = (keywordObject) => {
+  const { URLContentType, Type, Subtype } = keywordObject || {}
+  const subtype = trimString(Subtype)
+  const values = subtype
+    ? [Type, RELATED_URL_SUBTYPE_ABBREVIATIONS.get(subtype) || subtype]
+    : [URLContentType, Type]
+
+  return values.map(trimString).filter(Boolean).join(' : ')
+}
 
 // Wrap a block-style scheme config in the shared editor contract used by the ECHO10 delegate.
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
@@ -252,34 +274,37 @@ export const ECHO10_SCHEME_EDITORS = {
       }
     ]
   }),
-  rucontenttype: blockScheme({
-    nodeXPath: '//Collection/OnlineResources/OnlineResource',
-    find: {
-      fieldPaths: ECHO10_FIELDS.rucontenttype,
-      valueKeys: ['CombinedType'],
-      getExpectedValueObject: ({ correction }) => ({
-        CombinedType: [
-          correction.oldKeywordObject?.[CSV_FIELDS.urlContentType],
-          correction.oldKeywordObject?.[CSV_FIELDS.type],
-          correction.oldKeywordObject?.[CSV_FIELDS.subtype]
-        ].filter(Boolean).join(' : ')
-      })
-    },
-    replace: [
-      {
-        // XML fields to write to and keys from newKeywordObject to read from
-        fieldPath: ECHO10_FIELDS.relatedUrlType,
-        source: {
-          type: 'computed',
-          getValue: ({ correction }) => [
-            correction.newKeywordObject?.[CSV_FIELDS.urlContentType],
-            correction.newKeywordObject?.[CSV_FIELDS.type],
-            correction.newKeywordObject?.[CSV_FIELDS.subtype]
-          ].filter(Boolean).join(' : ')
+  rucontenttype: (editor, correction) => {
+    const oldKeyword = correction.oldKeywordObject || {}
+    // Match complete native representations, never a substring. Retain compatibility with
+    // legacy three-component values and unabbreviated subtypes, but always write CMR's form.
+    const oldTypes = new Set([
+      formatRelatedUrlType(oldKeyword),
+      ...(trimString(oldKeyword.Subtype)
+        ? [[oldKeyword.Type, oldKeyword.Subtype].map(trimString).filter(Boolean).join(' : ')]
+        : []),
+      CSV_FIELDS.rucontenttype.map((key) => trimString(oldKeyword[key])).filter(Boolean).join(' : ')
+    ])
+
+    return [...oldTypes].filter(Boolean).some((oldType) => editor.updateBlockNode(correction, {
+      nodeXPath: '//Collection/OnlineResources/OnlineResource',
+      find: {
+        fieldPaths: ECHO10_FIELDS.rucontenttype,
+        valueKeys: ['CombinedType'],
+        getExpectedValueObject: () => ({ CombinedType: oldType })
+      },
+      replace: [
+        {
+          // Keep native output consistent with the same CMR mapping used for matching.
+          fieldPath: ECHO10_FIELDS.relatedUrlType,
+          source: {
+            type: 'computed',
+            getValue: () => formatRelatedUrlType(correction.newKeywordObject)
+          }
         }
-      }
-    ]
-  }),
+      ]
+    }))
+  },
   dataformat: scalarScheme({
     nodeXPath: '//Collection/DataFormat'
   }),

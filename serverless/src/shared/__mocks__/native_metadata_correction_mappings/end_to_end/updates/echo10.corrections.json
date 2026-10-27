@@ -125,6 +125,20 @@
       }
     },
     {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "USER'S GUIDE"
+      },
+      "newKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "USER'S GUIDE_CHANGED"
+      }
+    },
+    {
       "scheme": "dataformat",
       "action": "replace",
       "oldKeywordObject": {

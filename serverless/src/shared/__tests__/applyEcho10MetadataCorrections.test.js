@@ -440,7 +440,7 @@ describe('when correcting a ECHO10 record', () => {
     expect(xml).toContain('<OrganizationName>NZ/NZAI/ANZ-UPDATED</OrganizationName>')
 
     // RUContentType verification
-    expect(xml).toContain('<Type>DistributionURL : VIEW RELATED INFORMATION : OGC WMS</Type>')
+    expect(xml).toContain('<Type>VIEW RELATED INFORMATION : OGC WMS</Type>')
     expect(xml).not.toContain('<Type>DistributionURL : VIEW RELATED INFORMATION : OpenSearch</Type>')
 
     // ScienceKeywords verification
@@ -598,7 +598,7 @@ describe('when verifying ECHO10 corrections do not remove unrelated metadata', (
     expect(selectTexts(updatedDocument, '//Campaigns/Campaign/ShortName')).toContain('ALIENS-UPDATED')
     expect(selectTexts(updatedDocument, '//Campaigns/Campaign/ShortName')).toContain('ICEBRIDGE')
     expect(selectText(updatedDocument, '//Contacts/Contact/OrganizationName')).toBe('NZ/NZAI/ANZ-UPDATED')
-    expect(selectText(updatedDocument, '//OnlineResources/OnlineResource/Type')).toBe('DistributionURL : VIEW RELATED INFORMATION : OGC WMS')
+    expect(selectText(updatedDocument, '//OnlineResources/OnlineResource/Type')).toBe('VIEW RELATED INFORMATION : OGC WMS')
     expect(selectText(updatedDocument, '//DataFormat')).toBe('HDF5')
     expect(selectText(updatedDocument, '//ProcessingLevelId')).toBe('1A')
 
@@ -2654,7 +2654,170 @@ const mockEcho10WithRelatedURLs = `<Collection>
     </OnlineResources>
 </Collection>`
 
+const mockEcho10WithNativeRelatedURLs = `<Collection>
+    <ShortName>NATIVE_RELATED_URL_TEST</ShortName>
+    <OnlineResources>
+        <OnlineResource>
+            <URL>https://example.com/guide</URL>
+            <Description>User documentation</Description>
+            <Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/recipe</URL>
+            <Type>VIEW RELATED INFORMATION : DATA RECIPE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/other</URL>
+            <Type>OTHER TYPE : USER'S GUIDE</Type>
+        </OnlineResource>
+    </OnlineResources>
+</Collection>`
+
 describe('when applying related URL content type ECHO10 corrections', () => {
+  test('should update a native Type : Subtype value using the full KMS correction object', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE"
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE_CHANGED"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE_CHANGED</Type>")
+    expect(result.correctedMetadata).not.toContain('<Type>PublicationURL :')
+    expect(result.correctedMetadata).toContain('<URL>https://example.com/guide</URL>')
+    expect(result.correctedMetadata).toContain('<Description>User documentation</Description>')
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : DATA RECIPE</Type>')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+  })
+
+  test('should delete only the matching native Type : Subtype URL', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('https://example.com/guide')
+    expect(result.correctedMetadata).toContain('https://example.com/recipe')
+    expect(result.correctedMetadata).toContain('https://example.com/other')
+  })
+
+  test('should not partially match a subtype belonging to a different Type', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'UNRELATED TYPE',
+          Subtype: "USER'S GUIDE"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).toContain('https://example.com/guide')
+    expect(result.correctedMetadata).toContain('https://example.com/other')
+  })
+
+  test('should match and write the abbreviated subtypes used by CMR ECHO10 translation', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: `<Collection><OnlineResources><OnlineResource>
+        <URL>https://example.com/algorithm</URL>
+        <Type>VIEW RELATED INFORMATION : ALGORITHM THEO BASIS</Type>
+      </OnlineResource></OnlineResources></Collection>`,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'ALGORITHM THEORETICAL BASIS DOCUMENT'
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'PRODUCT QUALITY ASSESSMENT'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : PRODUCT QUALITY</Type>')
+    expect(result.correctedMetadata).not.toContain('ALGORITHM THEO BASIS')
+  })
+
+  test('should accept an unabbreviated native subtype and write CMR calibration abbreviation', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: `<Collection><OnlineResources><OnlineResource>
+        <URL>https://example.com/algorithm</URL>
+        <Type>VIEW RELATED INFORMATION : ALGORITHM THEORETICAL BASIS DOCUMENT</Type>
+      </OnlineResource></OnlineResources></Collection>`,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'ALGORITHM THEORETICAL BASIS DOCUMENT'
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'CALIBRATION DATA DOCUMENTATION'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : CALIBRATION DATA</Type>')
+  })
+
+  test('should match native casing without relaxing the complete Type : Subtype match', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'view related information',
+          Subtype: "user's guide"
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: ''
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>PublicationURL : VIEW RELATED INFORMATION</Type>')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+  })
+
   test('should apply URL content type correction to first Related_URL', async () => {
     const result = await applyEcho10MetadataCorrections({
       collectionConceptId: 'C1',
@@ -2691,7 +2854,7 @@ describe('when applying related URL content type ECHO10 corrections', () => {
     expect(result.correctedMetadata).toContain('<Type>DistributionURL : USE SERVICE API : REST</Type>')
   })
 
-  test('should update both type and subtype and append to URLContentType', async () => {
+  test('should match a legacy three-component value and write Type : Subtype', async () => {
     const result = await applyEcho10MetadataCorrections({
       collectionConceptId: 'C1',
       providerId: 'PROV',
@@ -2718,7 +2881,7 @@ describe('when applying related URL content type ECHO10 corrections', () => {
     expect(result.correctionCount).toBe(1)
 
     // Verify type was updated
-    expect(result.correctedMetadata).toContain('<Type>DistributionURL : GET CAPABILITIES : OGC WMS</Type>')
+    expect(result.correctedMetadata).toContain('<Type>GET CAPABILITIES : OGC WMS</Type>')
     expect(result.correctedMetadata).not.toContain('<Type>DistributionURL : GET CAPABILITIES : OpenSearch</Type>')
   })
 
@@ -2748,7 +2911,7 @@ describe('when applying related URL content type ECHO10 corrections', () => {
 
     expect(result.correctionCount).toBe(1)
 
-    expect(result.correctedMetadata).toContain('<Type>DistributionURL : GET DATA : DIRECT DOWNLOAD</Type>')
+    expect(result.correctedMetadata).toContain('<Type>GET DATA : DIRECT DOWNLOAD</Type>')
     expect(result.correctedMetadata).not.toContain('<Type>DistributionURL : GET DATA</Type>')
   })
 

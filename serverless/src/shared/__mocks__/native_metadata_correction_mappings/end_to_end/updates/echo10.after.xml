@@ -483,7 +483,7 @@
         <OnlineResource>
             <URL>http://wwwghcc.msfc.nasa.gov/AMSR/qa.html</URL>
             <Description>quality documentation</Description>
-            <Type>PublicationURL_CHANGED : VIEW RELATED INFORMATION_CHANGED : Subtype_CHANGED</Type>
+            <Type>VIEW RELATED INFORMATION_CHANGED : Subtype_CHANGED</Type>
         </OnlineResource>
         <OnlineResource>
             <URL>http://osdd.org/data/amsre/someopensearchdescription.xml</URL>
@@ -506,6 +506,11 @@
             <URL>http://wwwghcc.msfc.nasa.gov/AMSR/qa.html</URL>
             <Description>quality documentation</Description>
             <Type>PublicationURL_SHOULD_DELETE : VIEW RELATED INFORMATION_SHOULD_DELETE : Subtype_SHOULD_DELETE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/users-guide</URL>
+            <Description>User documentation</Description>
+            <Type>VIEW RELATED INFORMATION : USER'S GUIDE_CHANGED</Type>
         </OnlineResource>
     </OnlineResources>
     <FileNamingConvention>

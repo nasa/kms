@@ -580,6 +580,7 @@ describe('when running the metadata correction workflow end to end', () => {
             const metadataCorrectionRequest = metadataCorrectionRequests.find((request) => (
               request.collectionConceptId === dif10CollectionConceptId
               && request.keywordEvent.eventType === 'UPDATED'
+              && request.keywordEvent.uuid === 'd1996d91-e824-4b24-b94e-3aae4543b63b'
             ))
 
             await metadataCorrectionService({
@@ -615,6 +616,30 @@ describe('when running the metadata correction workflow end to end', () => {
 
             expect(metadataCorrectionDelegateRequest.metadataPayload)
               .not.toContain('<DataFormat>Not provided</DataFormat>')
+          })
+
+          test('should resolve the published Related URL subtype change for native two-component metadata', () => {
+            expect(metadataCorrectionDelegateRequest.corrections).toEqual(expect.arrayContaining([
+              expect.objectContaining({
+                scheme: 'rucontenttype',
+                action: 'replace',
+                keywordConceptUuid: 'd1996d91-e824-4b24-b94e-3aae4543b63b',
+                oldKeywordObject: {
+                  URLContentType: 'PublicationURL',
+                  Type: 'VIEW RELATED INFORMATION',
+                  Subtype: "USER'S GUIDE"
+                },
+                newKeywordObject: {
+                  URLContentType: 'PublicationURL',
+                  Type: 'VIEW RELATED INFORMATION',
+                  Subtype: "USER'S GUIDE_CHANGED"
+                }
+              })
+            ]))
+
+            // The full-output assertion below must change this native value without adding PublicationURL.
+            expect(metadataCorrectionDelegateRequest.metadataPayload)
+              .toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>")
           })
 
           test('should send the expected corrected metadata to CMR', () => {

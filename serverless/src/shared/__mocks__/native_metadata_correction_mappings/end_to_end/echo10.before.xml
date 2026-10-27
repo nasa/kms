@@ -506,6 +506,11 @@
             <Description>quality documentation</Description>
             <Type>PublicationURL_SHOULD_DELETE : VIEW RELATED INFORMATION_SHOULD_DELETE : Subtype_SHOULD_DELETE</Type>
         </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/users-guide</URL>
+            <Description>User documentation</Description>
+            <Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>
+        </OnlineResource>
     </OnlineResources>
     <FileNamingConvention>
         <Convention>YYYY-DD-MMT00:00:00.000Z-shortname</Convention>
