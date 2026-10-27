@@ -10,6 +10,28 @@
       "DetailedVariable": "RAIN"
     }
   ],
+  "LocationKeywords": [
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "GLOBAL LAND"
+    },
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA"
+    },
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA_SHOULD_DELETE"
+    },
+    {
+      "Category": "OTHER",
+      "Type": "UNCONTROLLED_SHOULD_PRESERVE"
+    }
+  ],
   "Platforms": [
     {
       "Type": "Earth Observation Satellites",

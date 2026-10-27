@@ -86,6 +86,12 @@
     </UseConstraints>
     <DataFormat>netCDF-4_CHANGED</DataFormat>
     <DataFormat>netCDF-4_SHOULD_DELETE</DataFormat>
+    <SpatialKeywords>
+        <Keyword>GLOBAL LAND_CHANGED</Keyword>
+        <Keyword>ALBERTA_CHANGED</Keyword>
+        <Keyword>ALBERTA_SHOULD_DELETE</Keyword>
+        <Keyword>UNCONTROLLED_SHOULD_PRESERVE</Keyword>
+    </SpatialKeywords>
     <TemporalKeywords>
         <Keyword>TemporalKeyword1</Keyword>
         <Keyword>TemporalKeyword2</Keyword>

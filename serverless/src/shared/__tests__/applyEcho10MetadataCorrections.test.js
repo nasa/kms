@@ -2634,6 +2634,189 @@ describe('when applying provider ECHO10 corrections', () => {
   })
 })
 
+const mockEcho10WithLocations = `<Collection>
+    <ShortName>LOCATION_TEST</ShortName>
+    <SpatialKeywords>
+        <Keyword source="provider">Global Ocean</Keyword>
+        <Keyword>ALBERTA</Keyword>
+        <Keyword>UNCONTROLLED</Keyword>
+    </SpatialKeywords>
+    <TemporalKeywords><Keyword>GLOBAL OCEAN</Keyword></TemporalKeywords>
+</Collection>`
+
+describe('when applying ECHO10 Location corrections', () => {
+  test('should replace the matching leaf without adding the full hierarchy or changing unrelated keywords', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        oldKeywordObject: {
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'GLOBAL OCEAN',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
+        },
+        newKeywordObject: {
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'TEST-GLOBAL-OCEAN',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: '',
+          Other: 'IGNORE THIS NON-HIERARCHY FIELD'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Keyword source="provider">TEST-GLOBAL-OCEAN</Keyword>')
+    expect(result.correctedMetadata).not.toContain('GEOGRAPHIC REGION')
+    expect(result.correctedMetadata).toContain('<Keyword>ALBERTA</Keyword>')
+    expect(result.correctedMetadata).toContain('<Keyword>UNCONTROLLED</Keyword>')
+    expect(result.correctedMetadata).toContain('<TemporalKeywords><Keyword>GLOBAL OCEAN</Keyword></TemporalKeywords>')
+  })
+
+  test('should select the deepest populated CSV level even when hierarchy levels are empty', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><SpatialKeywords><Keyword>MCMURDO SOUND</Keyword></SpatialKeywords></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        oldKeywordObject: {
+          LocationCategory: 'CONTINENT',
+          LocationType: 'ANTARCTICA',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: 'MCMURDO SOUND'
+        },
+        newKeywordObject: {
+          LocationSubregion4: 'MCMURDO SOUND_CHANGED',
+          LocationCategory: 'CONTINENT',
+          LocationType: 'ANTARCTICA'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Keyword>MCMURDO SOUND_CHANGED</Keyword>')
+    expect(result.correctedMetadata).not.toContain('ANTARCTICA')
+  })
+
+  test('should delete only the matching Location leaf', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'delete',
+        oldKeywordObject: {
+          LocationCategory: 'CONTINENT',
+          LocationType: 'NORTH AMERICA',
+          LocationSubregion1: 'CANADA',
+          LocationSubregion2: 'ALBERTA'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('<Keyword>ALBERTA</Keyword>')
+    expect(result.correctedMetadata).toContain('<Keyword source="provider">Global Ocean</Keyword>')
+    expect(result.correctedMetadata).toContain('<Keyword>UNCONTROLLED</Keyword>')
+    expect(result.correctedMetadata).toContain('<SpatialKeywords>')
+  })
+
+  test('should remove the SpatialKeywords container after deleting its last keyword', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><ShortName>TEST</ShortName><SpatialKeywords><Keyword>GLOBAL OCEAN</Keyword></SpatialKeywords></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        action: 'DELETE',
+        oldKeywordObject: {
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'GLOBAL OCEAN'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('SpatialKeywords')
+    expect(result.correctedMetadata).toContain('<ShortName>TEST</ShortName>')
+  })
+
+  test('should preserve incomplete, unmatched, unsupported, and unchanged Location corrections', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          newKeywordObject: { LocationType: 'SHOULD_NOT_ADD' }
+        },
+        {
+          scheme: 'locations',
+          oldKeywordObject: { LocationType: 'MISSING' },
+          newKeywordObject: { LocationType: 'SHOULD_NOT_ADD' }
+        },
+        {
+          scheme: 'locations',
+          oldKeywordObject: { LocationType: 'Global Ocean' }
+        },
+        {
+          scheme: 'locations',
+          action: 'unsupported',
+          oldKeywordObject: { LocationType: 'Global Ocean' },
+          newKeywordObject: { LocationType: 'SHOULD_NOT_ADD' }
+        },
+        {
+          scheme: 'locations',
+          oldKeywordObject: {
+            LocationCategory: 'OLD CATEGORY',
+            LocationType: 'Global Ocean'
+          },
+          newKeywordObject: {
+            LocationCategory: 'NEW CATEGORY',
+            LocationType: 'Global Ocean'
+          }
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).toBe(`<?xml version="1.0" encoding="UTF-8"?>\n${mockEcho10WithLocations}`)
+  })
+
+  test('should not create a missing SpatialKeywords field', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><ShortName>TEST</ShortName></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        oldKeywordObject: { LocationType: 'GLOBAL OCEAN' },
+        newKeywordObject: { LocationType: 'TEST-GLOBAL-OCEAN' }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).not.toContain('SpatialKeywords')
+  })
+
+  test('should support a category-only Location and preserve canonical replacement casing', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><SpatialKeywords><Keyword>OCEAN</Keyword></SpatialKeywords></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        oldKeywordObject: { LocationCategory: 'ocean' },
+        newKeywordObject: { LocationCategory: 'Ocean_CHANGED' }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Keyword>Ocean_CHANGED</Keyword>')
+  })
+})
+
 const mockEcho10WithRelatedURLs = `<Collection>
     <ShortName>RELATED_URL_TEST</ShortName>
     <VersionId>001</VersionId>

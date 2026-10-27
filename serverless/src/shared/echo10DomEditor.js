@@ -23,6 +23,13 @@ const formatRelatedUrlType = (keywordObject) => {
   return values.map(trimString).filter(Boolean).join(' : ')
 }
 
+// CMR maps a Location hierarchy to its deepest populated value in SpatialKeywords/Keyword.
+// Use CSV hierarchy order rather than object property order, and ignore trailing empty levels.
+const getLocationLeafValue = (keywordObject) => CSV_FIELDS.locations
+  .map((key) => trimString(keywordObject?.[key]))
+  .filter(Boolean)
+  .at(-1) || ''
+
 // Wrap a block-style scheme config in the shared editor contract used by the ECHO10 delegate.
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
 // Wrap a scalar/root-field scheme config in the shared editor contract used by the ECHO10 delegate.
@@ -77,6 +84,27 @@ export const ECHO10_SCHEME_EDITORS = {
       CSV_FIELDS.sciencekeywords
     )
   }),
+  locations: (editor, correction) => {
+    const oldValue = getLocationLeafValue(correction.oldKeywordObject)
+
+    // An empty old hierarchy must never select the first keyword or create a new field.
+    if (!oldValue) return false
+
+    const updated = editor.updateScalarNode({
+      ...correction,
+      oldKeywordObject: { Value: oldValue },
+      newKeywordObject: { Value: getLocationLeafValue(correction.newKeywordObject) }
+    }, {
+      nodeXPath: '//Collection/SpatialKeywords/Keyword'
+    })
+
+    if (updated && trimString(correction.action).toLowerCase() === 'delete') {
+      editor.selectNodes('//Collection/SpatialKeywords')
+        .forEach((node) => editor.removeNodeIfNoElementChildren(node))
+    }
+
+    return updated
+  },
   platforms: blockScheme({
     // The platform CSV Category maps to the native ECHO10 <Type> field.
     nodeXPath: '//Collection/Platforms/Platform',

@@ -642,6 +642,18 @@ describe('when running the metadata correction workflow end to end', () => {
               .toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>")
           })
 
+          test('should resolve CSV Location changes while native ECHO10 stores only leaf values', () => {
+            const expectedCorrections = readJsonFixture('updates/echo10.corrections.json')
+              .corrections.filter(({ scheme }) => scheme === 'locations')
+            const actualCorrections = metadataCorrectionDelegateRequest.corrections
+              .filter(({ scheme }) => scheme === 'locations')
+              .map(normalizeFixtureCorrection)
+
+            expect(actualCorrections).toEqual(expectedCorrections)
+            expect(metadataCorrectionDelegateRequest.metadataPayload).toContain('<Keyword>GLOBAL LAND</Keyword>')
+            expect(metadataCorrectionDelegateRequest.metadataPayload).toContain('<Keyword>ALBERTA</Keyword>')
+          })
+
           test('should send the expected corrected metadata to CMR', () => {
             expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
               collectionConceptId: dif10CollectionConceptId,
@@ -649,6 +661,70 @@ describe('when running the metadata correction workflow end to end', () => {
               nativeId: echo10NativeId,
               nativeFormat: 'ECHO10',
               correctedMetadata: readFixture('metadata-correction.echo10.after.xml').trimEnd()
+            }))
+          })
+        })
+
+        describe('when the metadata-correction service processes a published ECHO10 Location deletion', () => {
+          test('should resolve the generated deletion request and send the expected native metadata to CMR', async () => {
+            vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+              collectionConceptId: dif10CollectionConceptId,
+              providerId,
+              nativeId: echo10NativeId,
+              revisionId: 1,
+              format: 'application/echo10+xml',
+              umm: {
+                LocationKeywords: [{
+                  Category: 'CONTINENT',
+                  Type: 'NORTH AMERICA',
+                  Subregion1: 'CANADA',
+                  Subregion2: 'ALBERTA_SHOULD_DELETE'
+                }]
+              }
+            })
+
+            vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue([
+              '<Collection><ShortName>LOCATION_DELETION_TEST</ShortName>',
+              '<SpatialKeywords><Keyword>ALBERTA_SHOULD_DELETE</Keyword>',
+              '<Keyword>UNCONTROLLED_SHOULD_PRESERVE</Keyword></SpatialKeywords>',
+              '<TemporalKeywords><Keyword>ALBERTA_SHOULD_DELETE</Keyword></TemporalKeywords>',
+              '</Collection>'
+            ].join(''))
+
+            vi.mocked(invokeMetadataCorrectionDelegate).mockClear()
+            vi.mocked(writeCorrectedMetadataToCmr).mockClear()
+
+            const request = metadataCorrectionRequests.find(({
+              collectionConceptId, keywordEvent
+            }) => (
+              collectionConceptId === dif10CollectionConceptId
+              && keywordEvent.eventType === 'DELETED'
+              && keywordEvent.uuid === '17fea13a-fad0-42e1-b7c0-4a75dd434608'
+            ))
+
+            await metadataCorrectionService({
+              Records: [{
+                messageId: 'end-to-end-echo10-location-deletion',
+                body: JSON.stringify(request)
+              }]
+            })
+
+            const delegateRequest = vi.mocked(invokeMetadataCorrectionDelegate).mock.calls[0][0]
+            const expectedCorrections = readJsonFixture('deletions/echo10.corrections.json')
+              .corrections.filter(({ scheme }) => scheme === 'locations')
+
+            expect(delegateRequest.corrections.map(normalizeFixtureCorrection))
+              .toEqual(expectedCorrections)
+
+            expect(writeCorrectedMetadataToCmr).toHaveBeenCalledWith(expect.objectContaining({
+              correctionCount: expectedCorrections.length,
+              correctedMetadata: [
+                '<?xml version="1.0" encoding="UTF-8"?>\n',
+                '<Collection><ShortName>LOCATION_DELETION_TEST</ShortName>',
+                '<SpatialKeywords><Keyword>UNCONTROLLED_SHOULD_PRESERVE</Keyword></SpatialKeywords>',
+                '<TemporalKeywords><Keyword>ALBERTA_SHOULD_DELETE</Keyword></TemporalKeywords>',
+                '</Collection>'
+              ].join('')
             }))
           })
         })
