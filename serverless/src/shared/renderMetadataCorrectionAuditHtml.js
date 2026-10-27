@@ -268,6 +268,12 @@ const PAGE_STYLES = `
     color: var(--danger);
   }
 
+  .status-warning {
+    border-color: #d2ae5e;
+    background: #fff3d6;
+    color: #785300;
+  }
+
   .section {
     padding: 1.25rem 1.4rem;
     border-bottom: 1px solid var(--line);
@@ -793,6 +799,25 @@ const renderCorrectionSummary = (audit) => {
 }
 
 /**
+ * Distinguishes unapplied proposals from an ordinary checked run without changing stored status.
+ * Failed runs retain their failure badge even if an earlier outcome is still present.
+ *
+ * @param {Object} audit Audit summary or detail document.
+ * @returns {string} Status badge with outcome-specific wording and styling.
+ */
+const renderAuditStatus = (audit) => {
+  const status = String(audit.status || 'unknown').toLowerCase()
+
+  if (status === 'checked' && audit.outcome === 'no-native-corrections-applied') {
+    return '<span class="status status-warning">none applied</span>'
+  }
+
+  const statusClass = status === 'failed' ? ' status-failed' : ''
+
+  return `<span class="status${statusClass}">${displayValue(status)}</span>`
+}
+
+/**
  * Renders one audit run with its status, path changes, and native metadata diff.
  *
  * @param {Object} audit Audit summary or detail document.
@@ -802,8 +827,6 @@ const renderCorrectionSummary = (audit) => {
  * @returns {string} HTML audit card.
  */
 const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
-  const status = String(audit.status || 'unknown').toLowerCase()
-  const statusClass = status === 'failed' ? ' status-failed' : ''
   const updatedAt = audit.updatedAt || audit.createdAt
   const updatedText = updatedAt
     ? ` &middot; Updated ${displayValue(updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt)}`
@@ -831,7 +854,7 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
           <h2>${renderCollectionHeading(audit)}</h2>
           <p class="audit-meta">Run ${renderRunId(audit, detail, runDetailHrefPrefix)}${publishedVersionText}${updatedText}</p>
         </div>
-        <span class="status${statusClass}">${displayValue(status)}</span>
+        ${renderAuditStatus(audit)}
       </header>
       ${detail ? renderRunDetails(audit, publishedVersionHref) : ''}
       ${errorSection}
@@ -862,7 +885,6 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
     ? audit.changes
     : [{}]
   const status = String(audit.status || 'unknown').toLowerCase()
-  const statusClass = status === 'failed' ? ' status-failed' : ''
   const collection = audit.recordType === 'publisherEventNoOp'
     ? 'No collections found'
     : renderCollectionHeading(audit, false)
@@ -884,7 +906,7 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
       <td class="updated-path">${displayValue(change.newKeywordPath, '')}</td>
       <td>${displayDate(audit.updatedAt || audit.createdAt)}</td>
       <td class="outcome-cell">
-        <span class="status${statusClass}">${displayValue(status)}</span>
+        ${renderAuditStatus(audit)}
         ${outcomeDetail}
         ${correctionSummary ? `<span class="outcome-detail">${correctionSummary}</span>` : ''}
       </td>

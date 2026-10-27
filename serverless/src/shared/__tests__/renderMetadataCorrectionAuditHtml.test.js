@@ -391,6 +391,8 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('no-native-corrections-applied')
+    expect(view).toContain('<span class="status status-warning">none applied</span>')
+    expect(view).not.toContain('<span class="status">checked</span>')
     expect(view).toContain('3 corrections resolved; 0 applied to native metadata.')
     expect(view).toContain('No native metadata diff was recorded for this run.')
     view = renderMetadataCorrectionAuditHtml({
@@ -400,6 +402,8 @@ describe('renderMetadataCorrectionAuditHtml', () => {
 
     expect(view).toContain('no-native-corrections-applied')
     expect(view).toContain('3 corrections resolved; 0 applied to native metadata.')
+    expect(view).toContain('<span class="status status-warning">none applied</span>')
+    expect(view).not.toContain('<span class="status">checked</span>')
 
     view = renderMetadataCorrectionAuditHtml({
       items: [{
@@ -409,6 +413,27 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('1 correction resolved; 0 applied to native metadata.')
+    expect(view).toContain('<span class="status status-warning">none applied</span>')
+    expect(audit.status).toBe('checked')
+  })
+
+  test('keeps normal checked and failed badges distinct from none applied', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      items: [
+        {
+          status: 'checked',
+          outcome: 'no-corrections'
+        },
+        {
+          status: 'failed',
+          outcome: 'no-native-corrections-applied'
+        }
+      ]
+    })
+
+    expect(view).toContain('<span class="status">checked</span>')
+    expect(view).toContain('<span class="status status-failed">failed</span>')
+    expect(view).not.toContain('<span class="status status-warning">none applied</span>')
   })
 
   test('identifies a workflow failure that occurred before a collection was known', () => {
