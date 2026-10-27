@@ -373,6 +373,9 @@ export const UMMC_SCHEME_EDITORS = {
     },
     {
       shouldApply: isRelatedUrlDataFormatCorrection,
+      // Delete only Format, not GetData or its non-keyword siblings (Size, Unit, etc.).
+      // A missing required Format may fail CMR ingest; audit that rejection without retrying
+      // rather than silently discarding unrelated metadata to make the document valid.
       getNodePath: ({ ummPath }) => `//${ummPath.join('/')}`
     }
   ])

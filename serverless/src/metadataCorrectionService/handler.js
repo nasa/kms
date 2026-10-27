@@ -171,8 +171,8 @@ const delayQueuedManualRequestIfNeeded = async ({
  * only to discard it at the final writeback step.
  *
  * @param {{ Records?: Array<{ body?: string, messageId?: string }> }} event - SQS batch event.
- * @returns {Promise<{batchItemFailures: Array}>} Empty failures because each request is attempted
- * once and failures are recorded in the metadata-correction audit log.
+ * @returns {Promise<void>} Completes normally after auditing caught failures so messages are
+ * acknowledged rather than retried. No partial-batch response is returned.
  */
 export const metadataCorrectionService = async (event) => {
   const records = event?.Records || []
@@ -233,9 +233,9 @@ export const metadataCorrectionService = async (event) => {
     } catch (error) {
       logger.error('[metadata-correction] Failed to process metadata correction request', error)
 
-      // Previously, rethrowing added this request to batchItemFailures so SQS would retry it,
+      // Previously, rethrowing caused SQS to retry this request,
       // repeating the correction flow even for permanent failures such as CMR 400 responses.
-      // Audit the failure and acknowledge the message by returning no batch failures; remaining
+      // Audit the failure and acknowledge the message by completing normally; remaining
       // requests can continue, and failed work requires manual follow-up instead of a retry.
       // Preserve any detailed failure already written by the correction flow, otherwise add
       // a fallback audit record here.
@@ -291,10 +291,6 @@ export const metadataCorrectionService = async (event) => {
         recordCount: records.length
       }
     })
-  }
-
-  return {
-    batchItemFailures: []
   }
 }
 

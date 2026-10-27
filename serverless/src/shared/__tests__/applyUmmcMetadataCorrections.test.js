@@ -3254,6 +3254,10 @@ describe('when applying DataFormat UMM-C corrections', () => {
       }]
     })
 
+    // This verifies targeted keyword deletion, not successful schema validation or CMR ingest.
+    // Keep Size even though removing the required Format leaves GetData schema-invalid.
+    // CMR should reject that writeback, which the workflow audits without retrying, rather
+    // than KMS deleting additional non-keyword metadata to satisfy the schema.
     expect(JSON.parse(result.correctedMetadata)).toEqual({
       RelatedUrls: [{
         URL: 'https://example.com/data',

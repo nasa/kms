@@ -1,5 +1,3 @@
-import { createServer } from 'node:http'
-
 import {
   afterEach,
   beforeEach,
@@ -10,8 +8,6 @@ import {
 
 import { cmrGetRequest } from '../cmrGetRequest'
 import { logger } from '../logger'
-
-const realFetch = global.fetch
 
 describe('cmrGetRequest', () => {
   beforeEach(() => {
@@ -221,33 +217,23 @@ describe('cmrGetRequest', () => {
     }
   )
 
-  describe('when CMR stalls', () => {
-    let server
+  describe('when the request timeout signal aborts', () => {
+    let controller
 
-    beforeEach(async () => {
-      // Exercise native fetch cancellation, including a body that stalls after headers arrive.
-      server = createServer((request, response) => {
-        if (request.url === '/body') response.flushHeaders()
-      })
-
-      await new Promise((resolve) => {
-        server.listen(0, '127.0.0.1', resolve)
-      })
-
-      vi.stubEnv('CMR_BASE_URL', `http://127.0.0.1:${server.address().port}`)
+    beforeEach(() => {
+      // Control the timeout signal without starting a server or waiting for a real timer.
+      controller = new AbortController()
+      vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
       vi.stubEnv('CMR_GET_TIMEOUT_MS', '500')
-      vi.stubGlobal('fetch', vi.fn(realFetch))
-    })
-
-    afterEach(async () => {
-      server.closeAllConnections()
-      await new Promise((resolve) => {
-        server.close(resolve)
-      })
     })
 
     test('should abort a stalled GET and log its timeout without retrying', async () => {
-      await expect(cmrGetRequest({ path: '/headers' })).rejects.toMatchObject({
+      global.fetch.mockImplementationOnce((url, { signal }) => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      }))
+
+      const request = cmrGetRequest({ path: '/headers' })
+      const rejection = expect(request).rejects.toMatchObject({
         name: 'TimeoutError',
         cmrRequest: expect.objectContaining({
           path: '/headers',
@@ -255,6 +241,11 @@ describe('cmrGetRequest', () => {
         })
       })
 
+      controller.abort(new DOMException('Request timed out', 'TimeoutError'))
+      await rejection
+
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(500)
+      expect(global.fetch.mock.calls[0][1].signal).toBe(controller.signal)
       expect(global.fetch).toHaveBeenCalledTimes(1)
       expect(logger.error).toHaveBeenCalledWith(
         '[cmr-get] CMR fetch failed',
@@ -265,11 +256,25 @@ describe('cmrGetRequest', () => {
       )
     })
 
-    test('should also abort stalled body consumption after headers arrive', async () => {
+    test('should keep the timeout signal available for body consumption after fetch resolves', async () => {
+      global.fetch.mockImplementationOnce(async (url, { signal }) => ({
+        ok: true,
+        text: vi.fn(async () => {
+          signal.throwIfAborted()
+
+          return 'body'
+        })
+      }))
+
       const response = await cmrGetRequest({ path: '/body' })
 
       expect(response.ok).toBe(true)
-      await expect(response.text()).rejects.toThrow()
+      expect(global.fetch.mock.calls[0][1].signal).toBe(controller.signal)
+      expect(controller.signal.aborted).toBe(false)
+
+      controller.abort(new DOMException('Request timed out', 'TimeoutError'))
+
+      await expect(response.text()).rejects.toBe(controller.signal.reason)
       expect(global.fetch.mock.calls[0][1].signal.aborted).toBe(true)
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })

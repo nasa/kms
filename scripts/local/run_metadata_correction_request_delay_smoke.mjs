@@ -225,7 +225,7 @@ try {
   const requestedAt = new Date().toISOString()
   const startedAtMs = Date.now()
 
-  const response = await metadataCorrectionService({
+  await metadataCorrectionService({
     Records: [
       {
         messageId: 'local-request-delay-smoke-1',
@@ -248,12 +248,6 @@ try {
       + `ConfiguredDelayMs=${configuredDelayMs} `
       + `ToleranceMs=${delayAssertionToleranceMs} `
       + `ElapsedMs=${elapsedMs}`
-    )
-  }
-
-  if (response?.batchItemFailures?.length !== 0) {
-    throw new Error(
-      `Expected no batch item failures, received ${JSON.stringify(response.batchItemFailures)}`
     )
   }
 
@@ -319,7 +313,6 @@ try {
     elapsedMs,
     statuses,
     updatedPlatform,
-    response,
     rows: auditRows,
     appliedRow
   }, null, 2), 'utf8')

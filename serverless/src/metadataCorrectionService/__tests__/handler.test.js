@@ -909,9 +909,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
       expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
@@ -974,9 +972,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(resolveOldKeywordConceptUuid).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
@@ -1189,9 +1185,7 @@ describe('when the metadata correction service is invoked', () => {
     })
 
     test('should acknowledge an empty batch', async () => {
-      await expect(metadataCorrectionService()).resolves.toEqual({
-        batchItemFailures: []
-      })
+      await expect(metadataCorrectionService()).resolves.toBeUndefined()
     })
 
     test('should emit consumed and processed metrics for a successful request', async () => {
@@ -1540,7 +1534,7 @@ describe('when the metadata correction service is invoked', () => {
         }]
       })
 
-      expect(result).toEqual({ batchItemFailures: [] })
+      expect(result).toBeUndefined()
       expect(getCmrCollectionUmmDetails).not.toHaveBeenCalled()
       expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledTimes(2)
       expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
@@ -1567,7 +1561,7 @@ describe('when the metadata correction service is invoked', () => {
         }]
       })
 
-      expect(result).toEqual({ batchItemFailures: [] })
+      expect(result).toBeUndefined()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
       expect(logger.error).toHaveBeenCalledWith(
         '[metadata-correction] Failed to persist request processing failure',
@@ -1586,9 +1580,7 @@ describe('when the metadata correction service is invoked', () => {
             body: JSON.stringify({})
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
       expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
@@ -1620,9 +1612,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
@@ -1656,9 +1646,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
       expect(invokeMetadataCorrectionDelegate).not.toHaveBeenCalled()
@@ -1671,9 +1659,7 @@ describe('when the metadata correction service is invoked', () => {
             messageId: 'message-999'
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(logger.info).toHaveBeenCalledWith(
         '[metadata-correction] Received metadata correction request',
@@ -1692,9 +1678,7 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(logger.error).toHaveBeenCalledWith(
         '[metadata-correction] Failed to process metadata correction request',
@@ -1717,9 +1701,7 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
         metrics: [
@@ -1787,9 +1769,7 @@ describe('when the metadata correction service is invoked', () => {
             body: 'not-json'
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
     })
 
     test('should log and continue when processing metric emission fails', async () => {
@@ -1825,9 +1805,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(emitConsumerMetricsSafely).toHaveBeenCalledWith(expect.objectContaining({
         errorLogMessage: '[metadata-correction] Failed to emit async batch processing metrics',
@@ -1854,9 +1832,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(getCmrCollectionUmmDetails).not.toHaveBeenCalled()
       expect(validateCmrCollectionUmm).not.toHaveBeenCalled()
@@ -1909,9 +1885,7 @@ describe('when the metadata correction service is invoked', () => {
             })
           }
         ]
-      })).resolves.toEqual({
-        batchItemFailures: []
-      })
+      })).resolves.toBeUndefined()
 
       expect(getCmrCollectionUmmDetails).toHaveBeenCalledTimes(1)
       expect(getCmrCollectionUmmDetails).toHaveBeenCalledWith({
