@@ -618,7 +618,7 @@ describe('when running the metadata correction workflow end to end', () => {
               .not.toContain('<DataFormat>Not provided</DataFormat>')
           })
 
-          test('should resolve the published Related URL subtype change for native two-component metadata', () => {
+          test('should resolve published Related URL changes when native metadata uses legacy aliases', () => {
             expect(metadataCorrectionDelegateRequest.corrections).toEqual(expect.arrayContaining([
               expect.objectContaining({
                 scheme: 'rucontenttype',
@@ -634,12 +634,31 @@ describe('when running the metadata correction workflow end to end', () => {
                   Type: 'VIEW RELATED INFORMATION',
                   Subtype: "USER'S GUIDE_CHANGED"
                 }
+              }),
+              expect.objectContaining({
+                scheme: 'rucontenttype',
+                action: 'replace',
+                keywordConceptUuid: '13a4deec-bd22-4864-9804-77fac181f484',
+                oldKeywordObject: {
+                  URLContentType: 'PublicationURL',
+                  Type: 'VIEW RELATED INFORMATION',
+                  Subtype: 'PUBLICATIONS'
+                },
+                newKeywordObject: {
+                  URLContentType: 'PublicationURL',
+                  Type: 'VIEW RELATED INFORMATION',
+                  Subtype: 'PUBLICATIONS_CHANGED'
+                }
               })
             ]))
 
-            // The full-output assertion below must change this native value without adding PublicationURL.
+            // CMR translates these legacy aliases to full UMM hierarchies; the native values differ.
+            // The full-output assertion below verifies both generated corrections reach writeback.
             expect(metadataCorrectionDelegateRequest.metadataPayload)
-              .toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>")
+              .toContain('<Type>User guide</Type>')
+
+            expect(metadataCorrectionDelegateRequest.metadataPayload)
+              .toContain('<Type>Publications</Type>')
           })
 
           test('should resolve CSV Location changes while native ECHO10 stores only leaf values', () => {

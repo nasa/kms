@@ -2856,7 +2856,157 @@ const mockEcho10WithNativeRelatedURLs = `<Collection>
     </OnlineResources>
 </Collection>`
 
+const mockEcho10WithLegacyRelatedURLs = `<Collection>
+    <OnlineResources>
+        <OnlineResource>
+            <URL>https://example.com/guide</URL>
+            <Description>User documentation</Description>
+            <Type>User guide</Type>
+            <MimeType>application/pdf</MimeType>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/publications</URL>
+            <Type>Publications</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/other</URL>
+            <Type>OTHER TYPE : USER'S GUIDE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/custom</URL>
+            <Type>User guide custom</Type>
+        </OnlineResource>
+    </OnlineResources>
+</Collection>`
+
 describe('when applying related URL content type ECHO10 corrections', () => {
+  test('should replace the legacy User guide alias without changing other URL metadata', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE"
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE_CHANGED"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE_CHANGED</Type>")
+    expect(result.correctedMetadata).toContain('<URL>https://example.com/guide</URL>')
+    expect(result.correctedMetadata).toContain('<Description>User documentation</Description>')
+    expect(result.correctedMetadata).toContain('<MimeType>application/pdf</MimeType>')
+    expect(result.correctedMetadata).toContain('<Type>Publications</Type>')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+    expect(result.correctedMetadata).toContain('<Type>User guide custom</Type>')
+  })
+
+  test('should replace the legacy Publications alias with the canonical native representation', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'PUBLICATIONS'
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'PUBLICATIONS_CHANGED'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : PUBLICATIONS_CHANGED</Type>')
+    expect(result.correctedMetadata).toContain('<URL>https://example.com/publications</URL>')
+    expect(result.correctedMetadata).toContain('<Type>User guide</Type>')
+  })
+
+  test('should delete only the URLs matching the legacy guide and publication aliases', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: ["USER'S GUIDE", 'PUBLICATIONS'].map((Subtype) => ({
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype
+        }
+      }))
+    })
+
+    expect(result.correctionCount).toBe(2)
+    expect(result.correctedMetadata).not.toContain('https://example.com/guide')
+    expect(result.correctedMetadata).not.toContain('https://example.com/publications')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+    expect(result.correctedMetadata).toContain('<Type>User guide custom</Type>')
+  })
+
+  test('should recognize other CMR guide and publication aliases with case-insensitive matching', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: `<Collection><OnlineResources>
+        <OnlineResource><Type>collection guide</Type></OnlineResource>
+        <OnlineResource><Type>portal_doc_journal_references</Type></OnlineResource>
+      </OnlineResources></Collection>`,
+      corrections: ["user's guide", 'publications'].map((Subtype) => ({
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'publicationurl',
+          Type: 'view related information',
+          Subtype
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'GENERAL DOCUMENTATION'
+        }
+      }))
+    })
+
+    expect(result.correctionCount).toBe(2)
+    expect(result.correctedMetadata.match(/<Type>VIEW RELATED INFORMATION : GENERAL DOCUMENTATION<\/Type>/g))
+      .toHaveLength(2)
+  })
+
+  test('should not match legacy aliases when their full UMM hierarchy does not match', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: [{
+        URLContentType: 'DistributionURL',
+        Type: 'VIEW RELATED INFORMATION',
+        Subtype: "USER'S GUIDE"
+      }, {
+        URLContentType: 'PublicationURL',
+        Type: 'OTHER TYPE',
+        Subtype: 'PUBLICATIONS'
+      }, {
+        Type: 'VIEW RELATED INFORMATION',
+        Subtype: "USER'S GUIDE"
+      }].map((oldKeywordObject) => ({
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject
+      }))
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).toBe(`<?xml version="1.0" encoding="UTF-8"?>\n${mockEcho10WithLegacyRelatedURLs}`)
+  })
+
   test('should update a native Type : Subtype value using the full KMS correction object', async () => {
     const result = await applyEcho10MetadataCorrections({
       metadataPayload: mockEcho10WithNativeRelatedURLs,

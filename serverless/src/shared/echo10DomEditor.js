@@ -8,6 +8,26 @@ const RELATED_URL_SUBTYPE_ABBREVIATIONS = new Map([
   ['PRODUCT QUALITY ASSESSMENT', 'PRODUCT QUALITY']
 ])
 
+// CMR's ECHO10-to-UMM translator recognizes these legacy guide/publication Type aliases.
+// Key by the complete UMM hierarchy, not the subtype alone, to avoid unrelated URL matches.
+const RELATED_URL_LEGACY_ALIASES = new Map([
+  ["publicationurl : view related information : user's guide", [
+    'Collection Guide',
+    'data set guide',
+    'Dataset User Guide',
+    'ECSCollGuide',
+    'Guide',
+    'Guide Document',
+    'PORTAL_DOC_USERS_GUIDE',
+    'User guide',
+    "USER'S GUIDE"
+  ]],
+  ['publicationurl : view related information : publications', [
+    'Publications',
+    'PORTAL_DOC_JOURNAL_REFERENCES'
+  ]]
+])
+
 /**
  * Mirrors CMR's ECHO10 formatter: Type : Subtype when a subtype exists, otherwise
  * URLContentType : Type. Writing all three makes CMR's parser discard the subtype.
@@ -304,6 +324,8 @@ export const ECHO10_SCHEME_EDITORS = {
   }),
   rucontenttype: (editor, correction) => {
     const oldKeyword = correction.oldKeywordObject || {}
+    const fullOldType = CSV_FIELDS.rucontenttype
+      .map((key) => trimString(oldKeyword[key])).filter(Boolean).join(' : ')
     // Match complete native representations, never a substring. Retain compatibility with
     // legacy three-component values and unabbreviated subtypes, but always write CMR's form.
     const oldTypes = new Set([
@@ -311,7 +333,8 @@ export const ECHO10_SCHEME_EDITORS = {
       ...(trimString(oldKeyword.Subtype)
         ? [[oldKeyword.Type, oldKeyword.Subtype].map(trimString).filter(Boolean).join(' : ')]
         : []),
-      CSV_FIELDS.rucontenttype.map((key) => trimString(oldKeyword[key])).filter(Boolean).join(' : ')
+      fullOldType,
+      ...(RELATED_URL_LEGACY_ALIASES.get(fullOldType.toLowerCase()) || [])
     ])
 
     return [...oldTypes].filter(Boolean).some((oldType) => editor.updateBlockNode(correction, {

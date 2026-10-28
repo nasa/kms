@@ -90,6 +90,12 @@
       "Type": "VIEW RELATED INFORMATION",
       "Subtype": "USER'S GUIDE",
       "URL": "https://example.earthdata.nasa.gov/users-guide"
+    },
+    {
+      "URLContentType": "PublicationURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "PUBLICATIONS",
+      "URL": "https://example.earthdata.nasa.gov/publications"
     }
   ],
   "ProcessingLevel": {

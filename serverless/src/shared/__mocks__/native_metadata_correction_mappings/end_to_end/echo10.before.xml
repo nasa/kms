@@ -515,7 +515,13 @@
         <OnlineResource>
             <URL>https://example.earthdata.nasa.gov/users-guide</URL>
             <Description>User documentation</Description>
-            <Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>
+            <Type>User guide</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/publications</URL>
+            <Description>Published research</Description>
+            <Type>Publications</Type>
+            <MimeType>text/html</MimeType>
         </OnlineResource>
     </OnlineResources>
     <FileNamingConvention>

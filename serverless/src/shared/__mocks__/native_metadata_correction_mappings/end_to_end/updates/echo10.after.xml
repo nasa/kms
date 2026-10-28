@@ -518,6 +518,12 @@
             <Description>User documentation</Description>
             <Type>VIEW RELATED INFORMATION : USER'S GUIDE_CHANGED</Type>
         </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/publications</URL>
+            <Description>Published research</Description>
+            <Type>VIEW RELATED INFORMATION : PUBLICATIONS_CHANGED</Type>
+            <MimeType>text/html</MimeType>
+        </OnlineResource>
     </OnlineResources>
     <FileNamingConvention>
         <Convention>YYYY-DD-MMT00:00:00.000Z-shortname</Convention>
