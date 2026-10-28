@@ -25,6 +25,8 @@ const SUMMARY_PROJECTION = {
   collectionUri: 1,
   publishedVersionName: 1,
   outcome: 1,
+  resolvedCorrectionCount: 1,
+  correctionsAppliedCount: 1,
   collectionCount: 1,
   status: 1,
   createdAt: 1,
@@ -41,6 +43,7 @@ const UNKNOWN_RUN_ID = '11111111-1111-4111-8111-111111111111'
 describe('metadata correction audit queries', () => {
   let collection
   let mongoCursor
+  let activityCursor
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -50,7 +53,10 @@ describe('metadata correction audit queries', () => {
       toArray: vi.fn().mockResolvedValue([])
     }
 
+    activityCursor = { toArray: vi.fn().mockResolvedValue([]) }
+
     collection = {
+      aggregate: vi.fn().mockReturnValue(activityCursor),
       find: vi.fn().mockReturnValue(mongoCursor),
       findOne: vi.fn().mockResolvedValue(null)
     }
@@ -148,6 +154,8 @@ describe('metadata correction audit queries', () => {
       }],
       nextPaginationToken: null
     })
+
+    expect(collection.aggregate).not.toHaveBeenCalled()
   })
 
   test('returns no-op publisher events in published-version searches', async () => {
@@ -190,6 +198,8 @@ describe('metadata correction audit queries', () => {
   })
 
   test('returns audit documents from all published versions', async () => {
+    mongoCursor.toArray.mockResolvedValue([{ publishedVersionName: '25.0' }])
+
     await getMetadataCorrectionAuditLog({
       publishedOnly: true
     })
@@ -203,6 +213,88 @@ describe('metadata correction audit queries', () => {
       },
       { projection: SUMMARY_PROJECTION }
     )
+
+    expect(collection.aggregate).not.toHaveBeenCalled()
+  })
+
+  test('returns whole-version activity independently of pagination and report filters', async () => {
+    const createdAt = new Date('2026-10-23T12:00:00.000Z')
+    const firstActivityAt = new Date('2026-10-21T09:00:00.000Z')
+    const latestActivityAt = new Date('2026-10-23T16:00:00.000Z')
+    const paginationToken = Buffer.from(JSON.stringify({
+      createdAt: '2026-10-23T13:00:00.000Z',
+      runId: 'previous-page'
+    })).toString('base64url')
+
+    mongoCursor.toArray.mockResolvedValue([
+      {
+        runId: 'run-3',
+        publishedVersionName: '25.0',
+        createdAt
+      },
+      {
+        runId: 'run-2',
+        publishedVersionName: '25.0',
+        createdAt
+      },
+      {
+        runId: 'run-1',
+        publishedVersionName: '25.0',
+        createdAt
+      }
+    ])
+
+    activityCursor.toArray.mockResolvedValue([
+      {
+        _id: '25.0',
+        firstActivityAt,
+        latestActivityAt
+      }
+    ])
+
+    const result = await getMetadataCorrectionAuditLog({
+      publishedOnly: true,
+      publishedVersionName: '25.0',
+      status: 'failed',
+      startDate: '2026-10-23',
+      paginationToken,
+      limit: 2
+    })
+
+    expect(result.items).toHaveLength(2)
+    expect(result.nextPaginationToken).toBeTruthy()
+    expect(result.publishedVersionActivity).toEqual([
+      {
+        publishedVersionName: '25.0',
+        firstActivityAt,
+        latestActivityAt
+      }
+    ])
+
+    expect(collection.aggregate).toHaveBeenCalledWith([
+      { $match: { publishedVersionName: '25.0' } },
+      {
+        $group: {
+          _id: '$publishedVersionName',
+          firstActivityAt: { $min: { $ifNull: ['$createdAt', '$updatedAt'] } },
+          latestActivityAt: { $max: { $ifNull: ['$updatedAt', '$createdAt'] } }
+        }
+      }
+    ])
+  })
+
+  test('queries activity even when no runs match the selected version report filters', async () => {
+    const result = await getMetadataCorrectionAuditLog({
+      publishedOnly: true,
+      publishedVersionName: ' 25.0 ',
+      status: 'failed'
+    })
+
+    expect(collection.aggregate.mock.calls[0][0][0]).toEqual({
+      $match: { publishedVersionName: '25.0' }
+    })
+
+    expect(result.publishedVersionActivity).toEqual([])
   })
 
   test('returns a pagination token when another page exists and applies it to the next query', async () => {
@@ -254,6 +346,28 @@ describe('metadata correction audit queries', () => {
       },
       { projection: SUMMARY_PROJECTION }
     )
+  })
+
+  test('includes resolved and applied counts in a checked native no-op summary', async () => {
+    mongoCursor.toArray.mockResolvedValue([{
+      runId: 'native-no-op',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 3,
+      correctionsAppliedCount: 0
+    }])
+
+    const result = await getMetadataCorrectionAuditLog()
+
+    expect(result.items[0]).toMatchObject({
+      runId: 'native-no-op',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 3,
+      correctionsAppliedCount: 0
+    })
+
+    expect(collection.find).toHaveBeenCalledWith({}, { projection: SUMMARY_PROJECTION })
   })
 
   test('includes native metadata diffs in list results when requested', async () => {

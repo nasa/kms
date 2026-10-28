@@ -193,6 +193,55 @@ describe('persistMetadataCorrectionAuditLog', () => {
     expect(update.$push).toBeUndefined()
   })
 
+  test('records the final native no-op outcome while retaining checked status', async () => {
+    collection.findOne.mockResolvedValue({
+      status: 'checked',
+      outcome: 'corrections-resolved'
+    })
+
+    await persistMetadataCorrectionAuditLog({
+      runId: 'native-no-op',
+      collectionConceptId: 'C123-PROV',
+      corrections: [buildCorrection()],
+      resolvedCorrectionCount: 1,
+      correctionsAppliedCount: 0,
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      timestamp: '2026-10-22T21:16:29.000Z'
+    })
+
+    const update = collection.updateOne.mock.calls[0][1]
+    expect(update.$set).toMatchObject({
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 1,
+      correctionsAppliedCount: 0
+    })
+
+    expect(update.$set).not.toHaveProperty('timestamps.checkedAt')
+    expect(update.$push.statusHistory).toEqual({
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      timestamp: new Date('2026-10-22T21:16:29.000Z')
+    })
+  })
+
+  test('does not repeat history when the checked outcome is unchanged', async () => {
+    collection.findOne.mockResolvedValue({
+      status: 'checked',
+      outcome: 'no-native-corrections-applied'
+    })
+
+    await persistMetadataCorrectionAuditLog({
+      runId: 'native-no-op',
+      collectionConceptId: 'C123-PROV',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied'
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$push).toBeUndefined()
+  })
+
   test('does not update an applied run during a retry', async () => {
     collection.findOne.mockResolvedValue({ status: 'applied' })
 
@@ -225,6 +274,24 @@ describe('persistMetadataCorrectionAuditLog', () => {
         statusHistory: expect.objectContaining({ status: 'checked' })
       })
     }))
+  })
+
+  test('preserves an existing detailed failure when recording a worker fallback', async () => {
+    collection.findOne.mockResolvedValue({ status: 'failed' })
+
+    await expect(persistMetadataCorrectionAuditLog({
+      runId: 'run-1',
+      collectionConceptId: 'C123-PROV',
+      preserveFailedDetails: true,
+      outcome: 'request-processing-failed',
+      status: 'failed'
+    })).resolves.toEqual({
+      runId: 'run-1',
+      status: 'failed',
+      created: false
+    })
+
+    expect(collection.updateOne).not.toHaveBeenCalled()
   })
 
   test('validates required fields and lifecycle status', async () => {

@@ -21,8 +21,8 @@ import { logger } from './logger'
  * - ProductLevelId: read ProcessingLevel.Id directly.
  * - providers, platforms, instruments, projects, idnnode: read the richer UMM-C object,
  *   but intentionally collapse the lookup input down to ShortName.
- * - DataFormat and GranuleDataFormat: read the format string directly and treat it like
- *   a short-name lookup input.
+ * - DataFormat: read archive, distribution, and Related URL format strings directly and treat
+ *   them like short-name lookup inputs.
  *
  * The shared `extractKeywordValue` helper owns the scheme-specific UMM-C extraction logic.
  */
@@ -91,7 +91,7 @@ const getKeywordSchemeForPath = (path) => {
         : null
     case 'RelatedUrls':
       return path.includes('GetData') && path.includes('Format')
-        ? 'GranuleDataFormat'
+        ? 'DataFormat'
         : 'rucontenttype'
     default:
       return null

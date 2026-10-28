@@ -49,6 +49,7 @@ interface LambdaFunctionsProps {
   useLocalstack: boolean;
   environment: {
     CMR_BASE_URL: string;
+    CMR_GET_TIMEOUT_MS?: string;
     EDL_CLIENT_ID: string;
     EDL_PASSWORD: string;
     BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE?: string;
@@ -620,7 +621,10 @@ export class LambdaFunctions {
         detailType: ['kms.published.version.changed']
       }
     })
-    publishToPublisherRule.addTarget(new targets.LambdaFunction(publisherLambda))
+    // Reinvoking the publisher can emit duplicate keyword events for work that already succeeded.
+    publishToPublisherRule.addTarget(new targets.LambdaFunction(publisherLambda, {
+      retryAttempts: 0
+    }))
 
     // Rule 2: publisher → cache-prime
     const publisherToPrimeCacheRule = new events.Rule(scope, `${this.props.prefix}-PublisherToPrimeCacheRule`, {
@@ -678,14 +682,31 @@ export class LambdaFunctions {
    * @private
    */
   private createPublisherLambda(scope: Construct): lambda.Function {
+    const auditEnvironment = this.props.metadataCorrectionEnvironment
     const publisherLambda = this.createLambdaFunction(
       scope,
       'publisher/handler.js',
       'publisher',
       'publisher',
       Duration.minutes(15),
-      2048
+      2048,
+      {
+        // The publisher needs audit database settings to record failures, without CMR write credentials.
+        DOCUMENTDB_AUDIT_COLLECTION_NAME: auditEnvironment?.DOCUMENTDB_AUDIT_COLLECTION_NAME ?? '',
+        DOCUMENTDB_DATABASE_NAME: auditEnvironment?.DOCUMENTDB_DATABASE_NAME ?? '',
+        DOCUMENTDB_HOST: auditEnvironment?.DOCUMENTDB_HOST ?? '',
+        DOCUMENTDB_MAX_POOL_SIZE: auditEnvironment?.DOCUMENTDB_MAX_POOL_SIZE ?? '',
+        DOCUMENTDB_PORT: auditEnvironment?.DOCUMENTDB_PORT ?? '',
+        DOCUMENTDB_SECRET_ARN: auditEnvironment?.DOCUMENTDB_SECRET_ARN ?? '',
+        DOCUMENTDB_TLS_CA_FILE: auditEnvironment?.DOCUMENTDB_TLS_CA_FILE ?? '',
+        DOCUMENTDB_URI: auditEnvironment?.DOCUMENTDB_URI ?? ''
+      }
     )
+
+    // Also disable Lambda's own asynchronous error retries for non-EventBridge invocations.
+    publisherLambda.configureAsyncInvoke({
+      retryAttempts: 0
+    })
 
     return publisherLambda
   }

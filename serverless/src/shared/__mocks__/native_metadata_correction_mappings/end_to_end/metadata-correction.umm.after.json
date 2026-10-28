@@ -1,0 +1,102 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "ATMOSPHERE",
+      "Term": "ATMOSPHERIC TEMPERATURE",
+      "VariableLevel1": "UPPER AIR TEMPERATURE",
+      "VariableLevel2": "BOUNDARY LAYER TEMPERATURE",
+      "VariableLevel3": "BOUNDARY LAYER TEMPERATURE PROFILES_CHANGED"
+    }
+  ],
+  "Platforms": [
+    {
+      "Type": "Rotorcraft/Helicopter",
+      "ShortName": "AS350-B3_CHANGED",
+      "LongName": "Helicopter AS350-B3_CHANGED",
+      "Instruments": [
+        {
+          "ShortName": "MABEL_CHANGED",
+          "LongName": "Multiple Altimeter Beam Experimental Lidar_CHANGED"
+        }
+      ]
+    },
+    {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "Amazonia-1-Chris-Test_CHANGED"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "OCEAN",
+      "Type": "ATLANTIC OCEAN",
+      "Subregion1": "NORTH ATLANTIC OCEAN",
+      "Subregion2": "CARIBBEAN SEA",
+      "Subregion3": "BARBADOS_CHANGED"
+    },
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "GLOBAL LAND_CHANGED"
+    }
+  ],
+  "PaleoTemporalCoverages": [
+    {
+      "ChronostratigraphicUnits": [
+        {
+          "Eon": "PHANEROZOIC",
+          "Era": "CENOZOIC",
+          "Period": "QUATERNARY",
+          "Epoch": "HOLOCENE_CHANGED"
+        }
+      ]
+    }
+  ],
+  "Projects": [
+    {
+      "ShortName": "CASERTZ_CHANGED",
+      "LongName": "Corridor Aerogeophysics of the South East Ross Transect Zone_CHANGED"
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "DRSC_CHANGED",
+      "LongName": "Dekker Remote Sensing Corporation_CHANGED",
+      "Roles": [
+        "PROCESSOR"
+      ]
+    }
+  ],
+  "RelatedUrls": [
+    {
+      "URLContentType": "DistributionURL",
+      "Type": "GET DATA",
+      "Subtype": "VIRTUAL COLLECTION_CHANGED",
+      "URL": "https://example.earthdata.nasa.gov/data",
+      "GetData": {
+        "Format": "COG_CHANGED"
+      }
+    }
+  ],
+  "DirectoryNames": [
+    {
+      "ShortName": "AMD/NZ_CHANGED",
+      "LongName": "Antarctic Master Directory/New Zealand_CHANGED"
+    }
+  ],
+  "ISOTopicCategories": [
+    "GEOSCIENTIFIC INFORMATION_CHANGED",
+    "Health"
+  ],
+  "ProcessingLevel": {
+    "Id": "2_CHANGED"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "COG_CHANGED"
+      }
+    ]
+  },
+  "ShortName": "METADATA_CORRECTION_TEST",
+  "Version": "001"
+}

@@ -1,5 +1,54 @@
 import { CSV_FIELDS, ECHO10_FIELDS } from './redis-path-store/helpers/constants'
 import XmlMetadataPathEditor, { sequentialValueReplace } from './XmlMetadataPathEditor'
+import { trimString } from './XmlUtils'
+
+const RELATED_URL_SUBTYPE_ABBREVIATIONS = new Map([
+  ['ALGORITHM THEORETICAL BASIS DOCUMENT', 'ALGORITHM THEO BASIS'],
+  ['CALIBRATION DATA DOCUMENTATION', 'CALIBRATION DATA'],
+  ['PRODUCT QUALITY ASSESSMENT', 'PRODUCT QUALITY']
+])
+
+// CMR's ECHO10-to-UMM translator recognizes these legacy guide/publication Type aliases.
+// Key by the complete UMM hierarchy, not the subtype alone, to avoid unrelated URL matches.
+const RELATED_URL_LEGACY_ALIASES = new Map([
+  ["publicationurl : view related information : user's guide", [
+    'Collection Guide',
+    'data set guide',
+    'Dataset User Guide',
+    'ECSCollGuide',
+    'Guide',
+    'Guide Document',
+    'PORTAL_DOC_USERS_GUIDE',
+    'User guide',
+    "USER'S GUIDE"
+  ]],
+  ['publicationurl : view related information : publications', [
+    'Publications',
+    'PORTAL_DOC_JOURNAL_REFERENCES'
+  ]]
+])
+
+/**
+ * Mirrors CMR's ECHO10 formatter: Type : Subtype when a subtype exists, otherwise
+ * URLContentType : Type. Writing all three makes CMR's parser discard the subtype.
+ * CMR abbreviates these long subtype names when translating to ECHO10 as well.
+ */
+const formatRelatedUrlType = (keywordObject) => {
+  const { URLContentType, Type, Subtype } = keywordObject || {}
+  const subtype = trimString(Subtype)
+  const values = subtype
+    ? [Type, RELATED_URL_SUBTYPE_ABBREVIATIONS.get(subtype) || subtype]
+    : [URLContentType, Type]
+
+  return values.map(trimString).filter(Boolean).join(' : ')
+}
+
+// CMR maps a Location hierarchy to its deepest populated value in SpatialKeywords/Keyword.
+// Use CSV hierarchy order rather than object property order, and ignore trailing empty levels.
+const getLocationLeafValue = (keywordObject) => CSV_FIELDS.locations
+  .map((key) => trimString(keywordObject?.[key]))
+  .filter(Boolean)
+  .at(-1) || ''
 
 // Wrap a block-style scheme config in the shared editor contract used by the ECHO10 delegate.
 const blockScheme = (config) => (editor, correction) => editor.updateBlockNode(correction, config)
@@ -55,6 +104,27 @@ export const ECHO10_SCHEME_EDITORS = {
       CSV_FIELDS.sciencekeywords
     )
   }),
+  locations: (editor, correction) => {
+    const oldValue = getLocationLeafValue(correction.oldKeywordObject)
+
+    // An empty old hierarchy must never select the first keyword or create a new field.
+    if (!oldValue) return false
+
+    const updated = editor.updateScalarNode({
+      ...correction,
+      oldKeywordObject: { Value: oldValue },
+      newKeywordObject: { Value: getLocationLeafValue(correction.newKeywordObject) }
+    }, {
+      nodeXPath: '//Collection/SpatialKeywords/Keyword'
+    })
+
+    if (updated && trimString(correction.action).toLowerCase() === 'delete') {
+      editor.selectNodes('//Collection/SpatialKeywords')
+        .forEach((node) => editor.removeNodeIfNoElementChildren(node))
+    }
+
+    return updated
+  },
   platforms: blockScheme({
     // The platform CSV Category maps to the native ECHO10 <Type> field.
     nodeXPath: '//Collection/Platforms/Platform',
@@ -252,37 +322,42 @@ export const ECHO10_SCHEME_EDITORS = {
       }
     ]
   }),
-  rucontenttype: blockScheme({
-    nodeXPath: '//Collection/OnlineResources/OnlineResource',
-    find: {
-      fieldPaths: ECHO10_FIELDS.rucontenttype,
-      valueKeys: ['CombinedType'],
-      getExpectedValueObject: ({ correction }) => ({
-        CombinedType: [
-          correction.oldKeywordObject?.[CSV_FIELDS.urlContentType],
-          correction.oldKeywordObject?.[CSV_FIELDS.type],
-          correction.oldKeywordObject?.[CSV_FIELDS.subtype]
-        ].filter(Boolean).join(' : ')
-      })
-    },
-    replace: [
-      {
-        // XML fields to write to and keys from newKeywordObject to read from
-        fieldPath: ECHO10_FIELDS.relatedUrlType,
-        source: {
-          type: 'computed',
-          getValue: ({ correction }) => [
-            correction.newKeywordObject?.[CSV_FIELDS.urlContentType],
-            correction.newKeywordObject?.[CSV_FIELDS.type],
-            correction.newKeywordObject?.[CSV_FIELDS.subtype]
-          ].filter(Boolean).join(' : ')
+  rucontenttype: (editor, correction) => {
+    const oldKeyword = correction.oldKeywordObject || {}
+    const fullOldType = CSV_FIELDS.rucontenttype
+      .map((key) => trimString(oldKeyword[key])).filter(Boolean).join(' : ')
+    // Match complete native representations, never a substring. Retain compatibility with
+    // legacy three-component values and unabbreviated subtypes, but always write CMR's form.
+    const oldTypes = new Set([
+      formatRelatedUrlType(oldKeyword),
+      ...(trimString(oldKeyword.Subtype)
+        ? [[oldKeyword.Type, oldKeyword.Subtype].map(trimString).filter(Boolean).join(' : ')]
+        : []),
+      fullOldType,
+      ...(RELATED_URL_LEGACY_ALIASES.get(fullOldType.toLowerCase()) || [])
+    ])
+
+    return [...oldTypes].filter(Boolean).some((oldType) => editor.updateBlockNode(correction, {
+      nodeXPath: '//Collection/OnlineResources/OnlineResource',
+      find: {
+        fieldPaths: ECHO10_FIELDS.rucontenttype,
+        valueKeys: ['CombinedType'],
+        getExpectedValueObject: () => ({ CombinedType: oldType })
+      },
+      replace: [
+        {
+          // Keep native output consistent with the same CMR mapping used for matching.
+          fieldPath: ECHO10_FIELDS.relatedUrlType,
+          source: {
+            type: 'computed',
+            getValue: () => formatRelatedUrlType(correction.newKeywordObject)
+          }
         }
-      }
-    ]
-  }),
+      ]
+    }))
+  },
   dataformat: scalarScheme({
-    nodeXPath: '//Collection/DataFormat',
-    tagName: 'DataFormat'
+    nodeXPath: '//Collection/DataFormat'
   }),
   productlevelid: scalarScheme({
     // Example correction input:
@@ -297,10 +372,8 @@ export const ECHO10_SCHEME_EDITORS = {
     //   }
     // }
     //
-    // Scalar schemes select the nodeXPath field matching oldKeywordObject when supplied.
-    // `tagName` is only used when the field is missing and a replacement must be created.
-    nodeXPath: '//Collection/ProcessingLevelId',
-    tagName: 'ProcessingLevelId'
+    // Scalar schemes only update an existing node matching oldKeywordObject when supplied.
+    nodeXPath: '//Collection/ProcessingLevelId'
   })
 }
 

@@ -10,6 +10,14 @@ const unifiedBlockScheme = (config) => (editor, correction) => {
   if (Array.isArray(config)) {
     // Map each config to its update result (true if updated, false otherwise)
     const results = config.map((c) => {
+      if (c.shouldApply && !c.shouldApply(correction)) return false
+
+      if (c.getNodePath) {
+        return editor.updateLeafNode(correction, {
+          nodePath: c.getNodePath(correction)
+        })
+      }
+
       if (c.containerPath) return editor.updateNestedBlockNode(correction, c)
 
       return editor.updateBlockNode(correction, c)
@@ -32,6 +40,15 @@ const unifiedBlockScheme = (config) => (editor, correction) => {
 const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(correction, config)
 // Wrap a scalar/root-field scheme config in the shared editor contract used by the UMM-C delegate.
 const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode(correction, config)
+
+const isRelatedUrlDataFormatCorrection = ({ ummPath = [] }) => {
+  const [rootField, index, parentField, field] = ummPath
+
+  return rootField === 'RelatedUrls'
+    && Number.isInteger(index)
+    && parentField === 'GetData'
+    && field === 'Format'
+}
 
 /**
  * Unified utility for array cleanup.
@@ -323,6 +340,7 @@ export const UMMC_SCHEME_EDITORS = {
   }),
   dataformat: unifiedBlockScheme([
     {
+      shouldApply: (correction) => !isRelatedUrlDataFormatCorrection(correction),
       containerPath: '//ArchiveAndDistributionInformation',
       childKey: 'FileArchiveInformation',
       find: {
@@ -338,6 +356,7 @@ export const UMMC_SCHEME_EDITORS = {
       }]
     },
     {
+      shouldApply: (correction) => !isRelatedUrlDataFormatCorrection(correction),
       containerPath: '//ArchiveAndDistributionInformation',
       childKey: 'FileDistributionInformation',
       find: {
@@ -351,6 +370,13 @@ export const UMMC_SCHEME_EDITORS = {
           key: CSV_FIELDS.shortName
         }
       }]
+    },
+    {
+      shouldApply: isRelatedUrlDataFormatCorrection,
+      // Delete only Format, not GetData or its non-keyword siblings (Size, Unit, etc.).
+      // A missing required Format may fail CMR ingest; audit that rejection without retrying
+      // rather than silently discarding unrelated metadata to make the document valid.
+      getNodePath: ({ ummPath }) => `//${ummPath.join('/')}`
     }
   ])
 }

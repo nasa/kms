@@ -8,9 +8,13 @@ import {
 
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { logger } from '@/shared/logger'
+import persistMetadataCorrectionAuditLog from '@/shared/persistMetadataCorrectionAuditLog'
 import {
   persistMetadataCorrectionNoOpAuditLog
 } from '@/shared/persistMetadataCorrectionNoOpAuditLog'
+import {
+  persistMetadataCorrectionWorkflowFailureAuditLog
+} from '@/shared/persistMetadataCorrectionWorkflowFailureAuditLog'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 import { cmrKeywordEventsListener } from '../handler'
@@ -66,6 +70,14 @@ vi.mock('@/shared/persistMetadataCorrectionNoOpAuditLog', () => ({
   persistMetadataCorrectionNoOpAuditLog: vi.fn()
 }))
 
+vi.mock('@/shared/persistMetadataCorrectionAuditLog', () => ({
+  default: vi.fn()
+}))
+
+vi.mock('@/shared/persistMetadataCorrectionWorkflowFailureAuditLog', () => ({
+  persistMetadataCorrectionWorkflowFailureAuditLog: vi.fn()
+}))
+
 describe('when the CMR keyword events processor is invoked', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -84,6 +96,18 @@ describe('when the CMR keyword events processor is invoked', () => {
     vi.mocked(persistMetadataCorrectionNoOpAuditLog).mockResolvedValue({
       runId: 'f3351653-dfc3-47d8-9176-294ea90bc118',
       status: 'checked',
+      created: true
+    })
+
+    vi.mocked(persistMetadataCorrectionAuditLog).mockResolvedValue({
+      runId: '60b2e692-a63a-42af-9e09-b4a5e39a1746',
+      status: 'failed',
+      created: true
+    })
+
+    vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockResolvedValue({
+      runId: 'workflow-failure-run',
+      status: 'failed',
       created: true
     })
   })
@@ -456,7 +480,9 @@ describe('when the CMR keyword events processor is invoked', () => {
               })
             }
           ]
-        })).rejects.toBeUndefined()
+        })).resolves.toEqual({
+          batchItemFailures: []
+        })
 
         expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
           messageId: 'message-123',
@@ -564,7 +590,7 @@ describe('when the CMR keyword events processor is invoked', () => {
     })
 
     describe('when the queue record cannot be parsed', () => {
-      test('should log the error and throw', async () => {
+      test('should audit the error and acknowledge the record', async () => {
         await expect(cmrKeywordEventsListener({
           Records: [
             {
@@ -572,9 +598,19 @@ describe('when the CMR keyword events processor is invoked', () => {
               body: 'not-json'
             }
           ]
-        })).rejects.toThrow()
+        })).resolves.toEqual({
+          batchItemFailures: []
+        })
 
         expect(logger.error).toHaveBeenCalled()
+        expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
+          source: 'cmrKeywordEventsListener',
+          outcome: 'keyword-event-processing-failed',
+          error: expect.any(SyntaxError),
+          keywordEvent: undefined,
+          messageId: 'message-123',
+          publisherMessageId: undefined
+        })
       })
 
       test('should log n/a as the message id when parsing fails before a message id is available', async () => {
@@ -584,7 +620,9 @@ describe('when the CMR keyword events processor is invoked', () => {
               body: 'not-json'
             }
           ]
-        })).rejects.toThrow()
+        })).resolves.toEqual({
+          batchItemFailures: []
+        })
 
         expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
           messageId: 'n/a',
@@ -598,7 +636,7 @@ describe('when the CMR keyword events processor is invoked', () => {
     })
 
     describe('when concept-id lookup fails', () => {
-      test('should log the error and throw', async () => {
+      test('should audit the lookup error and acknowledge the record', async () => {
         const error = new TypeError('fetch failed')
 
         error.cmrRequest = {
@@ -634,7 +672,9 @@ describe('when the CMR keyword events processor is invoked', () => {
               })
             }
           ]
-        })).rejects.toThrow('fetch failed')
+        })).resolves.toEqual({
+          batchItemFailures: []
+        })
 
         expect(logger.error).toHaveBeenCalledWith('Failed to process keyword event record', {
           messageId: 'message-123',
@@ -664,14 +704,122 @@ describe('when the CMR keyword events processor is invoked', () => {
         })
 
         expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
+        expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith({
+          source: 'cmrKeywordEventsListener',
+          outcome: 'keyword-event-processing-failed',
+          error,
+          keywordEvent: expect.objectContaining({
+            EventType: 'UPDATED',
+            Scheme: 'sciencekeywords',
+            UUID: '1234'
+          }),
+          messageId: 'message-123',
+          publisherMessageId: undefined
+        })
       })
     })
 
     describe('when publishing the metadata correction request fails', () => {
-      test('should log the error and throw', async () => {
-        vi.mocked(publishMetadataCorrectionRequest).mockRejectedValue(new Error('SNS unavailable'))
+      test('should audit the failed collection, continue publishing, and acknowledge the batch', async () => {
+        const error = new Error('SNS unavailable')
 
-        await expect(cmrKeywordEventsListener({
+        vi.mocked(publishMetadataCorrectionRequest)
+          .mockRejectedValueOnce(error)
+          .mockResolvedValueOnce({
+            messageId: 'metadata-correction-message-456',
+            message: '{}',
+            topicArn: 'arn:aws:sns:us-east-1:000000000000:kms-dev-metadata-correction-requests.fifo'
+          })
+
+        const result = await cmrKeywordEventsListener({
+          Records: [
+            {
+              messageId: 'message-123',
+              body: JSON.stringify({
+                Type: 'Notification',
+                Message: JSON.stringify({
+                  EventType: 'UPDATED',
+                  Scheme: 'sciencekeywords',
+                  UUID: '1234',
+                  VersionName: '20.1',
+                  OldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+                  NewKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
+                  Timestamp: '2026-04-21T00:00:00.000Z'
+                })
+              })
+            }
+          ]
+        })
+
+        expect(publishMetadataCorrectionRequest).toHaveBeenCalledTimes(2)
+        expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledWith({
+          status: 'failed',
+          collectionConceptId: 'C1000000000-PROV',
+          publishedVersionName: '20.1',
+          source: 'cmrKeywordEventsListener',
+          messageId: 'message-123',
+          keywordEvent: {
+            eventType: 'UPDATED',
+            scheme: 'sciencekeywords',
+            uuid: '1234',
+            oldKeywordObject: OLD_SCIENCE_KEYWORD_OBJECT,
+            newKeywordObject: NEW_SCIENCE_KEYWORD_OBJECT,
+            timestamp: '2026-04-21T00:00:00.000Z'
+          },
+          outcome: 'correction-request-publish-failed',
+          error
+        })
+
+        expect(logger.error).toHaveBeenCalledWith(
+          '[consumer] Failed to publish metadata correction request',
+          expect.objectContaining({
+            collectionConceptId: 'C1000000000-PROV',
+            messageId: 'message-123',
+            eventType: 'UPDATED',
+            scheme: 'sciencekeywords',
+            uuid: '1234',
+            error: expect.objectContaining({
+              message: 'SNS unavailable'
+            })
+          })
+        )
+
+        expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
+      })
+
+      test('should acknowledge a malformed event even when its failure audit cannot be saved', async () => {
+        vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockRejectedValueOnce(
+          new Error('Audit unavailable')
+        )
+
+        const result = await cmrKeywordEventsListener({
+          Records: [{
+            messageId: 'malformed-event',
+            body: 'not-json'
+          }]
+        })
+
+        expect(result).toEqual({ batchItemFailures: [] })
+        expect(publishMetadataCorrectionRequest).not.toHaveBeenCalled()
+        expect(logger.error).toHaveBeenCalledWith(
+          'Failed to persist keyword event processing failure',
+          expect.objectContaining({
+            messageId: 'malformed-event',
+            error: expect.objectContaining({ message: 'Audit unavailable' })
+          })
+        )
+      })
+
+      test('should log an audit failure without retrying the keyword event', async () => {
+        vi.mocked(publishMetadataCorrectionRequest).mockRejectedValue(new Error('SNS unavailable'))
+        vi.mocked(persistMetadataCorrectionAuditLog).mockRejectedValue(
+          new Error('Audit unavailable')
+        )
+
+        const result = await cmrKeywordEventsListener({
           Records: [
             {
               messageId: 'message-123',
@@ -685,10 +833,22 @@ describe('when the CMR keyword events processor is invoked', () => {
               })
             }
           ]
-        })).rejects.toThrow('SNS unavailable')
+        })
 
-        expect(logger.error).toHaveBeenCalled()
-        expect(persistMetadataCorrectionNoOpAuditLog).not.toHaveBeenCalled()
+        expect(logger.error).toHaveBeenCalledWith(
+          '[consumer] Failed to persist correction request publish failure',
+          {
+            collectionConceptId: expect.any(String),
+            messageId: 'message-123',
+            error: expect.objectContaining({
+              message: 'Audit unavailable'
+            })
+          }
+        )
+
+        expect(result).toEqual({
+          batchItemFailures: []
+        })
       })
     })
   })

@@ -55,7 +55,7 @@ describe('awsClients', () => {
 
       getEventBridgeClient()
 
-      expect(eventBridgeClientMock).toHaveBeenCalledWith({})
+      expect(eventBridgeClientMock).toHaveBeenCalledWith({ maxAttempts: 1 })
     })
 
     test('getSnsClient should create a client with default config', async () => {
@@ -63,7 +63,7 @@ describe('awsClients', () => {
 
       getSnsClient()
 
-      expect(snsClientMock).toHaveBeenCalledWith({})
+      expect(snsClientMock).toHaveBeenCalledWith({ maxAttempts: 1 })
     })
 
     test('getSecretsManagerClient should create a client with default config', async () => {
@@ -104,7 +104,10 @@ describe('awsClients', () => {
 
       getEventBridgeClient()
 
-      expect(eventBridgeClientMock).toHaveBeenCalledWith(expectedConfig)
+      expect(eventBridgeClientMock).toHaveBeenCalledWith({
+        ...expectedConfig,
+        maxAttempts: 1
+      })
     })
 
     test('getSnsClient should create a client with LocalStack config', async () => {
@@ -112,7 +115,10 @@ describe('awsClients', () => {
 
       getSnsClient()
 
-      expect(snsClientMock).toHaveBeenCalledWith(expectedConfig)
+      expect(snsClientMock).toHaveBeenCalledWith({
+        ...expectedConfig,
+        maxAttempts: 1
+      })
     })
 
     test('getSecretsManagerClient should create a client with LocalStack config', async () => {

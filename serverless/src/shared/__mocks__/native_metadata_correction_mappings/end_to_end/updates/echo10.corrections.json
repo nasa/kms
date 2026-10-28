@@ -4,6 +4,46 @@
   "source": "local-smoke",
   "corrections": [
     {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "LocationCategory": "GEOGRAPHIC REGION",
+        "LocationType": "GLOBAL LAND",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
+      },
+      "newKeywordObject": {
+        "LocationCategory": "GEOGRAPHIC REGION",
+        "LocationType": "GLOBAL LAND_CHANGED",
+        "LocationSubregion1": "",
+        "LocationSubregion2": "",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
+      }
+    },
+    {
+      "scheme": "locations",
+      "action": "replace",
+      "oldKeywordObject": {
+        "LocationCategory": "CONTINENT",
+        "LocationType": "NORTH AMERICA",
+        "LocationSubregion1": "CANADA",
+        "LocationSubregion2": "ALBERTA",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
+      },
+      "newKeywordObject": {
+        "LocationCategory": "CONTINENT",
+        "LocationType": "NORTH AMERICA",
+        "LocationSubregion1": "CANADA",
+        "LocationSubregion2": "ALBERTA_CHANGED",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
+      }
+    },
+    {
       "scheme": "sciencekeywords",
       "action": "replace",
       "oldKeywordObject": {
@@ -122,6 +162,34 @@
         "URLContentType": "PublicationURL_CHANGED",
         "Type": "VIEW RELATED INFORMATION_CHANGED",
         "Subtype": "Subtype_CHANGED"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "USER'S GUIDE"
+      },
+      "newKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "USER'S GUIDE_CHANGED"
+      }
+    },
+    {
+      "scheme": "rucontenttype",
+      "action": "replace",
+      "oldKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "PUBLICATIONS"
+      },
+      "newKeywordObject": {
+        "URLContentType": "PublicationURL",
+        "Type": "VIEW RELATED INFORMATION",
+        "Subtype": "PUBLICATIONS_CHANGED"
       }
     },
     {

@@ -212,7 +212,10 @@
       "URLContentType": "DistributionURL",
       "Type": "GET DATA",
       "Subtype": "VIRTUAL COLLECTION_CHANGED",
-      "URL": "https://git.earthdata.nasa.gov/projects/EMFD/repos/unified-metadata-model/browse/collection"
+      "URL": "https://git.earthdata.nasa.gov/projects/EMFD/repos/unified-metadata-model/browse/collection",
+      "GetData": {
+        "Format": "COG_CHANGED"
+      }
     },
     {
       "Description": "List of data collections",
@@ -233,6 +236,7 @@
   ],
   "ISOTopicCategories": [
     "GEOSCIENTIFIC INFORMATION_CHANGED",
+    "Health",
     "CLIMATOLOGY/METEOROLOGY/ATMOSPHERE",
     "STRUCTURE",
     "EXTRA TERRESTRIAL",

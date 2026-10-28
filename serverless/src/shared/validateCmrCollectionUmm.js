@@ -38,8 +38,7 @@ const VALIDATION_MESSAGES = {
   idnnode: 'Directory name short name was not a valid keyword.',
   isotopiccategory: 'ISO Topic Category was not a valid keyword.',
   productlevelid: 'ProcessingLevel Id was not a valid keyword.',
-  dataformat: 'Format was not a valid keyword.',
-  granuledataformat: 'Format was not a valid keyword.',
+  dataformat: 'Data format was not a valid keyword.',
   rucontenttype: 'Related URL Content Type was not a valid set together.'
 }
 
@@ -212,7 +211,7 @@ const extractKeywordCandidatesFromUmm = (umm) => {
     if (relatedUrl.GetData?.Format) {
       pushKeywordCandidate({
         candidates,
-        scheme: 'granuledataformat',
+        scheme: 'dataformat',
         path: ['RelatedUrls', index, 'GetData', 'Format']
       })
     }

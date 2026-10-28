@@ -30,10 +30,6 @@ vi.mock('@/shared/logger', () => ({
   }
 }))
 
-vi.mock('../helpers/delay', () => ({
-  delay: vi.fn().mockResolvedValue(undefined)
-}))
-
 describe('getPublishKeywordEvents', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -377,7 +373,7 @@ describe('getPublishKeywordEvents', () => {
     ])
   })
 
-  test('throws when publish keyword analysis exhausts retries and blocking is enabled', async () => {
+  test('throws after one failed scheme analysis when blocking is enabled', async () => {
     vi.mocked(getConceptSchemeDetails)
       .mockResolvedValueOnce([{ notation: 'sciencekeywords' }])
       .mockResolvedValueOnce([{ notation: 'sciencekeywords' }])

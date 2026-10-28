@@ -575,6 +575,29 @@ export const runCollectionMetadataCorrection = async ({
     throw error
   }
 
+  if (correctionsApplied.length === 0) {
+    // Resolution alone does not mean the native editor matched a field. Finish the checked run
+    // explicitly so unsupported schemes and unmatched values are not mistaken for applied fixes.
+    await persistMetadataCorrectionAuditLog({
+      runId: auditRunId,
+      collectionConceptId: collectionDetails.collectionConceptId,
+      providerId: collectionDetails.providerId,
+      publishedVersionName,
+      keywordEvent: auditKeywordEvent,
+      nativeFormat,
+      delegateName,
+      corrections: resolvedCorrections,
+      resolvedCorrectionCount: resolvedCorrections.length,
+      correctionsAppliedCount: 0,
+      keywordValidationFailures,
+      priorRevisionId: collectionDetails.revisionId,
+      outcome: 'no-native-corrections-applied',
+      source,
+      messageId,
+      status: 'checked'
+    })
+  }
+
   if (correctionsApplied.length > 0 && writeResult?.ingestResult?.updated === true) {
     appliedAuditResult = await persistMetadataCorrectionAuditLog({
       runId: auditRunId,
@@ -628,7 +651,7 @@ export const runCollectionMetadataCorrection = async ({
   })
 
   return {
-    outcome: 'processed',
+    outcome: correctionsApplied.length === 0 ? 'no-native-corrections-applied' : 'processed',
     collectionConceptId: collectionDetails.collectionConceptId,
     providerId: collectionDetails.providerId,
     nativeId: collectionDetails.nativeId,

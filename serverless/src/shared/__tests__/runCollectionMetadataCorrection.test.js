@@ -570,7 +570,7 @@ describe('runCollectionMetadataCorrection', () => {
     await expect(runCollectionMetadataCorrection({
       collectionConceptId: 'C1234567890-PROV'
     })).resolves.toEqual(expect.objectContaining({
-      outcome: 'processed',
+      outcome: 'no-native-corrections-applied',
       nativeFormat: 'DIF10',
       correctionResult: {
         nativeFormat: 'DIF10',
@@ -591,7 +591,59 @@ describe('runCollectionMetadataCorrection', () => {
       }
     }))
 
-    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledOnce()
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledTimes(2)
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 1,
+      correctionsAppliedCount: 0
+    }))
+  })
+
+  test('finishes a resolved but unmatched correction as a checked native no-op', async () => {
+    arrangeResolvableCorrection()
+    vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue('<DIF/>')
+    vi.mocked(invokeMetadataCorrectionDelegate).mockResolvedValue({
+      correctionCount: 0,
+      correctionsApplied: [],
+      correctedMetadata: '<DIF/>'
+    })
+
+    vi.mocked(writeCorrectedMetadataToCmr).mockResolvedValue({
+      ingestResult: { updated: false }
+    })
+
+    const result = await runCollectionMetadataCorrection({
+      collectionConceptId: 'C1234567890-PROV',
+      messageId: 'native-no-op'
+    })
+
+    expect(result).toMatchObject({
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 1,
+      correctionResult: {
+        correctionCount: 0,
+        correctionsAppliedCount: 0
+      },
+      auditResults: {
+        pending: null,
+        applied: null
+      }
+    })
+
+    expect(persistMetadataCorrectionAuditLog).toHaveBeenCalledTimes(2)
+    const finalAudit = vi.mocked(persistMetadataCorrectionAuditLog).mock.calls.at(-1)[0]
+    expect(finalAudit).toMatchObject({
+      runId: 'native-no-op',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 1,
+      correctionsAppliedCount: 0,
+      corrections: result.resolvedCorrections
+    })
+
+    expect(finalAudit).not.toHaveProperty('metadataDiff')
+    expect(finalAudit).not.toHaveProperty('error')
   })
 
   test('updates the audit document to failed with the writeback error when CMR writeback fails', async () => {

@@ -440,7 +440,7 @@ describe('when correcting a ECHO10 record', () => {
     expect(xml).toContain('<OrganizationName>NZ/NZAI/ANZ-UPDATED</OrganizationName>')
 
     // RUContentType verification
-    expect(xml).toContain('<Type>DistributionURL : VIEW RELATED INFORMATION : OGC WMS</Type>')
+    expect(xml).toContain('<Type>VIEW RELATED INFORMATION : OGC WMS</Type>')
     expect(xml).not.toContain('<Type>DistributionURL : VIEW RELATED INFORMATION : OpenSearch</Type>')
 
     // ScienceKeywords verification
@@ -598,7 +598,7 @@ describe('when verifying ECHO10 corrections do not remove unrelated metadata', (
     expect(selectTexts(updatedDocument, '//Campaigns/Campaign/ShortName')).toContain('ALIENS-UPDATED')
     expect(selectTexts(updatedDocument, '//Campaigns/Campaign/ShortName')).toContain('ICEBRIDGE')
     expect(selectText(updatedDocument, '//Contacts/Contact/OrganizationName')).toBe('NZ/NZAI/ANZ-UPDATED')
-    expect(selectText(updatedDocument, '//OnlineResources/OnlineResource/Type')).toBe('DistributionURL : VIEW RELATED INFORMATION : OGC WMS')
+    expect(selectText(updatedDocument, '//OnlineResources/OnlineResource/Type')).toBe('VIEW RELATED INFORMATION : OGC WMS')
     expect(selectText(updatedDocument, '//DataFormat')).toBe('HDF5')
     expect(selectText(updatedDocument, '//ProcessingLevelId')).toBe('1A')
 
@@ -1514,6 +1514,32 @@ describe('when applying Dataformat ECHO10 corrections', () => {
 </Collection>`
 
   describe('when replacing DataFormat', () => {
+    test('should apply the matching format replacement without adding an unmatched Related URL format', async () => {
+      const formatCorrection = {
+        scheme: 'dataformat',
+        action: 'replace',
+        ummPath: ['ArchiveAndDistributionInformation', 'FileDistributionInformation', 0],
+        oldKeywordObject: { ShortName: 'NetCDF' },
+        newKeywordObject: { ShortName: 'NetCDF-Test' }
+      }
+      const result = await applyEcho10MetadataCorrections({
+        metadataPayload: '<Collection><DataFormat>NetCDF</DataFormat><Spatial/></Collection>',
+        corrections: [formatCorrection, {
+          scheme: 'dataformat',
+          action: 'replace',
+          ummPath: ['RelatedUrls', 0, 'GetData', 'Format'],
+          oldKeywordObject: { ShortName: 'Not provided' },
+          newKeywordObject: { ShortName: 'Not Provided' }
+        }]
+      })
+
+      expect(result.correctedMetadata)
+        .toBe('<?xml version="1.0" encoding="UTF-8"?>\n<Collection><DataFormat>NetCDF-Test</DataFormat><Spatial/></Collection>')
+
+      expect(result.correctionCount).toBe(1)
+      expect(result.correctionsApplied).toEqual([formatCorrection])
+    })
+
     test('should successfully update the DataFormat with a new string', async () => {
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: mockEcho10WithDataFormat,
@@ -1644,7 +1670,7 @@ describe('when applying Dataformat ECHO10 corrections', () => {
       expect(result.correctionCount).toBe(0)
     })
 
-    test('should return true and add a new node if the DataFormat is not present', async () => {
+    test('should skip replacement without adding a missing DataFormat', async () => {
       const noProcessingLevelXml = '<Collection></Collection>'
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: noProcessingLevelXml,
@@ -1657,9 +1683,10 @@ describe('when applying Dataformat ECHO10 corrections', () => {
         }]
       })
 
-      expect(result.correctionCount).toBe(1)
+      expect(result.correctionCount).toBe(0)
 
-      expect(result.correctedMetadata).toContain('<DataFormat>HDF5</DataFormat>')
+      expect(result.correctionsApplied).toEqual([])
+      expect(result.correctedMetadata).not.toContain('<DataFormat>')
     })
 
     test('should return false if an unknown action type is provided', async () => {
@@ -1794,7 +1821,7 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
       expect(result.correctionCount).toBe(0)
     })
 
-    test('should return true and add a new node if the ProcessingLevelId is not present', async () => {
+    test('should skip replacement without adding a missing ProcessingLevelId', async () => {
       const noProcessingLevelXml = '<Collection></Collection>'
       const result = await applyEcho10MetadataCorrections({
         metadataPayload: noProcessingLevelXml,
@@ -1807,9 +1834,10 @@ describe('when applying ProcessingLevelId ECHO10 corrections', () => {
         }]
       })
 
-      expect(result.correctionCount).toBe(1)
+      expect(result.correctionCount).toBe(0)
 
-      expect(result.correctedMetadata).toContain('<ProcessingLevelId>Level 4</ProcessingLevelId>')
+      expect(result.correctionsApplied).toEqual([])
+      expect(result.correctedMetadata).not.toContain('<ProcessingLevelId>')
     })
 
     test('should return false if an unknown action type is provided', async () => {
@@ -2606,6 +2634,189 @@ describe('when applying provider ECHO10 corrections', () => {
   })
 })
 
+const mockEcho10WithLocations = `<Collection>
+    <ShortName>LOCATION_TEST</ShortName>
+    <SpatialKeywords>
+        <Keyword source="provider">Global Ocean</Keyword>
+        <Keyword>ALBERTA</Keyword>
+        <Keyword>UNCONTROLLED</Keyword>
+    </SpatialKeywords>
+    <TemporalKeywords><Keyword>GLOBAL OCEAN</Keyword></TemporalKeywords>
+</Collection>`
+
+describe('when applying ECHO10 Location corrections', () => {
+  test('should replace the matching leaf without adding the full hierarchy or changing unrelated keywords', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        oldKeywordObject: {
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'GLOBAL OCEAN',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: ''
+        },
+        newKeywordObject: {
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'TEST-GLOBAL-OCEAN',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: '',
+          Other: 'IGNORE THIS NON-HIERARCHY FIELD'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Keyword source="provider">TEST-GLOBAL-OCEAN</Keyword>')
+    expect(result.correctedMetadata).not.toContain('GEOGRAPHIC REGION')
+    expect(result.correctedMetadata).toContain('<Keyword>ALBERTA</Keyword>')
+    expect(result.correctedMetadata).toContain('<Keyword>UNCONTROLLED</Keyword>')
+    expect(result.correctedMetadata).toContain('<TemporalKeywords><Keyword>GLOBAL OCEAN</Keyword></TemporalKeywords>')
+  })
+
+  test('should select the deepest populated CSV level even when hierarchy levels are empty', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><SpatialKeywords><Keyword>MCMURDO SOUND</Keyword></SpatialKeywords></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        oldKeywordObject: {
+          LocationCategory: 'CONTINENT',
+          LocationType: 'ANTARCTICA',
+          LocationSubregion1: '',
+          LocationSubregion2: '',
+          LocationSubregion3: '',
+          LocationSubregion4: 'MCMURDO SOUND'
+        },
+        newKeywordObject: {
+          LocationSubregion4: 'MCMURDO SOUND_CHANGED',
+          LocationCategory: 'CONTINENT',
+          LocationType: 'ANTARCTICA'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Keyword>MCMURDO SOUND_CHANGED</Keyword>')
+    expect(result.correctedMetadata).not.toContain('ANTARCTICA')
+  })
+
+  test('should delete only the matching Location leaf', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLocations,
+      corrections: [{
+        scheme: 'locations',
+        action: 'delete',
+        oldKeywordObject: {
+          LocationCategory: 'CONTINENT',
+          LocationType: 'NORTH AMERICA',
+          LocationSubregion1: 'CANADA',
+          LocationSubregion2: 'ALBERTA'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('<Keyword>ALBERTA</Keyword>')
+    expect(result.correctedMetadata).toContain('<Keyword source="provider">Global Ocean</Keyword>')
+    expect(result.correctedMetadata).toContain('<Keyword>UNCONTROLLED</Keyword>')
+    expect(result.correctedMetadata).toContain('<SpatialKeywords>')
+  })
+
+  test('should remove the SpatialKeywords container after deleting its last keyword', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><ShortName>TEST</ShortName><SpatialKeywords><Keyword>GLOBAL OCEAN</Keyword></SpatialKeywords></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        action: 'DELETE',
+        oldKeywordObject: {
+          LocationCategory: 'GEOGRAPHIC REGION',
+          LocationType: 'GLOBAL OCEAN'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('SpatialKeywords')
+    expect(result.correctedMetadata).toContain('<ShortName>TEST</ShortName>')
+  })
+
+  test('should preserve incomplete, unmatched, unsupported, and unchanged Location corrections', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLocations,
+      corrections: [
+        {
+          scheme: 'locations',
+          newKeywordObject: { LocationType: 'SHOULD_NOT_ADD' }
+        },
+        {
+          scheme: 'locations',
+          oldKeywordObject: { LocationType: 'MISSING' },
+          newKeywordObject: { LocationType: 'SHOULD_NOT_ADD' }
+        },
+        {
+          scheme: 'locations',
+          oldKeywordObject: { LocationType: 'Global Ocean' }
+        },
+        {
+          scheme: 'locations',
+          action: 'unsupported',
+          oldKeywordObject: { LocationType: 'Global Ocean' },
+          newKeywordObject: { LocationType: 'SHOULD_NOT_ADD' }
+        },
+        {
+          scheme: 'locations',
+          oldKeywordObject: {
+            LocationCategory: 'OLD CATEGORY',
+            LocationType: 'Global Ocean'
+          },
+          newKeywordObject: {
+            LocationCategory: 'NEW CATEGORY',
+            LocationType: 'Global Ocean'
+          }
+        }
+      ]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).toBe(`<?xml version="1.0" encoding="UTF-8"?>\n${mockEcho10WithLocations}`)
+  })
+
+  test('should not create a missing SpatialKeywords field', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><ShortName>TEST</ShortName></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        oldKeywordObject: { LocationType: 'GLOBAL OCEAN' },
+        newKeywordObject: { LocationType: 'TEST-GLOBAL-OCEAN' }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).not.toContain('SpatialKeywords')
+  })
+
+  test('should support a category-only Location and preserve canonical replacement casing', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: '<Collection><SpatialKeywords><Keyword>OCEAN</Keyword></SpatialKeywords></Collection>',
+      corrections: [{
+        scheme: 'locations',
+        action: 'replace',
+        oldKeywordObject: { LocationCategory: 'ocean' },
+        newKeywordObject: { LocationCategory: 'Ocean_CHANGED' }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Keyword>Ocean_CHANGED</Keyword>')
+  })
+})
+
 const mockEcho10WithRelatedURLs = `<Collection>
     <ShortName>RELATED_URL_TEST</ShortName>
     <VersionId>001</VersionId>
@@ -2626,7 +2837,320 @@ const mockEcho10WithRelatedURLs = `<Collection>
     </OnlineResources>
 </Collection>`
 
+const mockEcho10WithNativeRelatedURLs = `<Collection>
+    <ShortName>NATIVE_RELATED_URL_TEST</ShortName>
+    <OnlineResources>
+        <OnlineResource>
+            <URL>https://example.com/guide</URL>
+            <Description>User documentation</Description>
+            <Type>VIEW RELATED INFORMATION : USER'S GUIDE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/recipe</URL>
+            <Type>VIEW RELATED INFORMATION : DATA RECIPE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/other</URL>
+            <Type>OTHER TYPE : USER'S GUIDE</Type>
+        </OnlineResource>
+    </OnlineResources>
+</Collection>`
+
+const mockEcho10WithLegacyRelatedURLs = `<Collection>
+    <OnlineResources>
+        <OnlineResource>
+            <URL>https://example.com/guide</URL>
+            <Description>User documentation</Description>
+            <Type>User guide</Type>
+            <MimeType>application/pdf</MimeType>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/publications</URL>
+            <Type>Publications</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/other</URL>
+            <Type>OTHER TYPE : USER'S GUIDE</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.com/custom</URL>
+            <Type>User guide custom</Type>
+        </OnlineResource>
+    </OnlineResources>
+</Collection>`
+
 describe('when applying related URL content type ECHO10 corrections', () => {
+  test('should replace the legacy User guide alias without changing other URL metadata', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE"
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE_CHANGED"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE_CHANGED</Type>")
+    expect(result.correctedMetadata).toContain('<URL>https://example.com/guide</URL>')
+    expect(result.correctedMetadata).toContain('<Description>User documentation</Description>')
+    expect(result.correctedMetadata).toContain('<MimeType>application/pdf</MimeType>')
+    expect(result.correctedMetadata).toContain('<Type>Publications</Type>')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+    expect(result.correctedMetadata).toContain('<Type>User guide custom</Type>')
+  })
+
+  test('should replace the legacy Publications alias with the canonical native representation', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'PUBLICATIONS'
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'PUBLICATIONS_CHANGED'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : PUBLICATIONS_CHANGED</Type>')
+    expect(result.correctedMetadata).toContain('<URL>https://example.com/publications</URL>')
+    expect(result.correctedMetadata).toContain('<Type>User guide</Type>')
+  })
+
+  test('should delete only the URLs matching the legacy guide and publication aliases', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: ["USER'S GUIDE", 'PUBLICATIONS'].map((Subtype) => ({
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype
+        }
+      }))
+    })
+
+    expect(result.correctionCount).toBe(2)
+    expect(result.correctedMetadata).not.toContain('https://example.com/guide')
+    expect(result.correctedMetadata).not.toContain('https://example.com/publications')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+    expect(result.correctedMetadata).toContain('<Type>User guide custom</Type>')
+  })
+
+  test('should recognize other CMR guide and publication aliases with case-insensitive matching', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: `<Collection><OnlineResources>
+        <OnlineResource><Type>collection guide</Type></OnlineResource>
+        <OnlineResource><Type>portal_doc_journal_references</Type></OnlineResource>
+      </OnlineResources></Collection>`,
+      corrections: ["user's guide", 'publications'].map((Subtype) => ({
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'publicationurl',
+          Type: 'view related information',
+          Subtype
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'GENERAL DOCUMENTATION'
+        }
+      }))
+    })
+
+    expect(result.correctionCount).toBe(2)
+    expect(result.correctedMetadata.match(/<Type>VIEW RELATED INFORMATION : GENERAL DOCUMENTATION<\/Type>/g))
+      .toHaveLength(2)
+  })
+
+  test('should not match legacy aliases when their full UMM hierarchy does not match', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithLegacyRelatedURLs,
+      corrections: [{
+        URLContentType: 'DistributionURL',
+        Type: 'VIEW RELATED INFORMATION',
+        Subtype: "USER'S GUIDE"
+      }, {
+        URLContentType: 'PublicationURL',
+        Type: 'OTHER TYPE',
+        Subtype: 'PUBLICATIONS'
+      }, {
+        Type: 'VIEW RELATED INFORMATION',
+        Subtype: "USER'S GUIDE"
+      }].map((oldKeywordObject) => ({
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject
+      }))
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).toBe(`<?xml version="1.0" encoding="UTF-8"?>\n${mockEcho10WithLegacyRelatedURLs}`)
+  })
+
+  test('should update a native Type : Subtype value using the full KMS correction object', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE"
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE_CHANGED"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain("<Type>VIEW RELATED INFORMATION : USER'S GUIDE_CHANGED</Type>")
+    expect(result.correctedMetadata).not.toContain('<Type>PublicationURL :')
+    expect(result.correctedMetadata).toContain('<URL>https://example.com/guide</URL>')
+    expect(result.correctedMetadata).toContain('<Description>User documentation</Description>')
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : DATA RECIPE</Type>')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+  })
+
+  test('should delete only the matching native Type : Subtype URL', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: "USER'S GUIDE"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).not.toContain('https://example.com/guide')
+    expect(result.correctedMetadata).toContain('https://example.com/recipe')
+    expect(result.correctedMetadata).toContain('https://example.com/other')
+  })
+
+  test('should not partially match a subtype belonging to a different Type', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'delete',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'UNRELATED TYPE',
+          Subtype: "USER'S GUIDE"
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(0)
+    expect(result.correctedMetadata).toContain('https://example.com/guide')
+    expect(result.correctedMetadata).toContain('https://example.com/other')
+  })
+
+  test('should match and write the abbreviated subtypes used by CMR ECHO10 translation', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: `<Collection><OnlineResources><OnlineResource>
+        <URL>https://example.com/algorithm</URL>
+        <Type>VIEW RELATED INFORMATION : ALGORITHM THEO BASIS</Type>
+      </OnlineResource></OnlineResources></Collection>`,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'ALGORITHM THEORETICAL BASIS DOCUMENT'
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'PRODUCT QUALITY ASSESSMENT'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : PRODUCT QUALITY</Type>')
+    expect(result.correctedMetadata).not.toContain('ALGORITHM THEO BASIS')
+  })
+
+  test('should accept an unabbreviated native subtype and write CMR calibration abbreviation', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: `<Collection><OnlineResources><OnlineResource>
+        <URL>https://example.com/algorithm</URL>
+        <Type>VIEW RELATED INFORMATION : ALGORITHM THEORETICAL BASIS DOCUMENT</Type>
+      </OnlineResource></OnlineResources></Collection>`,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'ALGORITHM THEORETICAL BASIS DOCUMENT'
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: 'CALIBRATION DATA DOCUMENTATION'
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>VIEW RELATED INFORMATION : CALIBRATION DATA</Type>')
+  })
+
+  test('should match native casing without relaxing the complete Type : Subtype match', async () => {
+    const result = await applyEcho10MetadataCorrections({
+      metadataPayload: mockEcho10WithNativeRelatedURLs,
+      corrections: [{
+        scheme: 'rucontenttype',
+        action: 'replace',
+        oldKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'view related information',
+          Subtype: "user's guide"
+        },
+        newKeywordObject: {
+          URLContentType: 'PublicationURL',
+          Type: 'VIEW RELATED INFORMATION',
+          Subtype: ''
+        }
+      }]
+    })
+
+    expect(result.correctionCount).toBe(1)
+    expect(result.correctedMetadata).toContain('<Type>PublicationURL : VIEW RELATED INFORMATION</Type>')
+    expect(result.correctedMetadata).toContain("<Type>OTHER TYPE : USER'S GUIDE</Type>")
+  })
+
   test('should apply URL content type correction to first Related_URL', async () => {
     const result = await applyEcho10MetadataCorrections({
       collectionConceptId: 'C1',
@@ -2663,7 +3187,7 @@ describe('when applying related URL content type ECHO10 corrections', () => {
     expect(result.correctedMetadata).toContain('<Type>DistributionURL : USE SERVICE API : REST</Type>')
   })
 
-  test('should update both type and subtype and append to URLContentType', async () => {
+  test('should match a legacy three-component value and write Type : Subtype', async () => {
     const result = await applyEcho10MetadataCorrections({
       collectionConceptId: 'C1',
       providerId: 'PROV',
@@ -2690,7 +3214,7 @@ describe('when applying related URL content type ECHO10 corrections', () => {
     expect(result.correctionCount).toBe(1)
 
     // Verify type was updated
-    expect(result.correctedMetadata).toContain('<Type>DistributionURL : GET CAPABILITIES : OGC WMS</Type>')
+    expect(result.correctedMetadata).toContain('<Type>GET CAPABILITIES : OGC WMS</Type>')
     expect(result.correctedMetadata).not.toContain('<Type>DistributionURL : GET CAPABILITIES : OpenSearch</Type>')
   })
 
@@ -2720,7 +3244,7 @@ describe('when applying related URL content type ECHO10 corrections', () => {
 
     expect(result.correctionCount).toBe(1)
 
-    expect(result.correctedMetadata).toContain('<Type>DistributionURL : GET DATA : DIRECT DOWNLOAD</Type>')
+    expect(result.correctedMetadata).toContain('<Type>GET DATA : DIRECT DOWNLOAD</Type>')
     expect(result.correctedMetadata).not.toContain('<Type>DistributionURL : GET DATA</Type>')
   })
 

@@ -4,6 +4,18 @@
   "source": "local-smoke",
   "corrections": [
     {
+      "scheme": "locations",
+      "action": "delete",
+      "oldKeywordObject": {
+        "LocationCategory": "CONTINENT",
+        "LocationType": "NORTH AMERICA",
+        "LocationSubregion1": "CANADA",
+        "LocationSubregion2": "ALBERTA_SHOULD_DELETE",
+        "LocationSubregion3": "",
+        "LocationSubregion4": ""
+      }
+    },
+    {
       "scheme": "instruments",
       "action": "delete",
       "oldKeywordObject": {

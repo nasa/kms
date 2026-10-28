@@ -1,0 +1,113 @@
+{
+  "ScienceKeywords": [
+    {
+      "Category": "EARTH SCIENCE",
+      "Topic": "TERRESTRIAL HYDROSPHERE",
+      "Term": "SNOW/ICE",
+      "VariableLevel1": "SNOW WATER EQUIVALENT",
+      "VariableLevel2": "SNOW ICE TEST",
+      "VariableLevel3": "WATER ICE TEST",
+      "DetailedVariable": "RAIN"
+    }
+  ],
+  "LocationKeywords": [
+    {
+      "Category": "GEOGRAPHIC REGION",
+      "Type": "GLOBAL LAND"
+    },
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA"
+    },
+    {
+      "Category": "CONTINENT",
+      "Type": "NORTH AMERICA",
+      "Subregion1": "CANADA",
+      "Subregion2": "ALBERTA_SHOULD_DELETE"
+    },
+    {
+      "Category": "OTHER",
+      "Type": "UNCONTROLLED_SHOULD_PRESERVE"
+    }
+  ],
+  "Platforms": [
+    {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "Terra",
+      "LongName": "Earth Observing System, Terra (AM-1)"
+    },
+    {
+      "Type": "Earth Observation Satellites",
+      "ShortName": "Terra_SHOULD_DELETE",
+      "LongName": "Earth Observing System, Terra (AM-1)_SHOULD_DELETE",
+      "Instruments": [
+        {
+          "ShortName": "AMSR-E",
+          "LongName": "Advanced Microwave Scanning Radiometer-EOS"
+        }
+      ]
+    }
+  ],
+  "Projects": [
+    {
+      "ShortName": "AMSRICE06",
+      "LongName": "Advanced Microwave Scanning Radiometer Sea Ice Product Validation"
+    }
+  ],
+  "DataCenters": [
+    {
+      "ShortName": "NASA/MSFC/AMSR-E SIPS",
+      "Roles": [
+        "PROCESSOR"
+      ]
+    },
+    {
+      "ShortName": "NSIDC",
+      "Roles": [
+        "ARCHIVER"
+      ]
+    }
+  ],
+  "RelatedUrls": [
+    {
+      "URLContentType": "PublicationURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "",
+      "URL": "https://example.earthdata.nasa.gov/documentation"
+    },
+    {
+      "URLContentType": "DistributionURL",
+      "Type": "GET DATA",
+      "URL": "http://www.foo.com",
+      "GetData": {
+        "Format": "Not provided"
+      }
+    },
+    {
+      "URLContentType": "PublicationURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "USER'S GUIDE",
+      "URL": "https://example.earthdata.nasa.gov/users-guide"
+    },
+    {
+      "URLContentType": "PublicationURL",
+      "Type": "VIEW RELATED INFORMATION",
+      "Subtype": "PUBLICATIONS",
+      "URL": "https://example.earthdata.nasa.gov/publications"
+    }
+  ],
+  "ProcessingLevel": {
+    "Id": "3"
+  },
+  "ArchiveAndDistributionInformation": {
+    "FileArchiveInformation": [
+      {
+        "Format": "netCDF-4"
+      }
+    ]
+  },
+  "ShortName": "ECHO10_CORRECTION_TEST",
+  "Version": "001"
+}

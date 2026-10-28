@@ -3,9 +3,13 @@ import { formatKeywordObjectForLog } from '@/shared/formatKeywordObjectForLog'
 import { getCmrCollectionConceptIds } from '@/shared/getCmrCollectionConceptIds'
 import { hasMeaningfulKeywordObject } from '@/shared/hasMeaningfulKeywordObject'
 import { logger } from '@/shared/logger'
+import persistAuditLog from '@/shared/persistMetadataCorrectionAuditLog'
 import {
   persistMetadataCorrectionNoOpAuditLog
 } from '@/shared/persistMetadataCorrectionNoOpAuditLog'
+import {
+  persistMetadataCorrectionWorkflowFailureAuditLog
+} from '@/shared/persistMetadataCorrectionWorkflowFailureAuditLog'
 import { publishMetadataCorrectionRequest } from '@/shared/publishMetadataCorrectionRequest'
 
 /**
@@ -60,28 +64,88 @@ const buildMetadataCorrectionRequest = (collectionConceptId, keywordEvent) => {
 }
 
 /**
+ * Narrows an arbitrary thrown value into a logger-safe error payload.
+ *
+ * @param {unknown} error - Thrown error or error-like value.
+ * @returns {Record<string, unknown>|undefined} Serializable error context for logs.
+ */
+const serializeError = (error) => {
+  if (!error) {
+    return undefined
+  }
+
+  return {
+    name: error.name,
+    message: error.message,
+    status: error.status,
+    url: error.url,
+    cmrRequest: error.cmrRequest,
+    cmrCause: error.cmrCause,
+    stack: error.stack
+  }
+}
+
+/**
  * Publishes one collection-scoped correction request per impacted collection concept id.
  *
  * @param {string[]} collectionConceptIds - Affected collection concept ids returned by CMR.
  * @param {Record<string, unknown>} keywordEvent - Raw parsed KMS keyword event.
+ * @param {string} [messageId] - Source SQS message id used to correlate publish failures.
  * @returns {Promise<void>} Resolves once all publish calls complete.
  */
-const publishCollectionCorrectionRequests = async (collectionConceptIds, keywordEvent) => {
+const publishCollectionCorrectionRequests = async (
+  collectionConceptIds,
+  keywordEvent,
+  messageId
+) => {
   await Promise.all(collectionConceptIds.map(async (collectionConceptId) => {
     const metadataCorrectionRequest = buildMetadataCorrectionRequest(
       collectionConceptId,
       keywordEvent
     )
-    const publishResult = await publishMetadataCorrectionRequest(metadataCorrectionRequest)
 
-    logger.info(
-      '[consumer] Published metadata correction request '
-      + `collectionConceptId=${metadataCorrectionRequest.collectionConceptId} `
-      + `uuid=${metadataCorrectionRequest.keywordEvent.uuid || 'n/a'} `
-      + `eventTimestamp=${metadataCorrectionRequest.keywordEvent.timestamp || 'n/a'} `
-      + `messageId=${publishResult.messageId || 'n/a'} `
-      + `topicArn=${publishResult.topicArn || 'n/a'}`
-    )
+    try {
+      const publishResult = await publishMetadataCorrectionRequest(metadataCorrectionRequest)
+
+      logger.info(
+        '[consumer] Published metadata correction request '
+        + `collectionConceptId=${metadataCorrectionRequest.collectionConceptId} `
+        + `uuid=${metadataCorrectionRequest.keywordEvent.uuid || 'n/a'} `
+        + `eventTimestamp=${metadataCorrectionRequest.keywordEvent.timestamp || 'n/a'} `
+        + `messageId=${publishResult.messageId || 'n/a'} `
+        + `topicArn=${publishResult.topicArn || 'n/a'}`
+      )
+    } catch (error) {
+      logger.error('[consumer] Failed to publish metadata correction request', {
+        collectionConceptId,
+        messageId: messageId || 'n/a',
+        eventType: metadataCorrectionRequest.keywordEvent.eventType || 'n/a',
+        scheme: metadataCorrectionRequest.keywordEvent.scheme || 'n/a',
+        uuid: metadataCorrectionRequest.keywordEvent.uuid || 'n/a',
+        error: serializeError(error)
+      })
+
+      // A record replay would republish collection requests that succeeded before this failure.
+      // Audit this collection once and allow the remaining collection requests to continue.
+      try {
+        await persistAuditLog({
+          status: 'failed',
+          collectionConceptId,
+          publishedVersionName: metadataCorrectionRequest.publishedVersionName,
+          source: 'cmrKeywordEventsListener',
+          messageId,
+          keywordEvent: metadataCorrectionRequest.keywordEvent,
+          outcome: 'correction-request-publish-failed',
+          error
+        })
+      } catch (auditError) {
+        logger.error('[consumer] Failed to persist correction request publish failure', {
+          collectionConceptId,
+          messageId: messageId || 'n/a',
+          error: serializeError(auditError)
+        })
+      }
+    }
   }))
 }
 
@@ -123,28 +187,6 @@ const getLookupKeywordObject = (keywordEvent) => {
 }
 
 /**
- * Narrows an arbitrary thrown value into a logger-safe error payload.
- *
- * @param {unknown} error - Thrown error or error-like value.
- * @returns {Record<string, unknown>|undefined} Serializable error context for logs.
- */
-const serializeError = (error) => {
-  if (!error) {
-    return undefined
-  }
-
-  return {
-    name: error.name,
-    message: error.message,
-    status: error.status,
-    url: error.url,
-    cmrRequest: error.cmrRequest,
-    cmrCause: error.cmrCause,
-    stack: error.stack
-  }
-}
-
-/**
  * CMR event processor that consumes SNS notifications delivered through SQS.
  *
  * The queue record body contains the SNS envelope, whose `Message` field contains the
@@ -164,13 +206,16 @@ export const cmrKeywordEventsListener = async (event) => {
     let scheme
     let uuid
     let keywordObject
+    let keywordEvent
+    let publisherMessageId
 
     try {
       // Unwrap the SNS envelope first, then parse the original KMS keyword event payload.
       const { body } = record
 
       const snsEnvelope = JSON.parse(body || '{}')
-      const keywordEvent = snsEnvelope.Message
+      publisherMessageId = snsEnvelope.MessageId
+      keywordEvent = snsEnvelope.Message
         ? JSON.parse(snsEnvelope.Message)
         : null
 
@@ -211,7 +256,7 @@ export const cmrKeywordEventsListener = async (event) => {
           await persistMetadataCorrectionNoOpAuditLog({
             keywordEvent,
             messageId,
-            publisherMessageId: snsEnvelope.MessageId
+            publisherMessageId
           })
 
           logger.info(
@@ -230,7 +275,11 @@ export const cmrKeywordEventsListener = async (event) => {
         )
 
         // Publish a collection-scoped correction request for each eligible concept id.
-        await publishCollectionCorrectionRequests(eligibleCollectionConceptIds, keywordEvent)
+        await publishCollectionCorrectionRequests(
+          eligibleCollectionConceptIds,
+          keywordEvent,
+          messageId
+        )
       } else if (keywordEvent) {
         // Only UPDATED and DELETED keyword events trigger collection lookup fanout.
         logger.info(
@@ -252,7 +301,25 @@ export const cmrKeywordEventsListener = async (event) => {
         error: serializeError(error)
       })
 
-      throw error
+      // Previously, rethrowing failed the invocation so SQS could retry temporary failures.
+      // A retry restarted the entire fanout, duplicating collection requests already published.
+      // Audit the failure and allow the handler to succeed so SQS acknowledges the message;
+      // failed work requires manual follow-up instead of automatically replaying successful work.
+      try {
+        await persistMetadataCorrectionWorkflowFailureAuditLog({
+          source: 'cmrKeywordEventsListener',
+          outcome: 'keyword-event-processing-failed',
+          error,
+          keywordEvent,
+          messageId,
+          publisherMessageId
+        })
+      } catch (auditError) {
+        logger.error('Failed to persist keyword event processing failure', {
+          messageId: messageId || 'n/a',
+          error: serializeError(auditError)
+        })
+      }
     }
   }))
 

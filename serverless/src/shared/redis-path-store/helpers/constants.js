@@ -266,7 +266,9 @@ export const HISTORICAL_CACHE_FULL_PATH_SCHEMES = Object.freeze([
   'rucontenttype',
   'isotopiccategory',
   'temporalresolutionrange',
-  'horizontalresolutionrange'
+  'horizontalresolutionrange',
+  'verticalresolutionrange',
+  'productlevelid'
 ])
 
 /**

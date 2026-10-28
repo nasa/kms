@@ -574,7 +574,7 @@ describe('when validating collection UMM-C against the published Redis cache', (
         },
         {
           path: ['RelatedUrls', 0, 'GetData', 'Format'],
-          errors: ['Format was not a valid keyword.']
+          errors: ['Data format was not a valid keyword.']
         }
       ],
       warnings: [],
@@ -594,7 +594,7 @@ describe('when validating collection UMM-C against the published Redis cache', (
           },
           {
             path: ['RelatedUrls', 0, 'GetData', 'Format'],
-            errors: ['Format was not a valid keyword.']
+            errors: ['Data format was not a valid keyword.']
           }
         ],
         warnings: []
@@ -820,11 +820,11 @@ describe('when validating collection UMM-C against the published Redis cache', (
       },
       {
         path: ['ArchiveAndDistributionInformation', 'FileArchiveInformation', 0],
-        errors: ['Format was not a valid keyword.']
+        errors: ['Data format was not a valid keyword.']
       },
       {
         path: ['ArchiveAndDistributionInformation', 'FileDistributionInformation', 0],
-        errors: ['Format was not a valid keyword.']
+        errors: ['Data format was not a valid keyword.']
       }
     ]))
   })

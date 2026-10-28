@@ -206,6 +206,16 @@
       }
     },
     {
+      "scheme": "isotopiccategory",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ISOTopicCategory": "HEALTH"
+      },
+      "newKeywordObject": {
+        "ISOTopicCategory": "Health"
+      }
+    },
+    {
       "scheme": "productlevelid",
       "action": "replace",
       "oldKeywordObject": {
@@ -224,6 +234,22 @@
       "newKeywordObject": {
         "ShortName": "COG_CHANGED"
       }
+    },
+    {
+      "scheme": "dataformat",
+      "action": "replace",
+      "oldKeywordObject": {
+        "ShortName": "COG"
+      },
+      "newKeywordObject": {
+        "ShortName": "COG_CHANGED"
+      },
+      "ummPath": [
+        "RelatedUrls",
+        1,
+        "GetData",
+        "Format"
+      ]
     }
   ]
 }

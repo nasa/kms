@@ -85,6 +85,11 @@
         </LicenseURL>
     </UseConstraints>
     <DataFormat>netCDF-4</DataFormat>
+    <SpatialKeywords>
+        <Keyword>GLOBAL LAND</Keyword>
+        <Keyword>ALBERTA</Keyword>
+        <Keyword>UNCONTROLLED_SHOULD_PRESERVE</Keyword>
+    </SpatialKeywords>
     
     <TemporalKeywords>
         <Keyword>TemporalKeyword1</Keyword>
@@ -429,6 +434,17 @@
             <Description>An IDN related URL where the OSDD link has a service URL.</Description>
             <Type>USE SERVICE API : WEB COVERAGE SERVICE (WCS)</Type>
             <MimeType>application/geo+json</MimeType>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/users-guide</URL>
+            <Description>User documentation</Description>
+            <Type>User guide</Type>
+        </OnlineResource>
+        <OnlineResource>
+            <URL>https://example.earthdata.nasa.gov/publications</URL>
+            <Description>Published research</Description>
+            <Type>Publications</Type>
+            <MimeType>text/html</MimeType>
         </OnlineResource>
     </OnlineResources>
     <FileNamingConvention>

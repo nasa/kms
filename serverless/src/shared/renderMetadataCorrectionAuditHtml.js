@@ -89,6 +89,19 @@ const PAGE_STYLES = `
     box-shadow: 0 0.7rem 2rem rgba(20, 47, 60, 0.08);
   }
 
+  .version-activity {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 2rem;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .activity-note {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
   .published-table {
     width: 100%;
     min-width: 70rem;
@@ -253,6 +266,12 @@ const PAGE_STYLES = `
     border-color: #e4aaa5;
     background: #fce6e4;
     color: var(--danger);
+  }
+
+  .status-warning {
+    border-color: #d2ae5e;
+    background: #fff3d6;
+    color: #785300;
   }
 
   .section {
@@ -460,6 +479,62 @@ const renderEnabledProvidersNotice = (enabledProviders) => {
 const displayDate = (value) => displayValue(value instanceof Date ? value.toISOString() : value)
 
 /**
+ * Shows an absolute activity time and its age when the report was rendered.
+ * Missing or invalid historical timestamps must not appear as activity at the Unix epoch.
+ *
+ * @param {unknown} value Stored activity timestamp.
+ * @param {number} now Report rendering time in milliseconds.
+ * @returns {string} HTML-safe timestamp with a relative age.
+ */
+const renderActivityTime = (value, now) => {
+  const date = value ? new Date(value) : undefined
+
+  if (!date || Number.isNaN(date.getTime())) return 'Not available'
+
+  const seconds = (date.getTime() - now) / 1000
+  let relative = 'just now'
+
+  if (Math.abs(seconds) >= 60) {
+    const [unit, size] = [
+      ['day', 86400],
+      ['hour', 3600],
+      ['minute', 60]
+    ].find(([, secondsPerUnit]) => Math.abs(seconds) >= secondsPerUnit)
+
+    relative = new Intl.RelativeTimeFormat('en', { numeric: 'always' })
+      .format(Math.trunc(seconds / size), unit)
+  }
+
+  return `<time datetime="${date.toISOString()}">${date.toISOString()}</time> (${displayValue(relative)})`
+}
+
+/**
+ * Measures recorded activity only, not time since publication or confirmed completion.
+ *
+ * @param {Object} activity First and latest timestamps for the published version.
+ * @returns {string} Compact duration or fallback text for incomplete/invalid timestamps.
+ */
+const formatActivityDuration = ({ firstActivityAt, latestActivityAt }) => {
+  if (!firstActivityAt || !latestActivityAt) return 'Not available'
+
+  let seconds = Math.floor((new Date(latestActivityAt) - new Date(firstActivityAt)) / 1000)
+
+  if (!Number.isFinite(seconds) || seconds < 0) return 'Not available'
+
+  const parts = []
+  const units = [['d', 86400], ['h', 3600], ['m', 60], ['s', 1]]
+
+  units.forEach(([unit, size]) => {
+    const count = Math.floor(seconds / size)
+
+    if (count > 0) parts.push(`${count}${unit}`)
+    seconds %= size
+  })
+
+  return parts.join(' ') || '0s'
+}
+
+/**
  * Renders an HTML-only collection concept ID filter for the audit summary.
  *
  * @param {unknown} collectionConceptId Current exact-match filter value.
@@ -486,7 +561,7 @@ const renderCollectionFilter = (collectionConceptId) => {
 /**
  * Renders labeled audit values in a responsive detail grid.
  *
- * @param {Array<[string, unknown]>} entries Label/value pairs, including optional values.
+ * @param {Array<[string, unknown, string?]>} entries Label/value pairs with optional link URLs.
  * @returns {string} Detail grid containing only available values.
  */
 const renderDetailGrid = (entries) => {
@@ -494,10 +569,10 @@ const renderDetailGrid = (entries) => {
 
   if (availableEntries.length === 0) return ''
 
-  return `<dl class="detail-grid">${availableEntries.map(([label, value]) => `
+  return `<dl class="detail-grid">${availableEntries.map(([label, value, href]) => `
     <div>
       <dt>${displayValue(label)}</dt>
-      <dd>${displayValue(value)}</dd>
+      <dd>${href ? `<a href="${displayValue(href)}">${displayValue(value)}</a>` : displayValue(value)}</dd>
     </div>
   `).join('')}</dl>`
 }
@@ -506,17 +581,24 @@ const renderDetailGrid = (entries) => {
  * Returns either a safe CMR collection link or a plain collection identifier.
  *
  * @param {Object} audit Audit summary or detail document.
+ * @param {boolean} [linkToCmr=true] Whether to link the heading to the CMR collection.
  * @returns {string} HTML collection heading.
  */
-const renderCollectionHeading = (audit) => {
+const renderCollectionHeading = (audit, linkToCmr = true) => {
   if (audit.recordType === 'publisherEventNoOp') {
     return 'Publisher event: no collections found'
+  }
+
+  if (audit.recordType === 'metadataCorrectionWorkflowFailure') {
+    // These failures can happen before a collection id is known, so avoid a misleading
+    // "Unknown collection" heading in the operator view.
+    return 'Metadata correction workflow failure'
   }
 
   const conceptId = displayValue(audit.collectionConceptId, 'Unknown collection')
   const collectionUri = String(audit.collectionUri || '')
 
-  if (!/^https:\/\//i.test(collectionUri)) return conceptId
+  if (!linkToCmr || !/^https:\/\//i.test(collectionUri)) return conceptId
 
   return `<a href="${displayValue(collectionUri)}" rel="noopener noreferrer">${conceptId}</a>`
 }
@@ -601,12 +683,13 @@ const renderNativeMetadataDiff = (audit) => {
  * Renders the fields available only on a complete audit document.
  *
  * @param {Object} audit Detailed audit document.
+ * @param {string} publishedVersionHref Relative path to the published version report.
  * @returns {string} Run overview and optional trigger detail sections.
  */
-const renderRunDetails = (audit) => {
+const renderRunDetails = (audit, publishedVersionHref) => {
   const overview = renderDetailGrid([
     ['Provider', audit.providerId],
-    ['Published KMS version', audit.publishedVersionName],
+    ['Published KMS version', audit.publishedVersionName, publishedVersionHref],
     ['Native format', audit.nativeFormat],
     ['Delegate', audit.delegateName],
     ['Source', audit.source],
@@ -685,16 +768,53 @@ const renderValidationFailures = (audit) => {
  *
  * @param {Object} audit Audit summary document.
  * @param {boolean} detail Whether this is already the complete run view.
+ * @param {string} runDetailHrefPrefix Relative path to the audit detail routes.
  * @returns {string} Linked or plain-text run id.
  */
-const renderRunId = (audit, detail) => {
+const renderRunId = (audit, detail, runDetailHrefPrefix) => {
   const displayRunId = displayValue(audit.runId)
 
   if (detail || !audit.runId) return displayRunId
 
   const runId = encodeURIComponent(String(audit.runId))
 
-  return `<a href="metadata_correction_audit/${runId}?format=html">${displayRunId}</a>`
+  return `<a href="${displayValue(runDetailHrefPrefix)}${runId}?format=html">${displayRunId}</a>`
+}
+
+/**
+ * Distinguishes resolved proposals from native changes when a completed run applied nothing.
+ *
+ * @param {Object} audit Audit summary or detail document.
+ * @returns {string} Escaped correction summary, or an empty string for other outcomes.
+ */
+const renderCorrectionSummary = (audit) => {
+  if (audit.outcome !== 'no-native-corrections-applied') return ''
+
+  const { resolvedCorrectionCount, correctionsAppliedCount } = audit
+  const noun = resolvedCorrectionCount === 1 ? 'correction' : 'corrections'
+
+  return displayValue(
+    `${resolvedCorrectionCount} ${noun} resolved; ${correctionsAppliedCount} applied to native metadata.`
+  )
+}
+
+/**
+ * Distinguishes unapplied proposals from an ordinary checked run without changing stored status.
+ * Failed runs retain their failure badge even if an earlier outcome is still present.
+ *
+ * @param {Object} audit Audit summary or detail document.
+ * @returns {string} Status badge with outcome-specific wording and styling.
+ */
+const renderAuditStatus = (audit) => {
+  const status = String(audit.status || 'unknown').toLowerCase()
+
+  if (status === 'checked' && audit.outcome === 'no-native-corrections-applied') {
+    return '<span class="status status-warning">none applied</span>'
+  }
+
+  const statusClass = status === 'failed' ? ' status-failed' : ''
+
+  return `<span class="status${statusClass}">${displayValue(status)}</span>`
 }
 
 /**
@@ -703,36 +823,44 @@ const renderRunId = (audit, detail) => {
  * @param {Object} audit Audit summary or detail document.
  * @param {Object} options Rendering options.
  * @param {boolean} options.detail Whether this is the complete run view.
+ * @param {string} options.runDetailHrefPrefix Relative path to audit details.
  * @returns {string} HTML audit card.
  */
-const renderAuditCard = (audit, { detail }) => {
-  const status = String(audit.status || 'unknown').toLowerCase()
-  const statusClass = status === 'failed' ? ' status-failed' : ''
+const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
   const updatedAt = audit.updatedAt || audit.createdAt
   const updatedText = updatedAt
     ? ` &middot; Updated ${displayValue(updatedAt instanceof Date ? updatedAt.toISOString() : updatedAt)}`
     : ''
+  // Link both collection-filtered cards and run details without losing /kms or API stage prefixes.
+  const publishedVersionHref = audit.publishedVersionName
+    ? `${detail ? '' : runDetailHrefPrefix}published/${encodeURIComponent(String(audit.publishedVersionName))}?format=html`
+    : undefined
+  const publishedVersionValue = publishedVersionHref
+    ? `<a href="${displayValue(publishedVersionHref)}">${displayValue(audit.publishedVersionName)}</a>`
+    : displayValue(audit.publishedVersionName)
   const publishedVersionText = audit.publishedVersionName
-    ? ` &middot; Published Version ${displayValue(audit.publishedVersionName)}`
+    ? ` &middot; Published Version ${publishedVersionValue}`
     : ''
   const errorMessage = audit.errorMessage || audit.error?.message
   const errorSection = errorMessage
     ? `<div class="section"><p class="error">${displayValue(errorMessage)}</p></div>`
     : ''
+  const correctionSummary = renderCorrectionSummary(audit)
 
   return `
     <article class="audit-card">
       <header class="audit-header">
         <div>
           <h2>${renderCollectionHeading(audit)}</h2>
-          <p class="audit-meta">Run ${renderRunId(audit, detail)}${publishedVersionText}${updatedText}</p>
+          <p class="audit-meta">Run ${renderRunId(audit, detail, runDetailHrefPrefix)}${publishedVersionText}${updatedText}</p>
         </div>
-        <span class="status${statusClass}">${displayValue(status)}</span>
+        ${renderAuditStatus(audit)}
       </header>
-      ${detail ? renderRunDetails(audit) : ''}
+      ${detail ? renderRunDetails(audit, publishedVersionHref) : ''}
       ${errorSection}
       <section class="section">
         <h3>Keyword changes</h3>
+        ${correctionSummary ? `<p class="notice">${correctionSummary}</p>` : ''}
         ${renderChangesTable(audit)}
       </section>
       ${detail ? renderValidationFailures(audit) : ''}
@@ -749,32 +877,38 @@ const renderAuditCard = (audit, { detail }) => {
  * Renders one table row per changed keyword for a published-version audit document.
  *
  * @param {Object} audit Audit summary document.
+ * @param {string} runDetailHrefPrefix Relative path to audit details.
  * @returns {string} Published report table rows.
  */
-const renderPublishedAuditRows = (audit) => {
+const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
   const changes = Array.isArray(audit.changes) && audit.changes.length > 0
     ? audit.changes
     : [{}]
   const status = String(audit.status || 'unknown').toLowerCase()
-  const statusClass = status === 'failed' ? ' status-failed' : ''
   const collection = audit.recordType === 'publisherEventNoOp'
     ? 'No collections found'
-    : renderCollectionHeading(audit)
+    : renderCollectionHeading(audit, false)
+  // Open audit diagnostics from the collection label without adding a separate run-id line.
+  const collectionLink = audit.runId
+    ? `<a href="${displayValue(runDetailHrefPrefix)}${encodeURIComponent(String(audit.runId))}?format=html">${collection}</a>`
+    : collection
   const outcomeDetail = audit.outcome && audit.outcome !== status
     ? `<span class="outcome-detail">${displayValue(audit.outcome)}</span>`
     : ''
+  const correctionSummary = renderCorrectionSummary(audit)
 
   return changes.map((change) => `
     <tr>
-      <td>${collection}</td>
+      <td>${collectionLink}</td>
       <td>${displayValue(change.scheme, '')}</td>
       <td>${displayValue(change.action, '')}</td>
       <td class="previous-path">${displayValue(change.oldKeywordPath, '')}</td>
       <td class="updated-path">${displayValue(change.newKeywordPath, '')}</td>
       <td>${displayDate(audit.updatedAt || audit.createdAt)}</td>
       <td class="outcome-cell">
-        <span class="status${statusClass}">${displayValue(status)}</span>
+        ${renderAuditStatus(audit)}
         ${outcomeDetail}
+        ${correctionSummary ? `<span class="outcome-detail">${correctionSummary}</span>` : ''}
       </td>
     </tr>
   `).join('')
@@ -784,10 +918,17 @@ const renderPublishedAuditRows = (audit) => {
  * Groups audit rows under their published KMS version.
  *
  * @param {Array<Object>} items Audit summary documents in newest-first order.
+ * @param {string} runDetailHrefPrefix Relative path to audit details.
+ * @param {Array<Object>} publishedVersionActivity Whole-version activity timestamps.
  * @returns {string} Version-grouped audit tables.
  */
-const renderPublishedVersionGroups = (items) => {
+const renderPublishedVersionGroups = (items, runDetailHrefPrefix, publishedVersionActivity) => {
   const groups = new Map()
+  const activityByVersion = new Map(publishedVersionActivity.map((activity) => [
+    activity.publishedVersionName,
+    activity
+  ]))
+  const now = Date.now()
 
   items.forEach((audit) => {
     const versionName = audit.publishedVersionName || 'Unknown published version'
@@ -803,6 +944,12 @@ const renderPublishedVersionGroups = (items) => {
         <h2>Published Version: ${displayValue(versionName)}</h2>
         <p>${versionItems.length} audit ${versionItems.length === 1 ? 'record' : 'records'}</p>
       </header>
+      ${activityByVersion.has(versionName) ? `<div class="version-activity">
+        <span><strong>First activity:</strong> ${renderActivityTime(activityByVersion.get(versionName)?.firstActivityAt, now)}</span>
+        <span><strong>Latest activity:</strong> ${renderActivityTime(activityByVersion.get(versionName)?.latestActivityAt, now)}</span>
+        <span><strong>Activity duration:</strong> ${formatActivityDuration(activityByVersion.get(versionName))}</span>
+      </div>
+      <p class="activity-note">Across all audit records for this version. Duration is from first to latest recorded activity. Ages are as of page load; refresh to update. Latest activity does not confirm all queued work is complete.</p>` : ''}
       <div class="published-table-wrap">
         <table class="published-table">
           <thead>
@@ -816,7 +963,7 @@ const renderPublishedVersionGroups = (items) => {
               <th scope="col">Outcome</th>
             </tr>
           </thead>
-          <tbody>${versionItems.map(renderPublishedAuditRows).join('')}</tbody>
+          <tbody>${versionItems.map((audit) => renderPublishedAuditRows(audit, runDetailHrefPrefix)).join('')}</tbody>
         </table>
       </div>
     </section>
@@ -842,6 +989,9 @@ const renderPublishedVersionGroups = (items) => {
  * for. When provided, a disclaimer naming them is rendered at the top of the page.
  * @param {boolean} [params.groupByPublishedVersion=false] Group summaries under version headings.
  * @param {Array<Object>} [params.items=[]] Audit records to render.
+ * @param {Array<Object>} [params.publishedVersionActivity=[]] Whole-version activity timestamps.
+ * @param {string} [params.runDetailHrefPrefix] Relative path to audit details; defaults to
+ * the sibling run routes for published reports and metadata_correction_audit/ for searches.
  * @param {string} [params.message] Optional empty-state or error message.
  * @param {string} [params.nextPageHref] Link to the next result page.
  * @param {boolean} [params.showCollectionFilter=true] Whether to show the collection search form.
@@ -854,7 +1004,9 @@ export const renderMetadataCorrectionAuditHtml = ({
   detail = false,
   enabledProviders,
   groupByPublishedVersion = false,
+  runDetailHrefPrefix = groupByPublishedVersion ? '' : 'metadata_correction_audit/',
   items = [],
+  publishedVersionActivity = [],
   message,
   nextPageHref,
   showCollectionFilter = true,
@@ -865,8 +1017,11 @@ export const renderMetadataCorrectionAuditHtml = ({
 
   if (items.length > 0) {
     cards = groupByPublishedVersion
-      ? renderPublishedVersionGroups(items)
-      : items.map((audit) => renderAuditCard(audit, { detail })).join('')
+      ? renderPublishedVersionGroups(items, runDetailHrefPrefix, publishedVersionActivity)
+      : items.map((audit) => renderAuditCard(audit, {
+        detail,
+        runDetailHrefPrefix
+      })).join('')
   }
 
   const nextPageLink = nextPageHref

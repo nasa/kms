@@ -1,7 +1,9 @@
 import {
+  afterEach,
   describe,
   expect,
-  test
+  test,
+  vi
 } from 'vitest'
 
 import { renderMetadataCorrectionAuditHtml } from '../renderMetadataCorrectionAuditHtml'
@@ -15,6 +17,119 @@ const PATCH = `=================================================================
 `
 
 describe('renderMetadataCorrectionAuditHtml', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  test('shows whole-version activity timestamps with relative ages at page load', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-23T17:00:00.000Z').getTime())
+
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        publishedVersionName: '25.0',
+        updatedAt: '2026-10-23T16:55:00.000Z'
+      }],
+      publishedVersionActivity: [{
+        publishedVersionName: '25.0',
+        firstActivityAt: new Date('2026-10-21T09:00:00.000Z'),
+        latestActivityAt: '2026-10-23T12:00:00.000Z'
+      }]
+    })
+
+    expect(view).toContain('<strong>First activity:</strong> <time datetime="2026-10-21T09:00:00.000Z">2026-10-21T09:00:00.000Z</time> (2 days ago)')
+    expect(view).toContain('<strong>Latest activity:</strong> <time datetime="2026-10-23T12:00:00.000Z">2026-10-23T12:00:00.000Z</time> (5 hours ago)')
+    expect(view).toContain('<strong>Activity duration:</strong> 2d 3h')
+    expect(view).toContain('Duration is from first to latest recorded activity.')
+    expect(view).toContain('Ages are as of page load; refresh to update.')
+    expect(view).toContain('Latest activity does not confirm all queued work is complete.')
+  })
+
+  test('formats activity duration for short, zero, missing, invalid, and reversed intervals', () => {
+    const firstActivityAt = '2026-10-23T12:00:00.000Z'
+    const scenarios = [
+      {
+        latestActivityAt: '2026-10-23T13:02:03.000Z',
+        expected: '1h 2m 3s'
+      },
+      {
+        latestActivityAt: '2026-10-23T12:00:45.000Z',
+        expected: '45s'
+      },
+      {
+        latestActivityAt: firstActivityAt,
+        expected: '0s'
+      },
+      {
+        latestActivityAt: undefined,
+        expected: 'Not available'
+      },
+      {
+        latestActivityAt: 'invalid',
+        expected: 'Not available'
+      },
+      {
+        latestActivityAt: '2026-10-23T11:59:59.000Z',
+        expected: 'Not available'
+      }
+    ]
+
+    scenarios.forEach(({ latestActivityAt, expected }) => {
+      const view = renderMetadataCorrectionAuditHtml({
+        groupByPublishedVersion: true,
+        items: [{ publishedVersionName: '25.0' }],
+        publishedVersionActivity: [{
+          publishedVersionName: '25.0',
+          firstActivityAt,
+          latestActivityAt
+        }]
+      })
+
+      expect(view).toContain(`<strong>Activity duration:</strong> ${expected}</span>`)
+    })
+  })
+
+  test('keeps version activity separate and handles singular, recent, future, and absent dates', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-10-23T17:00:00.000Z').getTime())
+
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [
+        { publishedVersionName: 'hour' },
+        { publishedVersionName: 'minute' },
+        { publishedVersionName: 'missing' },
+        { publishedVersionName: 'invalid' }
+      ],
+      publishedVersionActivity: [{
+        publishedVersionName: 'hour',
+        firstActivityAt: '2026-10-22T17:00:00.000Z',
+        latestActivityAt: '2026-10-23T16:00:00.000Z'
+      }, {
+        publishedVersionName: 'minute',
+        firstActivityAt: '2026-10-23T16:59:00.000Z',
+        latestActivityAt: '2026-10-23T16:59:45.000Z'
+      }, {
+        publishedVersionName: 'invalid',
+        firstActivityAt: '<script>invalid</script>',
+        latestActivityAt: '2026-10-23T18:00:00.000Z'
+      }, {
+        publishedVersionName: 'missing',
+        firstActivityAt: null
+      }]
+    })
+
+    expect(view).toContain('(1 day ago)')
+    expect(view).toContain('(1 hour ago)')
+    expect(view).toContain('(1 minute ago)')
+    expect(view).toContain('(just now)')
+    expect(view).toContain('(in 1 hour)')
+    expect(view).toContain('<strong>First activity:</strong> Not available')
+    expect(view).toContain('<strong>Latest activity:</strong> Not available')
+    expect(view).not.toContain('<script>invalid</script>')
+    expect(view.indexOf('(1 hour ago)')).toBeLessThan(view.indexOf('Published Version: minute'))
+    expect(view.indexOf('(1 minute ago)')).toBeGreaterThan(view.indexOf('Published Version: minute'))
+  })
+
   test('renders a safe change table and colored side-by-side native metadata diff', () => {
     const view = renderMetadataCorrectionAuditHtml({
       collectionConceptId: 'C123-PROV',
@@ -73,7 +188,12 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('Keyword changes')
-    expect(view).toContain('Published Version published-42')
+    expect(view).toContain('Published Version <a href="metadata_correction_audit/published/published-42?format=html">published-42</a>')
+    const [, href] = view.match(/href="([^"]+)">published-42<\/a>/)
+
+    expect(new URL(href, 'https://cmr.example.com/kms/metadata_correction_audit?collectionConceptId=C123-PROV').pathname)
+      .toBe('/kms/metadata_correction_audit/published/published-42')
+
     expect(view).toContain('<a href="metadata_correction_audit/run%2Fsummary?format=html">run/summary</a>')
     expect(view).not.toContain('Native metadata diff')
     expect(view).not.toContain('Run details')
@@ -85,6 +205,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
       items: [{
         runId: 'run-v42-a',
         collectionConceptId: 'C42-A',
+        collectionUri: 'https://cmr.example.com/search/concepts/C42-A',
         publishedVersionName: 'published-42',
         status: 'applied',
         changes: [{
@@ -108,6 +229,8 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     })
 
     expect(view).toContain('Published Version: published-42')
+    expect(view).not.toContain('<strong>First activity:</strong>')
+    expect(view).not.toContain('<strong>Latest activity:</strong>')
     expect(view).toContain('2 audit records')
     expect(view).toContain('Published Version: published-41')
     expect(view).toContain('1 audit record')
@@ -119,6 +242,10 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('Platforms &gt; New')
     expect(view).toContain('No collections found')
     expect(view).toContain('no-collections-found')
+    expect(view).toContain('<td><a href="run-v42-a?format=html">C42-A</a></td>')
+    expect(view).toContain('<a href="run-v42-b?format=html">No collections found</a>')
+    expect(view).not.toContain('https://cmr.example.com/search/concepts/C42-A')
+    expect(view).not.toContain('<p class="audit-meta">Run ')
     expect(view.indexOf('Published Version: published-42'))
       .toBeLessThan(view.indexOf('Published Version: published-41'))
   })
@@ -141,6 +268,30 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('Published Version: Unknown published version')
     expect(view).toContain('<span class="status status-failed">failed</span>')
     expect(view).toContain('<span class="status">unknown</span>')
+    expect(view).toContain('<a href="run-failed?format=html">C-FAILED</a>')
+  })
+
+  test('links every changed keyword row to its failed run, including workflow failures', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      runDetailHrefPrefix: '../',
+      items: [{
+        runId: 'failed/run',
+        recordType: 'metadataCorrectionWorkflowFailure',
+        status: 'failed',
+        changes: [{ scheme: 'platforms' }, { scheme: 'productlevelid' }]
+      }, {
+        collectionConceptId: 'C-MISSING-RUN',
+        status: 'failed'
+      }]
+    })
+
+    expect(view).toContain('Metadata correction workflow failure')
+    expect(view.match(/<a href="\.\.\/failed%2Frun\?format=html">Metadata correction workflow failure<\/a>/g))
+      .toHaveLength(2)
+
+    expect(view).not.toContain('href="../undefined')
+    expect(view).toContain('<td>C-MISSING-RUN</td>')
   })
 
   test('renders complete run context and lifecycle history in detail mode', () => {
@@ -183,6 +334,7 @@ describe('renderMetadataCorrectionAuditHtml', () => {
 
     expect(view).toContain('Run details')
     expect(view).toContain('Published KMS version')
+    expect(view.match(/<a href="published\/version-1\?format=html">version-1<\/a>/g)).toHaveLength(2)
     expect(view).toContain('version-1')
     expect(view).toContain('Prior CMR revision')
     expect(view).toContain('Trigger')
@@ -195,6 +347,110 @@ describe('renderMetadataCorrectionAuditHtml', () => {
     expect(view).toContain('No native metadata diff was recorded for this run.')
     expect(view).toContain('<p class="audit-meta">Run run-detail')
     expect(view).not.toContain('metadata_correction_audit/run-detail?format=html')
+  })
+
+  test('encodes and escapes published-version links without losing the deployment prefix', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{
+        runId: 'run-detail',
+        publishedVersionName: 'release / <test>&"'
+      }]
+    })
+    const [, href] = view.match(/href="(published\/[^"]+)"/)
+    const url = new URL(href, 'https://cmr.example.com/kms/metadata_correction_audit/run-detail')
+
+    expect(url.pathname).toBe('/kms/metadata_correction_audit/published/release%20%2F%20%3Ctest%3E%26%22')
+    expect(url.searchParams.get('format')).toBe('html')
+    expect(view).toContain('release / &lt;test&gt;&amp;&quot;</a>')
+    expect(view).not.toContain('<test>')
+  })
+
+  test('does not create a published-report link for runs without a version', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{ runId: 'manual-run' }]
+    })
+
+    expect(view).not.toContain('href="published/')
+    expect(view).not.toContain('<dt>Published KMS version</dt>')
+  })
+
+  test('explains a completed native no-op in audit cards and published reports', () => {
+    const audit = {
+      runId: 'native-no-op',
+      collectionConceptId: 'C123-PROV',
+      status: 'checked',
+      outcome: 'no-native-corrections-applied',
+      resolvedCorrectionCount: 3,
+      correctionsAppliedCount: 0
+    }
+    let view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [audit]
+    })
+
+    expect(view).toContain('no-native-corrections-applied')
+    expect(view).toContain('<span class="status status-warning">none applied</span>')
+    expect(view).not.toContain('<span class="status">checked</span>')
+    expect(view).toContain('3 corrections resolved; 0 applied to native metadata.')
+    expect(view).toContain('No native metadata diff was recorded for this run.')
+    view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [audit]
+    })
+
+    expect(view).toContain('no-native-corrections-applied')
+    expect(view).toContain('3 corrections resolved; 0 applied to native metadata.')
+    expect(view).toContain('<span class="status status-warning">none applied</span>')
+    expect(view).not.toContain('<span class="status">checked</span>')
+
+    view = renderMetadataCorrectionAuditHtml({
+      items: [{
+        ...audit,
+        resolvedCorrectionCount: 1
+      }]
+    })
+
+    expect(view).toContain('1 correction resolved; 0 applied to native metadata.')
+    expect(view).toContain('<span class="status status-warning">none applied</span>')
+    expect(audit.status).toBe('checked')
+  })
+
+  test('keeps normal checked and failed badges distinct from none applied', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      items: [
+        {
+          status: 'checked',
+          outcome: 'no-corrections'
+        },
+        {
+          status: 'failed',
+          outcome: 'no-native-corrections-applied'
+        }
+      ]
+    })
+
+    expect(view).toContain('<span class="status">checked</span>')
+    expect(view).toContain('<span class="status status-failed">failed</span>')
+    expect(view).not.toContain('<span class="status status-warning">none applied</span>')
+  })
+
+  test('identifies a workflow failure that occurred before a collection was known', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      items: [{
+        runId: 'workflow-failure',
+        recordType: 'metadataCorrectionWorkflowFailure',
+        status: 'failed',
+        outcome: 'keyword-event-processing-failed',
+        error: { message: 'CMR lookup unavailable' }
+      }]
+    })
+
+    expect(view).toContain('Metadata correction workflow failure')
+    expect(view).toContain('CMR lookup unavailable')
+    expect(view).not.toContain('Unknown collection')
   })
 
   test('renders a no-collections-found publisher event clearly', () => {

@@ -921,7 +921,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       expect(editor.serialize()).toContain('<Short_Name>TWO</Short_Name>')
     })
 
-    test('should use tagName to create a missing scalar node when the DIF root exists', () => {
+    test('should not create a missing scalar node when the DIF root exists', () => {
       const editor = new XmlMetadataPathEditor('<DIF><Entry_ID/></DIF>')
 
       const isUpdated = editor.updateScalarNode({
@@ -934,8 +934,23 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
         tagName: 'Product_Level_Id'
       })
 
-      expect(isUpdated).toBe(true)
-      expect(editor.serialize()).toContain('<Product_Level_Id>1A</Product_Level_Id>')
+      expect(isUpdated).toBe(false)
+      expect(editor.serialize()).toBe('<?xml version="1.0" encoding="UTF-8"?>\n<DIF><Entry_ID/></DIF>')
+    })
+
+    test('should leave an existing scalar unchanged when its value does not match the correction', () => {
+      const metadata = '<?xml version="1.0" encoding="UTF-8"?>\n<DIF><Product_Level_Id>2</Product_Level_Id></DIF>'
+      const editor = new XmlMetadataPathEditor(metadata)
+
+      expect(editor.updateScalarNode({
+        action: 'replace',
+        oldKeywordObject: { ProductLevelId: '1' },
+        newKeywordObject: { ProductLevelId: '1TEST' }
+      }, {
+        nodeXPath: '//DIF/Product_Level_Id'
+      })).toBe(false)
+
+      expect(editor.serialize()).toBe(metadata)
     })
 
     test('should default block updates to replace and allow deletes without callbacks', () => {
@@ -1153,7 +1168,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       expect(deleteWithoutParentPruneEditor.selectNodes('//DIF/Data_Resolution')).toHaveLength(1)
     })
 
-    test('should support scalar delete paths and return false when scalar updates are unsupported or cannot create a root field', () => {
+    test('should support scalar deletes and skip unsupported updates or missing fields', () => {
       const deleteEditor = new XmlMetadataPathEditor('<DIF><Product_Level_Id>1A</Product_Level_Id></DIF>')
       const defaultReplaceEditor = new XmlMetadataPathEditor('<DIF><Product_Level_Id>1A</Product_Level_Id></DIF>')
       const missingDeleteEditor = new XmlMetadataPathEditor('<DIF><Entry_ID/></DIF>')
@@ -1233,7 +1248,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       }, {
         nodeXPath: '//Collection/ProductLevelId',
         tagName: 'ProductLevelId'
-      })).toBe(true)
+      })).toBe(false)
 
       expect(missingReplaceEditor.updateScalarNode({
         action: 'replace',
@@ -1243,7 +1258,7 @@ describe('when updating XML nodes through XmlMetadataPathEditor', () => {
       }, {
         nodeXPath: '//DIF/Product_Level_Id',
         tagName: 'Product_Level_Id'
-      })).toBe(true)
+      })).toBe(false)
 
       expect(deleteEditor.updateScalarNode({
         action: 'noop',
