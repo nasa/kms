@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 
+import { normalizeProviderId } from '@/shared/cmrWritebackProviders'
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 import {
   getKeywordPathFromKeywordObject
@@ -158,7 +159,10 @@ const buildAuditPatch = ({
 }) => compactObject({
   collectionConceptId,
   collectionUri: buildCmrCollectionUri(collectionConceptId),
-  providerId,
+  // Early failures can precede CMR retrieval. Store their provider now so filtering only
+  // needs the indexed providerId field, including for audits created after the backfill.
+  providerId: normalizeProviderId(providerId)
+    || String(collectionConceptId).match(/^C\d+-([a-z\d_-]+)$/i)?.[1]?.toUpperCase(),
   publishedVersionName: publishedVersionName || null,
   nativeFormat,
   delegateName,

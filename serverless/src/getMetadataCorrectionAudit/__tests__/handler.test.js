@@ -66,6 +66,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith({
       collectionConceptId: 'C1234567890-LOCAL',
       keywordConceptUuid: undefined,
+      providerId: undefined,
       action: undefined,
       paginationToken: undefined,
       endDate: undefined,
@@ -114,6 +115,22 @@ describe('getMetadataCorrectionAudit', () => {
 
     expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       includeDiff: 'true'
+    }))
+  })
+
+  test('passes a provider filter through the JSON audit endpoint', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: { providerId: 'SCIOPS' }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'SCIOPS'
     }))
   })
 
@@ -187,18 +204,26 @@ describe('getMetadataCorrectionAudit', () => {
       resource: '/metadata_correction_audit/published',
       pathParameters: {},
       queryStringParameters: {
-        format: 'html'
+        format: 'html',
+        providerId: 'SCIOPS'
       }
     })
 
     expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'SCIOPS',
+      publishedOnly: true
+    }))
+
     expect(result.body).toContain('<title>Published metadata correction audit</title>')
     expect(result.body).toContain('Published Version: published-42')
     expect(result.body).not.toContain('<strong>First activity:</strong>')
     expect(result.body).not.toContain('<strong>Latest activity:</strong>')
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).not.toContain('<h1>Published metadata correction audit</h1>')
-    expect(result.body).not.toContain('<form class="audit-filter"')
+    expect(result.body).toContain('<form class="audit-filter"')
+    expect(result.body).toContain('name="providerId"')
+    expect(result.body).not.toContain('name="collectionConceptId"')
     expect(result.body).toContain('<a href="run-published?format=html">C123-PROV</a>')
 
     const [, href] = result.body.match(/href="([^"]+)">C123-PROV<\/a>/)
@@ -219,7 +244,7 @@ describe('getMetadataCorrectionAudit', () => {
         firstActivityAt: '2026-10-21T09:00:00.000Z',
         latestActivityAt: '2026-10-23T12:00:00.000Z'
       }],
-      nextPaginationToken: null
+      nextPaginationToken: 'next-published-token'
     })
 
     const result = await getMetadataCorrectionAudit({
@@ -228,11 +253,19 @@ describe('getMetadataCorrectionAudit', () => {
         versionName: 'published-42'
       },
       queryStringParameters: {
-        format: 'html'
+        format: 'html',
+        providerId: 'SCIOPS,EDF_DEV01',
+        status: 'failed'
       }
     })
 
     expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      publishedVersionName: 'published-42',
+      providerId: 'SCIOPS,EDF_DEV01',
+      status: 'failed'
+    }))
+
     expect(result.body).toContain('Published Version: published-42')
     expect(result.body).toContain('<strong>First activity:</strong> <time datetime="2026-10-21T09:00:00.000Z">')
     expect(result.body).toContain('<strong>Latest activity:</strong> <time datetime="2026-10-23T12:00:00.000Z">')
@@ -240,6 +273,10 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('<th scope="col">Collection ID</th>')
     expect(result.body).toContain('<th scope="col">Outcome</th>')
     expect(result.body).toContain('<a href="../run-published?format=html">C123-PROV</a>')
+    expect(result.body).toContain('name="providerId" value="SCIOPS,EDF_DEV01"')
+    expect(result.body).toContain('type="hidden" name="status" value="failed"')
+    expect(result.body).toContain('providerId=SCIOPS%2CEDF_DEV01')
+    expect(result.body).toContain('paginationToken=next-published-token')
   })
 
   test('opens failure details from the collection link in a single-version published report', async () => {
@@ -339,12 +376,14 @@ describe('getMetadataCorrectionAudit', () => {
     const result = await getMetadataCorrectionAudit({
       queryStringParameters: {
         collectionConceptId: 'C1234567890-LOCAL',
+        providerId: 'LOCAL,SCIOPS',
         format: 'html'
       }
     })
 
     expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       collectionConceptId: 'C1234567890-LOCAL',
+      providerId: 'LOCAL,SCIOPS',
       includeDiff: undefined,
       limit: '10'
     }))
@@ -355,11 +394,13 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.headers['Content-Security-Policy']).toContain("form-action 'self'")
     expect(result.body).toContain('<form class="audit-filter" method="get">')
     expect(result.body).toContain('name="collectionConceptId" value="C1234567890-LOCAL"')
+    expect(result.body).toContain('name="providerId" value="LOCAL,SCIOPS"')
     expect(result.body).toContain('<table class="changes-table">')
     expect(result.body).toContain('<a href="metadata_correction_audit/run-html?format=html">run-html</a>')
     expect(result.body).toContain('<a href="metadata_correction_audit/published/published-42?format=html">published-42</a>')
     expect(result.body).not.toContain('Native metadata diff')
     expect(result.body).toContain('paginationToken=next-token')
+    expect(result.body).toContain('providerId=LOCAL%2CSCIOPS')
   })
 
   test('renders one detailed audit document as html', async () => {

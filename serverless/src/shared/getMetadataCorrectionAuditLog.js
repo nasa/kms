@@ -1,5 +1,6 @@
 import { validate as isUuid } from 'uuid'
 
+import { normalizeProviderId } from '@/shared/cmrWritebackProviders'
 import { VALID_SCHEMES } from '@/shared/constants/validSchemes'
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 import { METADATA_CORRECTION_AUDIT_STATUSES } from '@/shared/persistMetadataCorrectionAuditLog'
@@ -99,6 +100,23 @@ const normalizeAction = (action) => {
   }
 
   return normalizedAction
+}
+
+/**
+ * Parses one provider or a comma-separated list into literal, normalized provider IDs.
+ * An empty form field leaves the search unrestricted; ALL is not a wildcard here.
+ *
+ * @param {unknown} providerId Requested provider filter.
+ * @returns {string[]} Unique provider IDs to match.
+ */
+const normalizeProviderIds = (providerId) => {
+  if (providerId === undefined || providerId === null) return []
+
+  if (typeof providerId !== 'string') {
+    throw new Error('Invalid metadata correction audit providerId: expected a comma-separated string')
+  }
+
+  return [...new Set(providerId.split(',').map(normalizeProviderId).filter(Boolean))]
 }
 
 /**
@@ -254,6 +272,7 @@ const buildAuditQuery = (filters) => {
     endDate,
     keywordConceptUuid,
     nativeFormat,
+    providerId,
     publishedOnly,
     publishedVersionName,
     scheme,
@@ -263,6 +282,11 @@ const buildAuditQuery = (filters) => {
   } = filters
 
   if (collectionConceptId) query.collectionConceptId = collectionConceptId
+  const providerIds = normalizeProviderIds(providerId)
+  if (providerIds.length) {
+    query.providerId = providerIds.length === 1 ? providerIds[0] : { $in: providerIds }
+  }
+
   const normalizedAction = normalizeAction(action)
   if (normalizedAction) query['trigger.eventType'] = normalizedAction
   if (keywordConceptUuid) {

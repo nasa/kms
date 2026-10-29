@@ -130,6 +130,42 @@ describe('persistMetadataCorrectionAuditLog', () => {
     )
   })
 
+  test('stores the provider from the collection ID when early failures have no provider', async () => {
+    await Promise.all([undefined, null, '', '  '].map((providerId) => (
+      persistMetadataCorrectionAuditLog({
+        collectionConceptId: 'C123-edf_dev01',
+        providerId,
+        status: 'failed',
+        error: new Error('CMR retrieval failed')
+      })
+    )))
+
+    expect(collection.updateOne).toHaveBeenCalledTimes(4)
+    collection.updateOne.mock.calls.forEach(([, update]) => {
+      expect(update.$set).toEqual(expect.objectContaining({
+        providerId: 'EDF_DEV01',
+        status: 'failed'
+      }))
+    })
+  })
+
+  test('normalizes a supplied provider without replacing it with the collection suffix', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-SCIOPS',
+      providerId: ' edf_dev01 '
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set.providerId).toBe('EDF_DEV01')
+  })
+
+  test('does not infer a provider from an invalid collection ID', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'not-a-concept-id'
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set).not.toHaveProperty('providerId')
+  })
+
   test('omits the collection URI when the CMR base URL is not configured', async () => {
     delete process.env.CMR_BASE_URL
 

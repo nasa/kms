@@ -535,22 +535,53 @@ const formatActivityDuration = ({ firstActivityAt, latestActivityAt }) => {
 }
 
 /**
- * Renders an HTML-only collection concept ID filter for the audit summary.
+ * Renders provider and optional collection filters without dropping other search criteria.
  *
- * @param {unknown} collectionConceptId Current exact-match filter value.
+ * @param {Object} params Current filter values and visible controls.
+ * @param {unknown} params.collectionConceptId Current exact-match collection filter.
+ * @param {unknown} params.providerId Current comma-separated provider filter.
+ * @param {Object} params.filterParameters Other API query parameters to retain.
+ * @param {boolean} params.showCollectionFilter Whether the collection input is visible.
  * @returns {string} GET form that retains the HTML response format.
  */
-const renderCollectionFilter = (collectionConceptId) => {
-  const clearLink = collectionConceptId
-    ? '<a href="?format=html">Clear</a>'
+const renderAuditFilters = ({
+  collectionConceptId,
+  providerId,
+  filterParameters,
+  showCollectionFilter
+}) => {
+  // A new search must reset pagination, but keep filters that have no visible form control.
+  const retainedParameters = new URLSearchParams({ format: 'html' })
+  const retainedFilterNames = [
+    'keywordConceptUuid', 'action', 'scheme', 'status', 'nativeFormat', 'source',
+    'startDate', 'endDate', 'includeDiff', 'limit'
+  ]
+  retainedFilterNames.forEach((name) => {
+    const value = filterParameters?.[name]
+    if (value !== undefined && value !== null) retainedParameters.set(name, String(value))
+  })
+
+  if (!showCollectionFilter && collectionConceptId) {
+    retainedParameters.set('collectionConceptId', collectionConceptId)
+  }
+
+  const clearLink = providerId || (showCollectionFilter && collectionConceptId)
+    ? `<a href="?${displayValue(retainedParameters.toString())}">Clear</a>`
     : ''
+  const hiddenInputs = [...retainedParameters.entries()].map(([name, value]) => (
+    `<input type="hidden" name="${displayValue(name)}" value="${displayValue(value)}">`
+  )).join('')
 
   return `
     <form class="audit-filter" method="get">
-      <input type="hidden" name="format" value="html">
-      <label for="collectionConceptId">
+      ${hiddenInputs}
+      ${showCollectionFilter ? `<label for="collectionConceptId">
         Collection ID
         <input id="collectionConceptId" name="collectionConceptId" value="${displayValue(collectionConceptId, '')}" placeholder="C1234567890-PROVIDER">
+      </label>` : ''}
+      <label for="providerId">
+        Provider IDs (comma-separated)
+        <input id="providerId" name="providerId" value="${displayValue(providerId, '')}" placeholder="SCIOPS, EDF_DEV01">
       </label>
       <button type="submit">Filter</button>
       ${clearLink}
@@ -984,6 +1015,8 @@ const renderPublishedVersionGroups = (items, runDetailHrefPrefix, publishedVersi
  *
  * @param {Object} params Page data.
  * @param {string} [params.collectionConceptId] Current collection ID filter.
+ * @param {string} [params.providerId] Current comma-separated provider filter.
+ * @param {Object} [params.filterParameters={}] Other search filters to preserve on submission.
  * @param {boolean} [params.detail=false] Whether to render complete run information.
  * @param {string[]} [params.enabledProviders] Providers the fixer service is currently enabled
  * for. When provided, a disclaimer naming them is rendered at the top of the page.
@@ -1001,6 +1034,8 @@ const renderPublishedVersionGroups = (items, runDetailHrefPrefix, publishedVersi
  */
 export const renderMetadataCorrectionAuditHtml = ({
   collectionConceptId,
+  providerId,
+  filterParameters = {},
   detail = false,
   enabledProviders,
   groupByPublishedVersion = false,
@@ -1042,7 +1077,12 @@ export const renderMetadataCorrectionAuditHtml = ({
       ${renderEnabledProvidersNotice(enabledProviders)}
       ${showPageHeader ? `<h1>${displayValue(title)}</h1>
       <p class="lede">${items.length} audit ${items.length === 1 ? 'record' : 'records'} on this page</p>` : ''}
-      ${detail || !showCollectionFilter ? '' : renderCollectionFilter(collectionConceptId)}
+      ${detail ? '' : renderAuditFilters({
+    collectionConceptId,
+    providerId,
+    filterParameters,
+    showCollectionFilter
+  })}
       ${cards}
       ${nextPageLink}
     </main>

@@ -5,6 +5,7 @@ import { getSecretsManagerClient } from '@/shared/awsClients'
 
 const DEFAULT_DATABASE_NAME = 'kms'
 const DEFAULT_AUDIT_COLLECTION_NAME = 'metadataCorrectionAudits'
+const DEFAULT_MIGRATIONS_COLLECTION_NAME = 'migrations'
 const DEFAULT_MAX_POOL_SIZE = 5
 
 let mongoClientPromise
@@ -173,6 +174,20 @@ export const getMetadataCorrectionAuditCollection = async () => {
   const databaseName = process.env.DOCUMENTDB_DATABASE_NAME || DEFAULT_DATABASE_NAME
   const collectionName = process.env.DOCUMENTDB_AUDIT_COLLECTION_NAME
     || DEFAULT_AUDIT_COLLECTION_NAME
+
+  return client.db(databaseName).collection(collectionName)
+}
+
+/**
+ * Returns deployment migration statuses in the same database, separate from audit reports.
+ *
+ * @returns {Promise<import('mongodb').Collection>} Migration status collection.
+ */
+export const getDatabaseMigrationsCollection = async () => {
+  const client = await getDocumentDbClient()
+  const databaseName = process.env.DOCUMENTDB_DATABASE_NAME || DEFAULT_DATABASE_NAME
+  const collectionName = process.env.DOCUMENTDB_MIGRATIONS_COLLECTION_NAME
+    || DEFAULT_MIGRATIONS_COLLECTION_NAME
 
   return client.db(databaseName).collection(collectionName)
 }

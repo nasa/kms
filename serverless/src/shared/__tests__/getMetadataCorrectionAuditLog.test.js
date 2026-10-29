@@ -197,6 +197,108 @@ describe('metadata correction audit queries', () => {
     }])
   })
 
+  test('filters by one provider using its normalized exact identifier', async () => {
+    await getMetadataCorrectionAuditLog({ providerId: ' sciops ' })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      { providerId: 'SCIOPS' },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('combines a deduplicated provider list with collection and other filters', async () => {
+    await getMetadataCorrectionAuditLog({
+      providerId: 'sciops, EDF_DEV01, SCIOPS, ,',
+      collectionConceptId: 'C123-SCIOPS',
+      status: 'failed',
+      scheme: 'platforms'
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        $and: [{
+          collectionConceptId: 'C123-SCIOPS',
+          providerId: { $in: ['SCIOPS', 'EDF_DEV01'] },
+          status: 'failed'
+        }, {
+          $or: [
+            { 'corrections.scheme': 'platforms' },
+            { 'trigger.scheme': 'platforms' }
+          ]
+        }]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('leaves an empty or omitted provider filter unrestricted', async () => {
+    const values = [undefined, null, '', '  ', ' , , ']
+    await Promise.all(values.map(async (providerId) => {
+      await getMetadataCorrectionAuditLog({ providerId })
+
+      expect(collection.find).toHaveBeenLastCalledWith({}, { projection: SUMMARY_PROJECTION })
+    }))
+  })
+
+  test('rejects non-string provider filters before querying the database', async () => {
+    const values = [{ $ne: null }, ['SCIOPS', 'EDF_DEV01'], 42]
+    await Promise.all(values.map((providerId) => (
+      expect(getMetadataCorrectionAuditLog({ providerId })).rejects.toThrow(
+        'Invalid metadata correction audit providerId: expected a comma-separated string'
+      )
+    )))
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('treats provider filter values as literals rather than wildcards or Mongo operators', async () => {
+    await getMetadataCorrectionAuditLog({ providerId: 'ALL' })
+
+    expect(collection.find).toHaveBeenLastCalledWith(
+      { providerId: 'ALL' },
+      { projection: SUMMARY_PROJECTION }
+    )
+
+    await getMetadataCorrectionAuditLog({ providerId: '{"$ne":null}' })
+
+    expect(collection.find).toHaveBeenLastCalledWith(
+      { providerId: '{"$NE":NULL}' },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('retains the provider filter when applying a keyset pagination boundary', async () => {
+    const createdAt = new Date('2026-10-29T12:00:00.000Z')
+    const paginationToken = Buffer.from(JSON.stringify({
+      createdAt,
+      runId: 'run-2'
+    }))
+      .toString('base64url')
+
+    await getMetadataCorrectionAuditLog({
+      providerId: 'SCIOPS,EDF_DEV01',
+      paginationToken
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        $and: [
+          { providerId: { $in: ['SCIOPS', 'EDF_DEV01'] } },
+          {
+            $or: [
+              { createdAt: { $lt: createdAt } },
+              {
+                createdAt,
+                _id: { $lt: 'run-2' }
+              }
+            ]
+          }
+        ]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
   test('returns audit documents from all published versions', async () => {
     mongoCursor.toArray.mockResolvedValue([{ publishedVersionName: '25.0' }])
 
@@ -255,6 +357,7 @@ describe('metadata correction audit queries', () => {
     const result = await getMetadataCorrectionAuditLog({
       publishedOnly: true,
       publishedVersionName: '25.0',
+      providerId: 'SCIOPS',
       status: 'failed',
       startDate: '2026-10-23',
       paginationToken,
@@ -262,6 +365,11 @@ describe('metadata correction audit queries', () => {
     })
 
     expect(result.items).toHaveLength(2)
+    const [query] = collection.find.mock.calls[0]
+    expect(query.$and[0]).toEqual(expect.objectContaining({
+      providerId: 'SCIOPS'
+    }))
+
     expect(result.nextPaginationToken).toBeTruthy()
     expect(result.publishedVersionActivity).toEqual([
       {

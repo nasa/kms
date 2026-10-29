@@ -8,11 +8,16 @@ import {
 } from 'vitest'
 
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
+import { runMigrations } from '@/shared/migrations/runMigrations'
 
 import { initializeMetadataCorrectionAudit } from '../handler'
 
 vi.mock('@/shared/documentDbClient', () => ({
   getMetadataCorrectionAuditCollection: vi.fn()
+}))
+
+vi.mock('@/shared/migrations/runMigrations', () => ({
+  runMigrations: vi.fn()
 }))
 
 describe('initializeMetadataCorrectionAudit', () => {
@@ -31,6 +36,7 @@ describe('initializeMetadataCorrectionAudit', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(runMigrations).mockReset().mockResolvedValue([])
     createIndexes.mockResolvedValue(['createdAt_desc'])
     vi.mocked(getMetadataCorrectionAuditCollection).mockResolvedValue({ createIndexes })
   })
@@ -46,6 +52,7 @@ describe('initializeMetadataCorrectionAudit', () => {
     })
 
     expect(createIndexes).toHaveBeenCalledWith(indexDefinitions)
+    expect(runMigrations).toHaveBeenCalledWith()
     expect(createIndexes.mock.calls[0][0][0].key.createdAt).toBeTypeOf('number')
     expect(consoleLog).toHaveBeenCalledWith(
       'Metadata correction audit indexes are ready',
@@ -65,6 +72,7 @@ describe('initializeMetadataCorrectionAudit', () => {
     })
 
     expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+    expect(runMigrations).not.toHaveBeenCalled()
     expect(result).toEqual({ PhysicalResourceId: 'existing-audit-indexes' })
   })
 
@@ -75,6 +83,28 @@ describe('initializeMetadataCorrectionAudit', () => {
     })).rejects.toThrow('Metadata correction audit index definitions are required')
 
     expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('runs migrations only after indexes are ready', async () => {
+    await initializeMetadataCorrectionAudit({
+      RequestType: 'Update',
+      ResourceProperties: {
+        IndexDefinitions: indexDefinitions
+      }
+    })
+
+    expect(runMigrations).toHaveBeenCalledWith()
+    expect(createIndexes.mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(runMigrations).mock.invocationCallOrder[0])
+  })
+
+  test('fails deployment when a migration fails instead of claiming initialization succeeded', async () => {
+    vi.mocked(runMigrations).mockRejectedValue(new Error('backfill failed'))
+
+    await expect(initializeMetadataCorrectionAudit({
+      RequestType: 'Update',
+      ResourceProperties: { IndexDefinitions: indexDefinitions }
+    })).rejects.toThrow('backfill failed')
   })
 
   test('retries while the new DocumentDB endpoint is not resolvable', async () => {
@@ -147,6 +177,7 @@ describe('initializeMetadataCorrectionAudit', () => {
     })).rejects.toThrow('DocumentDB secret is missing username')
 
     expect(getMetadataCorrectionAuditCollection).toHaveBeenCalledTimes(1)
+    expect(runMigrations).not.toHaveBeenCalled()
     expect(consoleWarn).not.toHaveBeenCalled()
   })
 

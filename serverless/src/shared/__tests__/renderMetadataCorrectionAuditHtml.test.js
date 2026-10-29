@@ -1,3 +1,4 @@
+import { JSDOM } from 'jsdom'
 import {
   afterEach,
   describe,
@@ -19,6 +20,80 @@ const PATCH = `=================================================================
 describe('renderMetadataCorrectionAuditHtml', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  test('renders provider and collection filters while retaining other criteria and resetting pagination', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      collectionConceptId: 'C123-SCIOPS',
+      providerId: 'SCIOPS,EDF_DEV01',
+      filterParameters: {
+        keywordConceptUuid: 'keyword-uuid',
+        status: 'failed',
+        scheme: 'platforms',
+        limit: '25',
+        includeDiff: 'true',
+        paginationToken: 'old-page',
+        unknownParameter: 'not-retained'
+      }
+    })
+    const { document } = new JSDOM(view).window
+    const form = document.querySelector('form')
+
+    expect(form.method).toBe('get')
+    expect(form.querySelector('[name="providerId"]').value).toBe('SCIOPS,EDF_DEV01')
+    expect(form.querySelector('[name="collectionConceptId"]').value).toBe('C123-SCIOPS')
+    expect(form.querySelector('[name="format"]').value).toBe('html')
+    expect(form.querySelector('[name="status"]').value).toBe('failed')
+    expect(form.querySelector('[name="keywordConceptUuid"]').value).toBe('keyword-uuid')
+    expect(form.querySelector('[name="scheme"]').value).toBe('platforms')
+    expect(form.querySelector('[name="limit"]').value).toBe('25')
+    expect(form.querySelector('[name="includeDiff"]').value).toBe('true')
+    expect(form.querySelector('[name="paginationToken"]')).toBeNull()
+    expect(form.querySelector('[name="unknownParameter"]')).toBeNull()
+
+    const clearUrl = new URL(form.querySelector('a').getAttribute('href'), 'https://example.com/audit')
+    expect(clearUrl.searchParams.has('providerId')).toBe(false)
+    expect(clearUrl.searchParams.has('collectionConceptId')).toBe(false)
+    expect(clearUrl.searchParams.get('status')).toBe('failed')
+  })
+
+  test('shows the provider filter on published reports without adding a collection control', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      showCollectionFilter: false,
+      providerId: 'SCIOPS',
+      collectionConceptId: 'C123-SCIOPS'
+    })
+    const { document } = new JSDOM(view).window
+    const form = document.querySelector('form')
+
+    expect(form.querySelector('[name="providerId"]').value).toBe('SCIOPS')
+    expect(form.querySelector('[name="collectionConceptId"]').type).toBe('hidden')
+    expect(form.querySelector('[name="collectionConceptId"]').value).toBe('C123-SCIOPS')
+    expect(form.hasAttribute('action')).toBe(false)
+    expect(form.querySelector('label[for="collectionConceptId"]')).toBeNull()
+  })
+
+  test('escapes provider and retained filter values instead of rendering injected markup', () => {
+    const providerId = '"><script>alert(1)</script>'
+    const view = renderMetadataCorrectionAuditHtml({
+      providerId,
+      filterParameters: { source: '"><img src=x onerror=alert(1)>' }
+    })
+    const { document } = new JSDOM(view).window
+
+    expect(document.querySelector('[name="providerId"]').value).toBe(providerId)
+    expect(document.querySelectorAll('script, img')).toHaveLength(0)
+  })
+
+  test('does not show provider filters on a run detail page', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      detail: true,
+      providerId: 'SCIOPS'
+    })
+    const { document } = new JSDOM(view).window
+
+    expect(document.querySelector('form')).toBeNull()
   })
 
   test('shows whole-version activity timestamps with relative ages at page load', () => {

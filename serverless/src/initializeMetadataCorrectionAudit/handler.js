@@ -1,4 +1,5 @@
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
+import { runMigrations } from '@/shared/migrations/runMigrations'
 
 const PHYSICAL_RESOURCE_ID = 'metadata-correction-audit-indexes'
 const INDEX_CREATION_MAX_ATTEMPTS = 24
@@ -71,7 +72,7 @@ const createAuditIndexes = async (indexDefinitions, attempt = 1) => {
 }
 
 /**
- * Creates the metadata-correction audit indexes during CloudFormation deployment.
+ * Creates audit indexes and runs outstanding database migrations during deployment.
  * Delete events intentionally leave indexes in place because the audit database is retained.
  *
  * @example
@@ -106,6 +107,9 @@ export const initializeMetadataCorrectionAudit = async (event) => {
 
   const indexNames = await createAuditIndexes(indexDefinitions)
   console.log('Metadata correction audit indexes are ready', { indexNames })
+
+  const migrations = await runMigrations()
+  console.log('Database migrations are ready', { migrations })
 
   return {
     PhysicalResourceId: physicalResourceId,
