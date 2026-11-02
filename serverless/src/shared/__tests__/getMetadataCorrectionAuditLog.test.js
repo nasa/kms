@@ -357,7 +357,6 @@ describe('metadata correction audit queries', () => {
     const result = await getMetadataCorrectionAuditLog({
       publishedOnly: true,
       publishedVersionName: '25.0',
-      providerId: 'SCIOPS',
       status: 'failed',
       startDate: '2026-10-23',
       paginationToken,
@@ -365,11 +364,6 @@ describe('metadata correction audit queries', () => {
     })
 
     expect(result.items).toHaveLength(2)
-    const [query] = collection.find.mock.calls[0]
-    expect(query.$and[0]).toEqual(expect.objectContaining({
-      providerId: 'SCIOPS'
-    }))
-
     expect(result.nextPaginationToken).toBeTruthy()
     expect(result.publishedVersionActivity).toEqual([
       {
@@ -389,6 +383,40 @@ describe('metadata correction audit queries', () => {
         }
       }
     ])
+  })
+
+  test('filters published runs by provider without restricting whole-version activity', async () => {
+    const firstActivityAt = new Date('2026-10-21T09:00:00.000Z')
+    const latestActivityAt = new Date('2026-10-23T16:00:00.000Z')
+    activityCursor.toArray.mockResolvedValue([{
+      _id: '25.0',
+      firstActivityAt,
+      latestActivityAt
+    }])
+
+    const result = await getMetadataCorrectionAuditLog({
+      publishedOnly: true,
+      publishedVersionName: '25.0',
+      providerId: 'SCIOPS'
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        publishedVersionName: '25.0',
+        providerId: 'SCIOPS'
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
+
+    expect(collection.aggregate.mock.calls[0][0][0]).toEqual({
+      $match: { publishedVersionName: '25.0' }
+    })
+
+    expect(result.publishedVersionActivity).toEqual([{
+      publishedVersionName: '25.0',
+      firstActivityAt,
+      latestActivityAt
+    }])
   })
 
   test('queries activity even when no runs match the selected version report filters', async () => {

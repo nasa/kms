@@ -52,7 +52,6 @@ describe('initializeMetadataCorrectionAudit', () => {
     })
 
     expect(createIndexes).toHaveBeenCalledWith(indexDefinitions)
-    expect(runMigrations).toHaveBeenCalledWith()
     expect(createIndexes.mock.calls[0][0][0].key.createdAt).toBeTypeOf('number')
     expect(consoleLog).toHaveBeenCalledWith(
       'Metadata correction audit indexes are ready',
@@ -72,7 +71,6 @@ describe('initializeMetadataCorrectionAudit', () => {
     })
 
     expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
-    expect(runMigrations).not.toHaveBeenCalled()
     expect(result).toEqual({ PhysicalResourceId: 'existing-audit-indexes' })
   })
 
@@ -96,6 +94,23 @@ describe('initializeMetadataCorrectionAudit', () => {
     expect(runMigrations).toHaveBeenCalledWith()
     expect(createIndexes.mock.invocationCallOrder[0])
       .toBeLessThan(vi.mocked(runMigrations).mock.invocationCallOrder[0])
+  })
+
+  test('does not run migrations when the custom resource is deleted', async () => {
+    await initializeMetadataCorrectionAudit({ RequestType: 'Delete' })
+
+    expect(runMigrations).not.toHaveBeenCalled()
+  })
+
+  test('does not run migrations when index initialization fails', async () => {
+    createIndexes.mockRejectedValueOnce(new Error('Invalid index definition'))
+
+    await expect(initializeMetadataCorrectionAudit({
+      RequestType: 'Update',
+      ResourceProperties: { IndexDefinitions: indexDefinitions }
+    })).rejects.toThrow('Invalid index definition')
+
+    expect(runMigrations).not.toHaveBeenCalled()
   })
 
   test('fails deployment when a migration fails instead of claiming initialization succeeded', async () => {
@@ -177,7 +192,6 @@ describe('initializeMetadataCorrectionAudit', () => {
     })).rejects.toThrow('DocumentDB secret is missing username')
 
     expect(getMetadataCorrectionAuditCollection).toHaveBeenCalledTimes(1)
-    expect(runMigrations).not.toHaveBeenCalled()
     expect(consoleWarn).not.toHaveBeenCalled()
   })
 
