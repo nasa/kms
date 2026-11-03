@@ -604,15 +604,37 @@ const renderCollectionHeading = (audit, linkToCmr = true) => {
 }
 
 /**
- * Renders the CSV-derived corrections as a compact old-to-new path table.
+ * Exposes event paths for no-op display without adding them to the correction list.
  *
  * @param {Object} audit Audit summary or detail document.
- * @returns {string} HTML changes table.
+ * @returns {Object|undefined} Triggering change when at least one event path is known.
+ */
+const getTriggeringChange = (audit) => {
+  const { trigger } = audit
+
+  if (!trigger?.oldKeywordPath && !trigger?.newKeywordPath) return undefined
+
+  return {
+    scheme: trigger.scheme,
+    action: trigger.eventType,
+    oldKeywordPath: trigger.oldKeywordPath,
+    newKeywordPath: trigger.newKeywordPath
+  }
+}
+
+/**
+ * Renders correction paths, or explicitly labeled event context when no correction exists.
+ *
+ * @param {Object} audit Audit detail or summary document.
+ * @returns {string} HTML changes table or empty-state notice.
  */
 const renderChangesTable = (audit) => {
   let changes = []
   if (Array.isArray(audit.changes)) changes = audit.changes
   else if (Array.isArray(audit.corrections)) changes = audit.corrections
+
+  const triggeringChange = changes.length === 0 ? getTriggeringChange(audit) : undefined
+  if (triggeringChange) changes = [triggeringChange]
 
   if (changes.length === 0) {
     return '<p class="notice">No keyword path changes were recorded for this run.</p>'
@@ -628,6 +650,7 @@ const renderChangesTable = (audit) => {
   `).join('')
 
   return `
+    ${triggeringChange ? '<p class="notice">Triggering event only; no correction was recorded for this run.</p>' : ''}
     <table class="changes-table">
       <thead>
         <tr>
@@ -706,7 +729,9 @@ const renderRunDetails = (audit, publishedVersionHref) => {
       ['Event type', audit.trigger.eventType],
       ['Scheme', audit.trigger.scheme],
       ['Keyword UUID', audit.trigger.keywordConceptUuid],
-      ['Event timestamp', audit.trigger.timestamp]
+      ['Event timestamp', audit.trigger.timestamp],
+      ['Previous keyword path', audit.trigger.oldKeywordPath],
+      ['Updated keyword path', audit.trigger.newKeywordPath]
     ])
     : ''
 
@@ -881,9 +906,12 @@ const renderAuditCard = (audit, { detail, runDetailHrefPrefix }) => {
  * @returns {string} Published report table rows.
  */
 const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
-  const changes = Array.isArray(audit.changes) && audit.changes.length > 0
+  const hasCorrections = Array.isArray(audit.changes) && audit.changes.length > 0
+  // A no-op still has a reason for being checked. Show its event without fabricating a correction.
+  const triggeringChange = hasCorrections ? undefined : getTriggeringChange(audit)
+  const changes = hasCorrections
     ? audit.changes
-    : [{}]
+    : [triggeringChange || {}]
   const status = String(audit.status || 'unknown').toLowerCase()
   const collection = audit.recordType === 'publisherEventNoOp'
     ? 'No collections found'
@@ -901,7 +929,7 @@ const renderPublishedAuditRows = (audit, runDetailHrefPrefix) => {
     <tr>
       <td>${collectionLink}</td>
       <td>${displayValue(change.scheme, '')}</td>
-      <td>${displayValue(change.action, '')}</td>
+      <td>${displayValue(change.action, '')}${triggeringChange ? '<span class="outcome-detail">Triggering event only</span>' : ''}</td>
       <td class="previous-path">${displayValue(change.oldKeywordPath, '')}</td>
       <td class="updated-path">${displayValue(change.newKeywordPath, '')}</td>
       <td>${displayDate(audit.updatedAt || audit.createdAt)}</td>

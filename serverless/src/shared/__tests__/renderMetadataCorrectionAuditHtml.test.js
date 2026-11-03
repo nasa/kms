@@ -250,6 +250,140 @@ describe('renderMetadataCorrectionAuditHtml', () => {
       .toBeLessThan(view.indexOf('Published Version: published-41'))
   })
 
+  test('shows the triggering event for a published no-op without calling it an applied correction', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        runId: 'run-publish-noop',
+        collectionConceptId: 'C123-PROV',
+        publishedVersionName: 'version-1',
+        status: 'checked',
+        outcome: 'no-keyword-issues',
+        changes: [],
+        trigger: {
+          eventType: 'UPDATED',
+          scheme: 'dataformat',
+          oldKeywordPath: 'NETCDF',
+          newKeywordPath: 'NetCDF-TEST'
+        }
+      }]
+    })
+
+    expect(view).toContain('<td>dataformat</td>')
+    expect(view).toContain('UPDATED')
+    expect(view).toContain('Triggering event only')
+    expect(view).toContain('<td class="previous-path">NETCDF</td>')
+    expect(view).toContain('<td class="updated-path">NetCDF-TEST</td>')
+    expect(view).toContain('<span class="status">checked</span>')
+    expect(view).toContain('no-keyword-issues')
+    expect(view).not.toContain('status status-applied')
+  })
+
+  test('shows and escapes a deletion trigger in audit cards and details without inventing a new path', () => {
+    const audit = {
+      runId: 'run-delete-noop',
+      status: 'checked',
+      corrections: [],
+      trigger: {
+        eventType: 'DELETED',
+        scheme: 'dataformat',
+        oldKeywordPath: '<script>old</script>'
+      }
+    }
+    const view = {
+      summary: renderMetadataCorrectionAuditHtml({ items: [audit] }),
+      detail: renderMetadataCorrectionAuditHtml({
+        detail: true,
+        items: [audit]
+      })
+    }
+
+    expect(view.summary).toContain('Triggering event only')
+    expect(view.summary).toContain('&lt;script&gt;old&lt;/script&gt;')
+    expect(view.summary).not.toContain('<script>old</script>')
+    expect(view.detail).toContain('Triggering event only')
+    expect(view.detail).toContain('DELETED')
+    expect(view.detail).toContain('<td class="updated-path">Not available</td>')
+    expect(view.detail).not.toContain('<script>old</script>')
+  })
+
+  test('renders a new-only published event without fabricating an old path', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        status: 'checked',
+        trigger: {
+          eventType: 'INSERTED',
+          scheme: 'dataformat',
+          newKeywordPath: '<new format>'
+        }
+      }]
+    })
+
+    expect(view).toContain('Triggering event only')
+    expect(view).toContain('INSERTED')
+    expect(view).toContain('<td class="previous-path"></td>')
+    expect(view).toContain('<td class="updated-path">&lt;new format&gt;</td>')
+    expect(view).not.toContain('<new format>')
+  })
+
+  test('renders actual correction paths rather than substituting the triggering event', () => {
+    const audit = {
+      runId: 'run-applied',
+      status: 'applied',
+      changes: [{
+        scheme: 'dataformat',
+        action: 'replace',
+        oldKeywordPath: 'Actual old',
+        newKeywordPath: 'Actual new'
+      }],
+      trigger: {
+        scheme: 'productlevelid',
+        eventType: 'UPDATED',
+        oldKeywordPath: 'Trigger old',
+        newKeywordPath: 'Trigger new'
+      }
+    }
+    const view = {
+      summary: renderMetadataCorrectionAuditHtml({ items: [audit] }),
+      published: renderMetadataCorrectionAuditHtml({
+        groupByPublishedVersion: true,
+        items: [audit]
+      })
+    }
+
+    expect(view.summary).toContain('Actual old')
+    expect(view.summary).not.toContain('Trigger old')
+    expect(view.summary).not.toContain('Triggering event only')
+    expect(view.published).toContain('Actual new')
+    expect(view.published).not.toContain('Trigger new')
+    expect(view.published).not.toContain('Triggering event only')
+  })
+
+  test('does not invent keyword changes for legacy or manual published no-ops', () => {
+    const view = renderMetadataCorrectionAuditHtml({
+      groupByPublishedVersion: true,
+      items: [{
+        runId: 'legacy-noop',
+        status: 'checked',
+        changes: [],
+        trigger: {
+          eventType: 'UPDATED',
+          scheme: 'dataformat'
+        }
+      }, {
+        runId: 'manual-noop',
+        status: 'checked',
+        changes: [],
+        trigger: { eventType: 'MANUAL' }
+      }]
+    })
+
+    expect(view).not.toContain('Triggering event only')
+    expect(view).not.toContain('<td>dataformat</td>')
+    expect(view).not.toContain('<td>MANUAL</td>')
+  })
+
   test('renders failed and unknown published audit values', () => {
     const view = renderMetadataCorrectionAuditHtml({
       groupByPublishedVersion: true,

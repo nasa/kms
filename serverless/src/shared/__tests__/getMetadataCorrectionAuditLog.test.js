@@ -35,6 +35,12 @@ const SUMMARY_PROJECTION = {
   'corrections.action': 1,
   'corrections.oldKeywordPath': 1,
   'corrections.newKeywordPath': 1,
+  'trigger.eventType': 1,
+  'trigger.scheme': 1,
+  'trigger.keywordConceptUuid': 1,
+  'trigger.timestamp': 1,
+  'trigger.oldKeywordPath': 1,
+  'trigger.newKeywordPath': 1,
   'error.message': 1
 }
 const DETAIL_RUN_ID = 'f3351653-dfc3-47d8-9176-294ea90bc118'
@@ -156,6 +162,38 @@ describe('metadata correction audit queries', () => {
     })
 
     expect(collection.aggregate).not.toHaveBeenCalled()
+  })
+
+  test('returns triggering paths separately from an empty collection correction list', async () => {
+    const trigger = {
+      eventType: 'UPDATED',
+      scheme: 'dataformat',
+      keywordConceptUuid: 'format-uuid',
+      timestamp: '2026-11-02T12:00:00.000Z',
+      oldKeywordPath: 'NETCDF',
+      newKeywordPath: 'NetCDF-TEST'
+    }
+    mongoCursor.toArray.mockResolvedValue([{
+      runId: DETAIL_RUN_ID,
+      collectionConceptId: 'C123-PROV',
+      status: 'checked',
+      outcome: 'no-keyword-issues',
+      corrections: [],
+      trigger
+    }])
+
+    const result = await getMetadataCorrectionAuditLog()
+
+    expect(result.items[0]).toEqual(expect.objectContaining({
+      status: 'checked',
+      outcome: 'no-keyword-issues',
+      changes: [],
+      trigger
+    }))
+
+    expect(collection.find).toHaveBeenCalledWith({}, { projection: SUMMARY_PROJECTION })
+    expect(SUMMARY_PROJECTION).not.toHaveProperty('trigger.oldKeywordObject')
+    expect(SUMMARY_PROJECTION).not.toHaveProperty('trigger.newKeywordObject')
   })
 
   test('returns no-op publisher events in published-version searches', async () => {

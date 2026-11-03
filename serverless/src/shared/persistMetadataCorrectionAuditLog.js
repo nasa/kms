@@ -169,7 +169,19 @@ const buildAuditPatch = ({
       eventType: keywordEvent.eventType,
       scheme: keywordEvent.scheme,
       keywordConceptUuid: keywordEvent.uuid,
-      timestamp: keywordEvent.timestamp
+      timestamp: keywordEvent.timestamp,
+      // A publish event can find an already-corrected collection. Preserve why it was
+      // checked separately from corrections, which must remain empty for that no-op.
+      oldKeywordObject: keywordEvent.oldKeywordObject,
+      newKeywordObject: keywordEvent.newKeywordObject,
+      oldKeywordPath: buildAuditKeywordPath({
+        scheme: keywordEvent.scheme,
+        keywordObject: keywordEvent.oldKeywordObject
+      }) || undefined,
+      newKeywordPath: buildAuditKeywordPath({
+        scheme: keywordEvent.scheme,
+        keywordObject: keywordEvent.newKeywordObject
+      }) || undefined
     })
     : undefined,
   corrections: Array.isArray(corrections)

@@ -38,6 +38,12 @@ const AUDIT_SUMMARY_PROJECTION = {
   'corrections.action': 1,
   'corrections.oldKeywordPath': 1,
   'corrections.newKeywordPath': 1,
+  'trigger.eventType': 1,
+  'trigger.scheme': 1,
+  'trigger.keywordConceptUuid': 1,
+  'trigger.timestamp': 1,
+  'trigger.oldKeywordPath': 1,
+  'trigger.newKeywordPath': 1,
   'error.message': 1
 }
 
@@ -425,6 +431,8 @@ const normalizeAuditSummary = (document, includeDiff = false) => {
   if (document.recordType) summary.recordType = document.recordType
   if (document.publishedVersionName) summary.publishedVersionName = document.publishedVersionName
   if (document.outcome) summary.outcome = document.outcome
+  // Keep trigger context separate: an event is not evidence that a correction was applied.
+  if (document.trigger) summary.trigger = document.trigger
   if (document.resolvedCorrectionCount !== undefined) {
     summary.resolvedCorrectionCount = document.resolvedCorrectionCount
   }

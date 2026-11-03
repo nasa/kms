@@ -130,6 +130,90 @@ describe('persistMetadataCorrectionAuditLog', () => {
     )
   })
 
+  test('preserves the triggering keyword change when the collection needs no corrections', async () => {
+    const keywordEvent = {
+      eventType: 'UPDATED',
+      scheme: 'dataformat',
+      uuid: 'format-uuid',
+      timestamp: '2026-11-02T12:00:00.000Z',
+      oldKeywordObject: { ShortName: 'NETCDF' },
+      newKeywordObject: { ShortName: 'NetCDF-TEST' }
+    }
+
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-PROV',
+      source: 'cmrKeywordEventsListener',
+      keywordEvent,
+      corrections: [],
+      outcome: 'no-keyword-issues'
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set).toEqual(expect.objectContaining({
+      status: 'checked',
+      corrections: [],
+      outcome: 'no-keyword-issues',
+      trigger: {
+        eventType: keywordEvent.eventType,
+        scheme: keywordEvent.scheme,
+        keywordConceptUuid: keywordEvent.uuid,
+        timestamp: keywordEvent.timestamp,
+        oldKeywordObject: keywordEvent.oldKeywordObject,
+        newKeywordObject: keywordEvent.newKeywordObject,
+        oldKeywordPath: 'NETCDF',
+        newKeywordPath: 'NetCDF-TEST'
+      }
+    }))
+  })
+
+  test('preserves a deletion trigger without inventing a replacement value', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-PROV',
+      corrections: [],
+      keywordEvent: {
+        eventType: 'DELETED',
+        scheme: 'productlevelid',
+        uuid: 'level-uuid',
+        oldKeywordObject: { ProductLevelId: '2' }
+      }
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set.trigger).toEqual({
+      eventType: 'DELETED',
+      scheme: 'productlevelid',
+      keywordConceptUuid: 'level-uuid',
+      oldKeywordObject: { ProductLevelId: '2' },
+      oldKeywordPath: '2'
+    })
+  })
+
+  test('preserves an insertion trigger without inventing an old value', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-PROV',
+      keywordEvent: {
+        eventType: 'INSERTED',
+        scheme: 'dataformat',
+        newKeywordObject: { ShortName: 'NetCDF' }
+      }
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set.trigger).toEqual({
+      eventType: 'INSERTED',
+      scheme: 'dataformat',
+      newKeywordObject: { ShortName: 'NetCDF' },
+      newKeywordPath: 'NetCDF'
+    })
+  })
+
+  test('does not invent keyword paths for a manual trigger', async () => {
+    await persistMetadataCorrectionAuditLog({
+      collectionConceptId: 'C123-PROV',
+      corrections: [],
+      keywordEvent: { eventType: 'MANUAL' }
+    })
+
+    expect(collection.updateOne.mock.calls[0][1].$set.trigger).toEqual({ eventType: 'MANUAL' })
+  })
+
   test('omits the collection URI when the CMR base URL is not configured', async () => {
     delete process.env.CMR_BASE_URL
 
