@@ -17,6 +17,21 @@
 export const normalizeProviderId = (providerId) => String(providerId ?? '').trim().toUpperCase()
 
 /**
+ * Resolves the provider for audit persistence and historical backfills.
+ * CMR normally supplies providerId, but retrieval failures can reach the audit writer
+ * with only a collection ID. Derive its provider so those failures remain filterable.
+ *
+ * @param {Object} [params={}] Available provider and collection identifiers.
+ * @param {string} [params.providerId] Provider returned by CMR, when available.
+ * @param {string} [params.collectionConceptId] Collection identifier used as a fallback.
+ * @returns {string|undefined} Normalized provider or undefined when neither source resolves.
+ */
+export const resolveAuditProviderId = ({ providerId, collectionConceptId } = {}) => (
+  normalizeProviderId(providerId)
+    || String(collectionConceptId).match(/^C\d+-([a-z\d_-]+)$/i)?.[1]?.toUpperCase()
+)
+
+/**
  * Parses the rollout allowlist that controls which providers the fixer service is enabled for.
  *
  * @returns {string[]} Normalized provider ids from `CMR_WRITEBACK_PROVIDERS`.

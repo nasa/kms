@@ -9,6 +9,10 @@ import { CSV_FIELDS } from '@/shared/redis-path-store/helpers/constants'
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 250
 const MAX_PUBLISHED_VERSION_NAME_LENGTH = 256
+// Validate untrusted audit filters before DocumentDB access using CMR identifier rules.
+const COLLECTION_CONCEPT_ID_PATTERN = /^C\d+-[A-Za-z0-9_]+$/
+// Provider schema v1.0.0 requires 1-10 characters, starting with an uppercase letter.
+const PROVIDER_ID_PATTERN = /^[A-Z][A-Z0-9_]{0,9}$/
 const VALID_AUDIT_ACTIONS = new Set([
   'DELETED',
   'INSERTED',
@@ -103,7 +107,7 @@ const normalizeAction = (action) => {
 }
 
 /**
- * Parses one provider or a comma-separated list into literal, normalized provider IDs.
+ * Parses and validates one provider or a comma-separated list of normalized provider IDs.
  * An empty form field leaves the search unrestricted; ALL is not a wildcard here.
  *
  * @param {unknown} providerId Requested provider filter.
@@ -116,7 +120,41 @@ const normalizeProviderIds = (providerId) => {
     throw new Error('Invalid metadata correction audit providerId: expected a comma-separated string')
   }
 
-  return [...new Set(providerId.split(',').map(normalizeProviderId).filter(Boolean))]
+  const providerIds = [...new Set(providerId.split(',').map(normalizeProviderId).filter(Boolean))]
+
+  if (providerIds.some((value) => !PROVIDER_ID_PATTERN.test(value))) {
+    throw new Error(
+      'Invalid metadata correction audit providerId: expected each provider to match '
+      + '^[A-Z][A-Z0-9_]*$ and contain 1 to 10 characters'
+    )
+  }
+
+  return providerIds
+}
+
+/**
+ * Validates an optional collection filter without coercing objects into query values.
+ *
+ * @param {unknown} collectionConceptId Requested collection identifier.
+ * @returns {string|undefined} Trimmed identifier or undefined for an empty filter.
+ */
+const normalizeCollectionConceptId = (collectionConceptId) => {
+  if (collectionConceptId === undefined || collectionConceptId === null) return undefined
+
+  if (typeof collectionConceptId !== 'string') {
+    throw new Error('Invalid metadata correction audit collectionConceptId: expected a string')
+  }
+
+  const value = collectionConceptId.trim()
+  if (!value) return undefined
+
+  if (!COLLECTION_CONCEPT_ID_PATTERN.test(value)) {
+    throw new Error(
+      'Invalid metadata correction audit collectionConceptId: expected C<digits>-<provider>'
+    )
+  }
+
+  return value
 }
 
 /**
@@ -281,7 +319,8 @@ const buildAuditQuery = (filters) => {
     status
   } = filters
 
-  if (collectionConceptId) query.collectionConceptId = collectionConceptId
+  const normalizedCollectionConceptId = normalizeCollectionConceptId(collectionConceptId)
+  if (normalizedCollectionConceptId) query.collectionConceptId = normalizedCollectionConceptId
   const providerIds = normalizeProviderIds(providerId)
   if (providerIds.length) {
     query.providerId = providerIds.length === 1 ? providerIds[0] : { $in: providerIds }

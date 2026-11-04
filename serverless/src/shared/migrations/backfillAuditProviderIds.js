@@ -1,10 +1,11 @@
-import { normalizeProviderId } from '@/shared/cmrWritebackProviders'
+import { resolveAuditProviderId } from '@/shared/cmrWritebackProviders'
 import {
   getDatabaseMigrationsCollection,
   getMetadataCorrectionAuditCollection
 } from '@/shared/documentDbClient'
 
 const BATCH_SIZE = 500
+// Do not change: used as the idempotency key for this migration.
 const MIGRATION_ID = '2026-10-29-backfill-audit-provider-ids'
 
 /**
@@ -41,15 +42,15 @@ const backfillMissingProviders = async () => {
     // eslint-disable-next-line no-restricted-syntax
     for await (const { _id: id, collectionConceptId } of cursor) {
       scannedCount += 1
-      const match = collectionConceptId.match(/^C\d+-([a-z\d_-]+)$/i)
-      if (match) {
+      const providerId = resolveAuditProviderId({ collectionConceptId })
+      if (providerId) {
         operations.push({
           updateOne: {
             filter: {
               _id: id,
               providerId: { $in: [null, ''] }
             },
-            update: { $set: { providerId: normalizeProviderId(match[1]) } }
+            update: { $set: { providerId } }
           }
         })
       }

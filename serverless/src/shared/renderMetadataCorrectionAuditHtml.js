@@ -551,14 +551,15 @@ const renderAuditFilters = ({
   showCollectionFilter
 }) => {
   // A new search must reset pagination, but keep filters that have no visible form control.
-  const retainedParameters = new URLSearchParams({ format: 'html' })
-  const retainedFilterNames = [
+  const RETAINED_FILTER_NAMES = [
     'keywordConceptUuid', 'action', 'scheme', 'status', 'nativeFormat', 'source',
     'startDate', 'endDate', 'includeDiff', 'limit'
   ]
-  retainedFilterNames.forEach((name) => {
+
+  const retainedParameters = new URLSearchParams({ format: 'html' })
+  RETAINED_FILTER_NAMES.forEach((name) => {
     const value = filterParameters?.[name]
-    if (value !== undefined && value !== null) retainedParameters.set(name, String(value))
+    if (value != null) retainedParameters.set(name, String(value))
   })
 
   if (!showCollectionFilter && collectionConceptId) {

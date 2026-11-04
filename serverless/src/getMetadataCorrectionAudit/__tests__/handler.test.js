@@ -552,6 +552,41 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.statusCode).toBe(400)
   })
 
+  test('returns 400 for a malformed provider using the real query validation', async () => {
+    const actual = await vi.importActual('@/shared/getMetadataCorrectionAuditLog')
+    vi.mocked(getMetadataCorrectionAuditLog).mockImplementationOnce(
+      actual.getMetadataCorrectionAuditLog
+    )
+
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: { versionName: '25.0' },
+      queryStringParameters: { providerId: 'SCIOPS,{"$ne":null}' }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body).error).toContain('Invalid metadata correction audit providerId')
+  })
+
+  test('returns an escaped HTML 400 for a malformed collection using the real query validation', async () => {
+    const actual = await vi.importActual('@/shared/getMetadataCorrectionAuditLog')
+    vi.mocked(getMetadataCorrectionAuditLog).mockImplementationOnce(
+      actual.getMetadataCorrectionAuditLog
+    )
+
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: {
+        collectionConceptId: '<script>alert(1)</script>',
+        format: 'html'
+      }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
+    expect(result.body).toContain('Invalid metadata correction audit collectionConceptId')
+    expect(result.body).not.toContain('<script>')
+  })
+
   test('returns one detailed audit document with its native metadata diff', async () => {
     vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue({
       runId: 'run-1',

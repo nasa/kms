@@ -251,20 +251,74 @@ describe('metadata correction audit queries', () => {
     expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
   })
 
-  test('treats provider filter values as literals rather than wildcards or Mongo operators', async () => {
+  test('treats ALL as a literal provider rather than a wildcard', async () => {
     await getMetadataCorrectionAuditLog({ providerId: 'ALL' })
 
     expect(collection.find).toHaveBeenLastCalledWith(
       { providerId: 'ALL' },
       { projection: SUMMARY_PROJECTION }
     )
+  })
 
-    await getMetadataCorrectionAuditLog({ providerId: '{"$ne":null}' })
+  test('rejects malformed providers and invalid list entries before database access', async () => {
+    const values = [
+      '{"$ne":null}', '*', '1PROVIDER', '_PROVIDER', 'BAD-NAME',
+      'BAD NAME', 'ABCDEFGHIJK', 'SCIOPS,$ne', 'SCIOPS,EDF\nDEV01',
+      'SCIOPS,EDF\u0000DEV01', 'SCIOPS,\u00c9DF'
+    ]
 
-    expect(collection.find).toHaveBeenLastCalledWith(
-      { providerId: '{"$NE":NULL}' },
+    await Promise.all(values.map((providerId) => (
+      expect(getMetadataCorrectionAuditLog({ providerId })).rejects.toThrow(
+        'Invalid metadata correction audit providerId'
+      )
+    )))
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('accepts normalized providers at the schema length boundaries', async () => {
+    await getMetadataCorrectionAuditLog({ providerId: ' a, abcdefghi0 ' })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      { providerId: { $in: ['A', 'ABCDEFGHI0'] } },
       { projection: SUMMARY_PROJECTION }
     )
+  })
+
+  test('validates and trims collection identifiers while preserving provider case', async () => {
+    await getMetadataCorrectionAuditLog({ collectionConceptId: ' C1293869115-Cmr_TEST ' })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      { collectionConceptId: 'C1293869115-Cmr_TEST' },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('leaves empty collection filters unrestricted', async () => {
+    const values = [undefined, null, '', '  ']
+
+    await Promise.all(values.map(async (collectionConceptId) => {
+      await getMetadataCorrectionAuditLog({ collectionConceptId })
+
+      expect(collection.find).toHaveBeenLastCalledWith({}, { projection: SUMMARY_PROJECTION })
+    }))
+  })
+
+  test('rejects non-string and malformed collection filters before database access', async () => {
+    const values = [
+      { $ne: null }, ['C123-SCIOPS'], 42, false,
+      '{"$ne":null}', 'G123-SCIOPS', 'c123-SCIOPS', 'C-SCIOPS',
+      'C123-', 'C123-SCI-OPS', 'C123-SCI OPS', 'C123-SCIOPS.*',
+      'C123-SCIOPS,C456-SCIOPS', 'C123-SCI\nOPS', 'C123-SCI\u0000OPS'
+    ]
+
+    await Promise.all(values.map((collectionConceptId) => (
+      expect(getMetadataCorrectionAuditLog({ collectionConceptId })).rejects.toThrow(
+        'Invalid metadata correction audit collectionConceptId'
+      )
+    )))
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
   })
 
   test('retains the provider filter when applying a keyset pagination boundary', async () => {
