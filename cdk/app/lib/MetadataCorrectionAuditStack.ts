@@ -18,7 +18,6 @@ const METADATA_CORRECTION_AUDIT_INDEXES = JSON.parse(fs.readFileSync(
   path.join(PROJECT_ROOT, 'config/metadataCorrectionAuditIndexes.json'),
   'utf8'
 ))
-
 export interface MetadataCorrectionAuditStackProps extends cdk.StackProps {
   localUri?: string
   maxCapacity?: number
@@ -85,7 +84,7 @@ export class MetadataCorrectionAuditStack extends cdk.Stack {
       && this.secret
       && databaseSetup.dbInstance
     ) {
-      // Define the deployment Lambda that connects to DocumentDB and creates the indexes.
+      // Define the deployment Lambda that creates indexes and runs outstanding migrations.
       const indexInitializer = new NodejsFunction(this, 'IndexInitializer', {
         functionName: `${props.prefix}-${props.stage}-metadata-correction-audit-indexes`,
         entry: path.join(
@@ -94,7 +93,8 @@ export class MetadataCorrectionAuditStack extends cdk.Stack {
         ),
         handler: 'initializeMetadataCorrectionAudit',
         runtime: NODE_LAMBDA_RUNTIME,
-        timeout: cdk.Duration.minutes(5),
+        // Existing audit histories may need a batched, resumable deployment-time backfill.
+        timeout: cdk.Duration.minutes(15),
         memorySize: 512,
         environment: this.connectionEnvironment,
         ...getDocumentDbCertificateBundling(this.connectionEnvironment),
@@ -119,7 +119,12 @@ export class MetadataCorrectionAuditStack extends cdk.Stack {
         properties: {
           ClusterEndpoint: this.cluster.clusterEndpoint.hostname,
           // Preserve numeric index directions across the string-based custom-resource boundary.
-          IndexDefinitions: JSON.stringify(METADATA_CORRECTION_AUDIT_INDEXES)
+          IndexDefinitions: JSON.stringify(METADATA_CORRECTION_AUDIT_INDEXES),
+          // CloudFormation reruns this custom resource when its properties change, not when
+          // migration code changes. This explicit version replaces a migration source hash;
+          // bump it when adding a migration so the initializer runs again.
+          // Each migration still skips itself if its dated ID is already completed.
+          MigrationsVersion: '2026-10-29'
         }
       })
       indexResource.node.addDependency(databaseSetup.dbInstance)

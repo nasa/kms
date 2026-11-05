@@ -197,6 +197,162 @@ describe('metadata correction audit queries', () => {
     }])
   })
 
+  test('filters by one provider using its normalized exact identifier', async () => {
+    await getMetadataCorrectionAuditLog({ providerId: ' sciops ' })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      { providerId: 'SCIOPS' },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('combines a deduplicated provider list with collection and other filters', async () => {
+    await getMetadataCorrectionAuditLog({
+      providerId: 'sciops, EDF_DEV01, SCIOPS, ,',
+      collectionConceptId: 'C123-SCIOPS',
+      status: 'failed',
+      scheme: 'platforms'
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        $and: [{
+          collectionConceptId: 'C123-SCIOPS',
+          providerId: { $in: ['SCIOPS', 'EDF_DEV01'] },
+          status: 'failed'
+        }, {
+          $or: [
+            { 'corrections.scheme': 'platforms' },
+            { 'trigger.scheme': 'platforms' }
+          ]
+        }]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('leaves an empty or omitted provider filter unrestricted', async () => {
+    const values = [undefined, null, '', '  ', ' , , ']
+    await Promise.all(values.map(async (providerId) => {
+      await getMetadataCorrectionAuditLog({ providerId })
+
+      expect(collection.find).toHaveBeenLastCalledWith({}, { projection: SUMMARY_PROJECTION })
+    }))
+  })
+
+  test('rejects non-string provider filters before querying the database', async () => {
+    const values = [{ $ne: null }, ['SCIOPS', 'EDF_DEV01'], 42]
+    await Promise.all(values.map((providerId) => (
+      expect(getMetadataCorrectionAuditLog({ providerId })).rejects.toThrow(
+        'Invalid metadata correction audit providerId: expected a comma-separated string'
+      )
+    )))
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('treats ALL as a literal provider rather than a wildcard', async () => {
+    await getMetadataCorrectionAuditLog({ providerId: 'ALL' })
+
+    expect(collection.find).toHaveBeenLastCalledWith(
+      { providerId: 'ALL' },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('rejects malformed providers and invalid list entries before database access', async () => {
+    const values = [
+      '{"$ne":null}', '*', '1PROVIDER', '_PROVIDER', 'BAD-NAME',
+      'BAD NAME', 'ABCDEFGHIJK', 'SCIOPS,$ne', 'SCIOPS,EDF\nDEV01',
+      'SCIOPS,EDF\u0000DEV01', 'SCIOPS,\u00c9DF'
+    ]
+
+    await Promise.all(values.map((providerId) => (
+      expect(getMetadataCorrectionAuditLog({ providerId })).rejects.toThrow(
+        'Invalid metadata correction audit providerId'
+      )
+    )))
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('accepts normalized providers at the schema length boundaries', async () => {
+    await getMetadataCorrectionAuditLog({ providerId: ' a, abcdefghi0 ' })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      { providerId: { $in: ['A', 'ABCDEFGHI0'] } },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('validates and trims collection identifiers while preserving provider case', async () => {
+    await getMetadataCorrectionAuditLog({ collectionConceptId: ' C1293869115-Cmr_TEST ' })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      { collectionConceptId: 'C1293869115-Cmr_TEST' },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
+  test('leaves empty collection filters unrestricted', async () => {
+    const values = [undefined, null, '', '  ']
+
+    await Promise.all(values.map(async (collectionConceptId) => {
+      await getMetadataCorrectionAuditLog({ collectionConceptId })
+
+      expect(collection.find).toHaveBeenLastCalledWith({}, { projection: SUMMARY_PROJECTION })
+    }))
+  })
+
+  test('rejects non-string and malformed collection filters before database access', async () => {
+    const values = [
+      { $ne: null }, ['C123-SCIOPS'], 42, false,
+      '{"$ne":null}', 'G123-SCIOPS', 'c123-SCIOPS', 'C-SCIOPS',
+      'C123-', 'C123-SCI-OPS', 'C123-SCI OPS', 'C123-SCIOPS.*',
+      'C123-SCIOPS,C456-SCIOPS', 'C123-SCI\nOPS', 'C123-SCI\u0000OPS'
+    ]
+
+    await Promise.all(values.map((collectionConceptId) => (
+      expect(getMetadataCorrectionAuditLog({ collectionConceptId })).rejects.toThrow(
+        'Invalid metadata correction audit collectionConceptId'
+      )
+    )))
+
+    expect(getMetadataCorrectionAuditCollection).not.toHaveBeenCalled()
+  })
+
+  test('retains the provider filter when applying a keyset pagination boundary', async () => {
+    const createdAt = new Date('2026-10-29T12:00:00.000Z')
+    const paginationToken = Buffer.from(JSON.stringify({
+      createdAt,
+      runId: 'run-2'
+    }))
+      .toString('base64url')
+
+    await getMetadataCorrectionAuditLog({
+      providerId: 'SCIOPS,EDF_DEV01',
+      paginationToken
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        $and: [
+          { providerId: { $in: ['SCIOPS', 'EDF_DEV01'] } },
+          {
+            $or: [
+              { createdAt: { $lt: createdAt } },
+              {
+                createdAt,
+                _id: { $lt: 'run-2' }
+              }
+            ]
+          }
+        ]
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
+  })
+
   test('returns audit documents from all published versions', async () => {
     mongoCursor.toArray.mockResolvedValue([{ publishedVersionName: '25.0' }])
 
@@ -281,6 +437,40 @@ describe('metadata correction audit queries', () => {
         }
       }
     ])
+  })
+
+  test('filters published runs by provider without restricting whole-version activity', async () => {
+    const firstActivityAt = new Date('2026-10-21T09:00:00.000Z')
+    const latestActivityAt = new Date('2026-10-23T16:00:00.000Z')
+    activityCursor.toArray.mockResolvedValue([{
+      _id: '25.0',
+      firstActivityAt,
+      latestActivityAt
+    }])
+
+    const result = await getMetadataCorrectionAuditLog({
+      publishedOnly: true,
+      publishedVersionName: '25.0',
+      providerId: 'SCIOPS'
+    })
+
+    expect(collection.find).toHaveBeenCalledWith(
+      {
+        publishedVersionName: '25.0',
+        providerId: 'SCIOPS'
+      },
+      { projection: SUMMARY_PROJECTION }
+    )
+
+    expect(collection.aggregate.mock.calls[0][0][0]).toEqual({
+      $match: { publishedVersionName: '25.0' }
+    })
+
+    expect(result.publishedVersionActivity).toEqual([{
+      publishedVersionName: '25.0',
+      firstActivityAt,
+      latestActivityAt
+    }])
   })
 
   test('queries activity even when no runs match the selected version report filters', async () => {

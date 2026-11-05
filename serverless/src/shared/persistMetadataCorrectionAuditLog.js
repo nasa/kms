@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 
+import { resolveAuditProviderId } from '@/shared/cmrWritebackProviders'
 import { getMetadataCorrectionAuditCollection } from '@/shared/documentDbClient'
 import {
   getKeywordPathFromKeywordObject
@@ -158,7 +159,10 @@ const buildAuditPatch = ({
 }) => compactObject({
   collectionConceptId,
   collectionUri: buildCmrCollectionUri(collectionConceptId),
-  providerId,
+  providerId: resolveAuditProviderId({
+    providerId,
+    collectionConceptId
+  }),
   publishedVersionName: publishedVersionName || null,
   nativeFormat,
   delegateName,

@@ -175,6 +175,7 @@ const getAuditListResponse = async ({
 }) => {
   const {
     collectionConceptId,
+    providerId,
     keywordConceptUuid,
     action,
     scheme,
@@ -188,6 +189,7 @@ const getAuditListResponse = async ({
   const isPublishedAuditRoute = route.type === AUDIT_ROUTE_TYPES.PUBLISHED
   const auditPage = await getMetadataCorrectionAuditLog({
     collectionConceptId,
+    providerId,
     keywordConceptUuid,
     action,
     scheme,
@@ -227,6 +229,8 @@ const getAuditListResponse = async ({
       },
       body: renderMetadataCorrectionAuditHtml({
         collectionConceptId,
+        providerId,
+        filterParameters: event?.queryStringParameters,
         enabledProviders,
         groupByPublishedVersion: isPublishedAuditRoute,
         runDetailHrefPrefix,
@@ -273,6 +277,7 @@ const getAuditListResponse = async ({
  *
  * Supported query parameters:
  * - collectionConceptId
+ * - providerId (one provider or a comma-separated list)
  * - keywordConceptUuid
  * - action
  * - scheme

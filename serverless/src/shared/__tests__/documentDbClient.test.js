@@ -60,6 +60,7 @@ const DOCUMENTDB_ENVIRONMENT_VARIABLES = [
   'DOCUMENTDB_DATABASE_NAME',
   'DOCUMENTDB_HOST',
   'DOCUMENTDB_MAX_POOL_SIZE',
+  'DOCUMENTDB_MIGRATIONS_COLLECTION_NAME',
   'DOCUMENTDB_PORT',
   'DOCUMENTDB_SECRET_ARN',
   'DOCUMENTDB_TLS_CA_FILE',
@@ -126,6 +127,32 @@ describe('documentDbClient', () => {
     const { getMetadataCorrectionAuditCollection } = await import('../documentDbClient')
 
     await expect(getMetadataCorrectionAuditCollection()).resolves.toBe(collection)
+
+    expect(db).toHaveBeenCalledWith('kms')
+  })
+
+  test('keeps migration statuses in their own collection in the configured database', async () => {
+    process.env.DOCUMENTDB_URI = 'mongodb://localhost:27018'
+    process.env.DOCUMENTDB_DATABASE_NAME = 'test-kms'
+    const { getDatabaseMigrationsCollection } = await import('../documentDbClient')
+
+    await expect(getDatabaseMigrationsCollection()).resolves.toBe(collection)
+
+    expect(db).toHaveBeenCalledWith('test-kms')
+    expect(db.mock.results.at(-1).value.collection).toHaveBeenCalledWith('migrations')
+
+    process.env.DOCUMENTDB_MIGRATIONS_COLLECTION_NAME = 'custom-migrations'
+    await getDatabaseMigrationsCollection()
+
+    expect(db.mock.results.at(-1).value.collection).toHaveBeenCalledWith('custom-migrations')
+    expect(connect).toHaveBeenCalledOnce()
+  })
+
+  test('uses the default database for migration statuses', async () => {
+    process.env.DOCUMENTDB_URI = 'mongodb://localhost:27018'
+    const { getDatabaseMigrationsCollection } = await import('../documentDbClient')
+
+    await getDatabaseMigrationsCollection()
 
     expect(db).toHaveBeenCalledWith('kms')
   })

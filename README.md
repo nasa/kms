@@ -459,15 +459,19 @@ changing the existing per-collection audit workflow.
 The audit API is:
 
 - `GET /metadata_correction_audit` for newest-first, token-paginated audit searches. Supported
-  filters include collection, keyword UUID, action, scheme, status, native format, source, and
-  date range. Supplied actions and schemes must be recognized KMS values, limits must
+  filters include collection, provider, keyword UUID, action, scheme, status, native format,
+  source, and date range. Supplied actions and schemes must be recognized KMS values, limits must
   be integers from 1 through 250, and `startDate` must not be after `endDate`. List results contain
   compact collection, status, and old-to-new keyword path summaries. Add `?includeDiff=true` to
   include each available native-metadata diff in the list results.
+  Use `providerId=SCIOPS` for one provider or `providerId=SCIOPS,EDF_DEV01` for a list.
+  Provider IDs are trimmed, case-normalized, and matched exactly; `ALL` is not a wildcard.
+  Filters use the stored provider ID directly. Collection audits derive it from the concept ID
+  when CMR metadata is unavailable; workflow records with no collection have no provider.
 - `GET /metadata_correction_audit/published` for audit documents across all published KMS
   versions, or `GET /metadata_correction_audit/published/{versionName}` for one published version.
   These are the official published-version reporting endpoints and use the same pagination and
-  response formats as the general audit search.
+  response formats and provider filter as the general audit search.
 - `GET /metadata_correction_audit/{runId}` for the complete audit document. Add
   `?includeDiff=true` when the native-metadata diff is needed; it is omitted by default to keep
   routine responses small.
@@ -475,6 +479,7 @@ The audit API is:
   status and keyword-change summary with links to each run; add `&includeDiff=true` if list-level
   native diffs are needed. The detail view includes run context, lifecycle history, diagnostics,
   and the colored side-by-side native metadata diff. HTML lists default to 10 records per page.
+  Both the audit search and published reports include a provider filter in the HTML view.
 
 Publisher events carry the published KMS version through the queue into this document. Manual
 correction endpoints look up the current published version before starting the run, so the
@@ -496,6 +501,52 @@ AWS documents the CA-bundle download requirement in
 That example uses the global bundle; KMS uses the equivalent regional bundle listed for
 US East (N. Virginia) in the
 [AWS regional certificate bundle table](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html).
+
+### Database Migrations
+
+The audit deployment initializer calls `serverless/src/shared/migrations/runMigrations.js` after
+creating indexes. That script directly calls each migration function in order. Each migration
+has a document in the separate `migrations` collection in the
+same database, keyed by its stable migration ID. Documents record `running`, `completed`, or
+`failed` status, attempt count, timestamps, completion statistics, and failure details.
+The collection is reusable for future database migrations and is not included in audit reports.
+
+`2026-10-29-backfill-audit-provider-ids` fills missing, null, or empty audit `providerId` values
+from valid collection concept IDs in batches of 500. It preserves existing providers and does not change
+audit timestamps, history, or other fields. Unparseable IDs are skipped. New collection audits
+store the provider ID at write time, including early failures, so queries need no suffix fallback.
+
+Completed migrations are skipped on later deployments. Caught failures are recorded and fail
+deployment; a later deployment can resume safely, including work interrupted by a hard timeout.
+To add a migration, add another direct function call in `runMigrations.js` and bump the
+`MigrationsVersion` property in `MetadataCorrectionAuditStack.ts` (currently `2026-10-29`).
+That property triggers initialization even when indexes are unchanged. Each function checks
+and updates its own status using a stable, dated ID. Do not reuse or edit an existing migration ID
+to force a rerun, and avoid concurrent manual initializer invocations.
+
+### Audit Provider Filter Smoke Test
+
+With Docker running, AWS CLI and `zip` available, and project dependencies installed:
+
+```bash
+npx vite-node --config vite.config.js scripts/local/run_metadata_correction_audit_provider_filter_smoke.mjs
+```
+
+This creates isolated LocalStack API Gateway/Lambda and MongoDB containers. It bundles the
+audit and deployment-initializer handlers with the production Node runtime and CSS loader settings,
+seeds audits through the real persistence functions, and exercises all four audit routes over HTTP. Checks
+cover single/list providers, write-time provider derivation, exact matching, combined filters, pagination,
+HTML form submission and hidden filters, detail links, and error responses.
+It also verifies that deployment backfills legacy providers, preserves unrelated audit fields,
+records completion in `migrations`, and skips completed migrations on the next deployment.
+The completed migration document is saved as `migration-status.json` in the output directory.
+
+Results, HTML previews, and container logs are written to
+`tmp/metadata-correction-audit-provider-filter-smoke/`. Disposable resources are removed after
+the run; existing local services and deployed AWS resources are not used. MongoDB stands in for
+DocumentDB, so this does not verify AWS VPC/TLS/IAM enforcement or the publish/consumer flow.
+Optional image overrides are `SMOKE_LOCALSTACK_IMAGE`, `SMOKE_MONGO_IMAGE`, and
+`SMOKE_LAMBDA_RUNTIME_IMAGE`.
 
 ## Setting up the RDF Database for local development
 In order to run KMS locally, you first need to setup a RDF database.

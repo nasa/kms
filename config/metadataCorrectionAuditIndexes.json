@@ -16,6 +16,14 @@
   },
   {
     "key": {
+      "providerId": 1,
+      "createdAt": -1,
+      "_id": -1
+    },
+    "name": "provider_createdAt_desc"
+  },
+  {
+    "key": {
       "status": 1,
       "createdAt": -1,
       "_id": -1

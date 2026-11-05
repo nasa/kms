@@ -117,6 +117,22 @@ describe('getMetadataCorrectionAudit', () => {
     }))
   })
 
+  test('passes a provider filter through the JSON audit endpoint', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: { providerId: 'SCIOPS' }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'SCIOPS'
+    }))
+  })
+
   test('filters audit documents using the published version path', async () => {
     vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
       items: [],
@@ -198,7 +214,7 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).not.toContain('<strong>Latest activity:</strong>')
     expect(result.body).toContain('<table class="published-table">')
     expect(result.body).not.toContain('<h1>Published metadata correction audit</h1>')
-    expect(result.body).not.toContain('<form class="audit-filter"')
+    expect(result.body).toContain('<form class="audit-filter"')
     expect(result.body).toContain('<a href="run-published?format=html">C123-PROV</a>')
 
     const [, href] = result.body.match(/href="([^"]+)">C123-PROV<\/a>/)
@@ -240,6 +256,61 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('<th scope="col">Collection ID</th>')
     expect(result.body).toContain('<th scope="col">Outcome</th>')
     expect(result.body).toContain('<a href="../run-published?format=html">C123-PROV</a>')
+  })
+
+  test('passes a provider filter to all published versions and renders the provider control', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: null
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published',
+      pathParameters: {},
+      queryStringParameters: {
+        format: 'html',
+        providerId: 'SCIOPS'
+      }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'SCIOPS',
+      publishedOnly: true
+    }))
+
+    expect(result.body).toContain('name="providerId" value="SCIOPS"')
+    expect(result.body).not.toContain('name="collectionConceptId"')
+  })
+
+  test('retains provider and status filters when paginating a selected published version', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: 'next-published-token'
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: { versionName: 'published-42' },
+      queryStringParameters: {
+        format: 'html',
+        providerId: 'SCIOPS,EDF_DEV01',
+        status: 'failed'
+      }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      publishedVersionName: 'published-42',
+      publishedOnly: true,
+      providerId: 'SCIOPS,EDF_DEV01',
+      status: 'failed'
+    }))
+
+    expect(result.body).toContain('name="providerId" value="SCIOPS,EDF_DEV01"')
+    expect(result.body).toContain('type="hidden" name="status" value="failed"')
+    expect(result.body).toContain('providerId=SCIOPS%2CEDF_DEV01')
+    expect(result.body).toContain('paginationToken=next-published-token')
   })
 
   test('opens failure details from the collection link in a single-version published report', async () => {
@@ -362,6 +433,32 @@ describe('getMetadataCorrectionAudit', () => {
     expect(result.body).toContain('paginationToken=next-token')
   })
 
+  test('retains a provider list alongside the collection filter in HTML audit pagination', async () => {
+    vi.mocked(getMetadataCorrectionAuditLog).mockResolvedValue({
+      items: [],
+      nextPaginationToken: 'next-token'
+    })
+
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: {
+        collectionConceptId: 'C1234567890-LOCAL',
+        providerId: 'LOCAL,SCIOPS',
+        format: 'html'
+      }
+    })
+
+    expect(result.statusCode).toBe(200)
+    expect(getMetadataCorrectionAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      collectionConceptId: 'C1234567890-LOCAL',
+      providerId: 'LOCAL,SCIOPS'
+    }))
+
+    expect(result.body).toContain('name="collectionConceptId" value="C1234567890-LOCAL"')
+    expect(result.body).toContain('name="providerId" value="LOCAL,SCIOPS"')
+    expect(result.body).toContain('paginationToken=next-token')
+    expect(result.body).toContain('providerId=LOCAL%2CSCIOPS')
+  })
+
   test('renders one detailed audit document as html', async () => {
     vi.mocked(getMetadataCorrectionAuditByRunId).mockResolvedValue({
       runId: 'run-1',
@@ -453,6 +550,41 @@ describe('getMetadataCorrectionAudit', () => {
     const result = await getMetadataCorrectionAudit({})
 
     expect(result.statusCode).toBe(400)
+  })
+
+  test('returns 400 for a malformed provider using the real query validation', async () => {
+    const actual = await vi.importActual('@/shared/getMetadataCorrectionAuditLog')
+    vi.mocked(getMetadataCorrectionAuditLog).mockImplementationOnce(
+      actual.getMetadataCorrectionAuditLog
+    )
+
+    const result = await getMetadataCorrectionAudit({
+      resource: '/metadata_correction_audit/published/{versionName}',
+      pathParameters: { versionName: '25.0' },
+      queryStringParameters: { providerId: 'SCIOPS,{"$ne":null}' }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(JSON.parse(result.body).error).toContain('Invalid metadata correction audit providerId')
+  })
+
+  test('returns an escaped HTML 400 for a malformed collection using the real query validation', async () => {
+    const actual = await vi.importActual('@/shared/getMetadataCorrectionAuditLog')
+    vi.mocked(getMetadataCorrectionAuditLog).mockImplementationOnce(
+      actual.getMetadataCorrectionAuditLog
+    )
+
+    const result = await getMetadataCorrectionAudit({
+      queryStringParameters: {
+        collectionConceptId: '<script>alert(1)</script>',
+        format: 'html'
+      }
+    })
+
+    expect(result.statusCode).toBe(400)
+    expect(result.headers['Content-Type']).toBe('text/html; charset=utf-8')
+    expect(result.body).toContain('Invalid metadata correction audit collectionConceptId')
+    expect(result.body).not.toContain('<script>')
   })
 
   test('returns one detailed audit document with its native metadata diff', async () => {
