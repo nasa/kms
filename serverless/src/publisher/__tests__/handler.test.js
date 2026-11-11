@@ -21,6 +21,8 @@ import {
   rebuildHistoricalConceptCache
 } from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
 import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
+import { clearCachedByPrefix } from '@/shared/redisCacheStore'
+import { refreshCmrKeywordSchemes } from '@/shared/refreshCmrKeywordSchemes'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 import { publisher } from '../handler'
@@ -130,6 +132,12 @@ vi.mock('@/shared/emitPublisherMetrics')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
+vi.mock('@/shared/redisCacheStore', () => ({ clearCachedByPrefix: vi.fn() }))
+vi.mock('@/shared/refreshCmrKeywordSchemes', async (importOriginal) => ({
+  ...await importOriginal(),
+  refreshCmrKeywordSchemes: vi.fn()
+}))
+
 vi.mock('@/shared/persistMetadataCorrectionWorkflowFailureAuditLog', () => ({
   persistMetadataCorrectionWorkflowFailureAuditLog: vi.fn()
 }))
@@ -158,6 +166,13 @@ describe('publisher handler', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(refreshCmrKeywordSchemes).mockResolvedValue({
+      schemes: [],
+      refreshed: true
+    })
+
+    vi.mocked(clearCachedByPrefix).mockResolvedValue(0)
+
     eventBridgeMock.reset()
 
     delete process.env.BLOCK_PUBLISH_ON_KEYWORD_DIFF_FAILURE
@@ -277,6 +292,182 @@ describe('publisher handler', () => {
         }
       ]
     })
+  })
+
+  test('waits for CMR refresh after KMS publication and caches, before emitting any keyword event', async () => {
+    const keywordEvents = [createInsertedScienceKeywordEvent({
+      uuid: 'new-uuid',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })]
+    mockPublishKeywordEvents(keywordEvents)
+    let completeRefresh
+    vi.mocked(refreshCmrKeywordSchemes).mockImplementationOnce(() => new Promise((resolve) => {
+      completeRefresh = resolve
+    }))
+
+    const context = { getRemainingTimeInMillis: () => 800000 }
+    const pending = publisher(mockEvent, context)
+    await vi.waitFor(() => expect(refreshCmrKeywordSchemes).toHaveBeenCalledTimes(1))
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(refreshCmrKeywordSchemes).toHaveBeenCalledWith({
+      keywordEvents,
+      remainingTimeMs: 800000
+    })
+
+    expect(sparqlRequest.mock.invocationCallOrder[0])
+      .toBeLessThan(refreshCmrKeywordSchemes.mock.invocationCallOrder[0])
+
+    expect(writePublishedConceptCaches.mock.invocationCallOrder[0])
+      .toBeLessThan(refreshCmrKeywordSchemes.mock.invocationCallOrder[0])
+
+    expect(rebuildHistoricalConceptCache.mock.invocationCallOrder[0])
+      .toBeLessThan(refreshCmrKeywordSchemes.mock.invocationCallOrder[0])
+
+    expect(clearCachedByPrefix).toHaveBeenCalledExactlyOnceWith({ keyPrefix: 'kms:concepts:published' })
+    expect(clearCachedByPrefix.mock.invocationCallOrder[0])
+      .toBeLessThan(refreshCmrKeywordSchemes.mock.invocationCallOrder[0])
+
+    completeRefresh({
+      schemes: ['science_keywords'],
+      refreshed: true
+    })
+
+    await expect(pending).resolves.toMatchObject({
+      status: 'success',
+      keywordEventsPublished: 1
+    })
+  })
+
+  test('audits a refresh failure and skips the whole event batch without undoing publication or retrying', async () => {
+    const error = Object.assign(new Error('CMR unavailable'), { status: 503 })
+    mockPublishKeywordEvents([
+      createInsertedScienceKeywordEvent({
+        uuid: 'one',
+        keywordObject: SCIENCE_PATH_ONE_KEYWORD
+      }),
+      createInsertedScienceKeywordEvent({
+        uuid: 'two',
+        keywordObject: SCIENCE_PATH_TWO_KEYWORD
+      })
+    ])
+
+    vi.mocked(refreshCmrKeywordSchemes).mockRejectedValue(error)
+    const result = await publisher(mockEvent)
+    expect(result).toMatchObject({
+      status: 'partial_success',
+      published: true,
+      keywordEventsGenerated: 2,
+      keywordEventsPublished: 0,
+      keywordEventPublishFailures: 0
+    })
+
+    expect(result.postPublishFailures).toEqual([
+      expect.stringContaining('Published, but CMR keyword refresh failed; correction events were not emitted')
+    ])
+
+    expect(refreshCmrKeywordSchemes).toHaveBeenCalledTimes(1)
+    expect(sparqlRequest).toHaveBeenCalledTimes(1)
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(exportRdfToS3).toHaveBeenCalledTimes(2)
+    expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledExactlyOnceWith({
+      source: 'publisher',
+      outcome: 'cmr-keyword-refresh-failed',
+      error,
+      messageId: undefined,
+      publishedVersionName: 'v1.0.0',
+      workflowContext: {
+        schemes: ['science_keywords'],
+        blockedEventCount: 2,
+        refreshCompletionUnknown: false
+      }
+    })
+  })
+
+  test('records an uncertain refresh timeout without changing keyword validation configuration', async () => {
+    const error = Object.assign(new Error('Refresh timed out; completion unknown'), {
+      cmrRequest: { timedOut: true }
+    })
+    mockPublishKeywordEvents([createInsertedScienceKeywordEvent({
+      uuid: 'one',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })])
+
+    vi.mocked(refreshCmrKeywordSchemes).mockRejectedValue(error)
+    vi.stubEnv('CMR_WRITEBACK_VALIDATE_KEYWORDS', 'true')
+    try {
+      await expect(publisher(mockEvent)).resolves.toMatchObject({
+        status: 'partial_success',
+        published: true
+      })
+
+      expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflowContext: expect.objectContaining({ refreshCompletionUnknown: true })
+        })
+      )
+
+      expect(process.env.CMR_WRITEBACK_VALIDATE_KEYWORDS).toBe('true')
+      expect(publishKeywordEvent).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  test('does not release events when both CMR refresh and failure auditing fail', async () => {
+    mockPublishKeywordEvents([createInsertedScienceKeywordEvent({
+      uuid: 'one',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })])
+
+    vi.mocked(refreshCmrKeywordSchemes).mockRejectedValue(new Error('CMR unavailable'))
+    vi.mocked(persistMetadataCorrectionWorkflowFailureAuditLog).mockRejectedValue(new Error('Audit unavailable'))
+    await expect(publisher(mockEvent)).resolves.toMatchObject({
+      status: 'partial_success',
+      published: true
+    })
+
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(refreshCmrKeywordSchemes).toHaveBeenCalledTimes(1)
+    expect(logger.error).toHaveBeenCalledWith(
+      '[publisher] Failed to audit CMR keyword refresh failure',
+      expect.objectContaining({ error: 'Audit unavailable' })
+    )
+  })
+
+  test('skips CMR refresh for an unchanged publish or incomplete KMS caches', async () => {
+    await publisher(mockEvent)
+    expect(refreshCmrKeywordSchemes).not.toHaveBeenCalled()
+    mockPublishKeywordEvents([createInsertedScienceKeywordEvent({
+      uuid: 'one',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })])
+
+    vi.mocked(writePublishedConceptCaches).mockResolvedValue({ cacheReady: false })
+    await expect(publisher(mockEvent)).resolves.toMatchObject({ status: 'partial_success' })
+    expect(refreshCmrKeywordSchemes).not.toHaveBeenCalled()
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+  })
+
+  test('audits a published-response cache invalidation failure without refreshing CMR or sending events', async () => {
+    mockPublishKeywordEvents([createInsertedScienceKeywordEvent({
+      uuid: 'one',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })])
+
+    vi.mocked(clearCachedByPrefix).mockRejectedValue(new Error('Redis invalidation failed'))
+    await expect(publisher(mockEvent)).resolves.toMatchObject({
+      status: 'partial_success',
+      published: true
+    })
+
+    expect(refreshCmrKeywordSchemes).not.toHaveBeenCalled()
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: 'cmr-keyword-refresh-failed',
+        error: expect.objectContaining({ message: 'Redis invalidation failed' })
+      })
+    )
   })
 
   test('fails before publish when keyword event generation fails', async () => {

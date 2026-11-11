@@ -485,6 +485,30 @@ Publisher events carry the published KMS version through the queue into this doc
 correction endpoints look up the current published version before starting the run, so the
 metadata-correction consumer and audit API do not query RDF4J.
 
+### CMR Keyword Cache Refresh On Publish
+
+After publishing the vocabulary and preparing KMS's published/historical caches, the publisher
+clears cached published concepts/CSV API responses so CMR cannot fetch the previous version.
+It maps changed schemes to CMR scheme names and makes one synchronous, authenticated POST to
+`${CMR_BASE_URL}/bootstrap/caches/refresh/kms?concept_scheme=<comma-separated-CMR-schemes>`.
+The refresh uses the same CMR base URL as other CMR requests. The system token comes from
+`CMR_SYSTEM_TOKEN_PARAMETER_NAME` and must have CMR ingest-management update permission.
+
+Only HTTP 200 confirms completion. A refresh error or timeout leaves the KMS version published,
+returns `partial_success`, and prevents the entire batch of SNS keyword events from being sent.
+A `cmr-keyword-refresh-failed` workflow audit records the version, requested CMR schemes, blocked
+event count, and available request/error details. A timeout means refresh completion is unknown.
+No blocked event payloads are saved to S3 and nothing is automatically retried or replayed.
+Other archival exports and KMS API cache priming continue independently.
+
+The refresh deadline is set to 120 seconds in the refresh function and is shortened
+when necessary to reserve 30 seconds of the publisher Lambda's remaining time for auditing.
+Publishes without changes to CMR-cached schemes do not request a full CMR refresh.
+The existing validation settings and defaults are unchanged. Set
+`bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS=true` to enable keyword validation after verifying
+the refresh route in the target environment. Operators can still override it; refresh failures
+never change the setting automatically. UMM-C validation remains separately configurable.
+
 Deployed Lambdas use the public AWS `us-east-1` CA bundle to validate DocumentDB TLS connections.
 The Bamboo deployment downloads the current bundle from the
 [AWS certificate trust store](https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem)
@@ -624,6 +648,7 @@ export bamboo_KMS_REDIS_NODE_TYPE=[for example cache.t3.micro]
 ```
 Notes:
 - `bamboo_CMR_BASE_URL` is required. KMS no longer falls back to `https://cmr.earthdata.nasa.gov` during deploy or synth.
+- Confirm `${bamboo_CMR_BASE_URL}/bootstrap/caches/refresh/kms` is reachable by the publisher.
 - `bamboo_CMR_GET_TIMEOUT_MS` bounds each CMR GET, including reading the response body.
   It defaults to 25000 milliseconds; caught failures are audited without retrying by the
   keyword-event listener and metadata-correction worker.
@@ -634,8 +659,10 @@ Notes:
   and draft RDF mirror from that environment. Leave it empty to disable automatic imports; an
   authenticated `POST /rdf/mirror` can also run the configured mirror manually.
 - Leave `bamboo_CMR_WRITEBACK_PROVIDERS` empty to disable provider rollout for CMR writeback.
-- Set `bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS` and `bamboo_CMR_WRITEBACK_VALIDATE_UMM_C`
-  to `true` to reject writebacks that still fail CMR keyword or UMM-C validation.
+- Set `bamboo_CMR_WRITEBACK_VALIDATE_KEYWORDS=true` in Bamboo to enable keyword validation
+  once CMR refresh is verified. The existing default remains `false`, and the override remains
+  available. No code change or refresh failure automatically changes this setting.
+- Set `bamboo_CMR_WRITEBACK_VALIDATE_UMM_C=true` to enable the separate UMM-C validation check.
 - `bamboo_CMR_WRITEBACK_TIMEOUT_MS` is capped at 45000 milliseconds so stalled writebacks
   leave time for failure auditing rather than consuming the worker's full processing budget.
 - Setting `bamboo_METADATA_CORRECTION_RUNS_PER_MINUTE` enables queue pacing and forces the

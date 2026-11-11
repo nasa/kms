@@ -93,6 +93,37 @@ describe('persistMetadataCorrectionWorkflowFailureAuditLog', () => {
     )
   })
 
+  test('stores refresh failure diagnostics without retaining a blocked event batch', async () => {
+    const workflowContext = {
+      schemes: ['platforms', 'related_urls'],
+      blockedEventCount: 3,
+      refreshCompletionUnknown: true
+    }
+    await persistMetadataCorrectionWorkflowFailureAuditLog({
+      source: 'publisher',
+      outcome: 'cmr-keyword-refresh-failed',
+      publishedVersionName: '26.0TEST',
+      error: Object.assign(new Error('Refresh timed out'), { cmrRequest: { timedOut: true } }),
+      workflowContext
+    })
+
+    const update = collection.updateOne.mock.calls[0][1].$set
+    expect(update).toMatchObject({
+      status: 'failed',
+      outcome: 'cmr-keyword-refresh-failed',
+      publishedVersionName: '26.0TEST',
+      workflowContext,
+      error: {
+        message: 'Refresh timed out',
+        cmrRequest: { timedOut: true }
+      }
+    })
+
+    expect(update).not.toHaveProperty('corrections')
+    expect(update).not.toHaveProperty('keywordEvents')
+    expect(update.workflowContext).not.toHaveProperty('pendingEvents')
+  })
+
   test('stores a malformed request failure without keyword-event context', async () => {
     await persistMetadataCorrectionWorkflowFailureAuditLog({
       source: 'metadataCorrectionService',
