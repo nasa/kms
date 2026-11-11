@@ -14,6 +14,9 @@ import {
   rebuildHistoricalConceptCache
 } from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
 import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
+import { CONCEPTS_CACHE_KEY_PREFIX } from '@/shared/redisCacheKeys'
+import { clearCachedByPrefix } from '@/shared/redisCacheStore'
+import { getChangedCmrSchemes, refreshCmrKeywordSchemes } from '@/shared/refreshCmrKeywordSchemes'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -33,8 +36,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *    keyword validation and UUID-to-current-path resolution
  * 5. rebuild the historical Redis cache from versioned S3 CSV snapshots so old keyword values can
  *    still be resolved during metadata correction
- * 6. only after both cache families are ready, publish SNS keyword events so downstream consumers
- *    never observe a cold or stale Redis state
+ * 6. refresh changed CMR schemes, then publish SNS keyword events only after all caches are ready
  * 7. export published and draft RDF snapshots for archival use
  * 8. emit metrics and a cache-prime completion event for operational follow-on work
  *
@@ -221,7 +223,7 @@ const publishKeywordEvents = async (keywordEvents, versionName) => keywordEvents
  * };
  * await publisher(event);
  */
-export const publisher = async (event) => {
+export const publisher = async (event, context) => {
   const startTime = Date.now()
   logger.info('[publisher] start')
   try {
@@ -332,14 +334,66 @@ export const publisher = async (event) => {
       && historicalCacheReady
     )
 
-    // 5. Publish keyword events only after both cache families are ready.
+    // KMS publication has committed. A failed CMR refresh must not roll it back or release
+    // correction events against stale CMR caches; audit partial success without automatic replay.
+    let cmrCacheReady = false
+    processStartTime = Date.now()
+    if (keywordCachesReady && keywordEvents.length > 0) {
+      try {
+        // CMR pulls CSVs through the public KMS API. Invalidate its old published responses
+        // before refresh; the asynchronous cache-prime step below would otherwise be too late.
+        if (getChangedCmrSchemes(keywordEvents).length > 0) {
+          await clearCachedByPrefix({ keyPrefix: `${CONCEPTS_CACHE_KEY_PREFIX}:published` })
+        }
+
+        await refreshCmrKeywordSchemes({
+          keywordEvents,
+          remainingTimeMs: context?.getRemainingTimeInMillis?.()
+        })
+
+        cmrCacheReady = true
+      } catch (refreshError) {
+        const schemes = getChangedCmrSchemes(keywordEvents)
+        postPublishFailures.push(`Published, but CMR keyword refresh failed; correction events were not emitted: ${refreshError.message}`)
+        logger.error('[publisher] CMR keyword refresh failed; no keyword events will be emitted', {
+          versionName,
+          schemes,
+          error: refreshError.message
+        })
+
+        try {
+          await persistMetadataCorrectionWorkflowFailureAuditLog({
+            source: 'publisher',
+            outcome: 'cmr-keyword-refresh-failed',
+            error: refreshError,
+            messageId: event.id,
+            publishedVersionName: versionName,
+            workflowContext: {
+              schemes,
+              blockedEventCount: keywordEvents.length,
+              refreshCompletionUnknown: Boolean(refreshError.cmrRequest?.timedOut)
+            }
+          })
+        } catch (auditError) {
+          logger.error('[publisher] Failed to audit CMR keyword refresh failure', {
+            versionName,
+            schemes,
+            error: auditError.message
+          })
+        }
+      }
+    }
+
+    processTimes.refreshCmrCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
+
+    // 5. Publish keyword events only after KMS and CMR keyword caches are ready.
     processStartTime = Date.now()
     if (keywordEvents.length > 0) {
       if (!keywordCachesReady) {
         const skipMessage = 'Skipped keyword event publish because keyword caches were not fully prepared'
         postPublishFailures.push(skipMessage)
         logger.warn(`[publisher] ${skipMessage}`)
-      } else {
+      } else if (cmrCacheReady) {
         const publishSummary = await publishKeywordEvents(keywordEvents, versionName)
         keywordEventsPublished = publishSummary.publishedCount
         keywordEventPublishFailures = publishSummary.failedEvents.length
@@ -489,6 +543,7 @@ export const publisher = async (event) => {
       + `2.PublishOp=${processTimes.publishOperation}s `
       + `3.ExportCsv=${processTimes.exportPublishedCsv}s `
       + `4.BuildCache=${processTimes.buildHistoricalCache}s `
+      + `RefreshCmrCache=${processTimes.refreshCmrCache}s `
       + `5.PublishEvents=${processTimes.keywordEventsPublish}s `
       + `6.ExportPubRdf=${processTimes.exportPublishedRdf}s `
       + `7.ExportDraftRdf=${processTimes.exportDraftRdf}s `
