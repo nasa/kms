@@ -10,8 +10,13 @@ RUN chmod -R 755 /rdf4j-data
 ENV RDF4J_DATA_DIR=/rdf4j-data
 
 # Install necessary tools (added curl here)
-RUN apt-get update && apt-get install -y curl unzip zip liblmdb-dev lmdb-utils bc
+# apt-get upgrade pulls in patched base-image packages (e.g. libbrotli1 for CVE-2026-111497)
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y curl unzip zip liblmdb-dev lmdb-utils bc \
+    && rm -rf /var/lib/apt/lists/*
 
+# 3. EFS permissions. In the image, tomcat has user ID 100 and group ID 65534 (nogroup). The chown in the Dockerfile only affects the folder inside
 # Copy configuration files
 COPY config/tomcat-users.xml /usr/local/tomcat/conf/tomcat-users.xml
 
