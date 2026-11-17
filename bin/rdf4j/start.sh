@@ -10,6 +10,7 @@ CONTAINER_NAME="${RDF4J_CONTAINER_NAME:-rdf4j-server}"
 RDF4J_USER_NAME="${RDF4J_USER_NAME:-rdf4j}"
 RDF4J_PASSWORD="${RDF4J_PASSWORD:-rdf4j}"
 RDF4J_CONTAINER_MEMORY_LIMIT="${RDF4J_CONTAINER_MEMORY_LIMIT:-4096}"
+VERSION="${VERSION:-5.1.3}"
 
 if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
   docker network create "$NETWORK_NAME" >/dev/null
@@ -28,4 +29,4 @@ docker run \
   -e "RDF4J_PASSWORD=${RDF4J_PASSWORD}" \
   -e "RDF4J_CONTAINER_MEMORY_LIMIT=${RDF4J_CONTAINER_MEMORY_LIMIT}" \
   -v logs:/usr/local/tomcat/logs \
-  rdf4j:latest
+  "rdf4j:$VERSION"
