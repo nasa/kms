@@ -9,7 +9,7 @@ RUN chmod -R 755 /rdf4j-data
 # Set the RDF4J data directory
 ENV RDF4J_DATA_DIR=/rdf4j-data
 
-# Explicitly upgrade the inherited Brotli package to fix CVE-2026-111497 (KMS-731).
+# Explicitly upgrade the inherited Brotli package (KMS-731).
 RUN apt-get update && apt-get install -y curl unzip zip liblmdb-dev lmdb-utils bc libbrotli1
 
 # Copy configuration files
