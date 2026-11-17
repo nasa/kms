@@ -4,6 +4,7 @@
 REPO_NAME="rdf4j"
 REGION="us-east-1"
 DOCKER_FILE_PATH="./"
+VERSION="${VERSION:-5.1.3}"
 
 # Create ECR repository
 aws ecr create-repository --repository-name $REPO_NAME --region "us-east-1"
@@ -18,9 +19,9 @@ aws ecr get-login-password --region $REGION | docker login --username AWS --pass
 docker buildx create --name amd64builder --use
 
 # Build and push Docker image for amd64 architecture
-docker buildx build --platform=linux/amd64 -t $REPO_URI:latest --push $DOCKER_FILE_PATH
+docker buildx build --platform=linux/amd64 -t "$REPO_URI:$VERSION" --push $DOCKER_FILE_PATH
 
-echo "Docker image built and pushed to $REPO_URI:latest"
+echo "Docker image built and pushed to $REPO_URI:$VERSION"
 
 # Clean up the builder
 docker buildx rm amd64builder

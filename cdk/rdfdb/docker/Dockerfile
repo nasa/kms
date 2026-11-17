@@ -1,4 +1,4 @@
-FROM eclipse/rdf4j-workbench:latest
+FROM eclipse/rdf4j-workbench:5.1.3-tomcat
 USER root
 
 # Create the directory for EFS mount and set permissions
@@ -9,8 +9,8 @@ RUN chmod -R 755 /rdf4j-data
 # Set the RDF4J data directory
 ENV RDF4J_DATA_DIR=/rdf4j-data
 
-# Install necessary tools (added curl here)
-RUN apt-get update && apt-get install -y curl unzip zip liblmdb-dev lmdb-utils bc
+# Explicitly upgrade the inherited Brotli package (KMS-731).
+RUN apt-get update && apt-get install -y curl unzip zip liblmdb-dev lmdb-utils bc libbrotli1
 
 # Copy configuration files
 COPY config/tomcat-users.xml /usr/local/tomcat/conf/tomcat-users.xml
