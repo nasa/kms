@@ -12,12 +12,34 @@
 # - Minimizes downtime while maintaining data integrity
 # - Waits for ECS services to stabilize, ensuring the RDF4J database is fully operational
 # - Useful for applying AMI updates or other instance-level changes that require a full instance replacement
+# - Optionally refreshes the ECS image selection after the old host has shut down
 #
-# IMPORTANT: This script is tailored for an RDF4J setup that requires exactly one instance to be running
-# at all times due to the database's 1-writer limitation. Modifying this script to allow multiple instances
+# Usage: bin/refresh_asg.sh [--force-new-deployment]
+# The optional flag picks up an updated image under the service's existing tag.
+# Both modes cause downtime and use the active AWS CLI account and region.
+#
+# IMPORTANT: This script is tailored for an RDF4J setup that permits at most one instance to be running
+# due to the database's 1-writer limitation. Modifying this script to allow multiple instances
 # could lead to data corruption or inconsistencies in the RDF4J database.
 
 set -e
+
+FORCE_NEW_DEPLOYMENT=false
+for argument in "$@"; do
+    case "$argument" in
+        --force-new-deployment) FORCE_NEW_DEPLOYMENT=true ;;
+        -h|--help)
+            echo "Usage: $0 [--force-new-deployment]"
+            echo "Replaces the RDF4J EC2 host with downtime; optionally refreshes the ECS image selection."
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $argument" >&2
+            echo "Usage: $0 [--force-new-deployment]" >&2
+            exit 1
+            ;;
+    esac
+done
 
 # Function to log messages with timestamp
 log() {
@@ -74,13 +96,25 @@ while true; do
     
     CURRENT_TIME=$(date +%s)
     if (( CURRENT_TIME - START_TIME > TIMEOUT )); then
-        log "Timeout reached while waiting for complete shutdown. Proceeding anyway..."
-        break
+        # Never restore capacity without confirming shutdown of the previous writer.
+        log "Shutdown verification timed out. Leaving ASG capacity at zero; investigate before restoring it."
+        exit 1
     fi
     
     log "Still waiting for complete shutdown. ASG instances: $ASG_INSTANCES, ECS container instances: $ECS_INSTANCES"
     sleep 10
 done
+
+if [ "$FORCE_NEW_DEPLOYMENT" = true ]; then
+    # A replacement host can reuse the old ECS deployment's image digest. Refresh it
+    # while host capacity is zero so the new image cannot start beside the old writer.
+    log "Forcing a new ECS deployment before restoring host capacity..."
+    if ! aws ecs update-service --cluster "$CLUSTER_NAME" --service "$SERVICE_NAME" \
+        --force-new-deployment --query 'service.serviceArn' --output text; then
+        log "ECS deployment request failed. Leaving ASG capacity at zero; investigate before restoring it."
+        exit 1
+    fi
+fi
 
 # Set everything back to 1
 log "Setting min, max, and desired capacity back to 1..."
