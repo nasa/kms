@@ -107,6 +107,11 @@ export const refreshCmrKeywordSchemes = async ({ keywordEvents = [], remainingTi
 
     logger.info('[publisher] CMR keyword refresh completed', {
       schemes,
+      url: url.toString(),
+      status: response.status,
+      // CMR normally returns an empty success body; retain bounded diagnostics for unexpected responses.
+      responseBody: body.slice(0, 2000),
+      responseBodyTruncated: body.length > 2000,
       durationMs: Date.now() - startedAt,
       requestId: response.headers?.get?.('cmr-request-id')
     })
