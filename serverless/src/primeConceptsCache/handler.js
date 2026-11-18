@@ -122,7 +122,7 @@ const countPrimeResults = ({
  * Cache-prime handler for published concepts endpoints.
  *
  * This function can be invoked in two ways:
- * 1. As an EventBridge consumer (receives event from publisher with versionName, publishDate, keywordEvents)
+ * 1. By the publisher directly or via EventBridge (with versionName, publishDate, keywordEvents)
  * 2. As a scheduled cron job (no event detail, fetches version metadata directly)
  *
  * Behavior:
@@ -151,7 +151,7 @@ export const primeConceptsCache = async (event) => {
   const isEventBridgeInvocation = !!eventDetail?.versionName
 
   if (isEventBridgeInvocation) {
-    logger.info(`[cache-prime] invoked by EventBridge event for version=${eventDetail.versionName}`)
+    logger.info(`[cache-prime] invoked with publish details for version=${eventDetail.versionName}`)
     logger.info(`[cache-prime] received ${eventDetail.keywordEvents?.length || 0} keyword events`)
   } else {
     logger.info('[cache-prime] invoked by cron schedule')
@@ -286,7 +286,10 @@ export const primeConceptsCache = async (event) => {
     + schemeResultsSummary.failed
     + treeResultsSummary.failed
 
-  await redisClient.set(CONCEPTS_CACHE_VERSION_KEY, versionMarker)
+  // Failed warming must not mark the version ready or cause a later attempt to skip missing entries.
+  if (failed === 0) {
+    await redisClient.set(CONCEPTS_CACHE_VERSION_KEY, versionMarker)
+  }
 
   logger.info(
     '[cache-prime] complete '

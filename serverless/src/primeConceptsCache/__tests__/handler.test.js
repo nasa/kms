@@ -43,6 +43,25 @@ describe('when priming concepts cache', () => {
     })
   })
 
+  test('does not mark a failed API cache prime complete', async () => {
+    const redisClient = {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn()
+    }
+    getRedisClient.mockResolvedValue(redisClient)
+    getConcepts.mockRejectedValue(new Error('CSV generation failed'))
+
+    const response = await primeConceptsCache({
+      detail: {
+        versionName: 'new-version',
+        publishDate: '2026-11-18T12:00:00Z'
+      }
+    })
+
+    expect(response.statusCode).toBe(500)
+    expect(redisClient.set).not.toHaveBeenCalled()
+  })
+
   describe('when invoked by EventBridge event', () => {
     test('uses versionName and publishDate from event detail', async () => {
       const redisClient = {

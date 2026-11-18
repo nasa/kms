@@ -8,6 +8,7 @@ import {
   vi
 } from 'vitest'
 
+import { primeConceptsCache } from '@/primeConceptsCache/handler'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
 import { logger } from '@/shared/logger'
@@ -21,7 +22,6 @@ import {
   rebuildHistoricalConceptCache
 } from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
 import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
-import { clearCachedByPrefix } from '@/shared/redisCacheStore'
 import { refreshCmrKeywordSchemes } from '@/shared/refreshCmrKeywordSchemes'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
@@ -132,7 +132,7 @@ vi.mock('@/shared/emitPublisherMetrics')
 vi.mock('@/shared/exportRdfToS3')
 vi.mock('@/shared/operations/updates/getPublishUpdateQuery')
 vi.mock('@/shared/publishKeywordEvent')
-vi.mock('@/shared/redisCacheStore', () => ({ clearCachedByPrefix: vi.fn() }))
+vi.mock('@/primeConceptsCache/handler', () => ({ primeConceptsCache: vi.fn() }))
 vi.mock('@/shared/refreshCmrKeywordSchemes', async (importOriginal) => ({
   ...await importOriginal(),
   refreshCmrKeywordSchemes: vi.fn()
@@ -171,7 +171,13 @@ describe('publisher handler', () => {
       refreshed: true
     })
 
-    vi.mocked(clearCachedByPrefix).mockResolvedValue(0)
+    vi.mocked(primeConceptsCache).mockResolvedValue({
+      statusCode: 200,
+      body: JSON.stringify({
+        versionMarker: 'v1.0.0|2023-06-01T12:00:00.000Z',
+        failed: 0
+      })
+    })
 
     eventBridgeMock.reset()
 
@@ -294,6 +300,79 @@ describe('publisher handler', () => {
     })
   })
 
+  test('awaits API cache warming before CMR refresh and keyword events', async () => {
+    const keywordEvents = [createInsertedScienceKeywordEvent({
+      uuid: 'new-uuid',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })]
+    mockPublishKeywordEvents(keywordEvents)
+    let finishPrime
+    vi.mocked(primeConceptsCache).mockImplementationOnce(() => new Promise((resolve) => {
+      finishPrime = resolve
+    }))
+
+    const pending = publisher(mockEvent)
+    await vi.waitFor(() => expect(primeConceptsCache).toHaveBeenCalledTimes(1))
+    expect(primeConceptsCache).toHaveBeenCalledWith({
+      detail: {
+        ...mockEvent.detail,
+        keywordEvents
+      }
+    })
+
+    expect(rebuildHistoricalConceptCache.mock.invocationCallOrder[0])
+      .toBeLessThan(primeConceptsCache.mock.invocationCallOrder[0])
+
+    expect(refreshCmrKeywordSchemes).not.toHaveBeenCalled()
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    finishPrime({
+      statusCode: 200,
+      body: JSON.stringify({
+        versionMarker: 'ready',
+        failed: 0
+      })
+    })
+
+    await expect(pending).resolves.toMatchObject({ status: 'success' })
+    expect(refreshCmrKeywordSchemes).toHaveBeenCalledTimes(1)
+    expect(publishKeywordEvent).toHaveBeenCalledTimes(1)
+  })
+
+  test.each([
+    {
+      statusCode: 500,
+      body: JSON.stringify({
+        versionMarker: 'failed',
+        failed: 1
+      })
+    },
+    {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Redis not configured; cache priming skipped' })
+    }
+  ])('blocks CMR and events when API warming fails or is skipped (%#)', async (primeResult) => {
+    mockPublishKeywordEvents([createInsertedScienceKeywordEvent({
+      uuid: 'new-uuid',
+      keywordObject: SCIENCE_PATH_KEYWORD
+    })])
+
+    vi.mocked(primeConceptsCache).mockResolvedValueOnce(primeResult)
+
+    await expect(publisher(mockEvent)).resolves.toMatchObject({ status: 'partial_success' })
+    expect(refreshCmrKeywordSchemes).not.toHaveBeenCalled()
+    expect(publishKeywordEvent).not.toHaveBeenCalled()
+    expect(eventBridgeMock.commandCalls(PutEventsCommand)).toHaveLength(0)
+    expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'kms-api-cache-prime-failed' })
+    )
+  })
+
+  test('primes API responses even when publication generates no keyword events', async () => {
+    await expect(publisher(mockEvent)).resolves.toMatchObject({ status: 'success' })
+    expect(primeConceptsCache).toHaveBeenCalledTimes(1)
+    expect(refreshCmrKeywordSchemes).not.toHaveBeenCalled()
+  })
+
   test('waits for CMR refresh after KMS publication and caches, before emitting any keyword event', async () => {
     const keywordEvents = [createInsertedScienceKeywordEvent({
       uuid: 'new-uuid',
@@ -323,8 +402,8 @@ describe('publisher handler', () => {
     expect(rebuildHistoricalConceptCache.mock.invocationCallOrder[0])
       .toBeLessThan(refreshCmrKeywordSchemes.mock.invocationCallOrder[0])
 
-    expect(clearCachedByPrefix).toHaveBeenCalledExactlyOnceWith({ keyPrefix: 'kms:concepts:published' })
-    expect(clearCachedByPrefix.mock.invocationCallOrder[0])
+    expect(primeConceptsCache).toHaveBeenCalledTimes(1)
+    expect(primeConceptsCache.mock.invocationCallOrder[0])
       .toBeLessThan(refreshCmrKeywordSchemes.mock.invocationCallOrder[0])
 
     completeRefresh({
@@ -448,13 +527,13 @@ describe('publisher handler', () => {
     expect(publishKeywordEvent).not.toHaveBeenCalled()
   })
 
-  test('audits a published-response cache invalidation failure without refreshing CMR or sending events', async () => {
+  test('audits an API cache preparation failure without refreshing CMR or sending events', async () => {
     mockPublishKeywordEvents([createInsertedScienceKeywordEvent({
       uuid: 'one',
       keywordObject: SCIENCE_PATH_KEYWORD
     })])
 
-    vi.mocked(clearCachedByPrefix).mockRejectedValue(new Error('Redis invalidation failed'))
+    vi.mocked(primeConceptsCache).mockRejectedValue(new Error('Redis invalidation failed'))
     await expect(publisher(mockEvent)).resolves.toMatchObject({
       status: 'partial_success',
       published: true
@@ -464,7 +543,7 @@ describe('publisher handler', () => {
     expect(publishKeywordEvent).not.toHaveBeenCalled()
     expect(persistMetadataCorrectionWorkflowFailureAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
-        outcome: 'cmr-keyword-refresh-failed',
+        outcome: 'kms-api-cache-prime-failed',
         error: expect.objectContaining({ message: 'Redis invalidation failed' })
       })
     )
