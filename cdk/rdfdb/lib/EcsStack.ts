@@ -297,7 +297,7 @@ export class EcsStack extends Stack {
   private addContainerToTaskDefinition(
     taskDefinition: ecs.Ec2TaskDefinition
   ): ecs.ContainerDefinition {
-    const VERSION = process.env.VERSION || 'latest'
+    const VERSION = process.env.VERSION || '5.1.3'
 
     const container = taskDefinition.addContainer('rdf4jContainer', {
       image: ecs.ContainerImage.fromEcrRepository(this.repository, VERSION),
