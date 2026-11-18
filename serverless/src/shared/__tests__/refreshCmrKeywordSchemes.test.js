@@ -190,6 +190,77 @@ describe('CMR keyword scheme refresh', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  test('bounds a stalled token lookup by the deadline reserved for failure auditing', async () => {
+    vi.useFakeTimers()
+    let resolveToken
+    vi.mocked(getCmrSystemToken).mockImplementation(() => new Promise((resolve) => {
+      resolveToken = resolve
+    }))
+
+    let failure
+    const request = refreshCmrKeywordSchemes({
+      keywordEvents: events,
+      remainingTimeMs: 31000
+    }).catch((error) => { failure = error })
+
+    await vi.advanceTimersByTimeAsync(999)
+    expect(failure).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(failure).toMatchObject({
+      message: expect.stringContaining('timeout after 1000ms'),
+      cmrRequest: {
+        timeoutMs: 1000,
+        durationMs: 1000,
+        timedOut: true
+      }
+    })
+
+    await request
+    expect(getCmrSystemToken).toHaveBeenCalledTimes(1)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+
+    resolveToken('late-system-token')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('handles a late token lookup rejection after the refresh deadline', async () => {
+    vi.useFakeTimers()
+    let rejectToken
+    vi.mocked(getCmrSystemToken).mockImplementation(() => new Promise((resolve, reject) => {
+      rejectToken = reject
+    }))
+
+    const request = refreshCmrKeywordSchemes({ keywordEvents: events })
+    const pending = expect(request).rejects.toMatchObject({
+      cmrRequest: {
+        timeoutMs: 120000,
+        timedOut: true
+      }
+    })
+    await vi.advanceTimersByTimeAsync(120000)
+    await pending
+
+    rejectToken(new Error('Late SSM failure'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  test('clears the deadline when the token lookup rejects before timeout', async () => {
+    vi.useFakeTimers()
+    vi.mocked(getCmrSystemToken).mockRejectedValue(new Error('SSM lookup failed'))
+
+    await expect(refreshCmrKeywordSchemes({ keywordEvents: events })).rejects.toMatchObject({
+      message: 'SSM lookup failed',
+      cmrRequest: { timedOut: false }
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   test('keeps the timeout active while reading a stalled response body', async () => {
     vi.useFakeTimers()
     fetchMock.mockImplementation(async (url, { signal }) => ({

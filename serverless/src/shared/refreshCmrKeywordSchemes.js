@@ -63,13 +63,19 @@ export const refreshCmrKeywordSchemes = async ({ keywordEvents = [], remainingTi
   url.searchParams.set('concept_scheme', schemes.join(','))
   const startedAt = Date.now()
   const controller = new AbortController()
-  // Abort before Lambda termination so the catch path can record the failure audit.
-  const timeoutId = setTimeout(() => controller.abort(
-    new Error(`CMR keyword refresh timeout after ${timeoutMs}ms; refresh completion is unknown`)
-  ), timeoutMs)
+  let timeoutId
+  // Bound token lookup as well as HTTP work so a stalled SSM request cannot consume
+  // the time reserved for failure auditing. Aborting fetch alone does not settle SSM.
+  const deadline = new Promise((resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error(`CMR keyword refresh timeout after ${timeoutMs}ms; refresh completion is unknown`)
+      controller.abort(error)
+      reject(error)
+    }, timeoutMs)
+  })
 
   try {
-    const token = await getCmrSystemToken()
+    const token = await Promise.race([getCmrSystemToken(), deadline])
     if (!token) throw new Error('CMR system token is required for keyword cache refresh')
     controller.signal.throwIfAborted()
     logger.info('[publisher] Refreshing CMR keyword schemes', {
