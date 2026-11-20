@@ -43,6 +43,7 @@ const buildFailureAuditId = ({
  * @param {string} [params.publisherMessageId] Original SNS message id.
  * @param {string} [params.publishedVersionName] Published KMS version.
  * @param {string} [params.timestamp] Processing timestamp override for tests.
+ * @param {Object} [params.workflowContext] Diagnostic/recovery references, never credentials.
  * @returns {Promise<{runId: string, status: string, created: boolean}>} Persistence result.
  */
 export const persistMetadataCorrectionWorkflowFailureAuditLog = async ({
@@ -53,7 +54,8 @@ export const persistMetadataCorrectionWorkflowFailureAuditLog = async ({
   messageId,
   publisherMessageId,
   publishedVersionName,
-  timestamp
+  timestamp,
+  workflowContext
 }) => {
   const collection = await getMetadataCorrectionAuditCollection()
   const auditTimestamp = new Date(timestamp || Date.now())
@@ -117,6 +119,9 @@ export const persistMetadataCorrectionWorkflowFailureAuditLog = async ({
           : undefined,
         corrections: correction ? [correction] : undefined,
         outcome,
+        // For refresh failures, record the requested schemes, withheld event count,
+        // and whether a timeout left CMR's refresh completion unknown.
+        workflowContext,
         error: serializedError,
         status: 'failed',
         updatedAt: auditTimestamp,

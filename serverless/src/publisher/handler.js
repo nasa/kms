@@ -1,5 +1,6 @@
 import { PutEventsCommand } from '@aws-sdk/client-eventbridge'
 
+import { primeConceptsCache } from '@/primeConceptsCache/handler'
 import { getEventBridgeClient } from '@/shared/awsClients'
 import { emitPublisherMetrics, PUBLISHER_METRIC_NAMES } from '@/shared/emitPublisherMetrics'
 import { exportRdfToS3 } from '@/shared/exportRdfToS3'
@@ -14,6 +15,7 @@ import {
   rebuildHistoricalConceptCache
 } from '@/shared/redis-path-store/rebuildHistoricalConceptCache'
 import { writePublishedConceptCaches } from '@/shared/redis-path-store/writePublishedConceptCaches'
+import { getChangedCmrSchemes, refreshCmrKeywordSchemes } from '@/shared/refreshCmrKeywordSchemes'
 import { sparqlRequest } from '@/shared/sparqlRequest'
 
 /**
@@ -33,8 +35,7 @@ import { sparqlRequest } from '@/shared/sparqlRequest'
  *    keyword validation and UUID-to-current-path resolution
  * 5. rebuild the historical Redis cache from versioned S3 CSV snapshots so old keyword values can
  *    still be resolved during metadata correction
- * 6. only after both cache families are ready, publish SNS keyword events so downstream consumers
- *    never observe a cold or stale Redis state
+ * 6. synchronously prime API responses, refresh changed CMR schemes, then publish SNS keyword events
  * 7. export published and draft RDF snapshots for archival use
  * 8. emit metrics and a cache-prime completion event for operational follow-on work
  *
@@ -221,7 +222,7 @@ const publishKeywordEvents = async (keywordEvents, versionName) => keywordEvents
  * };
  * await publisher(event);
  */
-export const publisher = async (event) => {
+export const publisher = async (event, context) => {
   const startTime = Date.now()
   logger.info('[publisher] start')
   try {
@@ -332,14 +333,84 @@ export const publisher = async (event) => {
       && historicalCacheReady
     )
 
-    // 5. Publish keyword events only after both cache families are ready.
+    // KMS publication has committed. A failed CMR refresh must not roll it back or release
+    // correction events against stale CMR caches; audit partial success without automatic replay.
+    let cmrCacheReady = false
+    let apiCacheReady = false
+    let refreshStage = 'kms-api-cache-prime'
+    processStartTime = Date.now()
+    if (keywordCachesReady) {
+      try {
+        // CMR reads the API response cache, not the CSV archive or keyword lookup caches.
+        // Await invalidation AND warming before CMR pulls; the later EventBridge event is too late.
+        const primeResult = await primeConceptsCache({
+          detail: {
+            versionName,
+            publishDate,
+            keywordEvents
+          }
+        })
+        const primeSummary = JSON.parse(primeResult.body)
+        if (primeResult.statusCode !== 200 || !primeSummary.versionMarker) {
+          throw new Error(`KMS API cache preparation failed: ${primeResult.body}`)
+        }
+
+        apiCacheReady = true
+        processTimes.primeApiCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
+        logger.info('[publisher] Published API cache preparation completed', primeSummary)
+        refreshStage = 'cmr-keyword-refresh'
+        processStartTime = Date.now()
+        if (keywordEvents.length > 0) {
+          await refreshCmrKeywordSchemes({
+            keywordEvents,
+            remainingTimeMs: context?.getRemainingTimeInMillis?.()
+          })
+        }
+
+        cmrCacheReady = true
+      } catch (refreshError) {
+        const schemes = getChangedCmrSchemes(keywordEvents)
+        const failedOperation = apiCacheReady ? 'CMR keyword refresh' : 'KMS API cache preparation'
+        postPublishFailures.push(`Published, but ${failedOperation} failed; correction events were not emitted: ${refreshError.message}`)
+        logger.error(`[publisher] ${failedOperation} failed; no keyword events will be emitted`, {
+          versionName,
+          schemes,
+          error: refreshError.message
+        })
+
+        try {
+          await persistMetadataCorrectionWorkflowFailureAuditLog({
+            source: 'publisher',
+            outcome: `${refreshStage}-failed`,
+            error: refreshError,
+            messageId: event.id,
+            publishedVersionName: versionName,
+            workflowContext: {
+              schemes,
+              blockedEventCount: keywordEvents.length,
+              refreshCompletionUnknown: Boolean(refreshError.cmrRequest?.timedOut)
+            }
+          })
+        } catch (auditError) {
+          logger.error(`[publisher] Failed to audit ${failedOperation} failure`, {
+            versionName,
+            schemes,
+            error: auditError.message
+          })
+        }
+      }
+    }
+
+    processTimes.refreshCmrCache = ((Date.now() - processStartTime) / 1000).toFixed(2)
+
+    // 5. Publish keyword events only after KMS and CMR keyword caches are ready.
     processStartTime = Date.now()
     if (keywordEvents.length > 0) {
       if (!keywordCachesReady) {
         const skipMessage = 'Skipped keyword event publish because keyword caches were not fully prepared'
         postPublishFailures.push(skipMessage)
         logger.warn(`[publisher] ${skipMessage}`)
-      } else {
+      } else if (cmrCacheReady) {
         const publishSummary = await publishKeywordEvents(keywordEvents, versionName)
         keywordEventsPublished = publishSummary.publishedCount
         keywordEventPublishFailures = publishSummary.failedEvents.length
@@ -444,20 +515,24 @@ export const publisher = async (event) => {
 
     processTimes.emitMetrics = ((Date.now() - processStartTime) / 1000).toFixed(2)
 
-    // 9. Emit event for cache-prime to consume
+    // Preserve the completion event for existing consumers. A successful synchronous prime
+    // has set its version marker, so cache-prime skips it; do not automatically retry a failed prime.
     let cachePrimeEventEmitted = false
     processStartTime = Date.now()
 
     try {
-      await emitCachingEvent({
-        versionName,
-        publishDate,
-        keywordEvents
-      })
+      if (apiCacheReady) {
+        await emitCachingEvent({
+          versionName,
+          publishDate,
+          keywordEvents
+        })
 
-      cachePrimeEventEmitted = true
+        cachePrimeEventEmitted = true
+        logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
+      }
+
       processTimes.emitCachePrimeEvent = ((Date.now() - processStartTime) / 1000).toFixed(2)
-      logger.info(`[publisher] Emitted cache-prime event for version=${versionName}`)
     } catch (eventError) {
       // Analysis and publish succeeded; log error but don't fail the function.
       processTimes.emitCachePrimeEvent = ((Date.now() - processStartTime) / 1000).toFixed(2)
@@ -489,6 +564,7 @@ export const publisher = async (event) => {
       + `2.PublishOp=${processTimes.publishOperation}s `
       + `3.ExportCsv=${processTimes.exportPublishedCsv}s `
       + `4.BuildCache=${processTimes.buildHistoricalCache}s `
+      + `RefreshCmrCache=${processTimes.refreshCmrCache}s `
       + `5.PublishEvents=${processTimes.keywordEventsPublish}s `
       + `6.ExportPubRdf=${processTimes.exportPublishedRdf}s `
       + `7.ExportDraftRdf=${processTimes.exportDraftRdf}s `
