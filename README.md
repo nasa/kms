@@ -1,10 +1,10 @@
 # KMS 2.0
 
-[![codecov](https://codecov.io/gh/nasa/mmt/graph/badge.svg?token=B8Qspgsjou)](https://codecov.io/gh/nasa/kms (https://codecov.io/gh/nasa/mmt/graph/badge.svg?token=B8Qspgsjou)%5D(https://codecov.io/gh/nasa/kms))
+[![codecov](https://codecov.io/gh/nasa/mmt/graph/badge.svg?token=B8Qspgsjou)](https://codecov.io/gh/nasa/kms)
 
-[![Known Vulnerabilities](https://snyk.io/test/github/nasa/kms/badge.svg)](https://snyk.io/test/github/nasa/kms (https://snyk.io/test/github/nasa/kms/badge.svg)%5D(https://snyk.io/test/github/nasa/kms))
+[![Known Vulnerabilities](https://snyk.io/test/github/nasa/kms/badge.svg)](https://snyk.io/test/github/nasa/kms)
 
-Keyword Management System (KMS) is a application for maintaining keywords (science keywords, platforms, instruments, data centers, locations, projects, services, resolution, etc.) in the earthdata/IDN system.
+Keyword Management System (KMS) is an application for maintaining keywords (science keywords, platforms, instruments, data centers, locations, projects, services, resolution, etc.) in the earthdata/IDN system.
 
 ## Links
 
