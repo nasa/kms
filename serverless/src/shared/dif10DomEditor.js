@@ -8,6 +8,13 @@ const leafScheme = (config) => (editor, correction) => editor.updateLeafNode(cor
 // Wrap a scalar/root-field scheme config in the shared editor contract used by the DIF10 delegate.
 const scalarScheme = (config) => (editor, correction) => editor.updateScalarNode(correction, config)
 
+// Keyword replacements are not requests to add optional descriptive names. The shared
+// XML setter appends missing children, which can put Long_Name after Instrument (or
+// other later siblings) and violate DIF10's sequence. Only update names already present.
+const existingField = (fieldPath) => ({ editor, targetNode }) => (
+  Boolean(editor.getNestedElement(targetNode, fieldPath))
+)
+
 /**
  * DIF10 scheme configuration for the shared XML path editor.
  *
@@ -107,6 +114,7 @@ export const DIF10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: DIF10_FIELDS.longName,
+        condition: existingField(DIF10_FIELDS.longName),
         source: {
           // Example correction input:
           // {
@@ -158,6 +166,7 @@ export const DIF10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: DIF10_FIELDS.longName,
+        condition: existingField(DIF10_FIELDS.longName),
         source: {
           // Correction param to read from
           type: 'param',
@@ -188,6 +197,7 @@ export const DIF10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: DIF10_FIELDS.longName,
+        condition: existingField(DIF10_FIELDS.longName),
         source: {
           // Correction param to read from
           type: 'param',
@@ -218,6 +228,7 @@ export const DIF10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: DIF10_FIELDS.providerLongName,
+        condition: existingField(DIF10_FIELDS.providerLongName),
         source: {
           // Correction param to read from
           type: 'param',
@@ -279,6 +290,7 @@ export const DIF10_SCHEME_EDITORS = {
       {
         // XML field to write to
         fieldPath: DIF10_FIELDS.longName,
+        condition: existingField(DIF10_FIELDS.longName),
         source: {
           // Correction param to read from
           type: 'param',

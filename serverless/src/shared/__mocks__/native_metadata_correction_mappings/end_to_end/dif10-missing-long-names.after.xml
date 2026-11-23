@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DIF>
+    <Entry_ID><Short_Name>MISSING_OPTIONAL_NAMES</Short_Name><Version>001</Version></Entry_ID>
+    <Platform>
+        <Type>Earth Observation Satellites</Type>
+        <Short_Name>SPOT-4_CHANGED</Short_Name>
+        <Instrument>
+            <Short_Name>SEISMIC REFLECTION PROFILERS_CHANGED</Short_Name>
+            <Technique>Preserve this technique</Technique>
+        </Instrument>
+    </Platform>
+    <Project>
+        <Short_Name>ALIENS_CHANGED</Short_Name>
+        <Start_Date>2000-01-01</Start_Date>
+    </Project>
+    <Organization>
+        <Organization_Type>ARCHIVER</Organization_Type>
+        <Organization_Name><Short_Name>NZ/NZAI/ANZ_CHANGED</Short_Name></Organization_Name>
+        <Organization_URL>https://example.org/archive</Organization_URL>
+    </Organization>
+    <IDN_Node><Short_Name>AMD/NZ_CHANGED</Short_Name></IDN_Node>
+    <Summary><Abstract>Preserve the abstract and element order.</Abstract></Summary>
+</DIF>

@@ -557,6 +557,52 @@ describe('when running the metadata correction workflow end to end', () => {
           })
         })
 
+        describe('when the DIF10 collection omits optional Long_Name fields', () => {
+          test('should apply generated replacements without inserting missing names after existing children', async () => {
+            vi.mocked(getCmrCollectionUmmDetails).mockResolvedValue({
+              collectionConceptId: dif10CollectionConceptId,
+              providerId,
+              nativeId: dif10NativeId,
+              revisionId: 1,
+              format: 'application/dif10+xml',
+              umm: readJsonFixture('dif10.validation.umm.json')
+            })
+
+            vi.mocked(getCmrCollectionNativeMetadata).mockResolvedValue(
+              readFixture('dif10-missing-long-names.before.xml')
+            )
+
+            vi.mocked(invokeMetadataCorrectionDelegate).mockClear()
+            vi.mocked(writeCorrectedMetadataToCmr).mockClear()
+
+            const request = metadataCorrectionRequests.find((item) => (
+              item.collectionConceptId === dif10CollectionConceptId
+              && item.keywordEvent.eventType === 'UPDATED'
+            ))
+
+            await metadataCorrectionService({
+              Records: [{
+                messageId: 'dif10-missing-long-names',
+                body: JSON.stringify(request)
+              }]
+            })
+
+            const [{ corrections }] = vi.mocked(invokeMetadataCorrectionDelegate).mock.calls[0]
+            expect(corrections).toEqual(expect.arrayContaining([
+              expect.objectContaining({
+                scheme: 'platforms',
+                newLongName: 'Systeme Probatoire d\'Observation de la Terre-4_CHANGED'
+              })
+            ]))
+
+            expect(writeCorrectedMetadataToCmr).toHaveBeenCalledExactlyOnceWith(
+              expect.objectContaining({
+                correctedMetadata: readFixture('dif10-missing-long-names.after.xml').trimEnd()
+              })
+            )
+          })
+        })
+
         describe('when the metadata-correction service processes the ECHO10 collection', () => {
           let metadataCorrectionDelegateRequest
 
