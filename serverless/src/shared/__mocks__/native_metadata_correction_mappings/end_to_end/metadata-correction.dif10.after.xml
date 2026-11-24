@@ -35,7 +35,7 @@
         <Long_Name>Systeme Probatoire d'Observation de la Terre-4_CHANGED</Long_Name>
         <Instrument>
             <Short_Name>SEISMIC REFLECTION PROFILERS_CHANGED</Short_Name>
-        <Long_Name>Seismic Reflection Profilers_CHANGED</Long_Name></Instrument>
+        </Instrument>
         <Instrument>
             <Short_Name>GEOPHONES_SHOULD_DELETE</Short_Name>
             <Long_Name>Geophone Array</Long_Name>
@@ -157,7 +157,7 @@
     </Related_URL>
     <IDN_Node>
         <Short_Name>AMD/NZ_CHANGED</Short_Name>
-    <Long_Name>Antarctic Master Directory/New Zealand_CHANGED</Long_Name></IDN_Node>
+    </IDN_Node>
     <IDN_Node>
         <Short_Name>CEOS_SHOULD_DELETE</Short_Name>
     </IDN_Node>

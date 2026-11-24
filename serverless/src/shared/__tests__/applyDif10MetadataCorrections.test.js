@@ -518,7 +518,8 @@ describe('when correcting a DIF10 record', () => {
 
     // Instruments verification
     expect(xml).toContain('<Short_Name>GEOPHONES-UPDATED</Short_Name>')
-    expect(xml).toContain('<Long_Name>Updated Geophone Array</Long_Name>')
+    // The source Instrument has no optional Long_Name; a keyword update must not add it.
+    expect(xml).not.toContain('<Long_Name>Updated Geophone Array</Long_Name>')
 
     // Locations verification
     expect(xml).toContain('<Location_Type>SOUTH AMERICA</Location_Type>')
@@ -1452,6 +1453,78 @@ describe('when applying horizontal resolution DIF10 corrections', () => {
       expect(result.correctionCount).toBe(0)
       expect(result.correctionsApplied).toHaveLength(0)
     })
+  })
+})
+
+describe('when preserving DIF10 optional name positions', () => {
+  test('should not mistake an Instrument Long_Name for a missing Platform Long_Name', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: `<DIF><Platform>
+        <Type>Earth Observation Satellites</Type>
+        <Short_Name>SPOT-4</Short_Name>
+        <Instrument><Short_Name>UNCHANGED</Short_Name><Long_Name>Instrument name</Long_Name></Instrument>
+      </Platform></DIF>`,
+      corrections: [{
+        scheme: 'platforms',
+        action: 'replace',
+        oldKeywordObject: { ShortName: 'SPOT-4' },
+        newKeywordObject: {
+          Category: 'Earth Observation Satellites',
+          ShortName: 'SPOT-4-UPDATED'
+        },
+        newLongName: 'Updated Platform name'
+      }]
+    })
+    const document = parseXml(result.correctedMetadata)
+
+    // DIF10 PlatformType orders Type, Short_Name, optional Long_Name/Characteristics, then Instrument.
+    expect(xpath.select('//Platform/*', document).map(({ nodeName }) => nodeName))
+      .toEqual(['Type', 'Short_Name', 'Instrument'])
+
+    expect(xpath.select('//Platform/Long_Name', document)).toHaveLength(0)
+    expect(selectText(document, '//Platform/Short_Name')).toBe('SPOT-4-UPDATED')
+    expect(selectText(document, '//Instrument/Long_Name')).toBe('Instrument name')
+  })
+
+  test('should fill existing empty names in place without moving later children', async () => {
+    const result = await applyDif10MetadataCorrections({
+      metadataPayload: `<DIF><Platform>
+        <Type>Earth Observation Satellites</Type>
+        <Short_Name>SPOT-4</Short_Name>
+        <Long_Name/>
+        <Instrument>
+          <Short_Name>SENSOR</Short_Name><Long_Name/><Technique>Unchanged</Technique>
+        </Instrument>
+      </Platform></DIF>`,
+      corrections: [{
+        scheme: 'platforms',
+        action: 'replace',
+        oldKeywordObject: { ShortName: 'SPOT-4' },
+        newKeywordObject: {
+          Category: 'Earth Observation Satellites',
+          ShortName: 'SPOT-4-UPDATED'
+        },
+        newLongName: 'Updated Platform name'
+      }, {
+        scheme: 'instruments',
+        action: 'replace',
+        oldKeywordObject: { ShortName: 'SENSOR' },
+        newKeywordObject: { ShortName: 'SENSOR-UPDATED' },
+        newLongName: 'Updated Instrument name'
+      }]
+    })
+    const document = parseXml(result.correctedMetadata)
+
+    expect(xpath.select('//Platform/*', document).map(({ nodeName }) => nodeName))
+      .toEqual(['Type', 'Short_Name', 'Long_Name', 'Instrument'])
+
+    expect(xpath.select('//Instrument/*', document).map(({ nodeName }) => nodeName))
+      .toEqual(['Short_Name', 'Long_Name', 'Technique'])
+
+    expect(selectText(document, '//Platform/Long_Name')).toBe('Updated Platform name')
+    expect(selectText(document, '//Instrument/Long_Name')).toBe('Updated Instrument name')
+    expect(selectText(document, '//Instrument/Technique')).toBe('Unchanged')
+    expect(result.correctionCount).toBe(2)
   })
 })
 
