@@ -68,7 +68,8 @@ const environmentUrl = (environment) => {
 }
 const xml = (value) => new DOMParser().parseFromString(value, 'application/xml')
 const serialize = (value) => new XMLSerializer().serializeToString(value)
-const children = (node, name) => [...node.childNodes].filter((item) => item.nodeType === 1 && (!name || item.localName === name))
+// Older xmldom collections are array-like but do not implement Symbol.iterator.
+const children = (node, name) => Array.from(node.childNodes).filter((item) => item.nodeType === 1 && (!name || item.localName === name))
 const child = (node, name) => children(node, name)[0]
 const platforms = (doc) => children(doc.documentElement, 'Platform')
 const setText = (parent, name, value) => {
@@ -78,8 +79,8 @@ const setText = (parent, name, value) => {
 // Compare XML content/element order without treating serializer indentation or prefixes as edits.
 const tree = (node) => ({
   name: node.localName,
-  attributes: [...node.attributes].filter((attr) => !attr.name.startsWith('xmlns')).map((attr) => [attr.namespaceURI, attr.localName, attr.value]).sort(),
-  children: [...node.childNodes].flatMap((item) => {
+  attributes: Array.from(node.attributes).filter((attr) => !attr.name.startsWith('xmlns')).map((attr) => [attr.namespaceURI, attr.localName, attr.value]).sort(),
+  children: Array.from(node.childNodes).flatMap((item) => {
     if (item.nodeType === 1) return [tree(item)]
     if ((item.nodeType === 3 || item.nodeType === 4) && item.data.trim()) return [item.data.trim()]
     return []
@@ -215,7 +216,7 @@ export async function runRemoteSmoke({ env = process.env, request = fetch, resum
       const draft = await check('Draft Platform is an unchanged leaf with the expected published name', async () => {
         const response = await call('draft-concept', `${base}/kms/concept/${state.platformUuid}?version=draft&format=rdf&bypassCache=true`)
         const doc = xml(response.text)
-        const concepts = [...doc.getElementsByTagNameNS(SKOS, 'Concept')]
+        const concepts = Array.from(doc.getElementsByTagNameNS(SKOS, 'Concept'))
         assert.equal(concepts.length, 1)
         const [concept] = concepts
         assert.ok(concept.getAttributeNS(RDF, 'about').endsWith(state.platformUuid))
@@ -223,7 +224,7 @@ export async function runRemoteSmoke({ env = process.env, request = fetch, resum
         assert.equal(concept.getElementsByTagNameNS(SKOS, 'narrower').length, 0, 'Use a leaf Platform, not a parent category')
         assert.equal(concept.getElementsByTagNameNS(SKOS, 'prefLabel').length, 1)
         assert.equal(concept.getElementsByTagNameNS(SKOS, 'prefLabel')[0].textContent, state.oldShortName)
-        const longName = [...concept.getElementsByTagNameNS(GCMD, 'altLabel')].find((node) => node.getAttributeNS(GCMD, 'category') === 'primary')
+        const longName = Array.from(concept.getElementsByTagNameNS(GCMD, 'altLabel')).find((node) => node.getAttributeNS(GCMD, 'category') === 'primary')
         assert.equal(longName?.getAttributeNS(GCMD, 'text'), state.oldLongName)
         // GET /concept includes version metadata alongside the Concept. Never PUT that metadata.
         for (const element of children(doc.documentElement)) if (element !== concept) doc.documentElement.removeChild(element)
@@ -294,7 +295,7 @@ export async function runRemoteSmoke({ env = process.env, request = fetch, resum
         const current = xml((await call('draft-recheck', `${base}/kms/concept/${state.platformUuid}?version=draft&format=rdf&bypassCache=true`)).text)
         assert.deepEqual(tree(current.getElementsByTagNameNS(SKOS, 'Concept')[0]), tree(draft.getElementsByTagNameNS(SKOS, 'Concept')[0]), 'Draft concept changed during setup; refusing to overwrite')
         draft.getElementsByTagNameNS(SKOS, 'prefLabel')[0].textContent = state.newShortName
-        const longName = [...draft.getElementsByTagNameNS(GCMD, 'altLabel')].find((node) => node.getAttributeNS(GCMD, 'category') === 'primary')
+        const longName = Array.from(draft.getElementsByTagNameNS(GCMD, 'altLabel')).find((node) => node.getAttributeNS(GCMD, 'category') === 'primary')
         longName.setAttributeNS(GCMD, 'gcmd:text', state.newLongName)
         const updated = serialize(draft)
         await save('draft.after.rdf', updated)
